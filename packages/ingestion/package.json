@@ -1,0 +1,23 @@
+{
+  "name": "@feeling-gamba/ingestion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backfill:race-fixtures": "node scripts/backfill-race-fixtures-to-supabase.mjs",
+    "fetch:current-predictions": "node scripts/fetch-current-predictions.mjs",
+    "fetch:current-promotions": "node scripts/fetch-current-promotions.mjs",
+    "fetch:pilot-date": "node scripts/fetch-pilot-date.mjs",
+    "reconcile:predictions": "node scripts/reconcile-prediction-outcomes.mjs",
+    "refresh:race-days-and-insights": "node scripts/refresh-race-days-and-insights.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "test": "echo \"No ingestion tests configured yet\""
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "eslint": "^8.57.1",
+    "typescript": "~5.3.3"
+  }
+}

@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feeling Gamba Application Architecture</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --text: #18202f;
+        --muted: #5d6678;
+        --border: #d7dce7;
+        --accent: #0f766e;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+
+      header {
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        padding: 24px 32px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      main {
+        display: grid;
+        gap: 24px;
+        padding: 24px;
+      }
+
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: auto;
+        page-break-inside: avoid;
+      }
+
+      section h2 {
+        margin: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 20px;
+        font-size: 17px;
+        letter-spacing: 0;
+      }
+
+      .diagram {
+        min-width: 980px;
+        padding: 20px;
+        background: #ffffff;
+      }
+
+      .diagram svg {
+        display: block;
+        margin: 0 auto;
+        max-width: none;
+      }
+
+      .source-note {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Feeling Gamba Application Architecture</h1>
+      <p class="source-note">
+        Source of truth:
+        <a href="./application-architecture.yaml">application-architecture.yaml</a>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>System View</h2>
+        <div id="diagram-system" class="diagram"></div>
+      </section>
+
+      <section>
+        <h2>Data Flow</h2>
+        <div id="diagram-flow" class="diagram"></div>
+      </section>
+
+      <section>
+        <h2>Storage View</h2>
+        <div id="diagram-storage" class="diagram"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "loose",
+        theme: "base",
+        themeVariables: {
+          primaryColor: "#e7f5f2",
+          primaryBorderColor: "#0f766e",
+          primaryTextColor: "#18202f",
+          secondaryColor: "#eef2ff",
+          tertiaryColor: "#f8fafc",
+          lineColor: "#64748b",
+          fontFamily:
+            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        },
+      });
+
+      const diagrams = [
+        {
+          target: "diagram-system",
+          id: "system-view",
+          source: String.raw`
+flowchart LR
+  app[Expo App]
+  user[App User]
+  operator[Developer / Operator]
+
+  subgraph supabase[Supabase]
+    cron[Supabase Cron]
+    db[(Postgres)]
+    storage[(Storage)]
+    discover[discover-races]
+    market[capture-market-snapshots]
+    results[collect-results]
+    reconcile[reconcile-race-day]
+    backfill[backfill-historical-results]
+    statsJob[derive-statistics]
+    promos[fetch-current-promotions]
+    shared[shared ingestion code]
+  end
+
+  subgraph views[Read Models]
+    favView[race_favourite_results]
+    statsView[favourite_performance_summary]
+    starterStats[favourite_performance_by_starter_count]
+    priceStats[favourite_performance_by_price_bucket]
+    promoView[promotion_recommendations]
+    debugViews[debug/admin views]
+  end
+
+  subgraph sources[External Sources]
+    tab[TAB GraphQL]
+    betcha[Betcha GraphQL]
+    formGuide[TAB Form Guide]
+    hrnz[HRNZ Results]
+    official[Future NZTR / GRNZ sources]
+  end
+
+  user --> app
+  app --> favView
+  favView --> db
+
+  operator --> debugViews
+  debugViews --> db
+
+  cron --> discover
+  cron --> market
+  cron --> results
+  cron --> reconcile
+  cron --> backfill
+  cron --> statsJob
+  cron --> promos
+
+  discover --> shared
+  market --> shared
+  results --> shared
+  reconcile --> shared
+  backfill --> shared
+  statsJob --> shared
+  promos --> shared
+
+  discover --> tab
+  discover --> betcha
+  discover --> formGuide
+  discover --> hrnz
+
+  market --> tab
+  market --> betcha
+
+  results --> tab
+  results --> betcha
+  results --> hrnz
+  results --> official
+
+  reconcile --> tab
+  reconcile --> betcha
+  reconcile --> formGuide
+  reconcile --> hrnz
+  backfill --> tab
+  backfill --> betcha
+  backfill --> formGuide
+  backfill --> hrnz
+  backfill --> official
+  promos --> tab
+  promos --> betcha
+
+  statsJob --> favView
+  statsJob --> statsView
+  statsJob --> starterStats
+  statsJob --> priceStats
+  promos --> promoView
+
+  discover --> db
+  market --> db
+  results --> db
+  reconcile --> db
+  backfill --> db
+  statsJob --> db
+  promos --> db
+
+  discover --> storage
+  market --> storage
+  results --> storage
+  reconcile --> storage
+  backfill --> storage
+  promos --> storage
+
+  app --> statsView
+  app --> starterStats
+  app --> priceStats
+  app --> promoView
+`,
+        },
+        {
+          target: "diagram-flow",
+          id: "data-flow",
+          source: String.raw`
+flowchart TD
+  A[Supabase Cron] --> B[discover-races]
+  B --> C[Fetch target meetings and races]
+  C --> D[Upsert meetings, races, runners]
+  D --> E[(Supabase Postgres)]
+
+  A --> F[capture-market-snapshots]
+  F --> G[Fetch race cards before jump]
+  G --> H[Store odds_snapshots]
+  H --> I[Derive favourite and MarketMover]
+  I --> E
+
+  A --> J[collect-results]
+  J --> K[Fetch settled race results]
+  K --> L[Store race_results and race_dividends]
+  L --> M[Match favourite/MM entrant IDs to final placing]
+  M --> E
+
+  A --> N[reconcile-race-day]
+  N --> O[Backfill missing fields and failed fetches]
+  O --> E
+
+  A --> R[backfill-historical-results]
+  R --> S[Fetch collection-start to current across horse / harness / greyhound]
+  S --> T[Store final results, favourites when available, and starter counts]
+  T --> E
+
+  A --> AA[fetch-current-promotions]
+  AA --> AB[Fetch public TAB / Betcha racing promotions]
+  AB --> AC[Resolve race cards and race ranges]
+  AC --> AE[Scan Betcha pilot-track bet-back candidates]
+  AE --> AD[Store promotion signals, candidate rankings, and missing-price states]
+  AD --> E
+
+  E --> P[race_favourite_results view]
+  P --> U[derive statistics and returns]
+  U --> V[favourite_performance_summary]
+  U --> W[favourite_performance_by_starter_count]
+  U --> X[favourite_performance_by_price_bucket]
+  U --> Z[favourite_performance_by_country_track_scope]
+  E --> Y[promotion_recommendations]
+  V --> Q[Expo app]
+  W --> Q
+  X --> Q
+  Z --> Q
+  Y --> Q
+  P --> Q
+`,
+        },
+        {
+          target: "diagram-storage",
+          id: "storage-view",
+          source: String.raw`
+erDiagram
+  MEETINGS ||--o{ RACES : has
+  RACES ||--o{ RUNNERS : has
+  RUNNERS ||--o{ ODDS_SNAPSHOTS : priced_by
+  RACES ||--o{ ODDS_SNAPSHOTS : contains
+  RACES ||--o| RACE_MARKET_STATE : derives
+  RUNNERS ||--o{ RACE_RESULTS : finishes
+  RACES ||--o{ RACE_RESULTS : has
+  RACES ||--o{ RACE_DIVIDENDS : pays
+  INGESTION_RUNS ||--o{ SOURCE_FETCHES : records
+  PROMOTIONS ||--o{ PROMOTION_RECOMMENDATIONS : produces
+  RACES ||--o{ PROMOTION_RECOMMENDATIONS : appears_in
+  RACES ||--o{ FAVOURITE_PERFORMANCE_SUMMARY : aggregates
+  RACES ||--o{ FAVOURITE_PERFORMANCE_BY_STARTER_COUNT : buckets
+  RACES ||--o{ FAVOURITE_PERFORMANCE_BY_PRICE_BUCKET : buckets
+
+  MEETINGS {
+    uuid id
+    text race_code
+    text track_name
+    date meeting_date
+  }
+
+  RACES {
+    uuid id
+    uuid meeting_id
+    int race_number
+    timestamptz start_time
+    text status
+    int declared_runner_count
+    int starter_count
+  }
+
+  RUNNERS {
+    uuid id
+    uuid race_id
+    int runner_number
+    text runner_name
+    boolean scratched
+    text source_runner_id
+  }
+
+  ODDS_SNAPSHOTS {
+    uuid id
+    uuid race_id
+    uuid runner_id
+    text source
+    timestamptz snapshot_at
+    numeric win_price
+    boolean is_favourite
+    boolean is_market_mover
+  }
+
+  RACE_MARKET_STATE {
+    uuid race_id
+    uuid favourite_runner_id
+    uuid market_mover_runner_id
+    timestamptz snapshot_at
+  }
+
+  RACE_RESULTS {
+    uuid id
+    uuid race_id
+    uuid runner_id
+    int finish_position
+    numeric win_dividend
+    numeric place_dividend
+  }
+
+  RACE_DIVIDENDS {
+    uuid id
+    uuid race_id
+    text source
+    text product
+    text combination
+    numeric amount
+  }
+
+  SOURCE_FETCHES {
+    uuid id
+    text source
+    text request_key
+    timestamptz fetched_at
+    boolean success
+  }
+
+  INGESTION_RUNS {
+    uuid id
+    text function_name
+    timestamptz started_at
+    boolean success
+  }
+
+  PROMOTIONS {
+    uuid id
+    text source
+    text source_promotion_id
+    text description
+    timestamptz expiry
+  }
+
+  PROMOTION_RECOMMENDATIONS {
+    uuid id
+    uuid promotion_id
+    uuid race_id
+    int starter_count
+    numeric favourite_price
+    text signal_label
+  }
+
+  FAVOURITE_PERFORMANCE_SUMMARY {
+    text race_code
+    text track_name
+    int race_count
+    numeric favourite_win_percentage
+    numeric favourite_second_percentage
+    numeric favourite_third_percentage
+  }
+
+  FAVOURITE_PERFORMANCE_BY_STARTER_COUNT {
+    text race_code
+    int starter_count
+    int race_count
+    numeric favourite_win_percentage
+    numeric favourite_second_percentage
+    numeric favourite_third_percentage
+  }
+
+  FAVOURITE_PERFORMANCE_BY_PRICE_BUCKET {
+    text race_code
+    numeric price_bucket_start
+    numeric price_bucket_end
+    int race_count
+    numeric favourite_win_percentage
+  }
+`,
+        },
+      ];
+
+      for (const diagram of diagrams) {
+        const target = document.getElementById(diagram.target);
+        try {
+          const rendered = await mermaid.render(diagram.id, diagram.source.trim());
+          target.innerHTML = rendered.svg;
+        } catch (error) {
+          target.innerHTML = `<pre>${diagram.id}: ${String(error)}</pre>`;
+          throw error;
+        }
+      }
+
+      document.body.dataset.rendered = "true";
+    </script>
+  </body>
+</html>

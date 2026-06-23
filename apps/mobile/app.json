@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Feeling Gamba",
+    "slug": "feeling-gamba",
+    "scheme": "feelinggamba",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f7f8fb"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "supabaseUrl": "$EXPO_PUBLIC_SUPABASE_URL"
+    }
+  }
+}

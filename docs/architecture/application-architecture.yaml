@@ -1,0 +1,669 @@
+version: 1
+name: Feeling Gamba MVP Application Architecture
+last_updated: "2026-06-23"
+
+purpose:
+  summary: >
+    Log favourite runners, MarketMovers, results, field sizes, payout data,
+    favourite-performance statistics, and source-backed promotion signals for
+    AUS/NZ domestic thoroughbred, harness, and greyhound race days returned by
+    configured public sources.
+  primary_users:
+    - App user browsing historical race outcomes.
+    - Developer/operator monitoring ingestion quality.
+
+scope:
+  race_day_coverage:
+    mode: all_domestic
+    countries:
+      - NZ
+      - AUS
+    source_categories:
+      - HORSE
+      - HARNESS
+      - GREYHOUND
+    source_region:
+      - DOMESTIC
+    note: >
+      Historical backfill and weekly race-day refresh should collect every
+      AUS/NZ domestic meeting returned by Betcha racingDay for these source
+      categories. The pilot track list remains available only for diagnostics.
+  pilot_tracks:
+    - Ellerslie
+    - New Plymouth
+    - Te Rapa
+    - Addington
+    - Alexandra Park
+    - Doomben
+    - Wingatui
+    - Whanganui
+    - Cambridge
+  australian_tier_1_tracks:
+    thoroughbred:
+      - Ascot
+      - Sunshine Coast
+      - Ipswich
+      - Eagle Farm
+      - Pakenham
+      - Doomben
+      - Morphettville
+      - Newcastle
+      - Gold Coast
+      - Toowoomba
+      - Townsville
+      - Cranbourne
+    harness:
+      - Albion Park
+      - Redcliffe
+      - Globe Derby
+      - Gloucester Park
+      - Menangle
+      - Newcastle
+      - Melton
+      - Bathurst
+      - Pinjarra
+      - Penrith
+      - Shepparton
+      - Mildura
+    greyhound:
+      - Q1 Lakeside
+      - Mandurah
+      - Angle Park
+      - Richmond
+      - Healesville
+      - Warragul
+      - The Gardens
+      - Ballarat
+      - Geelong
+      - Shepparton
+      - Taree
+      - Q Straight
+      - Q2 Parklands
+      - Nowra
+      - Warrnambool
+  race_codes:
+    - horse
+    - harness
+    - greyhound
+
+systems:
+  client:
+    expo_app:
+      type: mobile_app
+      responsibility:
+        - Authenticate users with Supabase Auth and Google OAuth.
+        - Browse logged race days.
+        - Read runtime race, insight, promotion, and prediction data from Supabase app-facing read models.
+        - Filter by date, country, track, and racing code.
+        - Show favourite, MarketMover, field size, final placing, and dividends.
+        - Show favourite win, 2nd, and 3rd percentages overall and by starter count.
+        - Show favourite win percentages by 50c fixed-win price bucket.
+        - Show notional $1 favourite return metrics by racing discipline.
+        - Filter return-by-discipline, starter-count, and price-bucket insight tables by discipline, all countries or one selected country, then by all tracks or one selected track.
+        - Show source-backed TAB/Betcha race-specific promotion signals with current race facts.
+        - Show Betcha bet-back race candidates from independent current prediction snapshots for configured NZ and Tier 1 Australian pilot-track race cards.
+        - Show Account navigation for Google sign-in, persisted session state, and sign out.
+        - Let signed-in users save or remove favourite tracks for one concrete country, discipline, and course.
+        - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
+        - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
+        - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
+        - Keep account balance and withdrawal ledgers out of scope to avoid bankroll tracking.
+      reads_from:
+        - supabase_auth
+        - supabase_postgres
+      writes_to:
+        - user_favourite_tracks
+        - user_race_bets
+
+    expo_auth_client:
+      type: client_auth
+      responsibility:
+        - Persist Supabase Auth sessions with AsyncStorage.
+        - Start Google OAuth through Expo AuthSession and WebBrowser.
+        - Exchange the returned PKCE code for a Supabase session.
+        - Use the custom redirect scheme `feelinggamba://auth/callback`.
+      reads_from:
+        - supabase_auth
+      writes_to:
+        - local_device_session_storage
+
+  backend:
+    supabase_cron:
+      type: scheduler
+      responsibility:
+        - Invoke ingestion functions on fixed schedules.
+        - Keep discovery, market snapshots, and result collection separate.
+      invokes:
+        - discover_races
+        - capture_market_snapshots
+        - collect_results
+        - reconcile_race_day
+        - backfill_historical_results
+        - derive_statistics
+        - fetch_current_promotions
+        - fetch_current_predictions
+        - refresh_race_days_and_insights
+
+    discover_races:
+      type: edge_function
+      responsibility:
+        - Find configured NZ and AU comparison track meetings for today and tomorrow.
+        - Upsert meetings, races, runners, source IDs, and initial status.
+        - Store raw fetch metadata for audit/debugging.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - tab_form_guide
+        - hrnz
+      writes_to:
+        - meetings
+        - races
+        - runners
+        - source_fetches
+        - ingestion_runs
+
+    capture_market_snapshots:
+      type: edge_function
+      responsibility:
+        - Poll open race cards before jump.
+        - Capture fixed-win prices for each runner.
+        - Derive favourite from shortest fixed-win price.
+        - Capture MarketMover only when explicitly flagged by source data.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - races
+        - runners
+      writes_to:
+        - odds_snapshots
+        - race_market_state
+        - source_fetches
+        - ingestion_runs
+
+    collect_results:
+      type: edge_function
+      responsibility:
+        - Fetch settled race-card results.
+        - Store final placing, final starter count, dividends, exotics, and margins.
+        - Match favourite and MarketMover entrant IDs to final result positions.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - hrnz
+        - races
+        - runners
+        - odds_snapshots
+      writes_to:
+        - race_results
+        - race_dividends
+        - races
+        - source_fetches
+        - ingestion_runs
+
+    reconcile_race_day:
+      type: edge_function
+      responsibility:
+        - Re-run missing or failed result fetches after meetings complete.
+        - Compare declared runner counts with final starters.
+        - Fill data gaps from secondary sources.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - tab_form_guide
+        - hrnz
+        - source_fetches
+      writes_to:
+        - meetings
+        - races
+        - runners
+        - race_results
+        - race_dividends
+        - source_fetches
+        - ingestion_runs
+
+    backfill_historical_results:
+      type: edge_function_or_manual_worker
+      responsibility:
+        - Pull races from the initial collection start date through the current date.
+        - Backfill final results, favourite data when available, and starter counts.
+        - Mark missing favourite/result/starter-count data explicitly.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - tab_form_guide
+        - hrnz
+        - future_official_sources
+      writes_to:
+        - meetings
+        - races
+        - runners
+        - odds_snapshots
+        - race_results
+        - race_dividends
+        - source_fetches
+        - ingestion_runs
+
+    derive_statistics:
+      type: sql_view_or_scheduled_job
+      responsibility:
+        - Derive favourite win, 2nd, and 3rd percentages.
+        - Derive favourite finish-position percentages by final starter count.
+        - Derive favourite win percentages by 50c fixed-win price bucket.
+        - Derive notional $1 favourite return metrics by race code, country, track, and filters.
+        - Store derived insight metrics in insight_aggregates for app reads.
+        - Apply starter-count eligibility to bonus-credit return metrics: 5-7 starters credits 2nd only; 8+ starters credits 2nd/3rd.
+        - Keep denominators and missing-data counts visible.
+      reads_from:
+        - race_day_entries
+        - races
+        - race_results
+        - odds_snapshots
+      writes_to:
+        - insight_aggregate_runs
+        - insight_aggregates
+
+    fetch_current_promotions:
+      type: edge_function_or_manual_worker
+      responsibility:
+        - Fetch current public TAB and Betcha racing promotions.
+        - Match race-specific promotion URLs to current race cards.
+        - Expand race-range promotions, such as Races 1-2, to the matching race cards.
+        - Refresh the app-facing promotion cache at least daily and more often during active race windows if source terms and rate limits allow.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - insight_aggregates
+      writes_to:
+        - promotions
+        - promotion_recommendations
+        - current_promotion_snapshots
+        - source_fetches
+        - ingestion_runs
+
+    fetch_current_predictions:
+      type: edge_function_or_manual_worker
+      responsibility:
+        - Scan current Betcha race cards for configured NZ and Tier 1 Australian pilot tracks independently of promotion availability.
+        - Store current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
+        - Attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus statistical signals.
+        - Rank Betcha bet-back candidates by discipline, keeping at most five per discipline, without stake sizing or automated wagering actions.
+        - Refresh the app-facing prediction cache throughout active race windows so same-day race cards receive predictions.
+        - Store one prediction row per model and Betcha source race card and replace it only when the prediction signature changes.
+        - Rebuild prediction_aggregates after storing current predictions so the Predictions tab can show pending model rows before races settle.
+      reads_from:
+        - betcha_graphql
+        - insight_aggregates
+      writes_to:
+        - current_prediction_snapshots
+        - promotion_predictions
+        - prediction_aggregates
+        - source_fetches
+        - ingestion_runs
+
+    request_track_race_odds:
+      type: edge_function
+      responsibility:
+        - Accept one selected country, track, discipline, and source date from Insights.
+        - Fetch public Betcha race-card odds for races 1 and 2 only.
+        - Return runner fixed-win odds, favourite flags, MarketMover flags, starter count, race status, fetched timestamp, and favourite historical signal context matching Betcha bet-back candidates.
+        - Store one track_race_odds_requests audit row for each request.
+        - Avoid account credential storage, personalised promo scraping, stake sizing, and automated wagering actions.
+      reads_from:
+        - betcha_graphql
+      writes_to:
+        - track_race_odds_requests
+
+    refresh_race_days_and_insights:
+      type: edge_function_or_manual_worker
+      responsibility:
+        - Run weekly to fill race dates missing since the last successful update.
+        - Cover all AUS/NZ domestic horse, harness, and greyhound race days returned by configured source coverage.
+        - Upsert normalized race data and refresh app-facing race_day_entries.
+        - Refresh stored insight_aggregates after new race data lands.
+        - Reconcile unsettled promotion_predictions against stored race, runner, and result rows.
+        - Rebuild prediction_aggregates after prediction outcomes are reconciled.
+      reads_from:
+        - tab_graphql
+        - betcha_graphql
+        - tab_form_guide
+        - hrnz
+        - races
+      writes_to:
+        - meetings
+        - races
+        - runners
+        - odds_snapshots
+        - race_results
+        - race_dividends
+        - race_day_entries
+        - insight_aggregate_runs
+        - insight_aggregates
+        - promotion_predictions
+        - prediction_aggregates
+        - source_fetches
+        - ingestion_runs
+
+    ingestion_shared_code:
+      type: library
+      responsibility:
+        - GraphQL clients.
+        - Source adapters.
+        - Race-card parser.
+        - Favourite and MarketMover derivation.
+        - Result and dividend normalization.
+        - Statistics derivation helpers.
+      used_by:
+        - discover_races
+        - capture_market_snapshots
+        - collect_results
+        - reconcile_race_day
+        - backfill_historical_results
+        - derive_statistics
+        - fetch_current_promotions
+
+  data:
+    supabase_auth:
+      type: managed_auth
+      responsibility:
+        - Own Google OAuth provider configuration.
+        - Issue Supabase user sessions.
+        - Provide auth.uid() for future row-level-security policies.
+      contains:
+        - auth.users
+
+    supabase_postgres:
+      type: database
+      responsibility:
+        - Store canonical racing data.
+        - Store append-only odds snapshots.
+        - Store final results and dividends.
+        - Store user profiles, favourite tracks, and personal race logs behind owner-only RLS.
+        - Power app read views.
+      contains:
+        - profiles
+        - user_favourite_tracks
+        - user_race_bets
+        - meetings
+        - races
+        - runners
+        - odds_snapshots
+        - race_market_state
+        - race_results
+        - race_dividends
+        - source_fetches
+        - ingestion_runs
+        - ingestion_locks
+        - race_day_entries
+        - insight_aggregate_runs
+        - insight_aggregates
+        - current_promotion_snapshots
+        - promotions
+        - promotion_recommendations
+
+    supabase_storage:
+      type: object_storage
+      responsibility:
+        - Store large raw source responses when they are too bulky for Postgres.
+      contains:
+        - raw_source_payloads
+
+  external_sources:
+    tab_graphql:
+      type: web_graphql_api
+      endpoint: https://api.tab.co.nz/graphql
+      responsibility:
+        - Race discovery.
+        - Race-card prices.
+        - MarketMover flags.
+        - Settled results and dividends.
+      confidence: medium
+      notes:
+        - Internal web API, not confirmed as an official public developer API.
+        - Primary historical settled result source when available.
+
+    betcha_graphql:
+      type: web_graphql_api
+      endpoint: https://api.betcha.co.nz/graphql
+      responsibility:
+        - Promotions.
+        - Race discovery.
+        - Race-card prices.
+        - MarketMover flags.
+        - Settled results and dividends.
+      confidence: medium
+      notes:
+        - Internal web API, not confirmed as an official public developer API.
+        - Good secondary source and useful public promotions source.
+
+    tab_form_guide:
+      type: web_app_payload
+      endpoint: https://formguide.tab.co.nz
+      responsibility:
+        - Declared field metadata.
+        - Runner counts.
+        - Form-guide race identifiers.
+      confidence: medium
+
+    hrnz:
+      type: public_results_pages
+      endpoint: https://infohorse.hrnz.co.nz/datahrs/results/
+      responsibility:
+        - Harness final results.
+        - Harness result-page favourite rank.
+      confidence: high_for_harness_results
+
+    future_official_sources:
+      type: placeholder
+      responsibility:
+        - NZTR or LOVERACING thoroughbred results.
+        - GRNZ greyhound results.
+      confidence: unknown
+
+data_model:
+  canonical_tables:
+    meetings:
+      purpose: One row per track meeting.
+      key: race_code, country, course_slug, meeting_date
+    races:
+      purpose: One row per race.
+      key: meeting_id, race_number
+    runners:
+      purpose: One row per runner in a race.
+      key: race_id, runner_number
+    odds_snapshots:
+      purpose: Append-only source of truth for prices, favourite, and MarketMover.
+      key: race_id, runner_id, source, snapshot_at
+    race_market_state:
+      purpose: Derived current/selected market state for fast app reads.
+      key: race_id
+    race_results:
+      purpose: Final runner-level outcomes and dividends.
+      key: race_id, runner_id
+    race_dividends:
+      purpose: Race-level exotic and pool dividends.
+      key: race_id, source, product, combination
+    source_fetches:
+      purpose: Audit log for every source request.
+      key: source, request_key, fetched_at
+    ingestion_runs:
+      purpose: One row per scheduled/manual ingestion invocation.
+      key: id
+    ingestion_locks:
+      purpose: Prevent overlapping jobs for the same date/source.
+      key: lock_key
+    promotions:
+      purpose: One row per source-backed public racing promotion.
+      key: source, source_promotion_id
+    promotion_recommendations:
+      purpose: Derived current race-card facts and historical signals for race-specific promotions.
+      key: promotion_id, race_id
+    current_promotion_snapshots:
+      purpose: Current app-facing public promotion payload cache.
+      key: id
+    current_prediction_snapshots:
+      purpose: Current app-facing Betcha candidate prediction payload cache, independent of promotion availability.
+      key: id
+    promotion_predictions:
+      purpose: Latest stored Betcha bet-back candidate prediction per source race card, with reconciled outcome fields for itemised Predictions history.
+      key: source, source_race_card_id
+    prediction_aggregates:
+      purpose: Stored app-facing prediction outcome metrics by overall and race-code scope.
+      key: scope_key
+    race_day_entries:
+      purpose: Stored app-facing race-day facts for default latest-20-race and filtered Race Days reads.
+      key: race_id
+    insight_aggregate_runs:
+      purpose: One row per stored insight derivation run.
+      key: id
+    insight_aggregates:
+      purpose: Stored app-facing insight rows by overall, country, course, race-code, starter-count, price-bucket, distance-band, and track-condition scope.
+      key: scope_key
+    track_race_odds_requests:
+      purpose: Audit log of on-demand first-two-races public odds requests made from Insights.
+      key: id
+
+derived_views:
+  race_day_entries:
+    responsibility:
+      - Store race, selected favourite, MarketMover, winner, final placing, returns, and missing-data flags.
+      - Power Race Days default latest-20-race query and filtered Race Days reads.
+  insight_aggregates:
+    responsibility:
+      - Store favourite win, 2nd, and 3rd percentages by scope.
+      - Store starter-count, price-bucket, distance-band, track-condition, country, course, and race-code aggregate rows.
+      - Include unit-stake cash, bonus-credit, cash-plus-bonus, denominator, and missing-data metrics.
+      - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
+  promotion_recommendations:
+    responsibility:
+      - Join current racing promotions to current race-card facts.
+      - Show favourite, fixed-win price, starter count, MarketMover, and missing-price state.
+      - Attach starter-count and price-bucket historical signal data.
+      - Avoid stake sizing and automated wagering actions.
+  current_prediction_snapshots:
+    responsibility:
+      - Store the current app-facing Betcha candidate prediction payload.
+      - Keep candidate rankings available even when no race-specific promotion URL matches current race cards.
+      - Treat rows older than 15 minutes as stale because live race cards and fixed-win prices can change during the day.
+  prediction_aggregates:
+    responsibility:
+      - Store Betcha prediction outcome counts and notional unit-stake return metrics by prediction_model.
+      - Power the Predictions tab model variations without calculating performance from raw prediction rows in the app.
+
+flows:
+  discovery:
+    trigger: Supabase Cron
+    steps:
+      - discover_races reads target tracks and dates.
+      - discover_races fetches TAB, Betcha, TAB Form Guide, and HRNZ as needed.
+      - discover_races upserts meetings, races, runners, and source IDs.
+      - discover_races writes source_fetches and ingestion_runs.
+
+  market_capture:
+    trigger: Supabase Cron every few minutes near race windows.
+    steps:
+      - capture_market_snapshots selects races near jump.
+      - capture_market_snapshots fetches race cards from TAB and Betcha.
+      - capture_market_snapshots stores runner price snapshots.
+      - capture_market_snapshots flags favourite and MarketMover from source data.
+
+  promotion_fetch:
+    trigger: Manual worker for prototype; app-triggered refresh-current-promotions Edge Function plus daily scheduled job when terms allow.
+    steps:
+      - fetch_current_promotions fetches public TAB and Betcha promotions.
+      - filter to racing promotions using category, URI, and description fallbacks.
+      - resolve race-card URLs and race ranges.
+      - fetch current race cards and derive favourite, fixed-win price, and starters when available.
+      - Edge Function refreshes read historical global, race-code, and country+race-code signal buckets from stored insight_aggregates rather than bundled fixtures.
+      - record sourceDate in Pacific/Auckland and Auckland refresh metadata for stale-cache checks.
+      - write the current app-facing payload to current_promotion_snapshots when Supabase is configured.
+      - show missing Supabase configuration, missing cache rows, and cache read errors as explicit unavailable states; do not fall back to bundled promotion fixtures at runtime.
+      - write race-specific promotion recommendations, source_fetches, and ingestion_runs later when normalized tables are wired.
+      - treat current_promotion_snapshots rows older than 15 minutes as stale in the app because live race cards and prices can change.
+
+  prediction_fetch:
+    trigger: App-triggered refresh-current-predictions Edge Function plus frequent scheduled job during active NZ/AU race windows.
+    steps:
+      - fetch_current_predictions scans Betcha current NZ and Tier 1 AU pilot-track race cards for daily bet-back candidate ranking by discipline, independent of active promotions.
+      - keep Betcha bet-back candidate rankings visible in the app even when no race-specific public promotion URL matches current race cards.
+      - derive current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
+      - attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus signal data.
+      - order current candidate lists by estimated historical cash return per $1 rather than cash-plus-bonus value.
+      - rank default global_bucket_blend_v1 candidates from global price/starter buckets.
+      - rank global_bucket_cash_blend_v1 candidates from global price/starter cash-return buckets without bonus-credit value.
+      - rank global_bucket_cash_even_blend_v1 candidates from equal-weight global price/starter cash-return buckets without bonus-credit value.
+      - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
+      - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
+      - write the current app-facing payload to current_prediction_snapshots when Supabase is configured.
+      - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes.
+      - rebuild prediction_aggregates after storing predictions so the Predictions tab can show pending rows before races settle.
+      - treat current_prediction_snapshots rows older than 15 minutes as stale in the app because live race cards and prices can change.
+
+  race_day_refresh:
+    trigger: Supabase Cron invokes refresh-race-days-and-insights weekly.
+    steps:
+      - refresh_race_days_and_insights hosted function defaults to the latest 7 completed Auckland dates, ending yesterday.
+      - fetch source race dates for configured source coverage, using Pacific/Auckland only for calendar-date conversion where needed.
+      - upsert normalized race data and app-facing race_day_entries.
+      - rebuild insight_aggregates, including country+race-code starter, price, distance-band, and track-condition bucket scopes, from stored race_day_entries across the full collected range after the weekly rows are written.
+      - reconcile pending or missing promotion_predictions against stored results and rebuild model-scoped prediction_aggregates.
+      - reconcile pending or missing user_race_bets against stored results so Account personal statistics can settle.
+      - require RACE_DAY_REFRESH_ADMIN_TOKEN for hosted write runs and store the cron token in Supabase Vault.
+
+  result_collection:
+    trigger: Supabase Cron after race start.
+    steps:
+      - collect_results selects races that should have settled.
+      - collect_results fetches TAB and Betcha race-card results.
+      - collect_results falls back to HRNZ for harness results where useful.
+      - collect_results stores final placing, dividends, margins, and final status.
+      - collect_results joins favourite and MarketMover entrant IDs to final positions.
+
+  app_read:
+    trigger: User opens Expo app.
+    steps:
+      - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ records.
+      - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
+      - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
+      - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for races 1 and 2.
+      - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
+      - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
+      - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.
+      - Account reads user_favourite_tracks and user_race_bets through owner-only RLS, supports removals, and calculates bookmaker-scoped personal settled-row unit-return stats.
+      - Account does not store balance updates or withdrawal records.
+      - Predictions reads current bet candidates from current_prediction_snapshots, model-filtered prediction_aggregates from Supabase for metrics, and recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history.
+      - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
+      - Predictions shows model variation tabs and a short method explanation for each variation.
+      - Supabase RLS allows read-only app access to app-facing read models.
+      - Debug/admin views remain restricted.
+
+operational_rules:
+  source_access:
+    - Keep external source calls server-side.
+    - Rate-limit source requests.
+    - Store source failures rather than inventing missing favourite or MarketMover data.
+    - Review TAB and Betcha terms before broad automated access.
+  data_quality:
+    - Store raw payload references for parser debugging.
+    - Treat odds_snapshots as append-only.
+    - Use the closest successful pre-jump snapshot for MVP favourite/MM reporting.
+    - Reconcile historical data, but do not assume historical MarketMover retention is guaranteed.
+    - Store insight calculations in Supabase; do not make the app recalculate historical aggregates from fixtures.
+  security:
+    - Store service-role keys as Supabase Edge Function secrets.
+    - refresh-current-promotions disables JWT verification for app-triggered public refresh calls, but uses a 15-minute freshness guard and optional admin token for force refreshes.
+    - refresh-current-predictions disables JWT verification for app-triggered public refresh calls, but uses a 15-minute freshness guard and optional admin token for force refreshes.
+    - Use RLS for client-facing reads.
+    - Keep normalized source/raw tables and operational tables server-side.
+    - Do not expose source API details or service credentials to the Expo client.
+
+future_skill:
+  name: architecture-diagram-renderer
+  input_file: docs/architecture/application-architecture.yaml
+  output_options:
+    - Mermaid markdown
+    - SVG or PNG via Mermaid CLI
+  responsibilities:
+    - Parse the architecture YAML.
+    - Validate required nodes and edges.
+    - Generate one or more diagrams from the source of truth.
+    - Keep generated diagrams out of date warnings visible.

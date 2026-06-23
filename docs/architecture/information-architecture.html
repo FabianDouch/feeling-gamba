@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feeling Gamba Information Architecture</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --text: #18202f;
+        --muted: #5d6678;
+        --border: #d7dce7;
+        --accent: #0f766e;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+
+      header {
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        padding: 24px 32px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      main {
+        display: grid;
+        gap: 24px;
+        padding: 24px;
+      }
+
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: auto;
+        page-break-inside: avoid;
+      }
+
+      section h2 {
+        margin: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 20px;
+        font-size: 17px;
+        letter-spacing: 0;
+      }
+
+      .diagram {
+        min-width: 980px;
+        padding: 20px;
+        background: #ffffff;
+      }
+
+      .diagram svg {
+        display: block;
+        margin: 0 auto;
+        max-width: none;
+      }
+
+      .source-note {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Feeling Gamba Information Architecture</h1>
+      <p class="source-note">
+        Source of truth:
+        <a href="./information-architecture.yaml">information-architecture.yaml</a>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>App Map</h2>
+        <div id="diagram-app-map" class="diagram"></div>
+      </section>
+
+      <section>
+        <h2>Primary User Flow</h2>
+        <div id="diagram-user-flow" class="diagram"></div>
+      </section>
+
+      <section>
+        <h2>Screen And Data Relationships</h2>
+        <div id="diagram-data" class="diagram"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "loose",
+        theme: "base",
+        themeVariables: {
+          primaryColor: "#e7f5f2",
+          primaryBorderColor: "#0f766e",
+          primaryTextColor: "#18202f",
+          secondaryColor: "#eef2ff",
+          tertiaryColor: "#f8fafc",
+          lineColor: "#64748b",
+          fontFamily:
+            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        },
+      });
+
+      const diagrams = [
+        {
+          target: "diagram-app-map",
+          id: "ia-app-map",
+          source: String.raw`
+flowchart TD
+  launch[App Launch] --> insights[Insights]
+
+  insights --> summaryStats[Summary Stats]
+  insights --> favFinish[Favourite Win Second Third Rates]
+  insights --> returnStats[Unit Stake Return Metrics]
+  insights --> disciplineStats[Discipline Sections]
+  insights --> starterBreakdown[Starter Count Breakdown]
+  insights --> priceBreakdown[Favourite Price Breakdown]
+  insights --> trackScope[Country / Track Scope Filter]
+  insights --> missingData[Missing Data Counts]
+  insights --> recommendations[Recommendations]
+  insights --> raceDays[Race Days]
+
+  recommendations --> promoCards[Racing Promotion Cards]
+  recommendations --> currentRaceFacts[Current Race Facts]
+  recommendations --> promoSignals[Historical Signals]
+  recommendations --> betBackCandidates[Betcha Bet-Back Candidates]
+  recommendations --> raceDays
+
+  raceDays --> datePicker[Collected Date Range Picker]
+  raceDays --> filters[Date / Country / Discipline / Racecourse Filters]
+  raceDays --> meetingGroups[Meeting Groups]
+  meetingGroups --> raceRows[Race Rows]
+  raceRows --> raceDetail[Race Detail]
+
+  raceDetail --> raceOverview[Race Overview]
+  raceDetail --> fieldState[Field / Starter State]
+  raceDetail --> marketState[Favourite / MarketMover]
+  raceDetail --> resultState[Results / Dividends]
+  raceDetail --> sourceState[Source Status]
+
+  summaryStats --> raceDetail
+  starterBreakdown --> raceDays
+
+  sourceState --> sourceStatus[Source Status]
+  sourceStatus --> ingestionRuns[Ingestion Runs]
+  sourceStatus --> failedFetches[Failed Fetches]
+  sourceStatus --> sourceMapping[Source ID Mapping]
+
+  raceDays --> settings[Settings]
+  settings --> preferences[Preferences]
+  settings --> dataNotes[Data Source Notes]
+`,
+        },
+        {
+          target: "diagram-user-flow",
+          id: "ia-user-flow",
+          source: String.raw`
+flowchart LR
+  A[Open app] --> B[Review insights]
+  B --> C[Review favourite win / 2nd / 3rd rates]
+  C --> D[Open recommendations]
+  D --> E[Review current promotion signals]
+  E --> F[Review unit stake returns by discipline]
+  F --> G[Drill into starter count breakdown]
+  G --> H[Open Race Days when needed]
+  H --> I[Filter date / discipline / racecourse]
+  I --> J[Scan race list]
+  J --> K[Open race detail]
+  K --> L[Check favourite, placing, and dividends]
+  L --> M[Return to insights or adjust filters]
+`,
+        },
+        {
+          target: "diagram-data",
+          id: "ia-data",
+          source: String.raw`
+flowchart LR
+  subgraph screens[Screens]
+    raceDays[Race Days]
+    raceDetail[Race Detail]
+    insights[Insights]
+    recommendations[Recommendations]
+    sourceStatus[Source Status]
+    settings[Settings]
+  end
+
+  subgraph views[Read Models]
+    favView[race_favourite_results]
+    marketState[race_market_state]
+    statsView[favourite_performance_summary]
+    starterStats[favourite_performance_by_starter_count]
+    priceStats[favourite_performance_by_price_bucket]
+    promoView[promotion_recommendations]
+    debugViews[debug/admin views]
+  end
+
+  subgraph tables[Core Tables]
+    meetings[(meetings)]
+    races[(races)]
+    runners[(runners)]
+    snapshots[(odds_snapshots)]
+    results[(race_results)]
+    dividends[(race_dividends)]
+    promotions[(promotions)]
+    fetches[(source_fetches)]
+    runs[(ingestion_runs)]
+  end
+
+  raceDays --> favView
+  raceDetail --> favView
+  raceDetail --> marketState
+  insights --> favView
+  insights --> statsView
+  insights --> starterStats
+  insights --> priceStats
+  recommendations --> promoView
+  recommendations --> favView
+  recommendations --> starterStats
+  recommendations --> priceStats
+  sourceStatus --> debugViews
+  settings --> favView
+
+  favView --> meetings
+  favView --> races
+  favView --> runners
+  favView --> snapshots
+  favView --> results
+  favView --> dividends
+  statsView --> favView
+  starterStats --> favView
+  priceStats --> favView
+  promoView --> promotions
+  promoView --> favView
+
+  marketState --> snapshots
+  debugViews --> fetches
+  debugViews --> runs
+  debugViews --> races
+`,
+        },
+      ];
+
+      for (const diagram of diagrams) {
+        const target = document.getElementById(diagram.target);
+        const rendered = await mermaid.render(diagram.id, diagram.source.trim());
+        target.innerHTML = rendered.svg;
+      }
+
+      document.body.dataset.rendered = "true";
+    </script>
+  </body>
+</html>

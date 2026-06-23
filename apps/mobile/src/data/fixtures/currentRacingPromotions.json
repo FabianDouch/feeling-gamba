@@ -1,0 +1,2415 @@
+{
+  "betBackCandidates": {
+    "candidates": [
+      {
+        "advertisedStart": "2026-06-19T06:00:00.000Z",
+        "code": "horse",
+        "favourite": {
+          "fixedWinPrice": 4.8,
+          "impliedWinPercentage": 20.83,
+          "name": "Champagne Jenni",
+          "number": 1,
+          "priceBucket": "$4.50 - $4.99"
+        },
+        "historical": {
+          "historicalDelta": -0.83,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.905,
+            "averageValuePerDollarWithBonusCredit": 1.188,
+            "bonusBetCreditPercentage": 28.33,
+            "bonusBetCredits": 17,
+            "favouriteSelections": 60,
+            "label": "$4.50 - $4.99",
+            "profitLoss": -5.7,
+            "profitLossWithBonusCredit": 11.3,
+            "secondPercentage": 15,
+            "seconds": 9,
+            "thirdPercentage": 13.33,
+            "thirds": 8,
+            "totalBonusBetCredit": 17,
+            "totalReturn": 54.3,
+            "totalStake": 60,
+            "totalValueWithBonusCredit": 71.3,
+            "winPercentage": 20,
+            "wins": 12
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.04,
+            "averageValuePerDollarWithBonusCredit": 1.262,
+            "bonusBetCreditPercentage": 22.22,
+            "bonusBetCredits": 18,
+            "favouriteSelections": 81,
+            "label": "13",
+            "profitLoss": 3.25,
+            "profitLossWithBonusCredit": 21.25,
+            "secondPercentage": 13.58,
+            "seconds": 11,
+            "thirdPercentage": 8.64,
+            "thirds": 7,
+            "totalBonusBetCredit": 18,
+            "totalReturn": 84.25,
+            "totalStake": 81,
+            "totalValueWithBonusCredit": 102.25,
+            "winPercentage": 32.1,
+            "wins": 26
+          }
+        },
+        "marketMover": {
+          "name": "Impending Swan",
+          "number": 13
+        },
+        "raceCardId": "RacingRaceCard:565bc44b-4e86-4950-a62b-d68409269502",
+        "raceName": "Strength In Community Hcp (Bm62)",
+        "raceNumber": 7,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 13,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.214,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 141,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 1
+      },
+      {
+        "advertisedStart": "2026-06-19T05:00:00.000Z",
+        "code": "horse",
+        "favourite": {
+          "fixedWinPrice": 3.2,
+          "impliedWinPercentage": 31.25,
+          "name": "Eleanor Dumont",
+          "number": 1,
+          "priceBucket": "$3.00 - $3.49"
+        },
+        "historical": {
+          "historicalDelta": -4.03,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.866,
+            "averageValuePerDollarWithBonusCredit": 1.16,
+            "bonusBetCreditPercentage": 29.39,
+            "bonusBetCredits": 149,
+            "favouriteSelections": 507,
+            "label": "$3.00 - $3.49",
+            "profitLoss": -68,
+            "profitLossWithBonusCredit": 81,
+            "secondPercentage": 21.1,
+            "seconds": 107,
+            "thirdPercentage": 13.21,
+            "thirds": 67,
+            "totalBonusBetCredit": 149,
+            "totalReturn": 439,
+            "totalStake": 507,
+            "totalValueWithBonusCredit": 588,
+            "winPercentage": 27.22,
+            "wins": 138
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.002,
+            "averageValuePerDollarWithBonusCredit": 1.252,
+            "bonusBetCreditPercentage": 25,
+            "bonusBetCredits": 34,
+            "favouriteSelections": 136,
+            "label": "12",
+            "profitLoss": 0.23,
+            "profitLossWithBonusCredit": 34.23,
+            "secondPercentage": 15.44,
+            "seconds": 21,
+            "thirdPercentage": 9.56,
+            "thirds": 13,
+            "totalBonusBetCredit": 34,
+            "totalReturn": 136.23,
+            "totalStake": 136,
+            "totalValueWithBonusCredit": 170.23,
+            "winPercentage": 38.97,
+            "wins": 53
+          }
+        },
+        "marketMover": {
+          "name": "Eleanor Dumont",
+          "number": 1
+        },
+        "raceCardId": "RacingRaceCard:a3b93953-d347-4949-9be5-1039643f106b",
+        "raceName": "Rmbl Investments Rising Stars Race Hcp",
+        "raceNumber": 5,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 12,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.192,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 643,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 2
+      },
+      {
+        "advertisedStart": "2026-06-19T06:30:00.000Z",
+        "code": "horse",
+        "favourite": {
+          "fixedWinPrice": 3.4,
+          "impliedWinPercentage": 29.41,
+          "name": "Whiskey Joe",
+          "number": 11,
+          "priceBucket": "$3.00 - $3.49"
+        },
+        "historical": {
+          "historicalDelta": -2.19,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.866,
+            "averageValuePerDollarWithBonusCredit": 1.16,
+            "bonusBetCreditPercentage": 29.39,
+            "bonusBetCredits": 149,
+            "favouriteSelections": 507,
+            "label": "$3.00 - $3.49",
+            "profitLoss": -68,
+            "profitLossWithBonusCredit": 81,
+            "secondPercentage": 21.1,
+            "seconds": 107,
+            "thirdPercentage": 13.21,
+            "thirds": 67,
+            "totalBonusBetCredit": 149,
+            "totalReturn": 439,
+            "totalStake": 507,
+            "totalValueWithBonusCredit": 588,
+            "winPercentage": 27.22,
+            "wins": 138
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.002,
+            "averageValuePerDollarWithBonusCredit": 1.252,
+            "bonusBetCreditPercentage": 25,
+            "bonusBetCredits": 34,
+            "favouriteSelections": 136,
+            "label": "12",
+            "profitLoss": 0.23,
+            "profitLossWithBonusCredit": 34.23,
+            "secondPercentage": 15.44,
+            "seconds": 21,
+            "thirdPercentage": 9.56,
+            "thirds": 13,
+            "totalBonusBetCredit": 34,
+            "totalReturn": 136.23,
+            "totalStake": 136,
+            "totalValueWithBonusCredit": 170.23,
+            "winPercentage": 38.97,
+            "wins": 53
+          }
+        },
+        "marketMover": {
+          "name": "Porsha Crystal",
+          "number": 12
+        },
+        "raceCardId": "RacingRaceCard:3dcea0fc-c48d-4bc8-9a51-b2dab18db246",
+        "raceName": "Right Mate Hcp (66)",
+        "raceNumber": 8,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 12,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.192,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 643,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 3
+      },
+      {
+        "advertisedStart": "2026-06-19T03:30:00.000Z",
+        "code": "horse",
+        "favourite": {
+          "fixedWinPrice": 4.4,
+          "impliedWinPercentage": 22.73,
+          "name": "Gold Chalice",
+          "number": 4,
+          "priceBucket": "$4.00 - $4.49"
+        },
+        "historical": {
+          "historicalDelta": -3.22,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.81,
+            "averageValuePerDollarWithBonusCredit": 1.078,
+            "bonusBetCreditPercentage": 26.83,
+            "bonusBetCredits": 33,
+            "favouriteSelections": 123,
+            "label": "$4.00 - $4.49",
+            "profitLoss": -23.4,
+            "profitLossWithBonusCredit": 9.6,
+            "secondPercentage": 14.63,
+            "seconds": 18,
+            "thirdPercentage": 14.63,
+            "thirds": 18,
+            "totalBonusBetCredit": 33,
+            "totalReturn": 99.6,
+            "totalStake": 123,
+            "totalValueWithBonusCredit": 132.6,
+            "winPercentage": 19.51,
+            "wins": 24
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.005,
+            "averageValuePerDollarWithBonusCredit": 1.298,
+            "bonusBetCreditPercentage": 29.29,
+            "bonusBetCredits": 58,
+            "favouriteSelections": 198,
+            "label": "11",
+            "profitLoss": 1,
+            "profitLossWithBonusCredit": 59,
+            "secondPercentage": 16.16,
+            "seconds": 32,
+            "thirdPercentage": 13.13,
+            "thirds": 26,
+            "totalBonusBetCredit": 58,
+            "totalReturn": 199,
+            "totalStake": 198,
+            "totalValueWithBonusCredit": 257,
+            "winPercentage": 34.34,
+            "wins": 68
+          }
+        },
+        "marketMover": {
+          "name": "Explosive Magic",
+          "number": 18
+        },
+        "raceCardId": "RacingRaceCard:fd95833d-53cd-43cb-91f3-2172ddf3f8fd",
+        "raceName": "The Man Walk Geelong Mdn Plate",
+        "raceNumber": 2,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 11,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.155,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 321,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 4
+      },
+      {
+        "advertisedStart": "2026-06-19T04:30:00.000Z",
+        "code": "horse",
+        "favourite": {
+          "fixedWinPrice": 1.9,
+          "impliedWinPercentage": 52.63,
+          "name": "French Gift",
+          "number": 5,
+          "priceBucket": "$1.50 - $1.99"
+        },
+        "historical": {
+          "historicalDelta": 1.7,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.935,
+            "averageValuePerDollarWithBonusCredit": 1.153,
+            "bonusBetCreditPercentage": 21.78,
+            "bonusBetCredits": 176,
+            "favouriteSelections": 808,
+            "label": "$1.50 - $1.99",
+            "profitLoss": -52.35,
+            "profitLossWithBonusCredit": 123.65,
+            "secondPercentage": 17.7,
+            "seconds": 143,
+            "thirdPercentage": 11.51,
+            "thirds": 93,
+            "totalBonusBetCredit": 176,
+            "totalReturn": 755.65,
+            "totalStake": 808,
+            "totalValueWithBonusCredit": 931.65,
+            "winPercentage": 54.33,
+            "wins": 439
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.822,
+            "averageValuePerDollarWithBonusCredit": 1.143,
+            "bonusBetCreditPercentage": 32.09,
+            "bonusBetCredits": 86,
+            "favouriteSelections": 268,
+            "label": "9",
+            "profitLoss": -47.62,
+            "profitLossWithBonusCredit": 38.38,
+            "secondPercentage": 20.15,
+            "seconds": 54,
+            "thirdPercentage": 11.94,
+            "thirds": 32,
+            "totalBonusBetCredit": 86,
+            "totalReturn": 220.38,
+            "totalStake": 268,
+            "totalValueWithBonusCredit": 306.38,
+            "winPercentage": 33.58,
+            "wins": 90
+          }
+        },
+        "marketMover": {
+          "name": "French Gift",
+          "number": 5
+        },
+        "raceCardId": "RacingRaceCard:a58a81f4-eae3-4cc7-89d3-63469fd99724",
+        "raceName": "The Man Walk Torquay Mdn Plate",
+        "raceNumber": 4,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 9,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.149,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1076,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 5
+      },
+      {
+        "advertisedStart": "2026-06-19T12:52:00.000Z",
+        "code": "harness",
+        "favourite": {
+          "fixedWinPrice": 2.05,
+          "impliedWinPercentage": 48.78,
+          "name": "Aretha Nz",
+          "number": 1,
+          "priceBucket": "$2.00 - $2.49"
+        },
+        "historical": {
+          "historicalDelta": -8.94,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.883,
+            "averageValuePerDollarWithBonusCredit": 1.174,
+            "bonusBetCreditPercentage": 29.07,
+            "bonusBetCredits": 259,
+            "favouriteSelections": 891,
+            "label": "$2.00 - $2.49",
+            "profitLoss": -104.1,
+            "profitLossWithBonusCredit": 154.9,
+            "secondPercentage": 22.11,
+            "seconds": 197,
+            "thirdPercentage": 12.46,
+            "thirds": 111,
+            "totalBonusBetCredit": 259,
+            "totalReturn": 786.9,
+            "totalStake": 891,
+            "totalValueWithBonusCredit": 1045.9,
+            "winPercentage": 39.84,
+            "wins": 355
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.005,
+            "averageValuePerDollarWithBonusCredit": 1.298,
+            "bonusBetCreditPercentage": 29.29,
+            "bonusBetCredits": 58,
+            "favouriteSelections": 198,
+            "label": "11",
+            "profitLoss": 1,
+            "profitLossWithBonusCredit": 59,
+            "secondPercentage": 16.16,
+            "seconds": 32,
+            "thirdPercentage": 13.13,
+            "thirds": 26,
+            "totalBonusBetCredit": 58,
+            "totalReturn": 199,
+            "totalStake": 198,
+            "totalValueWithBonusCredit": 257,
+            "winPercentage": 34.34,
+            "wins": 68
+          }
+        },
+        "marketMover": {
+          "name": "Koojan",
+          "number": 6
+        },
+        "raceCardId": "RacingRaceCard:ecc89764-9bdb-4aed-9296-2e97df5bb89b",
+        "raceName": "$9 Swan Pints Every Friday In Steelo's Ms Pace",
+        "raceNumber": 7,
+        "signal": {
+          "detail": "Historical price-bucket win rate is at least 5 percentage points below the implied win rate.",
+          "label": "Weak historical signal",
+          "tone": "caution"
+        },
+        "starters": 11,
+        "status": "OPEN",
+        "targetRunner": null,
+        "track": "Gloucester Park",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.217,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1089,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Gloucester Park",
+        "country": "AUS",
+        "sourceTrack": "Gloucester Park",
+        "rank": 1
+      },
+      {
+        "advertisedStart": "2026-06-19T13:19:00.000Z",
+        "code": "harness",
+        "favourite": {
+          "fixedWinPrice": 2.15,
+          "impliedWinPercentage": 46.51,
+          "name": "Holy Hecka Nz",
+          "number": 8,
+          "priceBucket": "$2.00 - $2.49"
+        },
+        "historical": {
+          "historicalDelta": -6.67,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.883,
+            "averageValuePerDollarWithBonusCredit": 1.174,
+            "bonusBetCreditPercentage": 29.07,
+            "bonusBetCredits": 259,
+            "favouriteSelections": 891,
+            "label": "$2.00 - $2.49",
+            "profitLoss": -104.1,
+            "profitLossWithBonusCredit": 154.9,
+            "secondPercentage": 22.11,
+            "seconds": 197,
+            "thirdPercentage": 12.46,
+            "thirds": 111,
+            "totalBonusBetCredit": 259,
+            "totalReturn": 786.9,
+            "totalStake": 891,
+            "totalValueWithBonusCredit": 1045.9,
+            "winPercentage": 39.84,
+            "wins": 355
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.005,
+            "averageValuePerDollarWithBonusCredit": 1.298,
+            "bonusBetCreditPercentage": 29.29,
+            "bonusBetCredits": 58,
+            "favouriteSelections": 198,
+            "label": "11",
+            "profitLoss": 1,
+            "profitLossWithBonusCredit": 59,
+            "secondPercentage": 16.16,
+            "seconds": 32,
+            "thirdPercentage": 13.13,
+            "thirds": 26,
+            "totalBonusBetCredit": 58,
+            "totalReturn": 199,
+            "totalStake": 198,
+            "totalValueWithBonusCredit": 257,
+            "winPercentage": 34.34,
+            "wins": 68
+          }
+        },
+        "marketMover": {
+          "name": "Holy Hecka Nz",
+          "number": 8
+        },
+        "raceCardId": "RacingRaceCard:cec9af2b-adec-4bf7-96e9-19999d29349b",
+        "raceName": "Trotsynd - Join The Fun Ms Pace",
+        "raceNumber": 8,
+        "signal": {
+          "detail": "Historical price-bucket win rate is at least 5 percentage points below the implied win rate.",
+          "label": "Weak historical signal",
+          "tone": "caution"
+        },
+        "starters": 11,
+        "status": "OPEN",
+        "targetRunner": null,
+        "track": "Gloucester Park",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.217,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1089,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Gloucester Park",
+        "country": "AUS",
+        "sourceTrack": "Gloucester Park",
+        "rank": 2
+      },
+      {
+        "advertisedStart": "2026-06-19T07:10:00.000Z",
+        "code": "harness",
+        "favourite": {
+          "fixedWinPrice": 1.75,
+          "impliedWinPercentage": 57.14,
+          "name": "War Party",
+          "number": 8,
+          "priceBucket": "$1.50 - $1.99"
+        },
+        "historical": {
+          "historicalDelta": -2.81,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.935,
+            "averageValuePerDollarWithBonusCredit": 1.153,
+            "bonusBetCreditPercentage": 21.78,
+            "bonusBetCredits": 176,
+            "favouriteSelections": 808,
+            "label": "$1.50 - $1.99",
+            "profitLoss": -52.35,
+            "profitLossWithBonusCredit": 123.65,
+            "secondPercentage": 17.7,
+            "seconds": 143,
+            "thirdPercentage": 11.51,
+            "thirds": 93,
+            "totalBonusBetCredit": 176,
+            "totalReturn": 755.65,
+            "totalStake": 808,
+            "totalValueWithBonusCredit": 931.65,
+            "winPercentage": 54.33,
+            "wins": 439
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.005,
+            "averageValuePerDollarWithBonusCredit": 1.298,
+            "bonusBetCreditPercentage": 29.29,
+            "bonusBetCredits": 58,
+            "favouriteSelections": 198,
+            "label": "11",
+            "profitLoss": 1,
+            "profitLossWithBonusCredit": 59,
+            "secondPercentage": 16.16,
+            "seconds": 32,
+            "thirdPercentage": 13.13,
+            "thirds": 26,
+            "totalBonusBetCredit": 58,
+            "totalReturn": 199,
+            "totalStake": 198,
+            "totalValueWithBonusCredit": 257,
+            "winPercentage": 34.34,
+            "wins": 68
+          }
+        },
+        "marketMover": {
+          "name": "War Party",
+          "number": 8
+        },
+        "raceCardId": "RacingRaceCard:0d71ca3c-e8a0-4934-8d88-966ba50dbaa5",
+        "raceName": "BETA VET ECHINACEA + RRM MBL PACE",
+        "raceNumber": 6,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 11,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Cambridge",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.204,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1006,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Cambridge",
+        "country": "NZ",
+        "sourceTrack": "Cambridge",
+        "rank": 3
+      },
+      {
+        "advertisedStart": "2026-06-19T07:29:00.000Z",
+        "code": "harness",
+        "favourite": {
+          "fixedWinPrice": 2.25,
+          "impliedWinPercentage": 44.44,
+          "name": "Treacherous Dan",
+          "number": 12,
+          "priceBucket": "$2.00 - $2.49"
+        },
+        "historical": {
+          "historicalDelta": -4.6,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.883,
+            "averageValuePerDollarWithBonusCredit": 1.174,
+            "bonusBetCreditPercentage": 29.07,
+            "bonusBetCredits": 259,
+            "favouriteSelections": 891,
+            "label": "$2.00 - $2.49",
+            "profitLoss": -104.1,
+            "profitLossWithBonusCredit": 154.9,
+            "secondPercentage": 22.11,
+            "seconds": 197,
+            "thirdPercentage": 12.46,
+            "thirds": 111,
+            "totalBonusBetCredit": 259,
+            "totalReturn": 786.9,
+            "totalStake": 891,
+            "totalValueWithBonusCredit": 1045.9,
+            "winPercentage": 39.84,
+            "wins": 355
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.002,
+            "averageValuePerDollarWithBonusCredit": 1.252,
+            "bonusBetCreditPercentage": 25,
+            "bonusBetCredits": 34,
+            "favouriteSelections": 136,
+            "label": "12",
+            "profitLoss": 0.23,
+            "profitLossWithBonusCredit": 34.23,
+            "secondPercentage": 15.44,
+            "seconds": 21,
+            "thirdPercentage": 9.56,
+            "thirds": 13,
+            "totalBonusBetCredit": 34,
+            "totalReturn": 136.23,
+            "totalStake": 136,
+            "totalValueWithBonusCredit": 170.23,
+            "winPercentage": 38.97,
+            "wins": 53
+          }
+        },
+        "marketMover": {
+          "name": "Pistol Pearce",
+          "number": 3
+        },
+        "raceCardId": "RacingRaceCard:6b148795-0dd3-4396-9a37-e4b11a1a940e",
+        "raceName": "Betfocus Pace",
+        "raceNumber": 1,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 12,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Geelong",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.201,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1027,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Geelong",
+        "country": "AUS",
+        "sourceTrack": "Geelong",
+        "rank": 4
+      },
+      {
+        "advertisedStart": "2026-06-19T08:19:00.000Z",
+        "code": "harness",
+        "favourite": {
+          "fixedWinPrice": 2.4,
+          "impliedWinPercentage": 41.67,
+          "name": "Scrunch",
+          "number": 1,
+          "priceBucket": "$2.00 - $2.49"
+        },
+        "historical": {
+          "historicalDelta": -1.83,
+          "priceBucket": {
+            "averageReturnPerDollar": 0.883,
+            "averageValuePerDollarWithBonusCredit": 1.174,
+            "bonusBetCreditPercentage": 29.07,
+            "bonusBetCredits": 259,
+            "favouriteSelections": 891,
+            "label": "$2.00 - $2.49",
+            "profitLoss": -104.1,
+            "profitLossWithBonusCredit": 154.9,
+            "secondPercentage": 22.11,
+            "seconds": 197,
+            "thirdPercentage": 12.46,
+            "thirds": 111,
+            "totalBonusBetCredit": 259,
+            "totalReturn": 786.9,
+            "totalStake": 891,
+            "totalValueWithBonusCredit": 1045.9,
+            "winPercentage": 39.84,
+            "wins": 355
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 1.002,
+            "averageValuePerDollarWithBonusCredit": 1.252,
+            "bonusBetCreditPercentage": 25,
+            "bonusBetCredits": 34,
+            "favouriteSelections": 136,
+            "label": "12",
+            "profitLoss": 0.23,
+            "profitLossWithBonusCredit": 34.23,
+            "secondPercentage": 15.44,
+            "seconds": 21,
+            "thirdPercentage": 9.56,
+            "thirds": 13,
+            "totalBonusBetCredit": 34,
+            "totalReturn": 136.23,
+            "totalStake": 136,
+            "totalValueWithBonusCredit": 170.23,
+            "winPercentage": 38.97,
+            "wins": 53
+          }
+        },
+        "marketMover": {
+          "name": "Scrunch",
+          "number": 1
+        },
+        "raceCardId": "RacingRaceCard:45ae5e58-c180-4225-bbd9-f0bcdafa0493",
+        "raceName": "LAST CHANCE TO BOOK FOR PLUMBERS NIGHT 26/06 PACE",
+        "raceNumber": 8,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 12,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Addington",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.201,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1027,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Addington",
+        "country": "NZ",
+        "sourceTrack": "Addington",
+        "rank": 5
+      },
+      {
+        "advertisedStart": "2026-06-19T02:39:00.000Z",
+        "code": "greyhound",
+        "favourite": {
+          "fixedWinPrice": 3.7,
+          "impliedWinPercentage": 27.03,
+          "name": "Burnt Tangerine",
+          "number": 4,
+          "priceBucket": "$3.50 - $3.99"
+        },
+        "historical": {
+          "historicalDelta": 0.66,
+          "priceBucket": {
+            "averageReturnPerDollar": 1.007,
+            "averageValuePerDollarWithBonusCredit": 1.333,
+            "bonusBetCreditPercentage": 32.69,
+            "bonusBetCredits": 85,
+            "favouriteSelections": 260,
+            "label": "$3.50 - $3.99",
+            "profitLoss": 1.7,
+            "profitLossWithBonusCredit": 86.7,
+            "secondPercentage": 21.54,
+            "seconds": 56,
+            "thirdPercentage": 14.62,
+            "thirds": 38,
+            "totalBonusBetCredit": 85,
+            "totalReturn": 261.7,
+            "totalStake": 260,
+            "totalValueWithBonusCredit": 346.7,
+            "winPercentage": 27.69,
+            "wins": 72
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.891,
+            "averageValuePerDollarWithBonusCredit": 1.233,
+            "bonusBetCreditPercentage": 34.24,
+            "bonusBetCredits": 316,
+            "favouriteSelections": 923,
+            "label": "8",
+            "profitLoss": -100.71,
+            "profitLossWithBonusCredit": 215.29,
+            "secondPercentage": 18.85,
+            "seconds": 174,
+            "thirdPercentage": 15.38,
+            "thirds": 142,
+            "totalBonusBetCredit": 316,
+            "totalReturn": 822.29,
+            "totalStake": 923,
+            "totalValueWithBonusCredit": 1138.29,
+            "winPercentage": 39.33,
+            "wins": 363
+          }
+        },
+        "marketMover": {
+          "name": "Untamed Envy",
+          "number": 6
+        },
+        "raceCardId": "RacingRaceCard:301574f7-12bf-4a68-96be-06620c6b6dde",
+        "raceName": "Drew Wooler",
+        "raceNumber": 2,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 8,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Townsville",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.298,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1183,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Townsville",
+        "country": "AUS",
+        "sourceTrack": "Townsville",
+        "rank": 1
+      },
+      {
+        "advertisedStart": "2026-06-19T05:20:00.000Z",
+        "code": "greyhound",
+        "favourite": {
+          "fixedWinPrice": 3.7,
+          "impliedWinPercentage": 27.03,
+          "name": "Black Falcon",
+          "number": 6,
+          "priceBucket": "$3.50 - $3.99"
+        },
+        "historical": {
+          "historicalDelta": 0.66,
+          "priceBucket": {
+            "averageReturnPerDollar": 1.007,
+            "averageValuePerDollarWithBonusCredit": 1.333,
+            "bonusBetCreditPercentage": 32.69,
+            "bonusBetCredits": 85,
+            "favouriteSelections": 260,
+            "label": "$3.50 - $3.99",
+            "profitLoss": 1.7,
+            "profitLossWithBonusCredit": 86.7,
+            "secondPercentage": 21.54,
+            "seconds": 56,
+            "thirdPercentage": 14.62,
+            "thirds": 38,
+            "totalBonusBetCredit": 85,
+            "totalReturn": 261.7,
+            "totalStake": 260,
+            "totalValueWithBonusCredit": 346.7,
+            "winPercentage": 27.69,
+            "wins": 72
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.891,
+            "averageValuePerDollarWithBonusCredit": 1.233,
+            "bonusBetCreditPercentage": 34.24,
+            "bonusBetCredits": 316,
+            "favouriteSelections": 923,
+            "label": "8",
+            "profitLoss": -100.71,
+            "profitLossWithBonusCredit": 215.29,
+            "secondPercentage": 18.85,
+            "seconds": 174,
+            "thirdPercentage": 15.38,
+            "thirds": 142,
+            "totalBonusBetCredit": 316,
+            "totalReturn": 822.29,
+            "totalStake": 923,
+            "totalValueWithBonusCredit": 1138.29,
+            "winPercentage": 39.33,
+            "wins": 363
+          }
+        },
+        "marketMover": {
+          "name": "Outlaw Billy",
+          "number": 2
+        },
+        "raceCardId": "RacingRaceCard:8a9e709d-97f4-4d1d-bc1c-35b6a0f3fc35",
+        "raceName": "Essery Racing",
+        "raceNumber": 10,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 8,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Townsville",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.298,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1183,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Townsville",
+        "country": "AUS",
+        "sourceTrack": "Townsville",
+        "rank": 2
+      },
+      {
+        "advertisedStart": "2026-06-19T06:01:00.000Z",
+        "code": "greyhound",
+        "favourite": {
+          "fixedWinPrice": 3.8,
+          "impliedWinPercentage": 26.32,
+          "name": "Miss Rosalea",
+          "number": 5,
+          "priceBucket": "$3.50 - $3.99"
+        },
+        "historical": {
+          "historicalDelta": 1.37,
+          "priceBucket": {
+            "averageReturnPerDollar": 1.007,
+            "averageValuePerDollarWithBonusCredit": 1.333,
+            "bonusBetCreditPercentage": 32.69,
+            "bonusBetCredits": 85,
+            "favouriteSelections": 260,
+            "label": "$3.50 - $3.99",
+            "profitLoss": 1.7,
+            "profitLossWithBonusCredit": 86.7,
+            "secondPercentage": 21.54,
+            "seconds": 56,
+            "thirdPercentage": 14.62,
+            "thirds": 38,
+            "totalBonusBetCredit": 85,
+            "totalReturn": 261.7,
+            "totalStake": 260,
+            "totalValueWithBonusCredit": 346.7,
+            "winPercentage": 27.69,
+            "wins": 72
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.891,
+            "averageValuePerDollarWithBonusCredit": 1.233,
+            "bonusBetCreditPercentage": 34.24,
+            "bonusBetCredits": 316,
+            "favouriteSelections": 923,
+            "label": "8",
+            "profitLoss": -100.71,
+            "profitLossWithBonusCredit": 215.29,
+            "secondPercentage": 18.85,
+            "seconds": 174,
+            "thirdPercentage": 15.38,
+            "thirds": 142,
+            "totalBonusBetCredit": 316,
+            "totalReturn": 822.29,
+            "totalStake": 923,
+            "totalValueWithBonusCredit": 1138.29,
+            "winPercentage": 39.33,
+            "wins": 363
+          }
+        },
+        "marketMover": {
+          "name": "Miss Rosalea",
+          "number": 5
+        },
+        "raceCardId": "RacingRaceCard:3ea42645-b572-450a-a95a-a0137e737fb4",
+        "raceName": "Bet Nation Pathways H",
+        "raceNumber": 12,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 8,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "Townsville",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.298,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1183,
+          "tone": "positive"
+        },
+        "canonicalTrack": "Townsville",
+        "country": "AUS",
+        "sourceTrack": "Townsville",
+        "rank": 3
+      },
+      {
+        "advertisedStart": "2026-06-19T07:53:00.000Z",
+        "code": "greyhound",
+        "favourite": {
+          "fixedWinPrice": 3.6,
+          "impliedWinPercentage": 27.78,
+          "name": "Skinny Marie",
+          "number": 4,
+          "priceBucket": "$3.50 - $3.99"
+        },
+        "historical": {
+          "historicalDelta": -0.09,
+          "priceBucket": {
+            "averageReturnPerDollar": 1.007,
+            "averageValuePerDollarWithBonusCredit": 1.333,
+            "bonusBetCreditPercentage": 32.69,
+            "bonusBetCredits": 85,
+            "favouriteSelections": 260,
+            "label": "$3.50 - $3.99",
+            "profitLoss": 1.7,
+            "profitLossWithBonusCredit": 86.7,
+            "secondPercentage": 21.54,
+            "seconds": 56,
+            "thirdPercentage": 14.62,
+            "thirds": 38,
+            "totalBonusBetCredit": 85,
+            "totalReturn": 261.7,
+            "totalStake": 260,
+            "totalValueWithBonusCredit": 346.7,
+            "winPercentage": 27.69,
+            "wins": 72
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.891,
+            "averageValuePerDollarWithBonusCredit": 1.233,
+            "bonusBetCreditPercentage": 34.24,
+            "bonusBetCredits": 316,
+            "favouriteSelections": 923,
+            "label": "8",
+            "profitLoss": -100.71,
+            "profitLossWithBonusCredit": 215.29,
+            "secondPercentage": 18.85,
+            "seconds": 174,
+            "thirdPercentage": 15.38,
+            "thirds": 142,
+            "totalBonusBetCredit": 316,
+            "totalReturn": 822.29,
+            "totalStake": 923,
+            "totalValueWithBonusCredit": 1138.29,
+            "winPercentage": 39.33,
+            "wins": 363
+          }
+        },
+        "marketMover": {
+          "name": "Blue Chanelle",
+          "number": 6
+        },
+        "raceCardId": "RacingRaceCard:b25508d7-c819-4e0f-9707-f405c1103197",
+        "raceName": "Greyhound Products Direct",
+        "raceNumber": 10,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 8,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "The Gardens",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.298,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1183,
+          "tone": "positive"
+        },
+        "canonicalTrack": "The Gardens",
+        "country": "AUS",
+        "sourceTrack": "The Gardens",
+        "rank": 4
+      },
+      {
+        "advertisedStart": "2026-06-19T08:13:00.000Z",
+        "code": "greyhound",
+        "favourite": {
+          "fixedWinPrice": 3.6,
+          "impliedWinPercentage": 27.78,
+          "name": "Zipping Daly",
+          "number": 4,
+          "priceBucket": "$3.50 - $3.99"
+        },
+        "historical": {
+          "historicalDelta": -0.09,
+          "priceBucket": {
+            "averageReturnPerDollar": 1.007,
+            "averageValuePerDollarWithBonusCredit": 1.333,
+            "bonusBetCreditPercentage": 32.69,
+            "bonusBetCredits": 85,
+            "favouriteSelections": 260,
+            "label": "$3.50 - $3.99",
+            "profitLoss": 1.7,
+            "profitLossWithBonusCredit": 86.7,
+            "secondPercentage": 21.54,
+            "seconds": 56,
+            "thirdPercentage": 14.62,
+            "thirds": 38,
+            "totalBonusBetCredit": 85,
+            "totalReturn": 261.7,
+            "totalStake": 260,
+            "totalValueWithBonusCredit": 346.7,
+            "winPercentage": 27.69,
+            "wins": 72
+          },
+          "starterBucket": {
+            "averageReturnPerDollar": 0.891,
+            "averageValuePerDollarWithBonusCredit": 1.233,
+            "bonusBetCreditPercentage": 34.24,
+            "bonusBetCredits": 316,
+            "favouriteSelections": 923,
+            "label": "8",
+            "profitLoss": -100.71,
+            "profitLossWithBonusCredit": 215.29,
+            "secondPercentage": 18.85,
+            "seconds": 174,
+            "thirdPercentage": 15.38,
+            "thirds": 142,
+            "totalBonusBetCredit": 316,
+            "totalReturn": 822.29,
+            "totalStake": 923,
+            "totalValueWithBonusCredit": 1138.29,
+            "winPercentage": 39.33,
+            "wins": 363
+          }
+        },
+        "marketMover": {
+          "name": "Wade's Edge",
+          "number": 3
+        },
+        "raceCardId": "RacingRaceCard:5f26ee4a-9107-42b0-a660-a6dd7cce2e56",
+        "raceName": "Mark Hughes Foundation",
+        "raceNumber": 11,
+        "signal": {
+          "detail": "Historical price-bucket win rate is close to the implied win rate.",
+          "label": "Neutral historical signal",
+          "tone": "neutral"
+        },
+        "starters": 8,
+        "status": "FINAL",
+        "targetRunner": null,
+        "track": "The Gardens",
+        "candidate": {
+          "blendedCashPlusBonusAverage": 1.298,
+          "detail": "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+          "label": "Positive candidate",
+          "sampleSize": 1183,
+          "tone": "positive"
+        },
+        "canonicalTrack": "The Gardens",
+        "country": "AUS",
+        "sourceTrack": "The Gardens",
+        "rank": 5
+      }
+    ],
+    "eligibleRaceCount": 157,
+    "errors": [],
+    "note": "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline. Scores blend historical cash-plus-bonus averages for matching favourite price and starter-count buckets; this is not stake sizing or automated wagering advice.",
+    "provider": "Betcha",
+    "scannedMeetings": 15,
+    "scannedRaceCount": 157,
+    "source": "betcha"
+  },
+  "generatedAt": "2026-06-19T09:06:25.605Z",
+  "generatedAtNz": "19/06/2026, 09:06:25 pm NZST",
+  "note": "Public racing promotions are matched to current race cards where a race-card URL is available. Signals are statistical comparisons only, not staking advice or automated wagering instructions.",
+  "sourceDate": "2026-06-19",
+  "sourceTimeZone": "Pacific/Auckland",
+  "sources": [
+    {
+      "allPromotionCount": 28,
+      "allPromotions": [
+        {
+          "buttonText": "Bet Now",
+          "description": "Bet $10+ on the All Whites to progress past the group stage and get $10 Bonus Cash for every goal they score. Bonus Cash paid after All Whites match. Max Bonus $10 per goal. One entry per person. Available markets to bet on: 'NZ to Qualify from group G' and 'To Qualify from Group G - NZ'",
+          "expiry": "2026-06-22T01:00:00.000Z",
+          "id": "Promotion:3L2si0prbMiE9zIiFT227M",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-groups/group-g/ccd725d1-2563-4259-9cd8-3f36999d883b"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "Join Betcha and get up to $100 in Bonus Cash when you sign up and deposit $50!",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:7MRDGqndO45hQ7wSIt4v6k",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/signup"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Super boosted odds for Cam Roigard to Score a Try in the Hurricanes v Chiefs game. Was $2.30 Now $3.00. Max Bet $20, one per person.",
+          "expiry": "2026-06-20T07:05:00.000Z",
+          "id": "Promotion:4wTMeRy7Ls60MJU1U1pONN",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/rugby-union/super-rugby-pacific/hurricanes-v-chiefs/539cbf66-8b17-4534-86cc-22a5515d239d"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Head to Head bet on any UFC Fight Night: Kape vs Horiguchi main card fight and if your fighter loses by KO/TKO/SUB in the final round, you’ll get paid out as a winner. Applies to the first $250 staked.",
+          "expiry": "2026-06-21T02:15:00.000Z",
+          "id": "Promotion:1IMao25jk7c5TCfROFMEoM",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/mma/ufc-fight-night-kape-vs-horiguchi"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Multi Rescue tool when you place a 4+ Leg Multi on UFC Fight Night: Kape vs Horiguchi and if 1 leg fails, get up to $50 back in Bonus Cash!",
+          "expiry": "2026-06-21T02:15:00.000Z",
+          "id": "Promotion:6XzMR3JhCkTuLUhFp7h0Tt",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/mma/ufc-fight-night-kape-vs-horiguchi"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "Signup to betcha, add a friends username when joining, deposit $20 and both receive $20 Bonus Cash. ",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:S1Vnzz3xWh7WOQRehQlev",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/signup"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Super SGM Cover tool when placing a 3+, 6+ or 9+ leg Same Game Multi on the Hurricanes v Chiefs Super Rugby Final and if it fails by 1, 2 or 3 legs get up to $50 back in Bonus Cash.",
+          "expiry": "2026-06-20T07:05:00.000Z",
+          "id": "Promotion:2l0zfCxfKXt07YmVv3MPu3",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/rugby-union/super-rugby-pacific"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Multi Rescue Tool when placing a 4+ leg multi and if one leg fails get your stake back in Bonus Cash up to $50. T&Cs apply.",
+          "expiry": "2026-07-19T03:00:00.000Z",
+          "id": "Promotion:35TWtBNAYpicKYXYJb1I5H",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Check out Tim Payne Specials on the Football World Cup! T&Cs apply.",
+          "expiry": "2026-07-16T03:00:00.000Z",
+          "id": "Promotion:3d3loPutpBKkMx5Odu8gKy",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/new-zealand-world-cup-hub/new-zealand-world-cup-specials/bcf0abce-9851-41f5-9b20-ac9b8b00753f"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Super SGM Cover tool when placing a 3+, 6+ or 9+ leg Same Game Multi on the Football World Cup and if it fails by 1, 2 or 3 legs get up to $50 back in Bonus Cash.",
+          "expiry": "2026-07-20T04:00:00.000Z",
+          "id": "Promotion:6X0MMBj69DNKrmRwIPVEJs",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Head to Head bet on the NRL this Friday and if your selection is ahead by 8 or more points at half-time, we'll pay you out as a winner. Applies to the first $250 staked. Single bets only.",
+          "expiry": "2026-06-19T10:00:00.000Z",
+          "id": "Promotion:5hiTmTeEf0y4TojG8nLPuX",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/rugby-league/nrl"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Super boosted odds for New Zealand to score in the New Zealand v Egypt game. Was $1.75 Now $2.50. Max Bet $20, one per person.",
+          "expiry": "2026-06-22T01:00:00.000Z",
+          "id": "Promotion:5DmHMycyEuURPQUzziB7Hq",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026/new-zealand-vs-egypt/512af76a-85b2-4c16-888f-79b801f74961"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "Live in play betting, you betcha! From kick off to the final siren, we’ve got heaps of live in-play betting markets for you to choose from.",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:3vz5hOzgQfpOqHaaPHj05J",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/sports/live"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "Stream live vision & bet live, you betcha! Don’t miss a moment of the Live Sports and Racing action!",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:1fg5dvT5jDaEhiEitvmlkO",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "Select",
+          "description": "Fast withdrawals, you betcha! We’ve got the fastest withdrawal process in the game straight to your NZ bank account - no fluff, no fuss!",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:72vWvKNfNtb5LCKIATUl4b",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/account"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "More ways to multi, you betcha! Unlock bigger odds and better payouts with powerful Same Game Multi tools built to boost your bet.",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:6dC2PcJajaHQFb10d8peOy",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Track your bets live and receive instant updates on your in play bets.",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:4ugWMaiM4wBdat8GlynDZb",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/external?url=https://help.betcha.co.nz/s/article/Bet-Tracker-btc"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Select up to Top 10 on select races with Place+",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:3clB6m0A8WSszSJhVmb3LG",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "Join",
+          "description": "Join the Radio Hauraki Potheads Hosted Pot for the Warriors v Cowboys this week. T&Cs apply.",
+          "expiry": "2026-06-21T04:00:00.000Z",
+          "id": "Promotion:6sgYpwCt696HPO9hSO4Hr7",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/hosted-group/BACKBONE"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Odds Win bet on the #4 betcha Rug at Whanganui Straight and if it finishes 2nd or 3rd, get up to $50 back as Bonus Cash.",
+          "expiry": "2026-06-22T03:52:00.000Z",
+          "id": "Promotion:3UKHb7mJJR6Eo8j1vzhMrl",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/hatrick-straight/284f6b49-54a6-4b57-b341-aed9b94c0ad1"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Bet Back Tool in your Betslip on Races 1-2 at Palmerston North and if your runners comes 2nd or 3rd, get up $50 back as Bonus Cash. Bet Back Tool is only available to use on the day of race, on fixed odds win bets, and on races with 5 or more runners.",
+          "expiry": "2026-06-23T00:45:00.000Z",
+          "id": "Promotion:4OS2FtE6fwh0HZOK47S5wJ",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/manawatu/7593bdc4-85a0-41ba-b598-8b1ba31013c6"
+        },
+        {
+          "buttonText": "More Info",
+          "description": "Signup to betcha, add a friends username when joining, deposit $20 and both receive $20 Bonus Cash. ",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:3tjbufwODY3azbd4IR4qL6",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/playbook/2025/09/20-bonus-cash-is-just-a-friend-away/"
+        },
+        {
+          "buttonText": "Select",
+          "description": "Fast withdrawals, you betcha! We’ve got the fastest withdrawal process in the game straight to your NZ bank account - no fluff, no fuss!",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:3JbmzgYOnF1SH3YatB8NYc",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/account"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Stream live vision & bet live, you betcha! Don’t miss a moment of the Live Sports and Racing action!",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:1cXPNJtLYRROClouxDOm12",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "Select",
+          "description": "The protection your bet deserves on top sports markets.",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:5U0mqTty3NfnLZyRgsA3EN",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/external?url=https://www.betcha.co.nz/playbook/2025/08/betcha-guarantee/"
+        },
+        {
+          "buttonText": "Select",
+          "description": "More ways to multi, you betcha! Unlock bigger odds and better payouts with powerful Same Game Multi tools built to boost your bet.",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:1vhLbcjgImfU8T3SJ2r9dH",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "For Immediate free and confidential external support call Gambling Helpline 0800 654 655 or free text to 8006",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:59RNQmghqSWkOwS3T2K3F3",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/account/safer-betting"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "For Immediate free and confidential external support call Gambling Helpline 0800 654 655 or free text to 8006",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:dX6Dfe76QjRA8ym5zRkRs",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/account/safer-betting"
+        }
+      ],
+      "promotionPageCount": 1,
+      "racingPromotionCount": 5,
+      "recommendations": [
+        {
+          "buttonText": "Join Now",
+          "description": "Stream live vision & bet live, you betcha! Don’t miss a moment of the Live Sports and Racing action!",
+          "expiry": "2026-07-07T11:59:00.000Z",
+          "id": "Promotion:1fg5dvT5jDaEhiEitvmlkO",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/sports",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Select up to Top 10 on select races with Place+",
+          "expiry": "2026-07-07T04:00:00.000Z",
+          "id": "Promotion:3clB6m0A8WSszSJhVmb3LG",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Join",
+          "description": "Join the Radio Hauraki Potheads Hosted Pot for the Warriors v Cowboys this week. T&Cs apply.",
+          "expiry": "2026-06-21T04:00:00.000Z",
+          "id": "Promotion:6sgYpwCt696HPO9hSO4Hr7",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/hosted-group/BACKBONE",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Odds Win bet on the #4 betcha Rug at Whanganui Straight and if it finishes 2nd or 3rd, get up to $50 back as Bonus Cash.",
+          "expiry": "2026-06-22T03:52:00.000Z",
+          "id": "Promotion:3UKHb7mJJR6Eo8j1vzhMrl",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/hatrick-straight/284f6b49-54a6-4b57-b341-aed9b94c0ad1",
+          "coverage": "race_specific",
+          "raceRange": null,
+          "targetRunnerNumber": 4,
+          "races": [
+            {
+              "advertisedStart": "2026-06-22T00:59:00.000Z",
+              "code": "greyhound",
+              "favourite": null,
+              "historical": {
+                "historicalDelta": null,
+                "priceBucket": null,
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.891,
+                  "averageValuePerDollarWithBonusCredit": 1.233,
+                  "bonusBetCreditPercentage": 34.24,
+                  "bonusBetCredits": 316,
+                  "favouriteSelections": 923,
+                  "label": "8",
+                  "profitLoss": -100.71,
+                  "profitLossWithBonusCredit": 215.29,
+                  "secondPercentage": 18.85,
+                  "seconds": 174,
+                  "thirdPercentage": 15.38,
+                  "thirds": 142,
+                  "totalBonusBetCredit": 316,
+                  "totalReturn": 822.29,
+                  "totalStake": 923,
+                  "totalValueWithBonusCredit": 1138.29,
+                  "winPercentage": 39.33,
+                  "wins": 363
+                }
+              },
+              "marketMover": null,
+              "raceCardId": "RacingRaceCard:284f6b49-54a6-4b57-b341-aed9b94c0ad1",
+              "raceName": "WELCOME TO WANGANUI STRAIGHT TRACK C1 313M  PBD",
+              "raceNumber": 1,
+              "signal": {
+                "detail": "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
+                "label": "Price unavailable",
+                "tone": "muted"
+              },
+              "starters": 8,
+              "status": "OPEN",
+              "targetRunner": {
+                "fixedWinPrice": null,
+                "name": "Order For Brax",
+                "number": 4
+              },
+              "track": "Whanganui Straight"
+            }
+          ]
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate your Bet Back Tool in your Betslip on Races 1-2 at Palmerston North and if your runners comes 2nd or 3rd, get up $50 back as Bonus Cash. Bet Back Tool is only available to use on the day of race, on fixed odds win bets, and on races with 5 or more runners.",
+          "expiry": "2026-06-23T00:45:00.000Z",
+          "id": "Promotion:4OS2FtE6fwh0HZOK47S5wJ",
+          "provider": "Betcha",
+          "providerKey": "betcha",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/manawatu/7593bdc4-85a0-41ba-b598-8b1ba31013c6",
+          "coverage": "race_specific",
+          "raceRange": {
+            "from": 1,
+            "to": 2
+          },
+          "targetRunnerNumber": null,
+          "races": [
+            {
+              "advertisedStart": "2026-06-23T00:25:00.000Z",
+              "code": "greyhound",
+              "favourite": null,
+              "historical": {
+                "historicalDelta": null,
+                "priceBucket": null,
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.914,
+                  "averageValuePerDollarWithBonusCredit": 1.141,
+                  "bonusBetCreditPercentage": 22.64,
+                  "bonusBetCredits": 96,
+                  "favouriteSelections": 424,
+                  "label": "6",
+                  "profitLoss": -36.42,
+                  "profitLossWithBonusCredit": 59.58,
+                  "secondPercentage": 22.64,
+                  "seconds": 96,
+                  "thirdPercentage": 11.56,
+                  "thirds": 49,
+                  "totalBonusBetCredit": 96,
+                  "totalReturn": 387.58,
+                  "totalStake": 424,
+                  "totalValueWithBonusCredit": 483.58,
+                  "winPercentage": 46.93,
+                  "wins": 199
+                }
+              },
+              "marketMover": null,
+              "raceCardId": "RacingRaceCard:7593bdc4-85a0-41ba-b598-8b1ba31013c6",
+              "raceName": "PROFESSIONAL CONCRETE SERVICES LTD",
+              "raceNumber": 1,
+              "signal": {
+                "detail": "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
+                "label": "Price unavailable",
+                "tone": "muted"
+              },
+              "starters": 6,
+              "status": "OPEN",
+              "targetRunner": null,
+              "track": "Palmerston North"
+            },
+            {
+              "advertisedStart": "2026-06-23T00:45:00.000Z",
+              "code": "greyhound",
+              "favourite": null,
+              "historical": {
+                "historicalDelta": null,
+                "priceBucket": null,
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.822,
+                  "averageValuePerDollarWithBonusCredit": 1.143,
+                  "bonusBetCreditPercentage": 32.09,
+                  "bonusBetCredits": 86,
+                  "favouriteSelections": 268,
+                  "label": "9",
+                  "profitLoss": -47.62,
+                  "profitLossWithBonusCredit": 38.38,
+                  "secondPercentage": 20.15,
+                  "seconds": 54,
+                  "thirdPercentage": 11.94,
+                  "thirds": 32,
+                  "totalBonusBetCredit": 86,
+                  "totalReturn": 220.38,
+                  "totalStake": 268,
+                  "totalValueWithBonusCredit": 306.38,
+                  "winPercentage": 33.58,
+                  "wins": 90
+                }
+              },
+              "marketMover": null,
+              "raceCardId": "RacingRaceCard:8d2fecf6-2f6c-4f36-b2f3-d71c26c8e549",
+              "raceName": "SPORTZ BAR WANGANUI PBD",
+              "raceNumber": 2,
+              "signal": {
+                "detail": "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
+                "label": "Price unavailable",
+                "tone": "muted"
+              },
+              "starters": 9,
+              "status": "OPEN",
+              "targetRunner": null,
+              "track": "Palmerston North"
+            }
+          ]
+        }
+      ],
+      "source": "betcha"
+    },
+    {
+      "allPromotionCount": 24,
+      "allPromotions": [
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a $10+ bet on any World Cup Group Stage match to earn entries into regular prize draws, including a chance to win 1 of 10 $5,000 Bonus Cash prizes. Min odds $1.20. T&Cs apply.",
+          "expiry": "2026-07-20T04:00:00.000Z",
+          "id": "Promotion:4VKrcjwdtf9WOwkhKjeoBo",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "Place a First Goal Scorer bet on selected World Cup matches, and if your player doesn't score first but scores any other time, get up to $25 back as Bonus Cash. One per selected match. T&Cs apply.\n",
+          "expiry": "2026-07-20T04:00:00.000Z",
+          "id": "Promotion:2BQMrcUkROKZOx3wFiyS9O",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 3+ leg Same Game Multi on any NRL game this week and if 1 leg fails, get your stake back in Bonus Cash. Max Bonus Varies. One per day.",
+          "expiry": "2026-06-21T08:15:00.000Z",
+          "id": "Promotion:2ATZ7wYNs6TlY2dJiIVe5d",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/sports/rugby-league/nrl"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a First Goal Scorer bet on selected World Cup matches, and if your player doesn't score first but scores any other time, get up to $25 back as Bonus Cash. One per selected match. T&Cs apply.",
+          "expiry": "2026-07-20T04:00:00.000Z",
+          "id": "Promotion:1OYFFEBl4ZK3w5ycN8LVX8",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026/usa-vs-australia/858883c5-6a4c-4fa3-88e0-1cfe784ce9f6"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Boosted odds on Any 3 of  Thomas Jenkins, Tom Trbojevic, Taine Tuaupiki & Moses Leo to Score a Try. Singles bets only. Max bet $20. T&Cs apply.",
+          "expiry": "2026-06-20T07:29:00.000Z",
+          "id": "Promotion:4HZyPPrD2vK0NtPVbTmHjv",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/rugby-league/nrl/3-from-4-boost/1a1af6ce-a958-4b7c-96bb-077b62c751dc"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 3+ leg Same Game Multi on the 2026 US Open and if 1 leg fails, get up to $50 back in Bonus Cash. One per event.",
+          "expiry": "2026-06-21T11:59:00.000Z",
+          "id": "Promotion:70Gpz5T0xjwFhTSfappAaF",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/golf/us-open/2026-us-open/f234db77-c92a-4163-9be5-46af79a5e58e#same-game-multi"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Odds Win bet on selected Bonus Back races at Ellerslie & Ipswich and if your runner finishes 2nd or 3rd, get your stake back in Bonus Cash. Max Bonus Varies. T&Cs apply.",
+          "expiry": "2026-06-20T02:18:00.000Z",
+          "id": "Promotion:2dFYvz6ZtMpE0aHptkGozW",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 3+ leg Same Game Multi on the Hurricanes v Chiefs Super Rugby Pacific Final and if 1 leg fails get your stake back in Bonus Cash. One refund per game. Max Bonus Varies.",
+          "expiry": "2026-06-20T07:05:00.000Z",
+          "id": "Promotion:NqoZZwRiKQJIYNV0H3gIl",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/sports/rugby-union/super-rugby-pacific/hurricanes-v-chiefs/539cbf66-8b17-4534-86cc-22a5515d239d"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate Odds Surge for bigger odds in ALL RACES at Riccarton this Saturday. One bet per race. Max Bet $100.",
+          "expiry": "2026-06-20T03:50:00.000Z",
+          "id": "Promotion:RRI3hdn6agcYTiecmwSvE",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/riccarton/6d8f3543-20f5-4bba-bb23-0e2f511d4c8e"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on UFC Fight Night and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once per day. Excludes Same Game Multis.",
+          "expiry": "2026-06-21T00:45:00.000Z",
+          "id": "Promotion:598a7VessfYwTRq7RglcOT",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/mma/ufc-fight-night-kape-vs-horiguchi"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Win bet on Palmerston North greyhound races 1-2 and if your runner finishes 2nd or 3rd, get up to $50 back as Bonus Cash",
+          "expiry": "2026-06-23T00:45:00.000Z",
+          "id": "Promotion:52sUQbg5zdxjlITV5E4DCI",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/manawatu/7593bdc4-85a0-41ba-b598-8b1ba31013c6"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Watch Trackside Live & get your bet on!",
+          "expiry": "2026-06-20T04:00:00.000Z",
+          "id": "Promotion:25nnKRcbIcOQtYEs5BkwPw",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on Men & Women Professional US Basketball, NHL and MLB and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Game Multis",
+          "expiry": "2026-06-23T11:00:00.000Z",
+          "id": "Promotion:16yvBm29ii9MCjWkwcdzXA",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Find a winner easier with Easy Form!",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:4zOm3MRsR8XcJDryFEoili",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "GET AHEAD BEFORE THE JUMP\nPredict the pace, spot the leaders and uncover hidden potential before the jump.",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:G6Jw1HragnUaiuMk6qUu3",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "Build World Cup SGMs live during matches. Follow the legs in real time as the action unfolds.",
+          "expiry": "2026-07-20T04:00:00.000Z",
+          "id": "Promotion:3iq7M1dKvoG20VcGvvtPRL",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/world-cup/world-cup-2026"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on Thoroughbreds, Harness and/or Greyhounds and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Race Multis",
+          "expiry": "2026-06-23T11:00:00.000Z",
+          "id": "Promotion:Hqmf3gTzSagzrdmaJnEy2",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on any AFL, Rugby Union, or Rugby League game and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Game Multis.",
+          "expiry": "2026-06-23T11:00:00.000Z",
+          "id": "Promotion:6ADdFWj8d63mzUnvx7sQBl",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on Football and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Game Multis.",
+          "expiry": "2026-06-23T11:00:00.000Z",
+          "id": "Promotion:64O8ahXBO09HG2tnt4Jrya",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT"
+          ],
+          "uri": "/sports/soccer/"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "For Immediate free and confidential external support call Gambling Helpline 0800 654 655 or free text to 8006",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:27avNtMdn1vGeuP5g1WaLe",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "SPORT",
+            "RACING"
+          ],
+          "uri": "/account/safer-betting"
+        },
+        {
+          "buttonText": "Join Now",
+          "description": "Sign up now & get your bet on with TAB",
+          "expiry": "2026-07-20T10:00:00.000Z",
+          "id": "Promotion:4XRHjoKop1EzvwNWSYFS5K",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/signup"
+        },
+        {
+          "buttonText": "More Here",
+          "description": "POWER UP YOUR MULTI\nYou can now combine your Sport and Racing into one multi",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:YBalGjgjzath0xcxpy7vG",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [],
+          "uri": "/how-to/multis"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a First Goal Scorer bet on selected World Cup matches, and if your player doesn't score first but scores any other time, get up to $25 back as Bonus Cash. One per selected match. T&Cs apply.",
+          "expiry": "2026-07-19T19:00:00.000Z",
+          "id": "Promotion:1zNhpgtYgWdZESqisdbv1P",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [],
+          "uri": "/sports/soccer/world-cup"
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on Football and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Game Multis.",
+          "expiry": "2026-07-19T19:00:00.000Z",
+          "id": "Promotion:1wvS1MfxSUkM6ybpgm67bs",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [],
+          "uri": "/sports/soccer"
+        }
+      ],
+      "promotionPageCount": 1,
+      "racingPromotionCount": 10,
+      "recommendations": [
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 3+ leg Same Game Multi on any NRL game this week and if 1 leg fails, get your stake back in Bonus Cash. Max Bonus Varies. One per day.",
+          "expiry": "2026-06-21T08:15:00.000Z",
+          "id": "Promotion:2ATZ7wYNs6TlY2dJiIVe5d",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/sports/rugby-league/nrl",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Odds Win bet on selected Bonus Back races at Ellerslie & Ipswich and if your runner finishes 2nd or 3rd, get your stake back in Bonus Cash. Max Bonus Varies. T&Cs apply.",
+          "expiry": "2026-06-20T02:18:00.000Z",
+          "id": "Promotion:2dFYvz6ZtMpE0aHptkGozW",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 3+ leg Same Game Multi on the Hurricanes v Chiefs Super Rugby Pacific Final and if 1 leg fails get your stake back in Bonus Cash. One refund per game. Max Bonus Varies.",
+          "expiry": "2026-06-20T07:05:00.000Z",
+          "id": "Promotion:NqoZZwRiKQJIYNV0H3gIl",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/sports/rugby-union/super-rugby-pacific/hurricanes-v-chiefs/539cbf66-8b17-4534-86cc-22a5515d239d",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Activate Odds Surge for bigger odds in ALL RACES at Riccarton this Saturday. One bet per race. Max Bet $100.",
+          "expiry": "2026-06-20T03:50:00.000Z",
+          "id": "Promotion:RRI3hdn6agcYTiecmwSvE",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/riccarton/6d8f3543-20f5-4bba-bb23-0e2f511d4c8e",
+          "coverage": "race_specific",
+          "raceRange": null,
+          "targetRunnerNumber": null,
+          "races": [
+            {
+              "advertisedStart": "2026-06-19T23:45:00.000Z",
+              "code": "horse",
+              "favourite": {
+                "fixedWinPrice": 5,
+                "impliedWinPercentage": 20,
+                "name": "Don Pauly",
+                "number": 4,
+                "priceBucket": "$5.00 - $5.49"
+              },
+              "historical": {
+                "historicalDelta": -4.21,
+                "priceBucket": {
+                  "averageReturnPerDollar": 0.789,
+                  "averageValuePerDollarWithBonusCredit": 1.053,
+                  "bonusBetCreditPercentage": 26.32,
+                  "bonusBetCredits": 5,
+                  "favouriteSelections": 19,
+                  "label": "$5.00 - $5.49",
+                  "profitLoss": -4,
+                  "profitLossWithBonusCredit": 1,
+                  "secondPercentage": 15.79,
+                  "seconds": 3,
+                  "thirdPercentage": 10.53,
+                  "thirds": 2,
+                  "totalBonusBetCredit": 5,
+                  "totalReturn": 15,
+                  "totalStake": 19,
+                  "totalValueWithBonusCredit": 20,
+                  "winPercentage": 15.79,
+                  "wins": 3
+                },
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.262,
+                  "averageValuePerDollarWithBonusCredit": 0.738,
+                  "bonusBetCreditPercentage": 47.62,
+                  "bonusBetCredits": 10,
+                  "favouriteSelections": 21,
+                  "label": "16",
+                  "profitLoss": -15.5,
+                  "profitLossWithBonusCredit": -5.5,
+                  "secondPercentage": 19.05,
+                  "seconds": 4,
+                  "thirdPercentage": 28.57,
+                  "thirds": 6,
+                  "totalBonusBetCredit": 10,
+                  "totalReturn": 5.5,
+                  "totalStake": 21,
+                  "totalValueWithBonusCredit": 15.5,
+                  "winPercentage": 9.52,
+                  "wins": 2
+                }
+              },
+              "marketMover": {
+                "name": "Maximus Augustus",
+                "number": 1
+              },
+              "raceCardId": "RacingRaceCard:6d8f3543-20f5-4bba-bb23-0e2f511d4c8e",
+              "raceName": "GRAND NATIONAL TICKETS ON SALE NOW RATING 65",
+              "raceNumber": 1,
+              "signal": {
+                "detail": "Historical price-bucket win rate is close to the implied win rate.",
+                "label": "Neutral historical signal",
+                "tone": "neutral"
+              },
+              "starters": 16,
+              "status": "OPEN",
+              "targetRunner": null,
+              "track": "Riccarton"
+            }
+          ]
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a Fixed Win bet on Palmerston North greyhound races 1-2 and if your runner finishes 2nd or 3rd, get up to $50 back as Bonus Cash",
+          "expiry": "2026-06-23T00:45:00.000Z",
+          "id": "Promotion:52sUQbg5zdxjlITV5E4DCI",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing/manawatu/7593bdc4-85a0-41ba-b598-8b1ba31013c6",
+          "coverage": "race_specific",
+          "raceRange": {
+            "from": 1,
+            "to": 2
+          },
+          "targetRunnerNumber": null,
+          "races": [
+            {
+              "advertisedStart": "2026-06-23T00:25:00.000Z",
+              "code": "greyhound",
+              "favourite": null,
+              "historical": {
+                "historicalDelta": null,
+                "priceBucket": null,
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.914,
+                  "averageValuePerDollarWithBonusCredit": 1.141,
+                  "bonusBetCreditPercentage": 22.64,
+                  "bonusBetCredits": 96,
+                  "favouriteSelections": 424,
+                  "label": "6",
+                  "profitLoss": -36.42,
+                  "profitLossWithBonusCredit": 59.58,
+                  "secondPercentage": 22.64,
+                  "seconds": 96,
+                  "thirdPercentage": 11.56,
+                  "thirds": 49,
+                  "totalBonusBetCredit": 96,
+                  "totalReturn": 387.58,
+                  "totalStake": 424,
+                  "totalValueWithBonusCredit": 483.58,
+                  "winPercentage": 46.93,
+                  "wins": 199
+                }
+              },
+              "marketMover": null,
+              "raceCardId": "RacingRaceCard:7593bdc4-85a0-41ba-b598-8b1ba31013c6",
+              "raceName": "PROFESSIONAL CONCRETE SERVICES LTD",
+              "raceNumber": 1,
+              "signal": {
+                "detail": "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
+                "label": "Price unavailable",
+                "tone": "muted"
+              },
+              "starters": 6,
+              "status": "OPEN",
+              "targetRunner": null,
+              "track": "Palmerston North"
+            },
+            {
+              "advertisedStart": "2026-06-23T00:45:00.000Z",
+              "code": "greyhound",
+              "favourite": null,
+              "historical": {
+                "historicalDelta": null,
+                "priceBucket": null,
+                "starterBucket": {
+                  "averageReturnPerDollar": 0.822,
+                  "averageValuePerDollarWithBonusCredit": 1.143,
+                  "bonusBetCreditPercentage": 32.09,
+                  "bonusBetCredits": 86,
+                  "favouriteSelections": 268,
+                  "label": "9",
+                  "profitLoss": -47.62,
+                  "profitLossWithBonusCredit": 38.38,
+                  "secondPercentage": 20.15,
+                  "seconds": 54,
+                  "thirdPercentage": 11.94,
+                  "thirds": 32,
+                  "totalBonusBetCredit": 86,
+                  "totalReturn": 220.38,
+                  "totalStake": 268,
+                  "totalValueWithBonusCredit": 306.38,
+                  "winPercentage": 33.58,
+                  "wins": 90
+                }
+              },
+              "marketMover": null,
+              "raceCardId": "RacingRaceCard:8d2fecf6-2f6c-4f36-b2f3-d71c26c8e549",
+              "raceName": "SPORTZ BAR WANGANUI PBD",
+              "raceNumber": 2,
+              "signal": {
+                "detail": "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
+                "label": "Price unavailable",
+                "tone": "muted"
+              },
+              "starters": 9,
+              "status": "OPEN",
+              "targetRunner": null,
+              "track": "Palmerston North"
+            }
+          ]
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Watch Trackside Live & get your bet on!",
+          "expiry": "2026-06-20T04:00:00.000Z",
+          "id": "Promotion:25nnKRcbIcOQtYEs5BkwPw",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Find a winner easier with Easy Form!",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:4zOm3MRsR8XcJDryFEoili",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "GET AHEAD BEFORE THE JUMP\nPredict the pace, spot the leaders and uncover hidden potential before the jump.",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:G6Jw1HragnUaiuMk6qUu3",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "Bet Now",
+          "description": "Place a 4+ Leg Multi on Thoroughbreds, Harness and/or Greyhounds and if your multi fails by the selected number of legs, get up to $50 back as Bonus Cash. Available once daily across all markets. Excludes Same Race Multis",
+          "expiry": "2026-06-23T11:00:00.000Z",
+          "id": "Promotion:Hqmf3gTzSagzrdmaJnEy2",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [
+            "RACING"
+          ],
+          "uri": "/racing",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        },
+        {
+          "buttonText": "More Here",
+          "description": "POWER UP YOUR MULTI\nYou can now combine your Sport and Racing into one multi",
+          "expiry": "2026-06-23T04:00:00.000Z",
+          "id": "Promotion:YBalGjgjzath0xcxpy7vG",
+          "provider": "TAB",
+          "providerKey": "tab",
+          "rootCategoryGroup": [],
+          "uri": "/how-to/multis",
+          "coverage": "broad",
+          "note": "Broad racing promotion without a specific race-card URL.",
+          "races": []
+        }
+      ],
+      "source": "tab"
+    }
+  ],
+  "statsBasis": {
+    "basisLabel": "183 fixture days",
+    "fixtureCount": 183,
+    "priceBucketCount": 12,
+    "starterBucketCount": 16
+  },
+  "summary": {
+    "raceSpecificPromotions": 4,
+    "racingPromotions": 15,
+    "betBackCandidates": 15,
+    "sources": 2
+  }
+}

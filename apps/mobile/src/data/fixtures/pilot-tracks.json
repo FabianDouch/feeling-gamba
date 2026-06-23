@@ -1,0 +1,3097 @@
+{
+  "generatedAt": "2026-06-16T02:37:54.268Z",
+  "dateRange": {
+    "from": "2026-06-01",
+    "to": "2026-06-15",
+    "dates": [
+      "2026-06-01",
+      "2026-06-02",
+      "2026-06-03",
+      "2026-06-04",
+      "2026-06-05",
+      "2026-06-06",
+      "2026-06-07",
+      "2026-06-08",
+      "2026-06-09",
+      "2026-06-10",
+      "2026-06-11",
+      "2026-06-12",
+      "2026-06-13",
+      "2026-06-14",
+      "2026-06-15"
+    ]
+  },
+  "source": {
+    "name": "betcha_graphql",
+    "endpoint": "https://api.betcha.co.nz/graphql"
+  },
+  "filters": {
+    "tracks": [
+      {
+        "canonicalName": "Ellerslie",
+        "aliases": [
+          "Ellerslie"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "New Plymouth",
+        "aliases": [
+          "New Plymouth",
+          "New Plymouth Raceway",
+          "Pukekura Raceway"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Te Rapa",
+        "aliases": [
+          "Te Rapa"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Addington",
+        "aliases": [
+          "Addington",
+          "Addington Raceway"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Alexandra Park",
+        "aliases": [
+          "Alexandra Park",
+          "Auckland"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Ascot",
+        "aliases": [
+          "Ascot"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Sunshine Coast",
+        "aliases": [
+          "Sunshine Coast"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Ipswich",
+        "aliases": [
+          "Ipswich"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Eagle Farm",
+        "aliases": [
+          "Eagle Farm"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Pakenham",
+        "aliases": [
+          "Pakenham"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Doomben",
+        "aliases": [
+          "Doomben"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Morphettville",
+        "aliases": [
+          "Morphettville"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Newcastle",
+        "aliases": [
+          "Newcastle"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Gold Coast",
+        "aliases": [
+          "Gold Coast"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Toowoomba",
+        "aliases": [
+          "Toowoomba"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Townsville",
+        "aliases": [
+          "Townsville"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Cranbourne",
+        "aliases": [
+          "Cranbourne"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Albion Park",
+        "aliases": [
+          "Albion Park"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Redcliffe",
+        "aliases": [
+          "Redcliffe"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Globe Derby",
+        "aliases": [
+          "Globe Derby"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Gloucester Park",
+        "aliases": [
+          "Gloucester Park"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Menangle",
+        "aliases": [
+          "Menangle"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Melton",
+        "aliases": [
+          "Melton"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Bathurst",
+        "aliases": [
+          "Bathurst"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Pinjarra",
+        "aliases": [
+          "Pinjarra"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Penrith",
+        "aliases": [
+          "Penrith"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Shepparton",
+        "aliases": [
+          "Shepparton"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Mildura",
+        "aliases": [
+          "Mildura"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Q1 Lakeside",
+        "aliases": [
+          "Q1 Lakeside"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Mandurah",
+        "aliases": [
+          "Mandurah"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Angle Park",
+        "aliases": [
+          "Angle Park"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Richmond",
+        "aliases": [
+          "Richmond"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Healesville",
+        "aliases": [
+          "Healesville"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Warragul",
+        "aliases": [
+          "Warragul"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "The Gardens",
+        "aliases": [
+          "The Gardens"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Ballarat",
+        "aliases": [
+          "Ballarat"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Geelong",
+        "aliases": [
+          "Geelong"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Taree",
+        "aliases": [
+          "Taree"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Q Straight",
+        "aliases": [
+          "Q Straight"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Q2 Parklands",
+        "aliases": [
+          "Q2 Parklands"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Nowra",
+        "aliases": [
+          "Nowra"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Warrnambool",
+        "aliases": [
+          "Warrnambool"
+        ],
+        "country": "AUS"
+      },
+      {
+        "canonicalName": "Wingatui",
+        "aliases": [
+          "Wingatui"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Whanganui",
+        "aliases": [
+          "Whanganui",
+          "Wanganui",
+          "Hatrick"
+        ],
+        "country": "NZ"
+      },
+      {
+        "canonicalName": "Cambridge",
+        "aliases": [
+          "Cambridge",
+          "Cambridge Raceway",
+          "Cambridge (G)"
+        ],
+        "country": "NZ"
+      }
+    ],
+    "categories": [
+      "HORSE",
+      "HARNESS",
+      "GREYHOUND"
+    ],
+    "regions": [
+      "DOMESTIC"
+    ]
+  },
+  "summary": {
+    "totals": {
+      "sourceMeetingsDiscovered": 383,
+      "pilotMeetingsMatched": 165,
+      "pilotRacesMatched": 1705
+    },
+    "byDate": [
+      {
+        "date": "2026-06-01",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-01.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 23,
+          "pilotMeetingsMatched": 9,
+          "pilotRacesMatched": 102
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Q Straight",
+            "sourceTrack": "Q Straight",
+            "sourceVenue": "Q Straight",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Globe Derby",
+            "sourceTrack": "Globe Derby",
+            "sourceVenue": "Globe Derby",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Pinjarra",
+            "sourceTrack": "Pinjarra",
+            "sourceVenue": "Pinjarra",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 101,
+          "wins": 44,
+          "seconds": 15,
+          "thirds": 16,
+          "totalStake": 101,
+          "totalReturn": 88.42,
+          "totalBonusBetCredit": 31,
+          "totalValueWithBonusCredit": 119.42,
+          "profitLoss": -12.58,
+          "profitLossWithBonusCredit": 18.42,
+          "averageReturnPerDollar": 0.875,
+          "averageValuePerDollarWithBonusCredit": 1.182,
+          "bonusBetCredits": 31,
+          "winPercentage": 43.56,
+          "secondPercentage": 14.85,
+          "thirdPercentage": 15.84,
+          "bonusBetCreditPercentage": 30.69
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Redcliffe",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Penrith",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Richmond",
+          "Healesville",
+          "Warragul",
+          "The Gardens",
+          "Ballarat",
+          "Geelong",
+          "Taree",
+          "Q2 Parklands",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-02",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-02.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 20,
+          "pilotMeetingsMatched": 10,
+          "pilotRacesMatched": 109
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Townsville",
+            "sourceTrack": "Townsville",
+            "sourceVenue": "Townsville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Gloucester Park",
+            "sourceTrack": "Gloucester Park",
+            "sourceVenue": "Gloucester Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Menangle",
+            "sourceTrack": "Menangle",
+            "sourceVenue": "Menangle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 110,
+          "wins": 57,
+          "seconds": 16,
+          "thirds": 16,
+          "totalStake": 110,
+          "totalReturn": 123.95,
+          "totalBonusBetCredit": 32,
+          "totalValueWithBonusCredit": 155.95,
+          "profitLoss": 13.95,
+          "profitLossWithBonusCredit": 45.95,
+          "averageReturnPerDollar": 1.127,
+          "averageValuePerDollarWithBonusCredit": 1.418,
+          "bonusBetCredits": 32,
+          "winPercentage": 51.82,
+          "secondPercentage": 14.55,
+          "thirdPercentage": 14.55,
+          "bonusBetCreditPercentage": 29.09
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Cranbourne",
+          "Redcliffe",
+          "Globe Derby",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Mildura",
+          "Richmond",
+          "Healesville",
+          "The Gardens",
+          "Ballarat",
+          "Taree",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-03",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-03.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 27,
+          "pilotMeetingsMatched": 7,
+          "pilotRacesMatched": 73
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Doomben",
+            "sourceTrack": "Doomben",
+            "sourceVenue": "Doomben",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Ballarat",
+            "sourceTrack": "Ballarat",
+            "sourceVenue": "Ballarat",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Taree",
+            "sourceTrack": "Taree",
+            "sourceVenue": "Taree",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Bathurst",
+            "sourceTrack": "Bathurst",
+            "sourceVenue": "Bathurst",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Redcliffe",
+            "sourceTrack": "Redcliffe",
+            "sourceVenue": "Redcliffe",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 76,
+          "wins": 32,
+          "seconds": 16,
+          "thirds": 9,
+          "totalStake": 76,
+          "totalReturn": 71.72,
+          "totalBonusBetCredit": 25,
+          "totalValueWithBonusCredit": 96.72,
+          "profitLoss": -4.28,
+          "profitLossWithBonusCredit": 20.72,
+          "averageReturnPerDollar": 0.944,
+          "averageValuePerDollarWithBonusCredit": 1.273,
+          "bonusBetCredits": 25,
+          "winPercentage": 42.11,
+          "secondPercentage": 21.05,
+          "thirdPercentage": 11.84,
+          "bonusBetCreditPercentage": 32.89
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Mildura",
+          "Mandurah",
+          "Angle Park",
+          "Healesville",
+          "Warragul",
+          "The Gardens",
+          "Geelong",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-04",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-04.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 26,
+          "pilotMeetingsMatched": 14,
+          "pilotRacesMatched": 147
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Cambridge",
+            "sourceTrack": "Cambridge",
+            "sourceVenue": "Cambridge",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Ipswich",
+            "sourceTrack": "Ipswich",
+            "sourceVenue": "Ipswich",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Q Straight",
+            "sourceTrack": "Q Straight",
+            "sourceVenue": "Q Straight",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Penrith",
+            "sourceTrack": "Penrith",
+            "sourceVenue": "Penrith",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 145,
+          "wins": 56,
+          "seconds": 32,
+          "thirds": 21,
+          "totalStake": 145,
+          "totalReturn": 115.31,
+          "totalBonusBetCredit": 53,
+          "totalValueWithBonusCredit": 168.31,
+          "profitLoss": -29.69,
+          "profitLossWithBonusCredit": 23.31,
+          "averageReturnPerDollar": 0.795,
+          "averageValuePerDollarWithBonusCredit": 1.161,
+          "bonusBetCredits": 53,
+          "winPercentage": 38.62,
+          "secondPercentage": 22.07,
+          "thirdPercentage": 14.48,
+          "bonusBetCreditPercentage": 36.55
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Redcliffe",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Mildura",
+          "Richmond",
+          "Healesville",
+          "The Gardens",
+          "Ballarat",
+          "Taree",
+          "Q2 Parklands",
+          "Wingatui",
+          "Whanganui"
+        ]
+      },
+      {
+        "date": "2026-06-05",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-05.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 28,
+          "pilotMeetingsMatched": 16,
+          "pilotRacesMatched": 171
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Whanganui",
+            "sourceTrack": "Whanganui",
+            "sourceVenue": "Whanganui",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Cambridge",
+            "sourceTrack": "Cambridge",
+            "sourceVenue": "Cambridge",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Taree",
+            "sourceTrack": "Taree",
+            "sourceVenue": "Taree",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Healesville",
+            "sourceTrack": "Healesville",
+            "sourceVenue": "Healesville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "The Gardens",
+            "sourceTrack": "The Gardens",
+            "sourceVenue": "The Gardens",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Townsville",
+            "sourceTrack": "Townsville",
+            "sourceVenue": "Townsville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Gloucester Park",
+            "sourceTrack": "Gloucester Park",
+            "sourceVenue": "Gloucester Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Mildura",
+            "sourceTrack": "Mildura",
+            "sourceVenue": "Mildura",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Redcliffe",
+            "sourceTrack": "Redcliffe",
+            "sourceVenue": "Redcliffe",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 174,
+          "wins": 65,
+          "seconds": 35,
+          "thirds": 22,
+          "totalStake": 174,
+          "totalReturn": 141.54,
+          "totalBonusBetCredit": 57,
+          "totalValueWithBonusCredit": 198.54,
+          "profitLoss": -32.46,
+          "profitLossWithBonusCredit": 24.54,
+          "averageReturnPerDollar": 0.813,
+          "averageValuePerDollarWithBonusCredit": 1.141,
+          "bonusBetCredits": 57,
+          "winPercentage": 37.36,
+          "secondPercentage": 20.11,
+          "thirdPercentage": 12.64,
+          "bonusBetCreditPercentage": 32.76
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Gold Coast",
+          "Toowoomba",
+          "Cranbourne",
+          "Albion Park",
+          "Globe Derby",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Angle Park",
+          "Ballarat",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui"
+        ]
+      },
+      {
+        "date": "2026-06-06",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-06.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 30,
+          "pilotMeetingsMatched": 15,
+          "pilotRacesMatched": 140
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Ellerslie",
+            "sourceTrack": "Ellerslie",
+            "sourceVenue": "Ellerslie",
+            "country": "NZ",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Eagle Farm",
+            "sourceTrack": "Eagle Farm",
+            "sourceVenue": "Eagle Farm",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Morphettville",
+            "sourceTrack": "Morphettville",
+            "sourceVenue": "Morphettville",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Gold Coast",
+            "sourceTrack": "Gold Coast",
+            "sourceVenue": "Gold Coast",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Toowoomba",
+            "sourceTrack": "Toowoomba",
+            "sourceVenue": "Toowoomba",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Townsville",
+            "sourceTrack": "Townsville",
+            "sourceVenue": "Townsville",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 7
+          },
+          {
+            "canonicalTrack": "Q2 Parklands",
+            "sourceTrack": "Q2 Parklands",
+            "sourceVenue": "Q2 Parklands",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Taree",
+            "sourceTrack": "Taree",
+            "sourceVenue": "Taree",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "The Gardens",
+            "sourceTrack": "The Gardens",
+            "sourceVenue": "The Gardens",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Melton",
+            "sourceTrack": "Melton",
+            "sourceVenue": "Melton",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Menangle",
+            "sourceTrack": "Menangle",
+            "sourceVenue": "Menangle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Globe Derby",
+            "sourceTrack": "Globe Derby",
+            "sourceVenue": "Globe Derby",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 146,
+          "wins": 48,
+          "seconds": 41,
+          "thirds": 11,
+          "totalStake": 146,
+          "totalReturn": 107.51,
+          "totalBonusBetCredit": 52,
+          "totalValueWithBonusCredit": 159.51,
+          "profitLoss": -38.49,
+          "profitLossWithBonusCredit": 13.51,
+          "averageReturnPerDollar": 0.736,
+          "averageValuePerDollarWithBonusCredit": 1.093,
+          "bonusBetCredits": 52,
+          "winPercentage": 32.88,
+          "secondPercentage": 28.08,
+          "thirdPercentage": 7.53,
+          "bonusBetCreditPercentage": 35.62
+        },
+        "unmatchedPilotTracks": [
+          "New Plymouth",
+          "Te Rapa",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Pakenham",
+          "Doomben",
+          "Cranbourne",
+          "Redcliffe",
+          "Gloucester Park",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Angle Park",
+          "Richmond",
+          "Healesville",
+          "Warragul",
+          "Ballarat",
+          "Geelong",
+          "Q Straight",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-07",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-07.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 26,
+          "pilotMeetingsMatched": 5,
+          "pilotRacesMatched": 55
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Sunshine Coast",
+            "sourceTrack": "Sunshine Coast",
+            "sourceVenue": "Sunshine Coast",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Healesville",
+            "sourceTrack": "Healesville",
+            "sourceVenue": "Healesville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Q2 Parklands",
+            "sourceTrack": "Q2 Parklands",
+            "sourceVenue": "Q2 Parklands",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 57,
+          "wins": 28,
+          "seconds": 10,
+          "thirds": 6,
+          "totalStake": 57,
+          "totalReturn": 60.93,
+          "totalBonusBetCredit": 16,
+          "totalValueWithBonusCredit": 76.93,
+          "profitLoss": 3.93,
+          "profitLossWithBonusCredit": 19.93,
+          "averageReturnPerDollar": 1.069,
+          "averageValuePerDollarWithBonusCredit": 1.35,
+          "bonusBetCredits": 16,
+          "winPercentage": 49.12,
+          "secondPercentage": 17.54,
+          "thirdPercentage": 10.53,
+          "bonusBetCreditPercentage": 28.07
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Redcliffe",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Angle Park",
+          "Warragul",
+          "The Gardens",
+          "Ballarat",
+          "Geelong",
+          "Taree",
+          "Q Straight",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-08",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-08.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 21,
+          "pilotMeetingsMatched": 9,
+          "pilotRacesMatched": 97
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Ballarat",
+            "sourceTrack": "Ballarat",
+            "sourceVenue": "Ballarat",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Q Straight",
+            "sourceTrack": "Q Straight",
+            "sourceVenue": "Q Straight",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Penrith",
+            "sourceTrack": "Penrith",
+            "sourceVenue": "Penrith",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Pinjarra",
+            "sourceTrack": "Pinjarra",
+            "sourceVenue": "Pinjarra",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 99,
+          "wins": 39,
+          "seconds": 24,
+          "thirds": 14,
+          "totalStake": 99,
+          "totalReturn": 79.17,
+          "totalBonusBetCredit": 38,
+          "totalValueWithBonusCredit": 117.17,
+          "profitLoss": -19.83,
+          "profitLossWithBonusCredit": 18.17,
+          "averageReturnPerDollar": 0.8,
+          "averageValuePerDollarWithBonusCredit": 1.184,
+          "bonusBetCredits": 38,
+          "winPercentage": 39.39,
+          "secondPercentage": 24.24,
+          "thirdPercentage": 14.14,
+          "bonusBetCreditPercentage": 38.38
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Redcliffe",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Shepparton",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Richmond",
+          "Healesville",
+          "The Gardens",
+          "Geelong",
+          "Taree",
+          "Q2 Parklands",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-09",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-09.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 21,
+          "pilotMeetingsMatched": 10,
+          "pilotRacesMatched": 102
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Townsville",
+            "sourceTrack": "Townsville",
+            "sourceVenue": "Townsville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Gloucester Park",
+            "sourceTrack": "Gloucester Park",
+            "sourceVenue": "Gloucester Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Menangle",
+            "sourceTrack": "Menangle",
+            "sourceVenue": "Menangle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 6
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 106,
+          "wins": 47,
+          "seconds": 23,
+          "thirds": 14,
+          "totalStake": 106,
+          "totalReturn": 102.62,
+          "totalBonusBetCredit": 37,
+          "totalValueWithBonusCredit": 139.62,
+          "profitLoss": -3.38,
+          "profitLossWithBonusCredit": 33.62,
+          "averageReturnPerDollar": 0.968,
+          "averageValuePerDollarWithBonusCredit": 1.317,
+          "bonusBetCredits": 37,
+          "winPercentage": 44.34,
+          "secondPercentage": 21.7,
+          "thirdPercentage": 13.21,
+          "bonusBetCreditPercentage": 34.91
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Cranbourne",
+          "Redcliffe",
+          "Globe Derby",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Mildura",
+          "Richmond",
+          "Healesville",
+          "The Gardens",
+          "Ballarat",
+          "Taree",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-10",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-10.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 26,
+          "pilotMeetingsMatched": 8,
+          "pilotRacesMatched": 84
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Doomben",
+            "sourceTrack": "Doomben",
+            "sourceVenue": "Doomben",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Ballarat",
+            "sourceTrack": "Ballarat",
+            "sourceVenue": "Ballarat",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Taree",
+            "sourceTrack": "Taree",
+            "sourceVenue": "Taree",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Bathurst",
+            "sourceTrack": "Bathurst",
+            "sourceVenue": "Bathurst",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Globe Derby",
+            "sourceTrack": "Globe Derby",
+            "sourceVenue": "Globe Derby",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Redcliffe",
+            "sourceTrack": "Redcliffe",
+            "sourceVenue": "Redcliffe",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 76,
+          "wins": 28,
+          "seconds": 17,
+          "thirds": 16,
+          "totalStake": 76,
+          "totalReturn": 61.04,
+          "totalBonusBetCredit": 33,
+          "totalValueWithBonusCredit": 94.04,
+          "profitLoss": -14.96,
+          "profitLossWithBonusCredit": 18.04,
+          "averageReturnPerDollar": 0.803,
+          "averageValuePerDollarWithBonusCredit": 1.237,
+          "bonusBetCredits": 33,
+          "winPercentage": 36.84,
+          "secondPercentage": 22.37,
+          "thirdPercentage": 21.05,
+          "bonusBetCreditPercentage": 43.42
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Mildura",
+          "Mandurah",
+          "Angle Park",
+          "Healesville",
+          "Warragul",
+          "The Gardens",
+          "Geelong",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-11.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 28,
+          "pilotMeetingsMatched": 14,
+          "pilotRacesMatched": 149
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Cambridge",
+            "sourceTrack": "Cambridge",
+            "sourceVenue": "Cambridge",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Doomben",
+            "sourceTrack": "Doomben",
+            "sourceVenue": "Doomben",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Q2 Parklands",
+            "sourceTrack": "Q2 Parklands",
+            "sourceVenue": "Q2 Parklands",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Q Straight",
+            "sourceTrack": "Q Straight",
+            "sourceVenue": "Q Straight",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Warragul",
+            "sourceTrack": "Warragul",
+            "sourceVenue": "Warragul",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Ballarat",
+            "sourceTrack": "Ballarat",
+            "sourceVenue": "Ballarat",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Penrith",
+            "sourceTrack": "Penrith",
+            "sourceVenue": "Penrith",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 140,
+          "wins": 71,
+          "seconds": 23,
+          "thirds": 20,
+          "totalStake": 140,
+          "totalReturn": 147.69,
+          "totalBonusBetCredit": 43,
+          "totalValueWithBonusCredit": 190.69,
+          "profitLoss": 7.69,
+          "profitLossWithBonusCredit": 50.69,
+          "averageReturnPerDollar": 1.055,
+          "averageValuePerDollarWithBonusCredit": 1.362,
+          "bonusBetCredits": 43,
+          "winPercentage": 50.71,
+          "secondPercentage": 16.43,
+          "thirdPercentage": 14.29,
+          "bonusBetCreditPercentage": 30.71
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Redcliffe",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Mildura",
+          "Q1 Lakeside",
+          "Richmond",
+          "Healesville",
+          "The Gardens",
+          "Geelong",
+          "Taree",
+          "Wingatui",
+          "Whanganui"
+        ]
+      },
+      {
+        "date": "2026-06-12",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-12.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 31,
+          "pilotMeetingsMatched": 17,
+          "pilotRacesMatched": 172
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "New Plymouth",
+            "sourceTrack": "New Plymouth",
+            "sourceVenue": "New Plymouth",
+            "country": "NZ",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Whanganui",
+            "sourceTrack": "Whanganui",
+            "sourceVenue": "Whanganui",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Alexandra Park",
+            "sourceTrack": "Alexandra Park",
+            "sourceVenue": "Alexandra Park",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Ballarat",
+            "sourceTrack": "Ballarat",
+            "sourceVenue": "Ballarat",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Healesville",
+            "sourceTrack": "Healesville",
+            "sourceVenue": "Healesville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Mandurah",
+            "sourceTrack": "Mandurah",
+            "sourceVenue": "Mandurah",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 11
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "The Gardens",
+            "sourceTrack": "The Gardens",
+            "sourceVenue": "The Gardens",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Townsville",
+            "sourceTrack": "Townsville",
+            "sourceVenue": "Townsville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Gloucester Park",
+            "sourceTrack": "Gloucester Park",
+            "sourceVenue": "Gloucester Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Melton",
+            "sourceTrack": "Melton",
+            "sourceVenue": "Melton",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 7
+          },
+          {
+            "canonicalTrack": "Mildura",
+            "sourceTrack": "Mildura",
+            "sourceVenue": "Mildura",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 7
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Redcliffe",
+            "sourceTrack": "Redcliffe",
+            "sourceVenue": "Redcliffe",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 11
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 169,
+          "wins": 63,
+          "seconds": 36,
+          "thirds": 21,
+          "totalStake": 169,
+          "totalReturn": 145.5,
+          "totalBonusBetCredit": 57,
+          "totalValueWithBonusCredit": 202.5,
+          "profitLoss": -23.5,
+          "profitLossWithBonusCredit": 33.5,
+          "averageReturnPerDollar": 0.861,
+          "averageValuePerDollarWithBonusCredit": 1.198,
+          "bonusBetCredits": 57,
+          "winPercentage": 37.28,
+          "secondPercentage": 21.3,
+          "thirdPercentage": 12.43,
+          "bonusBetCreditPercentage": 33.73
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "Te Rapa",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Gold Coast",
+          "Toowoomba",
+          "Cranbourne",
+          "Albion Park",
+          "Globe Derby",
+          "Menangle",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Angle Park",
+          "Warragul",
+          "Taree",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-13",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-13.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 29,
+          "pilotMeetingsMatched": 14,
+          "pilotRacesMatched": 137
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Te Rapa",
+            "sourceTrack": "Te Rapa",
+            "sourceVenue": "Te Rapa",
+            "country": "NZ",
+            "category": "HORSE",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Whanganui",
+            "sourceTrack": "Whanganui",
+            "sourceVenue": "Whanganui",
+            "country": "NZ",
+            "category": "HORSE",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Eagle Farm",
+            "sourceTrack": "Eagle Farm",
+            "sourceVenue": "Eagle Farm",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Gold Coast",
+            "sourceTrack": "Gold Coast",
+            "sourceVenue": "Gold Coast",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Toowoomba",
+            "sourceTrack": "Toowoomba",
+            "sourceVenue": "Toowoomba",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Q1 Lakeside",
+            "sourceTrack": "Q1 Lakeside",
+            "sourceVenue": "Q1 Lakeside",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Taree",
+            "sourceTrack": "Taree",
+            "sourceVenue": "Taree",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Geelong",
+            "sourceTrack": "Geelong",
+            "sourceVenue": "Geelong",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "The Gardens",
+            "sourceTrack": "The Gardens",
+            "sourceVenue": "The Gardens",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Albion Park",
+            "sourceTrack": "Albion Park",
+            "sourceVenue": "Albion Park",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Melton",
+            "sourceTrack": "Melton",
+            "sourceVenue": "Melton",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Menangle",
+            "sourceTrack": "Menangle",
+            "sourceVenue": "Menangle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Globe Derby",
+            "sourceTrack": "Globe Derby",
+            "sourceVenue": "Globe Derby",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 140,
+          "wins": 52,
+          "seconds": 24,
+          "thirds": 25,
+          "totalStake": 140,
+          "totalReturn": 118.46,
+          "totalBonusBetCredit": 49,
+          "totalValueWithBonusCredit": 167.46,
+          "profitLoss": -21.54,
+          "profitLossWithBonusCredit": 27.46,
+          "averageReturnPerDollar": 0.846,
+          "averageValuePerDollarWithBonusCredit": 1.196,
+          "bonusBetCredits": 49,
+          "winPercentage": 37.14,
+          "secondPercentage": 17.14,
+          "thirdPercentage": 17.86,
+          "bonusBetCreditPercentage": 35
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Addington",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Townsville",
+          "Cranbourne",
+          "Redcliffe",
+          "Gloucester Park",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Mildura",
+          "Mandurah",
+          "Angle Park",
+          "Richmond",
+          "Healesville",
+          "Warragul",
+          "Ballarat",
+          "Q Straight",
+          "Q2 Parklands",
+          "Nowra",
+          "Warrnambool",
+          "Wingatui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-14",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-14.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 28,
+          "pilotMeetingsMatched": 8,
+          "pilotRacesMatched": 74
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "HARNESS",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Sunshine Coast",
+            "sourceTrack": "Sunshine Coast",
+            "sourceVenue": "Sunshine Coast",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 6
+          },
+          {
+            "canonicalTrack": "Healesville",
+            "sourceTrack": "Healesville",
+            "sourceVenue": "Healesville",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Q2 Parklands",
+            "sourceTrack": "Q2 Parklands",
+            "sourceVenue": "Q2 Parklands",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Richmond",
+            "sourceTrack": "Richmond",
+            "sourceVenue": "Richmond",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 12
+          },
+          {
+            "canonicalTrack": "Cranbourne",
+            "sourceTrack": "Cranbourne",
+            "sourceVenue": "Cranbourne",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Globe Derby",
+            "sourceTrack": "Globe Derby",
+            "sourceVenue": "Globe Derby",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 9
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 75,
+          "wins": 27,
+          "seconds": 15,
+          "thirds": 11,
+          "totalStake": 75,
+          "totalReturn": 59.57,
+          "totalBonusBetCredit": 26,
+          "totalValueWithBonusCredit": 85.57,
+          "profitLoss": -15.43,
+          "profitLossWithBonusCredit": 10.57,
+          "averageReturnPerDollar": 0.794,
+          "averageValuePerDollarWithBonusCredit": 1.141,
+          "bonusBetCredits": 26,
+          "winPercentage": 36,
+          "secondPercentage": 20,
+          "thirdPercentage": 14.67,
+          "bonusBetCreditPercentage": 34.67
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Newcastle",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Albion Park",
+          "Redcliffe",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Pinjarra",
+          "Penrith",
+          "Shepparton",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Angle Park",
+          "Warragul",
+          "The Gardens",
+          "Ballarat",
+          "Geelong",
+          "Taree",
+          "Q Straight",
+          "Nowra",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      },
+      {
+        "date": "2026-06-15",
+        "outputPath": "/Users/fabiandouch/Personal/feeling-gamba/data/raw/betcha-graphql/pilot-tracks-2026-06-15.json",
+        "counts": {
+          "sourceMeetingsDiscovered": 19,
+          "pilotMeetingsMatched": 9,
+          "pilotRacesMatched": 93
+        },
+        "meetings": [
+          {
+            "canonicalTrack": "Addington",
+            "sourceTrack": "Addington",
+            "sourceVenue": "Addington",
+            "country": "NZ",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "HORSE",
+            "races": 7
+          },
+          {
+            "canonicalTrack": "Angle Park",
+            "sourceTrack": "Angle Park",
+            "sourceVenue": "Angle Park",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 10
+          },
+          {
+            "canonicalTrack": "Nowra",
+            "sourceTrack": "Nowra",
+            "sourceVenue": "Nowra",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 9
+          },
+          {
+            "canonicalTrack": "Q Straight",
+            "sourceTrack": "Q Straight",
+            "sourceVenue": "Q Straight",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Shepparton",
+            "sourceTrack": "Shepparton",
+            "sourceVenue": "Shepparton",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 14
+          },
+          {
+            "canonicalTrack": "Warrnambool",
+            "sourceTrack": "Warrnambool",
+            "sourceVenue": "Warrnambool",
+            "country": "AUS",
+            "category": "GREYHOUND",
+            "races": 13
+          },
+          {
+            "canonicalTrack": "Newcastle",
+            "sourceTrack": "Newcastle",
+            "sourceVenue": "Newcastle",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          },
+          {
+            "canonicalTrack": "Pinjarra",
+            "sourceTrack": "Pinjarra",
+            "sourceVenue": "Pinjarra",
+            "country": "AUS",
+            "category": "HARNESS",
+            "races": 8
+          }
+        ],
+        "favouriteOutcomes": {
+          "label": "overall",
+          "favouriteSelections": 94,
+          "wins": 34,
+          "seconds": 23,
+          "thirds": 9,
+          "totalStake": 94,
+          "totalReturn": 71.99,
+          "totalBonusBetCredit": 32,
+          "totalValueWithBonusCredit": 103.99,
+          "profitLoss": -22.01,
+          "profitLossWithBonusCredit": 9.99,
+          "averageReturnPerDollar": 0.766,
+          "averageValuePerDollarWithBonusCredit": 1.106,
+          "bonusBetCredits": 32,
+          "winPercentage": 36.17,
+          "secondPercentage": 24.47,
+          "thirdPercentage": 9.57,
+          "bonusBetCreditPercentage": 34.04
+        },
+        "unmatchedPilotTracks": [
+          "Ellerslie",
+          "New Plymouth",
+          "Te Rapa",
+          "Alexandra Park",
+          "Ascot",
+          "Sunshine Coast",
+          "Ipswich",
+          "Eagle Farm",
+          "Pakenham",
+          "Doomben",
+          "Morphettville",
+          "Gold Coast",
+          "Toowoomba",
+          "Townsville",
+          "Cranbourne",
+          "Albion Park",
+          "Redcliffe",
+          "Globe Derby",
+          "Gloucester Park",
+          "Menangle",
+          "Melton",
+          "Bathurst",
+          "Penrith",
+          "Mildura",
+          "Q1 Lakeside",
+          "Mandurah",
+          "Richmond",
+          "Healesville",
+          "Warragul",
+          "The Gardens",
+          "Ballarat",
+          "Geelong",
+          "Taree",
+          "Q2 Parklands",
+          "Wingatui",
+          "Whanganui",
+          "Cambridge"
+        ]
+      }
+    ],
+    "byTrack": [
+      {
+        "canonicalTrack": "Addington",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS"
+        ],
+        "meetings": 9,
+        "races": 92
+      },
+      {
+        "canonicalTrack": "Angle Park",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 7,
+        "races": 79
+      },
+      {
+        "canonicalTrack": "Nowra",
+        "categories": [
+          "GREYHOUND",
+          "HORSE"
+        ],
+        "meetings": 6,
+        "races": 54
+      },
+      {
+        "canonicalTrack": "Q Straight",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 5,
+        "races": 66
+      },
+      {
+        "canonicalTrack": "Shepparton",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS"
+        ],
+        "meetings": 7,
+        "races": 84
+      },
+      {
+        "canonicalTrack": "Warrnambool",
+        "categories": [
+          "GREYHOUND",
+          "HORSE"
+        ],
+        "meetings": 6,
+        "races": 71
+      },
+      {
+        "canonicalTrack": "Globe Derby",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 5,
+        "races": 46
+      },
+      {
+        "canonicalTrack": "Newcastle",
+        "categories": [
+          "HARNESS",
+          "HORSE"
+        ],
+        "meetings": 6,
+        "races": 51
+      },
+      {
+        "canonicalTrack": "Pinjarra",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 3,
+        "races": 27
+      },
+      {
+        "canonicalTrack": "Geelong",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS",
+          "HORSE"
+        ],
+        "meetings": 6,
+        "races": 66
+      },
+      {
+        "canonicalTrack": "Mandurah",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 6,
+        "races": 69
+      },
+      {
+        "canonicalTrack": "Q1 Lakeside",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 8,
+        "races": 101
+      },
+      {
+        "canonicalTrack": "Townsville",
+        "categories": [
+          "GREYHOUND",
+          "HORSE"
+        ],
+        "meetings": 5,
+        "races": 55
+      },
+      {
+        "canonicalTrack": "Warragul",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS"
+        ],
+        "meetings": 6,
+        "races": 68
+      },
+      {
+        "canonicalTrack": "Albion Park",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 6,
+        "races": 56
+      },
+      {
+        "canonicalTrack": "Gloucester Park",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 4,
+        "races": 36
+      },
+      {
+        "canonicalTrack": "Menangle",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 4,
+        "races": 36
+      },
+      {
+        "canonicalTrack": "Doomben",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 3,
+        "races": 24
+      },
+      {
+        "canonicalTrack": "Ballarat",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS",
+          "HORSE"
+        ],
+        "meetings": 5,
+        "races": 56
+      },
+      {
+        "canonicalTrack": "Richmond",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 6,
+        "races": 70
+      },
+      {
+        "canonicalTrack": "Taree",
+        "categories": [
+          "GREYHOUND",
+          "HORSE"
+        ],
+        "meetings": 5,
+        "races": 53
+      },
+      {
+        "canonicalTrack": "Bathurst",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 2,
+        "races": 17
+      },
+      {
+        "canonicalTrack": "Redcliffe",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 4,
+        "races": 37
+      },
+      {
+        "canonicalTrack": "Cambridge",
+        "categories": [
+          "GREYHOUND",
+          "HARNESS"
+        ],
+        "meetings": 3,
+        "races": 28
+      },
+      {
+        "canonicalTrack": "Ipswich",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 1,
+        "races": 8
+      },
+      {
+        "canonicalTrack": "Penrith",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 3,
+        "races": 25
+      },
+      {
+        "canonicalTrack": "Whanganui",
+        "categories": [
+          "GREYHOUND",
+          "HORSE"
+        ],
+        "meetings": 3,
+        "races": 33
+      },
+      {
+        "canonicalTrack": "Healesville",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 4,
+        "races": 48
+      },
+      {
+        "canonicalTrack": "The Gardens",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 4,
+        "races": 48
+      },
+      {
+        "canonicalTrack": "Mildura",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 2,
+        "races": 16
+      },
+      {
+        "canonicalTrack": "Ellerslie",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 1,
+        "races": 8
+      },
+      {
+        "canonicalTrack": "Eagle Farm",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 2,
+        "races": 18
+      },
+      {
+        "canonicalTrack": "Morphettville",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 1,
+        "races": 9
+      },
+      {
+        "canonicalTrack": "Gold Coast",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 2,
+        "races": 16
+      },
+      {
+        "canonicalTrack": "Toowoomba",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 2,
+        "races": 16
+      },
+      {
+        "canonicalTrack": "Q2 Parklands",
+        "categories": [
+          "GREYHOUND"
+        ],
+        "meetings": 4,
+        "races": 43
+      },
+      {
+        "canonicalTrack": "Melton",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 3,
+        "races": 25
+      },
+      {
+        "canonicalTrack": "Sunshine Coast",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 2,
+        "races": 16
+      },
+      {
+        "canonicalTrack": "New Plymouth",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 1,
+        "races": 8
+      },
+      {
+        "canonicalTrack": "Alexandra Park",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 1,
+        "races": 8
+      },
+      {
+        "canonicalTrack": "Te Rapa",
+        "categories": [
+          "HORSE"
+        ],
+        "meetings": 1,
+        "races": 10
+      },
+      {
+        "canonicalTrack": "Cranbourne",
+        "categories": [
+          "HARNESS"
+        ],
+        "meetings": 1,
+        "races": 8
+      }
+    ],
+    "filteredPilotTracks": [
+      "Ellerslie",
+      "New Plymouth",
+      "Te Rapa",
+      "Addington",
+      "Alexandra Park",
+      "Ascot",
+      "Sunshine Coast",
+      "Ipswich",
+      "Eagle Farm",
+      "Pakenham",
+      "Doomben",
+      "Morphettville",
+      "Newcastle",
+      "Gold Coast",
+      "Toowoomba",
+      "Townsville",
+      "Cranbourne",
+      "Albion Park",
+      "Redcliffe",
+      "Globe Derby",
+      "Gloucester Park",
+      "Menangle",
+      "Melton",
+      "Bathurst",
+      "Pinjarra",
+      "Penrith",
+      "Shepparton",
+      "Mildura",
+      "Q1 Lakeside",
+      "Mandurah",
+      "Angle Park",
+      "Richmond",
+      "Healesville",
+      "Warragul",
+      "The Gardens",
+      "Ballarat",
+      "Geelong",
+      "Taree",
+      "Q Straight",
+      "Q2 Parklands",
+      "Nowra",
+      "Warrnambool",
+      "Wingatui",
+      "Whanganui",
+      "Cambridge"
+    ]
+  }
+}

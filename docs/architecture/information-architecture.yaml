@@ -1,0 +1,443 @@
+version: 1
+name: Feeling Gamba MVP Information Architecture
+last_updated: "2026-06-23"
+
+purpose:
+  summary: >
+    Define the MVP app navigation, screen hierarchy, primary user flows, and
+    screen-to-data relationships for browsing logged racing favourite,
+    MarketMover, result, field-size, dividend, favourite-performance
+    statistics, and source-backed promotion signal data.
+  primary_users:
+    - App user browsing historical race outcomes.
+    - Developer/operator monitoring ingestion quality and source completeness.
+
+principles:
+  - Start with logged race data and source-backed promotion facts, not stake advice.
+  - Make country, date, discipline, and racecourse the primary browsing controls.
+  - Show missing market/result data explicitly rather than inventing values.
+  - Keep source/debug information available without making it the main user flow.
+  - Treat Australian coverage as visible comparison data in Race Days, Insights,
+    and bet-back candidate scans, with country labels available in app filters.
+  - Use Supabase app-facing read models for runtime race and insight data; local
+    fixtures are development/backfill inputs only.
+  - Populate Race Days and Insights course filters from Supabase rows produced
+    by all-domestic AUS/NZ race-day ingestion, not from a hardcoded app track
+    list.
+
+navigation:
+  app_root:
+    entry: insights
+    sections:
+      race_days:
+        label: Race Days
+        priority: secondary_required
+        audience: app_user
+        purpose:
+          - Browse races by date.
+          - Filter by collected date range, country, discipline, and racecourse.
+          - Compare field size, favourite, MarketMover, result, and payouts.
+          - Load the latest 20 races across AUS/NZ by default and query Supabase when filters change.
+        components:
+          - collected_date_range_picker
+          - latest_20_race_supabase_result_set
+          - country_filter
+          - discipline_filter
+          - racecourse_filter
+          - saved_track_quick_filter
+          - favourite_track_save_remove_control
+          - meeting_groups
+          - race_list
+          - empty_state
+          - partial_data_state
+        entry_points:
+          - main_navigation_from_insights
+          - date_change
+          - insight_filter
+        links_to:
+          - race_detail
+          - insights
+          - recommendations
+          - account
+
+      account:
+        label: Account
+        priority: required
+        audience: app_user
+        purpose:
+          - Sign in with Google through Supabase Auth.
+          - Show the current signed-in email or display name.
+          - Sign out of the persisted Supabase session.
+          - Manage saved favourite tracks.
+          - Review manually tracked promo-bet performance.
+        components:
+          - google_sign_in_button
+          - signed_in_identity
+          - sign_out_button
+          - favourite_track_management_list
+          - favourite_track_remove_control
+          - tracked_promo_bet_bookmaker_toggle
+          - tracked_promo_bet_summary
+          - tracked_promo_bet_return_by_discipline
+          - tracked_promo_bet_history_list
+          - tracked_promo_bet_remove_control
+          - auth_error_state
+        entry_points:
+          - main_navigation
+        links_to:
+          - race_days
+          - insights
+          - predictions
+          - recommendations
+
+      race_detail:
+        label: Race Detail
+        priority: required
+        audience: app_user
+        purpose:
+          - Explain one race outcome clearly.
+          - Show how favourite and MarketMover were selected.
+          - Show final results and dividends.
+        components:
+          - race_summary
+          - field_summary
+          - market_summary
+          - result_summary
+          - runner_table
+          - source_status_panel
+        entry_points:
+          - race_list_row
+          - insight_summary_row
+          - source_mapping
+        links_to:
+          - race_days
+          - source_status
+
+      insights:
+        label: Insights
+        priority: required
+        audience: app_user
+        purpose:
+          - Act as the default app landing page.
+          - Summarise favourite and MarketMover outcomes.
+          - Show favourite win, 2nd, and 3rd percentages across collected history.
+          - Break favourite finish-position percentages down by final starter count.
+          - Break favourite win percentage down by 50c fixed-win price bucket.
+          - Show notional $1 favourite return metrics by racing discipline.
+          - Filter return, starter-count, and favourite-price breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
+          - Let users request public odds for races 1 and 2 when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
+          - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
+          - Surface missing-data counts.
+          - Link users back to filtered race lists and race details.
+        components:
+          - date_range_filter
+          - country_filter
+          - discipline_filter
+          - racecourse_filter
+          - track_scope_filter
+          - saved_track_quick_filter
+          - favourite_track_save_remove_control
+          - first_two_race_odds_request_panel
+          - full_collected_date_range_default
+          - discipline_summary_sections
+          - favourite_outcomes
+          - favourite_finish_position_percentages
+          - unit_stake_return_metrics
+          - bonus_average_return_metric
+          - starter_count_breakdown
+          - favourite_price_bucket_breakdown
+          - market_mover_outcomes
+          - missing_data_counts
+          - denominator_counts
+          - first_two_race_runner_odds
+          - first_two_race_favourite_and_market_mover_flags
+          - first_two_race_favourite_historical_signal
+          - first_two_race_cash_plus_bonus_average_signal
+        limits:
+          - no_stake_sizing
+          - no_bankroll_tracking
+          - no_automated_wagering
+          - no_account_credential_storage
+          - no_push_notifications_until_ingestion_is_reliable
+        entry_points:
+          - app_launch
+          - main_navigation
+        links_to:
+          - recommendations
+          - race_days
+          - race_detail
+
+      recommendations:
+        label: Recommendations
+        priority: required
+        audience: app_user
+        purpose:
+          - Show current public TAB and Betcha race-specific promotion signals.
+          - Keep all fetched public promotions available for source diagnostics, not the normal frontend list.
+          - Match race-specific promotions to current race cards.
+          - Show current favourite, fixed-win price, starter count, and MarketMover where available.
+          - Compare current race facts with historical starter-count and price-bucket statistics.
+          - Surface statistical signals without stake sizing or automated wagering.
+        components:
+          - provider_filter
+          - supabase_snapshot_status
+          - racing_promotion_cards
+          - current_race_card_facts
+          - favourite_price_signal
+          - starter_count_historical_signal
+          - price_bucket_historical_signal
+          - cash_plus_bonus_average_signal
+          - starter_bucket_metric
+          - track_bet_control
+          - promotion_cache_age_status
+          - refresh_recommendations_control
+          - historical_signal_basis_label
+          - broad_promotion_list
+          - missing_price_state
+        limits:
+          - no_stake_sizing
+          - no_bankroll_tracking
+          - no_account_balance_or_withdrawal_ledger
+          - no_automated_wagering
+          - no_invented_prices_or_favourites
+        entry_points:
+          - main_navigation
+          - insight_summary_row
+        links_to:
+          - race_days
+          - race_detail
+          - predictions
+
+      predictions:
+        label: Predictions
+        priority: required
+        audience: app_user
+        purpose:
+          - Show current ranked Betcha-derived bet candidates from the latest prediction snapshot.
+          - Track candidate predictions made by independent current prediction scans.
+          - Compare stored predictions with settled race outcomes after race-day refreshes.
+          - Compare prediction variations in parallel without mixing model denominators.
+          - Include a global cash bucket blend variation that uses 65% favourite price-bucket cash average plus 35% starter-count cash average and excludes bonus-credit value.
+          - Include a global cash 50/50 blend variation that uses equal favourite price-bucket and starter-count cash averages and excludes bonus-credit value.
+          - Order current bet candidates by estimated historical cash return per $1 rather than cash-plus-bonus value; the Global cash 50/50 blend uses its 50/50 estimate for ordering and display.
+          - Show notional $1 return metrics by racing discipline, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
+          - Show recent stored prediction history with race, runner, price, status, and outcome value.
+          - Filter only the prediction history list by date range, country, discipline, and racecourse.
+          - Keep prediction tracking statistical only, with no stake sizing or wagering action.
+        components:
+          - prediction_variation_tabs
+          - prediction_variation_method_summary
+          - stored_model_performance_heading
+          - prediction_summary_stats
+          - current_bet_candidates
+          - bet_candidate_estimated_cash_return_per_dollar_metric
+          - bet_candidate_refresh_control
+          - bet_candidate_track_control
+          - prediction_return_by_discipline
+          - prediction_history_list
+          - prediction_history_date_range_filter
+          - prediction_history_country_filter
+          - prediction_history_discipline_filter
+          - prediction_history_racecourse_filter
+          - pending_prediction_count
+          - missing_prediction_outcome_count
+          - supabase_prediction_aggregate_status
+        limits:
+          - no_stake_sizing
+          - no_bankroll_tracking
+          - no_automated_wagering
+        entry_points:
+          - main_navigation
+          - recommendations
+        links_to:
+          - recommendations
+          - race_days
+
+      source_status:
+        label: Source Status
+        priority: required_for_operations
+        audience: developer_operator
+        purpose:
+          - Explain ingestion health and data completeness.
+          - Help identify parser/source failures.
+        components:
+          - ingestion_run_list
+          - failed_fetch_list
+          - race_source_id_mapping
+          - missing_market_data_report
+          - missing_result_data_report
+        mvp_access:
+          - hidden_debug_screen
+          - supabase_table_view
+        links_to:
+          - race_detail
+
+      settings:
+        label: Settings
+        priority: useful
+        audience: app_user
+        purpose:
+          - Store lightweight preferences.
+          - Explain data-source context.
+        components:
+          - default_code_preference
+          - default_racecourse_filter
+          - data_source_notes
+          - app_version_metadata
+        links_to:
+          - race_days
+
+flows:
+  primary_browse_flow:
+    - open_app
+    - review_insights
+    - open_recommendations
+    - review_current_promotion_signals
+    - review_favourite_win_second_third_percentages
+    - review_unit_stake_returns_by_discipline
+    - drill_into_starter_count_breakdown
+    - open_race_days_when_needed
+    - filter_date_country_discipline_or_racecourse
+    - scan_race_list
+    - open_race_detail
+    - check_favourite_placing_and_dividends
+    - return_to_insights_or_adjust_filters
+
+  operator_quality_flow:
+    - open_source_status
+    - review_failed_fetches
+    - inspect_race_source_mapping
+    - open_affected_race_detail
+    - rerun_or_backfill_outside_app
+
+screen_data_relationships:
+  race_days:
+    reads:
+      - race_day_entries
+    core_tables:
+      - meetings
+      - races
+      - runners
+      - odds_snapshots
+      - race_results
+      - race_dividends
+
+  race_detail:
+    reads:
+      - race_day_entries
+      - race_market_state
+      - debug/admin views
+    core_tables:
+      - races
+      - runners
+      - odds_snapshots
+      - race_results
+      - race_dividends
+      - source_fetches
+
+  insights:
+    reads:
+      - insight_aggregates
+      - race_day_entries
+      - track_race_odds_requests
+    core_tables:
+      - meetings
+      - races
+      - odds_snapshots
+      - race_results
+      - runners
+
+  recommendations:
+    reads:
+      - current_promotion_snapshots
+      - promotion_recommendations
+      - insight_aggregates
+      - race_day_entries
+    core_tables:
+      - promotions
+      - races
+      - runners
+      - odds_snapshots
+      - source_fetches
+
+  predictions:
+    reads:
+      - current_prediction_snapshots
+      - prediction_aggregates
+      - promotion_predictions
+    core_tables:
+      - races
+      - runners
+      - race_results
+
+  source_status:
+    reads:
+      - debug/admin views
+    core_tables:
+      - source_fetches
+      - ingestion_runs
+      - races
+
+content_rules:
+  - Race list rows should show missing favourite, MarketMover, result, or
+    dividend data as explicit unavailable states.
+  - Race Days should remain a separate page from Insights and provide date,
+    country, discipline, and racecourse filters. It should load the latest 20
+    races across AUS/NZ from Supabase by default, then query Supabase with
+    selected filters.
+  - Race Detail should show the snapshot timestamp used for favourite/MM when
+    the data came from pre-race odds.
+  - Result-page favourite rank and pre-race favourite are separate concepts.
+  - MarketMover should only appear when a source explicitly provides it.
+  - Favourite statistics should show win, 2nd, and 3rd percentages with their
+    denominators and missing-data counts.
+  - Favourite price breakdowns should use 50c fixed-win price ranges, such as
+    $1.00-$1.49 and $1.50-$1.99, and show selection counts beside win rates.
+  - Insight return tables should be filterable by all countries or one selected
+    country, then by all tracks or one individual track inside the selected
+    country, with the same metric definitions in each scope. They should read
+    stored Supabase aggregates, not calculate historical tables from bundled
+    fixtures in the app.
+  - Insight country and track filter options may be derived from any stored
+    aggregate rows that carry country, course_name, and course_slug, so the
+    controls remain available while older aggregate runs are missing direct
+    country/course scope rows.
+  - Recommendations should show source-backed promotion details, current race
+    facts, and historical statistical signals only.
+  - Recommendations must read promotion snapshots from Supabase only at runtime;
+    missing Supabase configuration, missing cache rows, and cache read errors
+    should render explicit unavailable states rather than bundled fixture data.
+  - Recommendations must show missing prices/favourites explicitly and must not
+    invent a favourite when fixed-win prices are unavailable.
+  - Recommendations must show the Supabase promotion snapshot's Auckland source
+    date and stale/missing states.
+  - Recommendations must not include stake sizing, bankroll guidance, or
+    automated wagering actions.
+  - Predictions must read current bet candidates from current_prediction_snapshots,
+    model-filtered Supabase prediction aggregates for performance metrics, and
+    model-filtered promotion_predictions only for server-side filtered itemised
+    history display.
+  - Bet candidates should be ranked statistical candidates, not instructions to
+    bet, and should use configured NZ and Tier 1 Australian pilot-track races.
+    They should be grouped by discipline with a maximum of five candidates per
+    discipline.
+  - Predictions must show a concise method summary for the selected prediction
+    variation before its performance metrics.
+  - Prediction outcomes must use the predicted runner and predicted fixed-win
+    price, not the later final favourite if race-card facts change.
+  - Predictions must not include stake sizing, bankroll guidance, or automated
+    wagering actions.
+  - Return metrics should show the outcome of a notional $1 stake on each
+    favourite, including total staked, total returned, net return, average
+    return, ROI, and missing price counts.
+  - Insights should separate return and finish-position summaries by race code.
+  - Starter-count statistics should use final starters after scratchings.
+  - Source/debug data should explain confidence and failures without
+    overwhelming the normal race browsing flow.
+
+future_candidates:
+  - track_detail_pages
+  - runner_history_pages
+  - alerts_or_notifications_after_ingestion_reliability
+  - backfill_admin_tools
+  - authenticated_or_personalized_promotion_tracking

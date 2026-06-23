@@ -1,0 +1,354 @@
+{
+  "generatedAt": "2026-06-15T08:40:12.777Z",
+  "testDate": "2026-04-26",
+  "dateBasis": "Manual local historical collection.",
+  "source": {
+    "name": "betcha_graphql",
+    "endpoint": "https://api.betcha.co.nz/graphql",
+    "discoveryOperation": "RacingHomeMeetingsDesktopScreen",
+    "raceCardOperation": "RaceCardLite",
+    "note": "Betcha GraphQL is used for historical race-card discovery and detail fixtures."
+  },
+  "filters": {
+    "categories": [
+      "HORSE",
+      "HARNESS",
+      "GREYHOUND"
+    ],
+    "regions": [
+      "DOMESTIC"
+    ],
+    "pilotTracks": [
+      {
+        "canonicalName": "Ellerslie",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Ellerslie"
+        ]
+      },
+      {
+        "canonicalName": "New Plymouth",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "New Plymouth",
+          "New Plymouth Raceway",
+          "Pukekura Raceway"
+        ]
+      },
+      {
+        "canonicalName": "Te Rapa",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Te Rapa"
+        ]
+      },
+      {
+        "canonicalName": "Addington",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Addington",
+          "Addington Raceway"
+        ]
+      },
+      {
+        "canonicalName": "Alexandra Park",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Alexandra Park",
+          "Auckland"
+        ]
+      },
+      {
+        "canonicalName": "Doomben",
+        "country": "AU",
+        "includeAsComparison": true,
+        "aliases": [
+          "Doomben"
+        ]
+      },
+      {
+        "canonicalName": "Wingatui",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Wingatui"
+        ]
+      },
+      {
+        "canonicalName": "Whanganui",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Whanganui",
+          "Wanganui",
+          "Hatrick"
+        ]
+      },
+      {
+        "canonicalName": "Cambridge",
+        "country": "NZ",
+        "includeAsComparison": false,
+        "aliases": [
+          "Cambridge",
+          "Cambridge Raceway",
+          "Cambridge (G)"
+        ]
+      }
+    ]
+  },
+  "counts": {
+    "sourceMeetingsDiscovered": 29,
+    "pilotMeetingsMatched": 0,
+    "pilotRacesMatched": 0
+  },
+  "unmatchedPilotTracks": [
+    "Ellerslie",
+    "New Plymouth",
+    "Te Rapa",
+    "Addington",
+    "Alexandra Park",
+    "Doomben",
+    "Wingatui",
+    "Whanganui",
+    "Cambridge"
+  ],
+  "ignoredSourceMeetings": [
+    {
+      "name": "Waipukurau",
+      "category": "HORSE",
+      "country": "NZ",
+      "state": "NZ",
+      "races": 8
+    },
+    {
+      "name": "Manukau",
+      "category": "GREYHOUND",
+      "country": "NZ",
+      "state": "NZ",
+      "races": 12
+    },
+    {
+      "name": "Invercargill",
+      "category": "HARNESS",
+      "country": "NZ",
+      "state": "NZ",
+      "races": 11
+    },
+    {
+      "name": "Rangiora",
+      "category": "HARNESS",
+      "country": "NZ",
+      "state": "NZ",
+      "races": 10
+    },
+    {
+      "name": "Gatton",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "QLD",
+      "races": 7
+    },
+    {
+      "name": "Seymour",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "VIC",
+      "races": 8
+    },
+    {
+      "name": "Port Macquarie",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 7
+    },
+    {
+      "name": "Narromine",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 7
+    },
+    {
+      "name": "Hobart",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "TAS",
+      "races": 8
+    },
+    {
+      "name": "Port Augusta",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "SA",
+      "races": 7
+    },
+    {
+      "name": "Albany",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "WA",
+      "races": 9
+    },
+    {
+      "name": "Rockingham",
+      "category": "HORSE",
+      "country": "AUS",
+      "state": "WA",
+      "races": 7
+    },
+    {
+      "name": "Broken Hill",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 8
+    },
+    {
+      "name": "Capalaba",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "QLD",
+      "races": 10
+    },
+    {
+      "name": "Darwin",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "NT",
+      "races": 7
+    },
+    {
+      "name": "Gawler",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "SA",
+      "races": 10
+    },
+    {
+      "name": "Grafton",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 12
+    },
+    {
+      "name": "Healesville",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "VIC",
+      "races": 12
+    },
+    {
+      "name": "Mount Gambier",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "SA",
+      "races": 12
+    },
+    {
+      "name": "Nowra",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 12
+    },
+    {
+      "name": "Q2 Parklands",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "QLD",
+      "races": 10
+    },
+    {
+      "name": "Rockhampton",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "QLD",
+      "races": 10
+    },
+    {
+      "name": "Sale",
+      "category": "GREYHOUND",
+      "country": "AUS",
+      "state": "VIC",
+      "races": 12
+    },
+    {
+      "name": "Charlton",
+      "category": "HARNESS",
+      "country": "AUS",
+      "state": "VIC",
+      "races": 6
+    },
+    {
+      "name": "Coolamon",
+      "category": "HARNESS",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 9
+    },
+    {
+      "name": "Forbes",
+      "category": "HARNESS",
+      "country": "AUS",
+      "state": "NSW",
+      "races": 9
+    },
+    {
+      "name": "Launceston",
+      "category": "HARNESS",
+      "country": "AUS",
+      "state": "TAS",
+      "races": 8
+    },
+    {
+      "name": "Marburg",
+      "category": "HARNESS",
+      "country": "AUS",
+      "state": "QLD",
+      "races": 9
+    },
+    {
+      "name": "Sha Tin",
+      "category": "HORSE",
+      "country": "HK",
+      "state": "HK",
+      "races": 11
+    }
+  ],
+  "summary": {
+    "meetings": [],
+    "favouriteOutcomes": {
+      "note": "Counts are favourite selections, not necessarily unique races, so co-favourites would create multiple selections. Bonus bet credit assumes a $1 face-value bonus bet when the favourite finishes 2nd or 3rd; it is not converted to cash value.",
+      "overall": {
+        "label": "overall",
+        "favouriteSelections": 0,
+        "wins": 0,
+        "seconds": 0,
+        "thirds": 0,
+        "totalStake": 0,
+        "totalReturn": 0,
+        "totalBonusBetCredit": 0,
+        "totalValueWithBonusCredit": 0,
+        "profitLoss": 0,
+        "profitLossWithBonusCredit": 0,
+        "averageReturnPerDollar": 0,
+        "averageValuePerDollarWithBonusCredit": 0,
+        "bonusBetCredits": 0,
+        "winPercentage": 0,
+        "secondPercentage": 0,
+        "thirdPercentage": 0,
+        "bonusBetCreditPercentage": 0
+      },
+      "byDiscipline": [],
+      "byStarterCount": []
+    }
+  },
+  "meetings": []
+}

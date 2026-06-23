@@ -1,0 +1,11 @@
+[functions.refresh-current-promotions]
+verify_jwt = false
+
+[functions.refresh-current-predictions]
+verify_jwt = false
+
+[functions.refresh-race-days-and-insights]
+verify_jwt = false
+
+[functions.request-track-race-odds]
+verify_jwt = false

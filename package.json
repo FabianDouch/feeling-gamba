@@ -1,0 +1,30 @@
+{
+  "name": "feeling-gamba",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:mobile",
+    "dev:mobile": "npm --workspace @feeling-gamba/mobile run start",
+    "dev:web": "npm --workspace @feeling-gamba/mobile run web -- --port 8081",
+    "start": "npm run dev:mobile",
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "lint": "npm --workspaces --if-present run lint",
+    "test": "npm --workspaces --if-present run test"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~4.0.1",
+    "@opentelemetry/api": "^1.9.1",
+    "react-dom": "18.3.1",
+    "react-native-web": "~0.19.13"
+  },
+  "devDependencies": {
+    "supabase": "^2.107.0"
+  }
+}
