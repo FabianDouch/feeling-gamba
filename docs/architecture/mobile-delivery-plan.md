@@ -41,12 +41,14 @@ tester management becomes more important than direct private installation.
      public URLs.
 
 4. Stabilise backend operations.
-   - Apply Supabase migrations through a controlled deploy path.
-   - Deploy required Edge Functions:
+   - Deploy required Edge Functions through the first controlled backend deploy
+     path:
      - `refresh-current-promotions`
      - `refresh-current-predictions`
      - `refresh-race-days-and-insights`
      - `request-track-race-odds`
+   - Defer Supabase migration deployment to a separate, later controlled path
+     because schema changes have a higher blast radius than function deploys.
    - Configure Supabase Cron for prediction refreshes and race-day refreshes.
    - Confirm `current_prediction_snapshots`, `current_promotion_snapshots`,
      `race_day_entries`, `insight_aggregates`, `prediction_aggregates`, and
@@ -106,7 +108,12 @@ node --check packages/ingestion/scripts/fetch-current-promotions.mjs
 node --check packages/ingestion/scripts/refresh-race-days-and-insights.mjs
 ```
 
-### Backend Deploy
+### Edge Function Deploy
+
+Status:
+
+- Implemented as a manual workflow in
+  `.github/workflows/deploy-edge-functions.yml`.
 
 Trigger:
 
@@ -115,32 +122,54 @@ Trigger:
 
 Responsibilities:
 
-- Apply Supabase migrations to the target project.
-- Deploy Supabase Edge Functions.
-- Run smoke checks against public read models and refresh endpoints.
+- Deploy Supabase Edge Functions without applying database migrations.
+- Optionally run non-mutating smoke checks against the hosted function routes.
+- Keep this workflow separate from schema deployment because function deploys
+  are easier to roll forward and have lower production data risk.
 
 Required secrets:
 
 - Supabase project ref.
 - Supabase access token.
-- Supabase database password or linked-project credentials.
-- Any service-role keys used by deploy-time smoke checks.
 
 Minimum deploy steps:
 
 ```bash
-npx supabase db push
-npx supabase functions deploy refresh-current-promotions --no-verify-jwt --use-api
-npx supabase functions deploy refresh-current-predictions --no-verify-jwt --use-api
-npx supabase functions deploy refresh-race-days-and-insights --no-verify-jwt --use-api
-npx supabase functions deploy request-track-race-odds --no-verify-jwt --use-api
+npx supabase functions deploy refresh-current-promotions --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+npx supabase functions deploy refresh-current-predictions --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+npx supabase functions deploy refresh-race-days-and-insights --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+npx supabase functions deploy request-track-race-odds --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 ```
 
 Smoke checks:
 
+- `OPTIONS` requests to each deployed Edge Function return successfully.
+
+### Migration Deploy
+
+Status:
+
+- Deferred until after Edge Function deploys are repeatable.
+
+Responsibilities:
+
+- Apply Supabase migrations to the target project through a manual-approved
+  workflow.
+- Run read-model smoke checks after schema changes.
+- Require stronger review than Edge Function deploys because migrations can
+  alter stored data, RLS, public read models, and production app behaviour.
+
+Likely required secrets:
+
+- Supabase project ref.
+- Supabase access token.
+- Supabase database password or linked-project credentials.
+- Any service-role keys used by deploy-time read-model smoke checks.
+
+Future smoke checks:
+
 - `current_prediction_snapshots` latest row is readable with the public app key.
 - `current_promotion_snapshots` latest row is readable with the public app key.
-- `refresh-current-predictions` returns HTTP 200.
 - `race_day_entries` returns recent rows.
 - `insight_aggregates` returns stored aggregate rows.
 
@@ -180,7 +209,8 @@ eas build --platform ios --profile preview
 ## Operational Rules
 
 - Treat `main` as the release-ready branch.
-- Keep database deploys manual-approved until migration risk is low.
+- Deploy Edge Functions before adding database migration automation.
+- Keep database deploys separate and manual-approved until migration risk is low.
 - Keep iOS builds manual-triggered until signing and device registration are
   proven.
 - Never expose Supabase service-role keys to the Expo client.

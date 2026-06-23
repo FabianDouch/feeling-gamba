@@ -379,10 +379,14 @@ Source plan: `architecture/mobile-delivery-plan.md`.
    - Status: added `.github/workflows/ci.yml` for pull requests and pushes to
      `main`.
 3. Add controlled backend deployment.
-   - Start with a manual pipeline for Supabase migrations and Edge Function
-     deploys.
-   - Include smoke checks for prediction snapshots, promotion snapshots, recent
-     race-day rows, insight aggregates, and refresh endpoints.
+   - Start with a manual Edge Functions-only pipeline because function deploys
+     have lower blast radius than database migrations.
+   - Status: added `.github/workflows/deploy-edge-functions.yml` to deploy
+     `refresh-current-promotions`, `refresh-current-predictions`,
+     `refresh-race-days-and-insights`, and `request-track-race-odds` with
+     optional non-mutating route smoke checks.
+   - Defer Supabase migration automation to a separate manual-approved workflow
+     with stronger review and read-model smoke checks.
 4. Add EAS iOS internal distribution.
    - Configure `eas.json`, app identity, bundle identifier, icon, splash, and
      build profile.
