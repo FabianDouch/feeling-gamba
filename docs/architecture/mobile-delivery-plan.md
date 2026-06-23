@@ -74,10 +74,14 @@ until they are repeatable and low-risk.
 
 ### Pull Request CI
 
+Status:
+
+- Implemented in `.github/workflows/ci.yml`.
+
 Trigger:
 
 - Every pull request.
-- Every push to feature branches where practical.
+- Every push to `main`.
 
 Responsibilities:
 
@@ -95,7 +99,11 @@ npm run typecheck
 npm run lint
 npm run test
 node --check supabase/functions/_shared/current-promotions-core.mjs
+node --check supabase/functions/_shared/race-days-refresh-core.mjs
+node --check supabase/functions/_shared/track-race-odds-core.mjs
 node --check packages/ingestion/scripts/fetch-current-predictions.mjs
+node --check packages/ingestion/scripts/fetch-current-promotions.mjs
+node --check packages/ingestion/scripts/refresh-race-days-and-insights.mjs
 ```
 
 ### Backend Deploy

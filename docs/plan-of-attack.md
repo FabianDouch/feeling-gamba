@@ -376,6 +376,8 @@ Source plan: `architecture/mobile-delivery-plan.md`.
 2. Add repository CI.
    - Run `npm ci`, typecheck, lint, tests, and syntax checks on pull requests.
    - Keep CI free of live source calls and service-role secrets.
+   - Status: added `.github/workflows/ci.yml` for pull requests and pushes to
+     `main`.
 3. Add controlled backend deployment.
    - Start with a manual pipeline for Supabase migrations and Edge Function
      deploys.
