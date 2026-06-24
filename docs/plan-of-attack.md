@@ -394,9 +394,11 @@ Source plan: `architecture/mobile-delivery-plan.md`.
      distribution profile, and set the initial iOS identity in
      `apps/mobile/app.config.js` as `Feeling Gamba`,
      `com.fabiandouch.feelinggamba`, and `feelinggamba`.
-   - Next step: run `npx eas-cli init` from `apps/mobile`, commit the generated
-     EAS project ID, register the target iPhone, then run the first preview
-     build.
+   - Status: `npx eas-cli init` created EAS project
+     `c5cf0669-d55e-42ab-9361-d7d9fb6b9531`; the project ID is set manually in
+     `apps/mobile/app.config.js` because Expo dynamic config cannot be updated
+     automatically by EAS CLI.
+   - Next step: register the target iPhone, then run the first preview build.
    - Register the target iPhone with `eas device:create`.
    - Build with `eas build --platform ios --profile preview`.
 5. Run real-device acceptance testing.
