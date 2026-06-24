@@ -69,37 +69,54 @@ jobs:
           lookback_days="${LOOKBACK_DAYS:-4}"
           dry_run="${DRY_RUN:-false}"
           force_refresh="${FORCE_REFRESH:-false}"
+          today="$(TZ=Pacific/Auckland date +%F)"
+          start_epoch="$(TZ=Pacific/Auckland date -d "${today} - ${lookback_days} days" +%s)"
 
-          payload="$(
-            jq -nc \
-              --argjson lookbackDays "$lookback_days" \
-              --argjson dryRun "$dry_run" \
-              --argjson force "$force_refresh" \
-              '{
-                coverageMode: "all_domestic",
-                dryRun: $dryRun,
-                force: $force,
-                lookbackDays: $lookbackDays,
-                rebuildInsights: true
-              }'
-          )"
+          for day_offset in $(seq 0 "$((lookback_days - 1))"); do
+            source_epoch="$((start_epoch + day_offset * 86400))"
+            source_date="$(TZ=Pacific/Auckland date -d "@${source_epoch}" +%F)"
+            rebuild_insights=false
 
-          response_file="$(mktemp)"
+            if [ "$day_offset" -eq "$((lookback_days - 1))" ]; then
+              rebuild_insights=true
+            fi
 
-          http_status="$(
-            curl --max-time 840 -sS \
-              -o "$response_file" \
-              -w "%{http_code}" \
-              -X POST \
-              -H "content-type: application/json" \
-              -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
-              --data "$payload" \
-              "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
-          )"
+            echo "Refreshing completed Auckland source date ${source_date}; rebuildInsights=${rebuild_insights}"
 
-          jq . "$response_file" || cat "$response_file"
+            payload="$(
+              jq -nc \
+                --arg from "$source_date" \
+                --arg to "$source_date" \
+                --argjson dryRun "$dry_run" \
+                --argjson force "$force_refresh" \
+                --argjson rebuildInsights "$rebuild_insights" \
+                '{
+                  coverageMode: "all_domestic",
+                  dryRun: $dryRun,
+                  force: $force,
+                  from: $from,
+                  rebuildInsights: $rebuildInsights,
+                  to: $to
+                }'
+            )"
 
-          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-            echo "refresh-race-days-and-insights returned HTTP ${http_status}"
-            exit 1
-          fi
+            response_file="$(mktemp)"
+
+            http_status="$(
+              curl --max-time 840 -sS \
+                -o "$response_file" \
+                -w "%{http_code}" \
+                -X POST \
+                -H "content-type: application/json" \
+                -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
+                --data "$payload" \
+                "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
+            )"
+
+            jq . "$response_file" || cat "$response_file"
+
+            if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+              echo "refresh-race-days-and-insights returned HTTP ${http_status} for ${source_date}"
+              exit 1
+            fi
+          done
