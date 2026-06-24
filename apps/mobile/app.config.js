@@ -6,6 +6,7 @@ const appJson = require("./app.json");
 const APP_DISPLAY_NAME = "Feeling Gamba";
 const APP_SCHEME = "feelinggamba";
 const APP_SLUG = "feeling-gamba";
+const EAS_PROJECT_ID = "c5cf0669-d55e-42ab-9361-d7d9fb6b9531";
 const IOS_BUNDLE_IDENTIFIER = "com.fabiandouch.feelinggamba";
 const IOS_BUILD_NUMBER = "1";
 
@@ -54,6 +55,10 @@ module.exports = {
   },
   extra: {
     ...appJson.expo.extra,
+    eas: {
+      ...appJson.expo.extra?.eas,
+      projectId: EAS_PROJECT_ID,
+    },
     supabaseKey: process.env.EXPO_PUBLIC_SUPABASE_KEY
       ?? process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

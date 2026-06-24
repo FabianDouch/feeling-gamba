@@ -184,6 +184,7 @@ Status:
   - Display name: `Feeling Gamba`
   - Slug: `feeling-gamba`
   - URL scheme: `feelinggamba`
+  - EAS project ID: `c5cf0669-d55e-42ab-9361-d7d9fb6b9531`
   - iOS bundle identifier: `com.fabiandouch.feelinggamba`
   - iOS build number: `1`
 - The bundle identifier should be confirmed before the first Apple provisioning
@@ -225,8 +226,9 @@ npx eas-cli build --platform ios --profile preview
 
 Notes:
 
-- `npx eas-cli init` should be run once to create or link the Expo/EAS project.
-- Commit the generated EAS project ID after `init` updates app configuration.
+- `npx eas-cli init` created the EAS project but could not write to the dynamic
+  Expo config automatically.
+- `extra.eas.projectId` is now set manually in `apps/mobile/app.config.js`.
 - `npx eas-cli device:create` should be run before the first preview build so
   the target iPhone can install the internal build.
 
