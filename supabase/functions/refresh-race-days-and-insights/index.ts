@@ -12,12 +12,16 @@ const corsHeaders = {
 };
 
 type RefreshRequestBody = {
+  categories?: Array<"HORSE" | "HARNESS" | "GREYHOUND">;
   collectionStart?: string;
+  countries?: Array<"AUS" | "NZ">;
   coverageMode?: "all_domestic" | "all-domestic" | "pilot";
   dryRun?: boolean;
   force?: boolean;
   from?: string;
   lookbackDays?: number;
+  refreshRaceData?: boolean;
+  reconcileOutcomes?: boolean;
   rebuildInsights?: boolean;
   to?: string;
 };
@@ -118,13 +122,17 @@ Deno.serve(async (request) => {
     }
 
     const result = await runRaceDaysAndInsightsRefresh({
+      categories: body.categories,
       collectionStart: body.collectionStart,
       config: getSupabaseConfig(),
+      countries: body.countries,
       coverageMode: body.coverageMode === "all-domestic" ? "all_domestic" : body.coverageMode,
       dryRun: Boolean(body.dryRun),
       force: Boolean(body.force),
       from: body.from,
       lookbackDays: body.lookbackDays,
+      refreshRaceData: body.refreshRaceData !== false,
+      reconcileOutcomes: body.reconcileOutcomes !== false,
       rebuildInsights: body.rebuildInsights !== false,
       to: body.to,
       triggeredBy: "edge",

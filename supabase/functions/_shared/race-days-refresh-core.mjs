@@ -11,6 +11,8 @@ const COVERAGE_MODE_ALL_DOMESTIC = "all_domestic";
 const COVERAGE_MODE_PILOT = "pilot";
 const SUPPORTED_DOMESTIC_COUNTRIES = new Set(["AUS", "NZ"]);
 const SUPPORTED_RACING_CATEGORIES = new Set(["HORSE", "HARNESS", "GREYHOUND"]);
+const DEFAULT_DOMESTIC_COUNTRIES = ["NZ", "AUS"];
+const DEFAULT_RACING_CATEGORIES = ["HORSE", "HARNESS", "GREYHOUND"];
 
 /**
  * Creates a configured Australian comparison track entry for source matching.
@@ -195,6 +197,34 @@ function isValidDate(value) {
 
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+// Normalizes caller-provided country slices before source fetches are narrowed.
+function normalizeCountryFilter(countries = DEFAULT_DOMESTIC_COUNTRIES) {
+  const values = Array.isArray(countries) && countries.length ? countries : DEFAULT_DOMESTIC_COUNTRIES;
+  const normalized = values.map(normalizeCountry);
+
+  for (const country of normalized) {
+    if (!SUPPORTED_DOMESTIC_COUNTRIES.has(country)) {
+      throw new Error(`Unsupported country filter: ${country}.`);
+    }
+  }
+
+  return [...new Set(normalized)];
+}
+
+// Normalizes source racing-code slices so large refresh jobs can be split safely.
+function normalizeCategoryFilter(categories = DEFAULT_RACING_CATEGORIES) {
+  const values = Array.isArray(categories) && categories.length ? categories : DEFAULT_RACING_CATEGORIES;
+  const normalized = values.map((category) => String(category).toUpperCase());
+
+  for (const category of normalized) {
+    if (!SUPPORTED_RACING_CATEGORIES.has(category)) {
+      throw new Error(`Unsupported racing category filter: ${category}.`);
+    }
+  }
+
+  return [...new Set(normalized)];
 }
 
 function listDates(from, to) {
@@ -489,16 +519,18 @@ async function graphql(operationName, query, variables) {
   return payload;
 }
 
-async function fetchDate(date, { coverageMode = COVERAGE_MODE_ALL_DOMESTIC } = {}) {
+async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countries = DEFAULT_DOMESTIC_COUNTRIES, coverageMode = COVERAGE_MODE_ALL_DOMESTIC } = {}) {
+  const categoryFilter = normalizeCategoryFilter(categories);
+  const countryFilter = normalizeCountryFilter(countries);
   const discoveryResponse = await graphql("RacingHomeMeetingsDesktopScreen", DISCOVERY_QUERY, {
-    categories: ["HORSE", "HARNESS", "GREYHOUND"],
+    categories: categoryFilter,
     date,
     regions: ["DOMESTIC"],
   });
   const allMeetings = discoveryResponse.data?.racingDay?.meetings ?? [];
   const matchedMeetingEntries = allMeetings
     .map((meeting) => ({ meeting, pilotTrack: matchMeetingToCoverage(meeting, coverageMode) }))
-    .filter((entry) => entry.pilotTrack);
+    .filter((entry) => entry.pilotTrack && countryFilter.includes(getMeetingCountry(entry.meeting)));
   const meetings = [];
   const errors = [];
 
@@ -552,7 +584,8 @@ async function fetchDate(date, { coverageMode = COVERAGE_MODE_ALL_DOMESTIC } = {
         sourceMeetingsDiscovered: allMeetings.length,
       },
       filters: {
-        categories: ["HORSE", "HARNESS", "GREYHOUND"],
+        categories: categoryFilter,
+        countries: countryFilter,
         coverageMode,
         regions: ["DOMESTIC"],
       },
@@ -569,12 +602,12 @@ async function fetchDate(date, { coverageMode = COVERAGE_MODE_ALL_DOMESTIC } = {
   };
 }
 
-export async function fetchRaceDayFixtures({ coverageMode = COVERAGE_MODE_ALL_DOMESTIC, from, to }) {
+export async function fetchRaceDayFixtures({ categories = DEFAULT_RACING_CATEGORIES, countries = DEFAULT_DOMESTIC_COUNTRIES, coverageMode = COVERAGE_MODE_ALL_DOMESTIC, from, to }) {
   const fixtures = [];
   const errors = [];
 
   for (const date of listDates(from, to)) {
-    const result = await fetchDate(date, { coverageMode });
+    const result = await fetchDate(date, { categories, countries, coverageMode });
     fixtures.push(result.fixture);
     errors.push(...result.errors);
   }
@@ -1906,25 +1939,36 @@ export function resolveRefreshWindow({ from, lookbackDays = DEFAULT_LOOKBACK_DAY
 
 export async function runRaceDaysAndInsightsRefresh({
   batchSize = DEFAULT_BATCH_SIZE,
+  categories = DEFAULT_RACING_CATEGORIES,
   collectionStart = DEFAULT_COLLECTION_START,
   config,
+  countries = DEFAULT_DOMESTIC_COUNTRIES,
   coverageMode = COVERAGE_MODE_ALL_DOMESTIC,
   dryRun = false,
   force = false,
   from,
   lockKey = "refresh-race-days-and-insights",
   lookbackDays = DEFAULT_LOOKBACK_DAYS,
+  refreshRaceData = true,
+  reconcileOutcomes = true,
   rebuildInsights = true,
   to,
   triggeredBy = "edge",
 } = {}) {
   const window = resolveRefreshWindow({ from, lookbackDays, to });
+  const categoryFilter = normalizeCategoryFilter(categories);
+  const countryFilter = normalizeCountryFilter(countries);
 
   if (dryRun) {
     return {
       dryRun: true,
+      categories: categoryFilter,
+      countries: countryFilter,
       coverageMode,
       lookbackDays,
+      refreshRaceData,
+      reconcileOutcomes,
+      rebuildInsights,
       sourceTimeZone: SOURCE_TIME_ZONE,
       window,
     };
@@ -1935,15 +1979,23 @@ export async function runRaceDaysAndInsightsRefresh({
 
   try {
     lockExpiresAt = await acquireLock(supabase, { force, lockKey, ttlMinutes: DEFAULT_LOCK_TTL_MINUTES });
-    const fetched = await fetchRaceDayFixtures({ ...window, coverageMode });
-    const rows = buildRaceRowsFromFixtures(fetched.fixtures);
-    const raceWrite = await writeRaceRowsToSupabase(rows, {
-      batchSize,
-      config,
-      from: window.from,
-      to: window.to,
-      triggeredBy,
-    });
+    const fetched = refreshRaceData
+      ? await fetchRaceDayFixtures({
+          ...window,
+          categories: categoryFilter,
+          countries: countryFilter,
+          coverageMode,
+        })
+      : { errors: [], fixtures: [] };
+    const raceWrite = refreshRaceData
+      ? await writeRaceRowsToSupabase(buildRaceRowsFromFixtures(fetched.fixtures), {
+          batchSize,
+          config,
+          from: window.from,
+          to: window.to,
+          triggeredBy,
+        })
+      : null;
     const insightWrite = rebuildInsights
       ? await rebuildInsightAggregatesFromSupabase({
           batchSize,
@@ -1953,18 +2005,24 @@ export async function runRaceDaysAndInsightsRefresh({
           triggeredBy,
         })
       : null;
-    const predictionOutcomeWrite = await reconcilePromotionPredictionOutcomesFromSupabase({
-      batchSize,
-      config,
-    });
-    const userRaceBetOutcomeWrite = await reconcileUserRaceBetOutcomesFromSupabase({
-      batchSize,
-      config,
-    });
-    const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
-      batchSize,
-      config,
-    });
+    const predictionOutcomeWrite = reconcileOutcomes
+      ? await reconcilePromotionPredictionOutcomesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
+    const userRaceBetOutcomeWrite = reconcileOutcomes
+      ? await reconcileUserRaceBetOutcomesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
+    const predictionAggregateWrite = reconcileOutcomes
+      ? await rebuildPredictionAggregatesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
 
     return {
       errors: fetched.errors,
@@ -1974,7 +2032,10 @@ export async function runRaceDaysAndInsightsRefresh({
       predictionOutcomeWrite,
       raceWrite,
       sourceSummary: {
+        categories: categoryFilter,
+        countries: countryFilter,
         coverageMode,
+        dataRefreshed: refreshRaceData,
         fixtures: fetched.fixtures.length,
         meetings: fetched.fixtures.reduce((total, fixture) => total + (fixture.counts?.meetingsMatched ?? fixture.counts?.pilotMeetingsMatched ?? 0), 0),
         races: fetched.fixtures.reduce((total, fixture) => total + (fixture.counts?.racesMatched ?? fixture.counts?.pilotRacesMatched ?? 0), 0),

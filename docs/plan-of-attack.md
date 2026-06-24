@@ -107,8 +107,9 @@ source-of-truth docs in the same change.
   which left recent prediction outcomes pending. A daily overnight GitHub
   Actions workflow now invokes `refresh-race-days-and-insights` with a
   four-day completed-date lookback, chunked into one request per source date,
-  so race-day data, insight aggregates, prediction outcomes, and prediction
-  aggregates refresh without waiting for the older weekly job.
+  country, and source category, followed by one aggregate/reconcile-only
+  request, so race-day data, insight aggregates, prediction outcomes, and
+  prediction aggregates refresh without waiting for the older weekly job.
 
 ## Phase 1: Project Scaffold
 
@@ -265,8 +266,10 @@ source-of-truth docs in the same change.
      `.github/workflows/overnight-race-refresh.yml` instead of a new database
      migration. It calls the hosted `refresh-race-days-and-insights` Edge
      Function daily at `18:10` UTC for the latest four completed Auckland dates,
-     chunked into one request per source date, and supports manual catch-up runs
-     up to 14 completed Auckland dates.
+     chunked into one request per source date, country, and source category, and
+     followed by one aggregate/reconcile-only request. It supports manual
+     catch-up runs up to 14 completed Auckland dates. The Edge Function must be
+     redeployed after slice-body changes.
 7. Add operational visibility through `source_fetches`, `ingestion_runs`, and
    debug/admin views.
 8. Add a manual historical backfill path from the initial collection start date
