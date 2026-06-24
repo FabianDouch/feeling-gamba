@@ -1,0 +1,91 @@
+name: Overnight Race Data Refresh
+
+on:
+  schedule:
+    # 06:10 NZST / 07:10 NZDT. GitHub cron uses UTC.
+    - cron: "10 18 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: Completed Auckland race dates to refresh, ending yesterday
+        required: true
+        default: "4"
+        type: string
+      dry_run:
+        description: Resolve the refresh window without writing race data
+        required: false
+        default: false
+        type: boolean
+      force_refresh:
+        description: Override an active refresh lock
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: overnight-race-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh Race Days And Predictions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      FORCE_REFRESH: ${{ github.event.inputs.force_refresh }}
+      LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days }}
+      RACE_DAY_REFRESH_ADMIN_TOKEN: ${{ secrets.RACE_DAY_REFRESH_ADMIN_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+          test -n "$RACE_DAY_REFRESH_ADMIN_TOKEN" || (echo "RACE_DAY_REFRESH_ADMIN_TOKEN is required" && exit 1)
+
+          lookback_days="${LOOKBACK_DAYS:-4}"
+
+          case "$lookback_days" in
+            ''|*[!0-9]*)
+              echo "lookback_days must be a positive integer"
+              exit 1
+              ;;
+          esac
+
+          if [ "$lookback_days" -lt 1 ] || [ "$lookback_days" -gt 14 ]; then
+            echo "lookback_days must be between 1 and 14"
+            exit 1
+          fi
+
+      - name: Invoke hosted race-day refresh
+        run: |
+          lookback_days="${LOOKBACK_DAYS:-4}"
+          dry_run="${DRY_RUN:-false}"
+          force_refresh="${FORCE_REFRESH:-false}"
+
+          payload="$(
+            jq -nc \
+              --argjson lookbackDays "$lookback_days" \
+              --argjson dryRun "$dry_run" \
+              --argjson force "$force_refresh" \
+              '{
+                coverageMode: "all_domestic",
+                dryRun: $dryRun,
+                force: $force,
+                lookbackDays: $lookbackDays,
+                rebuildInsights: true
+              }'
+          )"
+
+          curl --fail-with-body --max-time 840 -sS \
+            -X POST \
+            -H "content-type: application/json" \
+            -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
+            --data "$payload" \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights" \
+            | jq .

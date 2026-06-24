@@ -103,6 +103,12 @@ source-of-truth docs in the same change.
   be upserted so overall, country, course, and race-code rows are present.
 - The Predictions screen now shows prediction variation tabs and a short method
   summary for the active variation above its performance metrics and history.
+- Race Days was observed on 2026-06-24 as only current through `2026-06-21`,
+  which left recent prediction outcomes pending. A daily overnight GitHub
+  Actions workflow now invokes `refresh-race-days-and-insights` with a
+  four-day completed-date lookback so race-day data, insight aggregates,
+  prediction outcomes, and prediction aggregates refresh without waiting for the
+  older weekly job.
 
 ## Phase 1: Project Scaffold
 
@@ -255,6 +261,11 @@ source-of-truth docs in the same change.
    - Backfill failed or incomplete races.
    - Compare declared runner count against final starters.
 6. Add Supabase Cron schedules after a successful manual dry run.
+   - Status: the first production race-day catch-up schedule now uses
+     `.github/workflows/overnight-race-refresh.yml` instead of a new database
+     migration. It calls the hosted `refresh-race-days-and-insights` Edge
+     Function daily at `18:10` UTC with `lookbackDays: 4`, and supports manual
+     catch-up runs up to 14 completed Auckland dates.
 7. Add operational visibility through `source_fetches`, `ingestion_runs`, and
    debug/admin views.
 8. Add a manual historical backfill path from the initial collection start date
