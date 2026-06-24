@@ -681,6 +681,16 @@ Required GitHub repository secrets for the overnight workflow:
 The same `RACE_DAY_REFRESH_ADMIN_TOKEN` value must also be configured as a
 Supabase Edge Function secret for `refresh-race-days-and-insights`.
 
+Troubleshooting:
+
+- If the workflow returns `401` with `Unauthorized refresh request.`, the
+  `RACE_DAY_REFRESH_ADMIN_TOKEN` GitHub repository secret is missing or does not
+  match the Supabase Edge Function secret of the same name.
+- Set or rotate the Supabase-side value with
+  `npx supabase secrets set RACE_DAY_REFRESH_ADMIN_TOKEN=<same-token> --project-ref <project-ref>`.
+- The workflow must fail on non-2xx HTTP responses. `curl` writes the response
+  to a file before `jq` formats it so pipe handling cannot hide HTTP failures.
+
 Manual local refresh dry run:
 
 ```bash
