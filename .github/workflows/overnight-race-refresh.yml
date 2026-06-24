@@ -64,6 +64,8 @@ jobs:
 
       - name: Invoke hosted race-day refresh
         run: |
+          set -o pipefail
+
           lookback_days="${LOOKBACK_DAYS:-4}"
           dry_run="${DRY_RUN:-false}"
           force_refresh="${FORCE_REFRESH:-false}"
@@ -82,10 +84,22 @@ jobs:
               }'
           )"
 
-          curl --fail-with-body --max-time 840 -sS \
-            -X POST \
-            -H "content-type: application/json" \
-            -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
-            --data "$payload" \
-            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights" \
-            | jq .
+          response_file="$(mktemp)"
+
+          http_status="$(
+            curl --max-time 840 -sS \
+              -o "$response_file" \
+              -w "%{http_code}" \
+              -X POST \
+              -H "content-type: application/json" \
+              -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
+              --data "$payload" \
+              "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
+          )"
+
+          jq . "$response_file" || cat "$response_file"
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "refresh-race-days-and-insights returned HTTP ${http_status}"
+            exit 1
+          fi
