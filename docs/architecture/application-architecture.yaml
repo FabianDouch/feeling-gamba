@@ -603,13 +603,14 @@ flows:
     steps:
       - .github/workflows/overnight-race-refresh.yml invokes the hosted Edge Function at 18:10 UTC, which is early morning in New Zealand.
       - Scheduled runs refresh the latest 4 completed Auckland dates, ending yesterday, to catch late results and missed daily runs.
-      - The workflow sends one Edge Function request per source date to avoid Supabase's 150 second request idle timeout.
-      - Manual workflow dispatch can refresh 1 to 14 completed Auckland dates for catch-up runs, still chunked into one-day requests.
+      - The workflow sends one Edge Function request per completed source date, country, and source racing category to avoid Supabase's 150 second request idle timeout.
+      - Manual workflow dispatch can refresh 1 to 14 completed Auckland dates for catch-up runs, still chunked into one-day/country/category requests.
       - fetch source race dates for configured source coverage, using Pacific/Auckland only for calendar-date conversion where needed.
       - upsert normalized race data and app-facing race_day_entries.
-      - rebuild insight_aggregates on the final chunk only, including country+race-code starter, price, distance-band, and track-condition bucket scopes, from stored race_day_entries across the full collected range after refreshed rows are written.
-      - reconcile pending or missing promotion_predictions against stored results and rebuild model-scoped prediction_aggregates.
-      - reconcile pending or missing user_race_bets against stored results so Account personal statistics can settle.
+      - run one final aggregate/reconcile-only Edge Function request with refreshRaceData false after all source slices finish.
+      - rebuild insight_aggregates in that final request, including country+race-code starter, price, distance-band, and track-condition bucket scopes, from stored race_day_entries across the full collected range after refreshed rows are written.
+      - reconcile pending or missing promotion_predictions against stored results and rebuild model-scoped prediction_aggregates in that final request.
+      - reconcile pending or missing user_race_bets against stored results in that final request so Account personal statistics can settle.
       - require RACE_DAY_REFRESH_ADMIN_TOKEN for hosted write runs; store the same token as a Supabase Edge Function secret and a GitHub Actions repository secret.
 
   result_collection:

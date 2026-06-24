@@ -71,52 +71,100 @@ jobs:
           force_refresh="${FORCE_REFRESH:-false}"
           today="$(TZ=Pacific/Auckland date +%F)"
           start_epoch="$(TZ=Pacific/Auckland date -d "${today} - ${lookback_days} days" +%s)"
+          countries="NZ AUS"
+          categories="HORSE HARNESS GREYHOUND"
+          final_source_date=""
 
           for day_offset in $(seq 0 "$((lookback_days - 1))"); do
             source_epoch="$((start_epoch + day_offset * 86400))"
             source_date="$(TZ=Pacific/Auckland date -d "@${source_epoch}" +%F)"
-            rebuild_insights=false
+            final_source_date="$source_date"
 
-            if [ "$day_offset" -eq "$((lookback_days - 1))" ]; then
-              rebuild_insights=true
-            fi
+            for country in $countries; do
+              for category in $categories; do
+                echo "Refreshing ${source_date} ${country} ${category}"
 
-            echo "Refreshing completed Auckland source date ${source_date}; rebuildInsights=${rebuild_insights}"
+                payload="$(
+                  jq -nc \
+                    --arg category "$category" \
+                    --arg country "$country" \
+                    --arg from "$source_date" \
+                    --arg to "$source_date" \
+                    --argjson dryRun "$dry_run" \
+                    --argjson force "$force_refresh" \
+                    '{
+                      categories: [$category],
+                      countries: [$country],
+                      coverageMode: "all_domestic",
+                      dryRun: $dryRun,
+                      force: $force,
+                      from: $from,
+                      rebuildInsights: false,
+                      reconcileOutcomes: false,
+                      refreshRaceData: true,
+                      to: $to
+                    }'
+                )"
 
-            payload="$(
-              jq -nc \
-                --arg from "$source_date" \
-                --arg to "$source_date" \
-                --argjson dryRun "$dry_run" \
-                --argjson force "$force_refresh" \
-                --argjson rebuildInsights "$rebuild_insights" \
-                '{
-                  coverageMode: "all_domestic",
-                  dryRun: $dryRun,
-                  force: $force,
-                  from: $from,
-                  rebuildInsights: $rebuildInsights,
-                  to: $to
-                }'
-            )"
+                response_file="$(mktemp)"
 
-            response_file="$(mktemp)"
+                http_status="$(
+                  curl --max-time 840 -sS \
+                    -o "$response_file" \
+                    -w "%{http_code}" \
+                    -X POST \
+                    -H "content-type: application/json" \
+                    -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
+                    --data "$payload" \
+                    "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
+                )"
 
-            http_status="$(
-              curl --max-time 840 -sS \
-                -o "$response_file" \
-                -w "%{http_code}" \
-                -X POST \
-                -H "content-type: application/json" \
-                -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
-                --data "$payload" \
-                "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
-            )"
+                jq . "$response_file" || cat "$response_file"
 
-            jq . "$response_file" || cat "$response_file"
-
-            if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-              echo "refresh-race-days-and-insights returned HTTP ${http_status} for ${source_date}"
-              exit 1
-            fi
+                if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+                  echo "refresh-race-days-and-insights returned HTTP ${http_status} for ${source_date} ${country} ${category}"
+                  exit 1
+                fi
+              done
+            done
           done
+
+          echo "Rebuilding insights and reconciling outcomes through ${final_source_date}"
+
+          payload="$(
+            jq -nc \
+              --arg from "$final_source_date" \
+              --arg to "$final_source_date" \
+              --argjson dryRun "$dry_run" \
+              --argjson force "$force_refresh" \
+              '{
+                coverageMode: "all_domestic",
+                dryRun: $dryRun,
+                force: $force,
+                from: $from,
+                rebuildInsights: true,
+                reconcileOutcomes: true,
+                refreshRaceData: false,
+                to: $to
+              }'
+          )"
+
+          response_file="$(mktemp)"
+
+          http_status="$(
+            curl --max-time 840 -sS \
+              -o "$response_file" \
+              -w "%{http_code}" \
+              -X POST \
+              -H "content-type: application/json" \
+              -H "x-refresh-token: ${RACE_DAY_REFRESH_ADMIN_TOKEN}" \
+              --data "$payload" \
+              "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-race-days-and-insights"
+          )"
+
+          jq . "$response_file" || cat "$response_file"
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "refresh-race-days-and-insights returned HTTP ${http_status} during final aggregate/reconcile step"
+            exit 1
+          fi
