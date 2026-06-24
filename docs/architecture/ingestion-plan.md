@@ -633,11 +633,14 @@ Source check on 2026-06-18:
   promotion JSON when Supabase configuration, cache rows, or cache reads are
   unavailable.
 
-## Supabase Scheduling
+## Recurring Scheduling
 
-Use Supabase Cron to invoke Edge Functions.
+Use scheduled invocations to keep Edge Functions current. Prefer GitHub Actions
+for the first daily race-day catch-up so no database cron migration is needed;
+Supabase Cron remains available for jobs that are safer to manage inside the
+database later.
 
-Proposed cron jobs:
+Proposed recurring jobs:
 
 | Job | Schedule | Function | Notes |
 | --- | --- | --- | --- |
@@ -647,7 +650,7 @@ Proposed cron jobs:
 | `capture-market-snapshots` | `*/5 * * * *` | `capture-market-snapshots` | The function decides which races need snapshots. |
 | `collect-results` | `*/10 * * * *` | `collect-results` | Runs during and after race windows. |
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
-| `refresh-race-days-and-insights` | active: `0 7 * * 1` in Supabase Cron | `refresh-race-days-and-insights` | Refreshes the latest completed Auckland source dates, rebuilds stored insight aggregates, reconciles prediction outcomes, and rebuilds prediction aggregates. |
+| `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates, rebuilds stored insight aggregates, reconciles prediction outcomes, and rebuilds prediction aggregates. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | every 15 minutes during active NZ/AU race-card windows, for example `*/15 22-10 * * *` UTC | `refresh-current-predictions` | Refreshes current Betcha prediction candidates independently of promotions, writes all model variants including the global cash blends, and skips source calls when the prediction cache is fresher than 15 minutes. |
 
@@ -655,20 +658,36 @@ Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
 confirmed.
 
-The weekly race-day refresh is deployed as `refresh-race-days-and-insights` and
-scheduled through Supabase Cron + `pg_net`. Supabase Edge Function limits are a
-practical constraint: request idle timeout is 150 seconds, with a 150 second
-Free plan / 400 second Paid plan worker wall-clock limit. Keep the scheduled
-window bounded and review logs after the first Monday run before expanding the
-lookback.
+The daily race-day refresh is deployed as `refresh-race-days-and-insights` and
+scheduled through `.github/workflows/overnight-race-refresh.yml`. The workflow
+calls the hosted Edge Function at `18:10` UTC, which is early morning in New
+Zealand, with `lookbackDays: 4`, `coverageMode: all_domestic`, and
+`rebuildInsights: true`. This is the primary flow for keeping Race Days current
+and settling prediction outcomes without waiting for a weekly job. Manual
+workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
+for catch-up runs such as recovering data after the app only shows race days
+through `2026-06-21`.
 
-Manual weekly refresh dry run:
+Supabase Edge Function limits are a practical constraint: request idle timeout
+is 150 seconds, with a 150 second Free plan / 400 second Paid plan worker
+wall-clock limit. Keep the scheduled window bounded and review logs before
+expanding the lookback.
+
+Required GitHub repository secrets for the overnight workflow:
+
+- `SUPABASE_PROJECT_REF`
+- `RACE_DAY_REFRESH_ADMIN_TOKEN`
+
+The same `RACE_DAY_REFRESH_ADMIN_TOKEN` value must also be configured as a
+Supabase Edge Function secret for `refresh-race-days-and-insights`.
+
+Manual local refresh dry run:
 
 ```bash
 npm --workspace @feeling-gamba/ingestion run refresh:race-days-and-insights -- --dry-run
 ```
 
-Manual weekly refresh write:
+Manual local refresh write:
 
 ```bash
 npm --workspace @feeling-gamba/ingestion run refresh:race-days-and-insights -- --require-supabase
@@ -698,9 +717,11 @@ First live weekly-refresh catch-up on `2026-06-19`:
   run `72a17af5-9158-4cda-8cc3-ae9fd341fcc2` refreshed 129
   `race_day_entries`; aggregate run `7bbb354c-dca2-4bfb-b564-51d0d4e2eb44`
   rebuilt 878 `insight_aggregates` from 4,140 `race_day_entries`.
-- Active Supabase Cron job: `refresh-race-days-and-insights-weekly`, schedule
-  `0 7 * * 1`, calling the hosted function with `lookbackDays: 7` and
-  `rebuildInsights: true`.
+- Previous Supabase Cron job: `refresh-race-days-and-insights-weekly`, schedule
+  `0 7 * * 1`, called the hosted function with `lookbackDays: 7` and
+  `rebuildInsights: true`. It was superseded by the daily GitHub Actions
+  overnight workflow so prediction outcomes are not stuck pending for most of
+  the week.
 
 ## Edge Function Deployment Notes
 

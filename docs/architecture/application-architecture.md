@@ -10,10 +10,11 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-06-23 for model-aware prediction tracking
-and independent current prediction refreshes. Rendered architecture outputs
-should be regenerated from the YAML before being treated as current. The same
-date also added distance/condition prediction scopes, the
+Note: the YAML was updated on 2026-06-24 for the daily overnight race-day
+refresh schedule that keeps prediction outcomes settling. Rendered architecture
+outputs should be regenerated from the YAML before being treated as current.
+The 2026-06-23 update added model-aware prediction tracking, independent
+current prediction refreshes, distance/condition prediction scopes, the
 `country_code_distance_condition_v1` model, and the
 `global_bucket_cash_blend_v1` / `global_bucket_cash_even_blend_v1` cash-only
 bucket models.
@@ -456,11 +457,12 @@ toward matching global bucket values to reduce small-sample noise. The
 starter-count, distance-band, and track-condition buckets with conservative
 shrinkage toward broader history. A prediction row is replaced only when its
 signature changes, covering material changes such as the predicted favourite,
-fixed-win price, starter count, rank, model score, or signal. The weekly
-`refresh-race-days-and-insights` job reconciles non-settled predictions against
-the stored race, runner, and result rows, then rebuilds model-scoped
-`prediction_aggregates` for the Predictions tab. Prediction outcomes use the
-predicted runner and predicted fixed-win price, not the later final favourite.
+fixed-win price, starter count, rank, model score, or signal. The daily
+overnight `refresh-race-days-and-insights` invocation reconciles non-settled
+predictions against the stored race, runner, and result rows, then rebuilds
+model-scoped `prediction_aggregates` for the Predictions tab. Prediction
+outcomes use the predicted runner and predicted fixed-win price, not the later
+final favourite.
 
 Because Expo runs from `apps/mobile`, `apps/mobile/app.config.js` loads the
 repo-root public Supabase env values before Metro bundles the app.
@@ -509,9 +511,9 @@ repo-root public Supabase env values before Metro bundles the app.
   the top of each variation. The history filters query Supabase by date range,
   country, discipline, and racecourse. The app must not calculate prediction
   performance from raw prediction rows at runtime.
-- Weekly `refresh-race-days-and-insights` reconciles pending `user_race_bets`
-  by `source_race_card_id` and selected runner number after race results are
-  refreshed.
+- Daily overnight `refresh-race-days-and-insights` reconciles pending
+  `user_race_bets` by `source_race_card_id` and selected runner number after
+  race results are refreshed.
 - Normalized race/source tables and operational tables remain server-side behind
   RLS. Public client reads are limited to app-facing read models and public
   promotion snapshots.
