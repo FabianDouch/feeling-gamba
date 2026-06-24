@@ -390,6 +390,13 @@ Source plan: `architecture/mobile-delivery-plan.md`.
 4. Add EAS iOS internal distribution.
    - Configure `eas.json`, app identity, bundle identifier, icon, splash, and
      build profile.
+   - Status: added `apps/mobile/eas.json` with a manual `preview` internal
+     distribution profile, and set the initial iOS identity in
+     `apps/mobile/app.config.js` as `Feeling Gamba`,
+     `com.fabiandouch.feelinggamba`, and `feelinggamba`.
+   - Next step: run `npx eas-cli init` from `apps/mobile`, commit the generated
+     EAS project ID, register the target iPhone, then run the first preview
+     build.
    - Register the target iPhone with `eas device:create`.
    - Build with `eas build --platform ios --profile preview`.
 5. Run real-device acceptance testing.

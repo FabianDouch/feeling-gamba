@@ -23,7 +23,7 @@ tester management becomes more important than direct private installation.
    - Store production secrets in GitHub, EAS, or Supabase secret stores only.
 
 2. Prepare the native iOS app configuration.
-   - Add an EAS project and `eas.json`.
+   - Add an EAS project and `apps/mobile/eas.json`.
    - Set the final app display name, bundle identifier, icon, splash screen,
      and URL scheme in `apps/mobile/app.config.js`.
    - Add an internal iOS build profile for ad hoc distribution.
@@ -175,6 +175,20 @@ Future smoke checks:
 
 ### iOS Internal Build
 
+Status:
+
+- Initial EAS build profile and iOS identity are configured.
+- `apps/mobile/eas.json` defines a manual `preview` build profile using EAS
+  internal distribution.
+- `apps/mobile/app.config.js` sets the current native identity:
+  - Display name: `Feeling Gamba`
+  - Slug: `feeling-gamba`
+  - URL scheme: `feelinggamba`
+  - iOS bundle identifier: `com.fabiandouch.feelinggamba`
+  - iOS build number: `1`
+- The bundle identifier should be confirmed before the first Apple provisioning
+  run because changing it later creates a separate native app identity.
+
 Trigger:
 
 - Manual GitHub Actions workflow dispatch or EAS Workflow run at first.
@@ -203,8 +217,18 @@ Required services and secrets:
 Minimum build command:
 
 ```bash
-eas build --platform ios --profile preview
+cd apps/mobile
+npx eas-cli init
+npx eas-cli device:create
+npx eas-cli build --platform ios --profile preview
 ```
+
+Notes:
+
+- `npx eas-cli init` should be run once to create or link the Expo/EAS project.
+- Commit the generated EAS project ID after `init` updates app configuration.
+- `npx eas-cli device:create` should be run before the first preview build so
+  the target iPhone can install the internal build.
 
 ## Operational Rules
 
@@ -221,9 +245,10 @@ eas build --platform ios --profile preview
 
 ## Open Decisions
 
-- Confirm the final app display name and iOS bundle identifier.
 - Confirm whether the Apple Developer account is individual or organization.
-- Decide whether the first pipeline host is GitHub Actions, EAS Workflows, or a
-  small combination of both.
+- Confirm the provisional iOS bundle identifier
+  `com.fabiandouch.feelinggamba` before the first Apple provisioning run.
+- Decide whether the first iOS build pipeline host is GitHub Actions, EAS
+  Workflows, or manual local EAS CLI.
 - Decide whether TestFlight should remain out of scope after the first ad hoc
   iOS build is installed.

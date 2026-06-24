@@ -3,6 +3,12 @@ const path = require("node:path");
 
 const appJson = require("./app.json");
 
+const APP_DISPLAY_NAME = "Feeling Gamba";
+const APP_SCHEME = "feelinggamba";
+const APP_SLUG = "feeling-gamba";
+const IOS_BUNDLE_IDENTIFIER = "com.fabiandouch.feelinggamba";
+const IOS_BUILD_NUMBER = "1";
+
 const PUBLIC_ENV_KEYS = [
   "EXPO_PUBLIC_PREDICTION_REFRESH_URL",
   "EXPO_PUBLIC_PROMOTION_REFRESH_URL",
@@ -38,6 +44,14 @@ loadRootPublicEnv();
 
 module.exports = {
   ...appJson.expo,
+  name: APP_DISPLAY_NAME,
+  scheme: APP_SCHEME,
+  slug: APP_SLUG,
+  ios: {
+    ...appJson.expo.ios,
+    buildNumber: IOS_BUILD_NUMBER,
+    bundleIdentifier: IOS_BUNDLE_IDENTIFIER,
+  },
   extra: {
     ...appJson.expo.extra,
     supabaseKey: process.env.EXPO_PUBLIC_SUPABASE_KEY
