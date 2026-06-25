@@ -56,12 +56,14 @@ export function BetCandidatesSection({
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const candidatesByDiscipline = groupBetCandidatesByDiscipline(betCandidates, selectedModelKey);
-  const modelScoreLabel = selectedModelKey === "global_bucket_cash_blend_v1"
-    || selectedModelKey === "global_bucket_cash_even_blend_v1"
+  const modelScoreLabel = isCashReturnModel(selectedModelKey)
     ? "Cash avg score"
     : "Cash+bonus avg";
   const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
-  const candidatesAreStale = Boolean(payload) && isSnapshotStale(snapshotGeneratedAt);
+  const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
+  const candidatesAreStale = Boolean(payload)
+    && !predictionWindowClosedNow
+    && isSnapshotStale(snapshotGeneratedAt);
   const statusLabel = status === "supabase"
     ? "Loaded from Supabase cache"
     : status === "loading"
@@ -96,6 +98,15 @@ export function BetCandidatesSection({
 
         if (latestSnapshot?.sourceTable === "current_promotion_snapshots") {
           setRefreshMessage("Prediction cache table is not deployed yet. Showing latest promotion snapshot temporarily.");
+        }
+
+        if (!latestSnapshot && hasPredictionRefreshEndpoint) {
+          setIsRequestingRefresh(true);
+          setRefreshMessage("Requesting today's pre-race bet candidates.");
+          const refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
+          latestSnapshot = refreshedPayload
+            ? createSnapshotFromPayload(refreshedPayload)
+            : await fetchLatestPredictionSnapshot<RecommendationPayload>();
         }
 
         if (
@@ -198,6 +209,14 @@ export function BetCandidatesSection({
         }
       }
 
+      if (refreshError && isPredictionWindowClosedError(refreshError)) {
+        setPayload(null);
+        setSnapshotGeneratedAt(null);
+        setStatus("empty");
+        setRefreshMessage(refreshError.message);
+        return;
+      }
+
       const latestSnapshot = refreshedPayload
         ? createSnapshotFromPayload(refreshedPayload)
         : await fetchLatestPredictionSnapshot<RecommendationPayload>();
@@ -255,7 +274,8 @@ export function BetCandidatesSection({
           </Text>
           <Text style={styles.sectionNote}>{statusLabel}</Text>
           <Text style={styles.sectionNote}>
-            Cache age {formatCacheAge(cacheAgeMs)} · freshness target 15 mins
+            Snapshot age {formatCacheAge(cacheAgeMs)}
+            {predictionWindowClosedNow ? " · pre-race snapshot locked" : " · refresh before first race"}
           </Text>
         </View>
         <Pressable
@@ -275,7 +295,7 @@ export function BetCandidatesSection({
       {candidatesAreStale ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
-            Bet candidates are stale. Refresh before comparing live race cards.
+            Bet candidates were captured before the first eligible race, but prices may have changed. Refresh before the first race starts.
           </Text>
           {!hasPredictionRefreshEndpoint ? (
             <Text style={styles.staleStateText}>
@@ -283,6 +303,14 @@ export function BetCandidatesSection({
               EXPO_PUBLIC_PREDICTION_REFRESH_URL.
             </Text>
           ) : null}
+        </View>
+      ) : null}
+
+      {predictionWindowClosedNow ? (
+        <View style={styles.staleState}>
+          <Text style={styles.staleStateText}>
+            Prediction window is closed for today. Showing the stored pre-race snapshot captured before {payload?.predictionWindow?.firstRaceStartNz ?? "the first eligible race"}.
+          </Text>
         </View>
       ) : null}
 
@@ -464,14 +492,30 @@ function getCandidateCashAverage(race: BetCandidate, modelKey: string) {
 }
 
 function getCashReturnModelKey(modelKey: string) {
-  return modelKey === "global_bucket_cash_blend_v1"
-    ? "global_bucket_cash_blend_v1"
+  return isCashReturnModel(modelKey)
+    ? modelKey
     : "global_bucket_cash_even_blend_v1";
 }
 
+/**
+ * Identifies prediction variants whose model score is already a cash-return estimate.
+ */
+function isCashReturnModel(modelKey: string) {
+  return [
+    "global_bucket_cash_blend_v1",
+    "global_bucket_cash_even_blend_v1",
+    "global_bucket_cash_price_only_v1",
+    "global_bucket_cash_starter_only_v1",
+  ].includes(modelKey);
+}
+
+function isPredictionWindowClosedError(error: Error) {
+  return error.message.includes("Prediction window closed");
+}
+
 function getCashReturnWeights(modelKey: string) {
-  return modelKey === "global_bucket_cash_blend_v1"
-    ? [
+  if (modelKey === "global_bucket_cash_blend_v1") {
+    return [
       {
         field: "price" as const,
         weight: 0.65,
@@ -480,17 +524,45 @@ function getCashReturnWeights(modelKey: string) {
         field: "starter" as const,
         weight: 0.35,
       },
-    ]
-    : [
+    ];
+  }
+
+  if (modelKey === "global_bucket_cash_price_only_v1") {
+    return [
       {
         field: "price" as const,
-        weight: 0.5,
+        weight: 1,
       },
       {
         field: "starter" as const,
-        weight: 0.5,
+        weight: 0,
       },
     ];
+  }
+
+  if (modelKey === "global_bucket_cash_starter_only_v1") {
+    return [
+      {
+        field: "price" as const,
+        weight: 0,
+      },
+      {
+        field: "starter" as const,
+        weight: 1,
+      },
+    ];
+  }
+
+  return [
+    {
+      field: "price" as const,
+      weight: 0.5,
+    },
+    {
+      field: "starter" as const,
+      weight: 0.5,
+    },
+  ];
 }
 
 /**
@@ -543,6 +615,16 @@ function isSnapshotStale(value: string | null) {
   const generatedAt = new Date(value).valueOf();
 
   return Number.isNaN(generatedAt) || Date.now() - generatedAt > PROMOTION_CACHE_MAX_AGE_MS;
+}
+
+function isPredictionWindowClosedNow(window: RecommendationPayload["predictionWindow"] | undefined) {
+  if (!window?.firstRaceStart) {
+    return false;
+  }
+
+  const firstRaceStart = new Date(window.firstRaceStart).valueOf();
+
+  return Number.isFinite(firstRaceStart) && Date.now() >= firstRaceStart;
 }
 
 function formatCacheAge(value: number | null) {

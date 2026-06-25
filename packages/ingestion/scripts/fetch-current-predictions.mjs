@@ -10,6 +10,7 @@ import {
   generateCurrentPredictionPayload,
   normalizeSupabaseProjectUrl,
   SOURCE_TIME_ZONE,
+  isPredictionWindowClosed,
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
 } from "../../../supabase/functions/_shared/current-promotions-core.mjs";
@@ -170,7 +171,25 @@ async function main() {
     skipped: true,
   };
 
-  if (!options.skipSupabase) {
+  if (isPredictionWindowClosed(output)) {
+    predictionSnapshotWrite = {
+      ok: true,
+      skipped: true,
+      reason: "Prediction window is closed because the first eligible race has started.",
+    };
+    predictionWrite = {
+      changed: 0,
+      ok: true,
+      skipped: true,
+      total: 0,
+    };
+    predictionAggregateWrite = {
+      predictionAggregates: 0,
+      predictions: 0,
+      reason: "Prediction window is closed.",
+      skipped: true,
+    };
+  } else if (!options.skipSupabase) {
     try {
       const config = getSupabaseWriteConfig();
       if (config) {

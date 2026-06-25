@@ -457,7 +457,9 @@ Purpose:
   track-condition, cash, and cash-plus-bonus statistical signals from stored
   `insight_aggregates`.
 - Rank bet-back candidates by discipline and model, including
-  `global_bucket_cash_blend_v1` and `global_bucket_cash_even_blend_v1`.
+  `global_bucket_cash_blend_v1`, `global_bucket_cash_even_blend_v1`,
+  `global_bucket_cash_price_only_v1`, and
+  `global_bucket_cash_starter_only_v1`.
 - Keep candidate rankings available in Predictions even when no public
   race-specific promotion URL matches current race cards.
 
@@ -472,23 +474,29 @@ Initial mode:
   `current_prediction_snapshots` when `EXPO_PUBLIC_SUPABASE_URL` plus
   `FEELING_GAMBA_SUPABASE_SECRET_KEY`, `SUPABASE_SECRET_KEY`, or
   `SUPABASE_SERVICE_ROLE_KEY` are configured.
-- Predictions treats `current_prediction_snapshots` rows older than 15 minutes
-  as stale. The app can call an optional backend refresh endpoint configured as
-  `EXPO_PUBLIC_PREDICTION_REFRESH_URL`; that endpoint must run server-side with
-  source access and Supabase service-role secrets, never from Expo.
+- Predictions reads `current_prediction_snapshots` for the current Auckland
+  source date. The app can call an optional backend refresh endpoint configured
+  as `EXPO_PUBLIC_PREDICTION_REFRESH_URL`; that endpoint must run server-side
+  with source access and Supabase service-role secrets, never from Expo.
 - The backend refresh endpoint is scaffolded as the
   `refresh-current-predictions` Supabase Edge Function under
   `supabase/functions/refresh-current-predictions`.
 - `refresh-current-predictions` reads historical signal rows from stored
-  `insight_aggregates`, fetches fresh public Betcha current race-card data, and
-  upserts `current_prediction_snapshots`.
+  `insight_aggregates`, fetches fresh public Betcha current race-card data,
+  determines the first eligible advertised start in the configured prediction
+  coverage, and upserts `current_prediction_snapshots` only when the request was
+  generated before that first race started.
+- After the first eligible race has started, `refresh-current-predictions`
+  returns the same-day cached pre-race snapshot when one exists. It must not
+  write a new snapshot, upsert `promotion_predictions`, or rebuild
+  `prediction_aggregates`.
 - The prediction refresh stores Betcha bet-back candidate predictions in
   `promotion_predictions`. The unique key is
   `(prediction_model, source, source_race_card_id)` so model variations can run
   in parallel on the same race card. Existing rows are replaced only when the
   prediction signature changes, such as favourite, fixed-win price, starter
   count, rank, model score, or signal changing.
-- After storing predictions, the prediction refresh rebuilds
+- After storing pre-first-race predictions, the prediction refresh rebuilds
   `prediction_aggregates` so the Predictions tab can show pending predictions
   before any races have settled.
 - `refresh-race-days-and-insights` reconciles non-settled predictions after it
@@ -512,9 +520,10 @@ Initial mode:
   15 minutes old, and only honours `force: true` when
   `PREDICTION_REFRESH_ADMIN_TOKEN` or `PROMOTION_REFRESH_ADMIN_TOKEN` is
   configured and sent as `x-refresh-token`.
-- The worker should run every day for the Auckland source date, and more
-  frequently during active race windows if TAB/Betcha terms and rate limits
-  permit it.
+- The worker should run once each morning before the first expected eligible NZ
+  or AU race. Manual/app-triggered refreshes are allowed, but the server-side
+  first-race guard prevents late-day writes from polluting prediction
+  performance.
 
 Source order:
 
@@ -561,6 +570,10 @@ Parsing rules:
   cash average and 35% starter-count cash average, excluding bonus-credit value.
 - The global cash 50/50 blend ranks candidates with 50% favourite price-bucket
   cash average and 50% starter-count cash average, excluding bonus-credit value.
+- The global cash price-only variation ranks candidates with 100% favourite
+  price-bucket cash average, excluding bonus-credit value.
+- The global cash starter-count-only variation ranks candidates with 100% final
+  starter-count cash average, excluding bonus-credit value.
 - The country+discipline model ranks the same source-backed favourites using
   country+discipline buckets where available, with each bucket value shrunk
   toward the matching global bucket value before the same 65%/35% blend.
@@ -652,7 +665,7 @@ Proposed recurring jobs:
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
 | `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs one aggregate/reconcile-only request. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
-| `refresh-current-predictions` | every 15 minutes during active NZ/AU race-card windows, for example `*/15 22-10 * * *` UTC | `refresh-current-predictions` | Refreshes current Betcha prediction candidates independently of promotions, writes all model variants including the global cash blends, and skips source calls when the prediction cache is fresher than 15 minutes. |
+| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha prediction snapshot without waiting for an app open, writes all model variants including the global cash blends, and refuses to write late-day refreshes after the first eligible race has started. |
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -681,6 +694,16 @@ request body. If the workflow is updated before the Edge Function is redeployed,
 the hosted function will ignore new `countries`, `categories`,
 `refreshRaceData`, and `reconcileOutcomes` fields and can still time out on
 all-domestic requests.
+
+The daily prediction refresh is deployed as `refresh-current-predictions` and
+scheduled through `.github/workflows/current-prediction-refresh.yml`. The
+workflow calls the hosted Edge Function at `17:35` and `18:35` UTC, which is
+early morning in New Zealand, so current prediction snapshots are captured even
+when nobody opens the app. The second run is a backup and can replace the same
+Auckland source-date snapshot before the first eligible race if prices or fields
+changed. If both scheduled runs miss the pre-race window and no same-day cached
+snapshot exists, the workflow fails instead of silently creating late-day
+prediction data.
 
 Supabase Edge Function limits are a practical constraint: request idle timeout
 is 150 seconds, with a 150 second Free plan / 400 second Paid plan worker
@@ -791,9 +814,9 @@ EXPO_PUBLIC_PROMOTION_REFRESH_URL=https://<project-ref>.supabase.co/functions/v1
 EXPO_PUBLIC_PREDICTION_REFRESH_URL=https://<project-ref>.supabase.co/functions/v1/refresh-current-predictions
 ```
 
-Apply `supabase/sql/schedule-refresh-current-predictions.sql` after replacing
-the project ref and bearer token to keep prediction snapshots refreshing during
-the active race-card window.
+Optionally apply `supabase/sql/schedule-refresh-current-predictions.sql` after
+replacing the project ref and bearer token to add a Supabase Cron backup for the
+same morning prediction refresh window.
 
 The hosted Edge Function also supports Supabase's default secret-key environment
 shape (`SUPABASE_SECRET_KEYS` or legacy `SUPABASE_SERVICE_ROLE_KEY`), but custom

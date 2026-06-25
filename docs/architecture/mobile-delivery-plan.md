@@ -179,14 +179,15 @@ Status:
 
 - Initial EAS build profile and iOS identity are configured.
 - `apps/mobile/eas.json` defines a manual `preview` build profile using EAS
-  internal distribution.
+  internal distribution and the EAS `preview` environment.
 - `apps/mobile/app.config.js` sets the current native identity:
   - Display name: `Feeling Gamba`
   - Slug: `feeling-gamba`
   - URL scheme: `feelinggamba`
   - EAS project ID: `c5cf0669-d55e-42ab-9361-d7d9fb6b9531`
   - iOS bundle identifier: `com.fabiandouch.feelinggamba`
-  - iOS build number: `1`
+  - iOS build number: `2`
+  - iOS encryption declaration: `ITSAppUsesNonExemptEncryption` is `false`
 - The bundle identifier should be confirmed before the first Apple provisioning
   run because changing it later creates a separate native app identity.
 
@@ -231,6 +232,19 @@ Notes:
 - `extra.eas.projectId` is now set manually in `apps/mobile/app.config.js`.
 - `npx eas-cli device:create` should be run before the first preview build so
   the target iPhone can install the internal build.
+- The EAS `preview` environment must contain the public `EXPO_PUBLIC_*` runtime
+  values before cloud builds are used. EAS cloud builds do not read the local
+  `.env` file from the developer machine.
+- EAS Update is intentionally deferred. The first internal build should avoid
+  `channel` values in `eas.json` until `expo-updates` is deliberately installed
+  and configured.
+- The React Native URL polyfill is loaded from `apps/mobile/index.ts` before app
+  modules import Supabase or construct URL values, so release builds do not rely
+  on later module-import ordering.
+- `expo-crypto` is a direct mobile dependency. The first installed internal
+  build crashed on iPhone with `Cannot find native module 'ExpoCrypto'` because
+  OAuth/AuthSession imported the module at startup but the native module was not
+  included as an explicit app dependency.
 
 ## Operational Rules
 

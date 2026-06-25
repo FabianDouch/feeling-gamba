@@ -219,7 +219,10 @@ navigation:
           - Compare prediction variations in parallel without mixing model denominators.
           - Include a global cash bucket blend variation that uses 65% favourite price-bucket cash average plus 35% starter-count cash average and excludes bonus-credit value.
           - Include a global cash 50/50 blend variation that uses equal favourite price-bucket and starter-count cash averages and excludes bonus-credit value.
-          - Order current bet candidates by estimated historical cash return per $1 rather than cash-plus-bonus value; the Global cash 50/50 blend uses its 50/50 estimate for ordering and display.
+          - Include a global cash price-only variation that uses 100% favourite price-bucket cash average and excludes bonus-credit value.
+          - Include a global cash starter-count-only variation that uses 100% final starter-count cash average and excludes bonus-credit value.
+          - Order current bet candidates by estimated historical cash return per $1 rather than cash-plus-bonus value; cash-only variations use their own estimate for ordering and display.
+          - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
           - Show notional $1 return metrics by racing discipline, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
           - Show recent stored prediction history with race, runner, price, status, and outcome value.
           - Filter only the prediction history list by date range, country, discipline, and racecourse.
@@ -413,10 +416,12 @@ content_rules:
     date and stale/missing states.
   - Recommendations must not include stake sizing, bankroll guidance, or
     automated wagering actions.
-  - Predictions must read current bet candidates from current_prediction_snapshots,
+  - Predictions must read current bet candidates from current_prediction_snapshots for the current Auckland source date,
     model-filtered Supabase prediction aggregates for performance metrics, and
     model-filtered promotion_predictions only for server-side filtered itemised
     history display.
+  - Prediction refreshes must not create or store new prediction rows after the
+    first eligible race in the day's configured prediction coverage has started.
   - Bet candidates should be ranked statistical candidates, not instructions to
     bet, and should use configured NZ and Tier 1 Australian pilot-track races.
     They should be grouped by discipline with a maximum of five candidates per

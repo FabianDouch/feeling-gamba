@@ -4,6 +4,8 @@ import {
 import {
   createHistoricalStatsFromInsightAggregates,
   generateCurrentPredictionPayload,
+  getTodayNzDate,
+  isPredictionWindowClosed,
   normalizeSupabaseProjectUrl,
   SOURCE_TIME_ZONE,
   upsertPredictionSnapshotToSupabase,
@@ -89,9 +91,12 @@ function getSupabaseConfig(): SupabaseConfig {
 /**
  * Reads the latest prediction snapshot so fresh app-triggered calls can avoid source fetches.
  */
-async function fetchLatestPredictionSnapshot(config: SupabaseConfig) {
+async function fetchLatestPredictionSnapshot(config: SupabaseConfig, sourceDate?: string) {
   const url = new URL("/rest/v1/current_prediction_snapshots", config.url);
   url.searchParams.set("select", "payload,generated_at,generated_at_nz,source_date");
+  if (sourceDate) {
+    url.searchParams.set("source_date", `eq.${sourceDate}`);
+  }
   url.searchParams.set("order", "generated_at.desc");
   url.searchParams.set("limit", "1");
 
@@ -213,7 +218,8 @@ Deno.serve(async (request) => {
   try {
     const body = await readRefreshRequestBody(request);
     const config = getSupabaseConfig();
-    const latestSnapshot = await fetchLatestPredictionSnapshot(config);
+    const sourceDate = getTodayNzDate();
+    const latestSnapshot = await fetchLatestPredictionSnapshot(config, sourceDate);
 
     if (isFreshSnapshot(latestSnapshot) && !canForceRefresh(request, body)) {
       return jsonResponse({
@@ -228,9 +234,25 @@ Deno.serve(async (request) => {
     const aggregateRows = await fetchPredictionInsightAggregateRows(config);
     const historicalStats = createHistoricalStatsFromInsightAggregates(aggregateRows);
     const payload = await generateCurrentPredictionPayload({
+      date: sourceDate,
       generatedAt: new Date(),
       historicalStats,
     });
+
+    if (isPredictionWindowClosed(payload)) {
+      return jsonResponse({
+        cached: Boolean(latestSnapshot),
+        generatedAt: latestSnapshot?.generated_at ?? null,
+        generatedAtNz: latestSnapshot?.generated_at_nz ?? null,
+        payload: latestSnapshot?.payload ?? null,
+        predictionWindow: payload.predictionWindow,
+        predictionWindowClosed: true,
+        skipped: true,
+        skippedReason: payload.predictionWindow?.skippedReason ?? "first_race_started",
+        sourceDate: payload.sourceDate,
+        sourceTimeZone: SOURCE_TIME_ZONE,
+      });
+    }
 
     await upsertPredictionSnapshotToSupabase({
       output: payload,

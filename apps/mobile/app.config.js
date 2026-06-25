@@ -8,7 +8,7 @@ const APP_SCHEME = "feelinggamba";
 const APP_SLUG = "feeling-gamba";
 const EAS_PROJECT_ID = "c5cf0669-d55e-42ab-9361-d7d9fb6b9531";
 const IOS_BUNDLE_IDENTIFIER = "com.fabiandouch.feelinggamba";
-const IOS_BUILD_NUMBER = "1";
+const IOS_BUILD_NUMBER = "2";
 
 const PUBLIC_ENV_KEYS = [
   "EXPO_PUBLIC_PREDICTION_REFRESH_URL",
@@ -52,6 +52,10 @@ module.exports = {
     ...appJson.expo.ios,
     buildNumber: IOS_BUILD_NUMBER,
     bundleIdentifier: IOS_BUNDLE_IDENTIFIER,
+    infoPlist: {
+      ...appJson.expo.ios?.infoPlist,
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   extra: {
     ...appJson.expo.extra,

@@ -483,6 +483,12 @@ Rules:
   - `global_bucket_cash_even_blend_v1`: scores current favourites using an even
     50/50 blend of all-country favourite price-bucket cash average and final
     starter-count cash average; bonus-credit value is excluded.
+  - `global_bucket_cash_price_only_v1`: scores current favourites using only
+    the all-country favourite price-bucket cash average; bonus-credit value is
+    excluded.
+  - `global_bucket_cash_starter_only_v1`: scores current favourites using only
+    the all-country final starter-count cash average; bonus-credit value is
+    excluded.
   - `country_code_bucket_blend_shrunk_v1`: scores current favourites using
     country-and-discipline buckets where available, shrunk toward matching
     global bucket values to reduce small-sample noise.
@@ -491,7 +497,8 @@ Rules:
     track-condition buckets with conservative shrinkage toward broader history.
 - Current candidate lists are ordered by estimated historical cash return per
   `$1`, not cash-plus-bonus value. Cash-only model tabs use their own cash
-  formula; other model tabs order by the 50/50 cash-return estimate.
+  formula, including the 100% price-bucket and 100% starter-count variants;
+  other model tabs order by the 50/50 cash-return estimate.
 - Upsert only when the prediction signature changes, such as favourite, price,
   starter count, rank, signal, or model score changing.
 - Reconcile outcomes by matching `source_race_card_id` to `races` and the

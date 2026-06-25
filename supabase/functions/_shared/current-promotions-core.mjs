@@ -3,6 +3,8 @@ const BET_BACK_CANDIDATES_PER_DISCIPLINE = 5;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
+const CASH_PRICE_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_price_only_v1";
+const CASH_STARTER_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_starter_only_v1";
 const SCOPED_PREDICTION_MODEL_KEY = "country_code_bucket_blend_shrunk_v1";
 const DISTANCE_CONDITION_PREDICTION_MODEL_KEY = "country_code_distance_condition_v1";
 const SCOPED_MODEL_MIN_SAMPLE = 100;
@@ -23,6 +25,16 @@ export const PREDICTION_MODELS = [
     description: "Scores each current favourite using equal-weight all-country historical cash averages for the matching favourite price bucket and final-starter-count bucket, excluding bonus-credit value.",
     key: CASH_EVEN_PREDICTION_MODEL_KEY,
     label: "Global cash 50/50 blend",
+  },
+  {
+    description: "Scores each current favourite using only the all-country historical cash average for the matching favourite price bucket, excluding bonus-credit value.",
+    key: CASH_PRICE_ONLY_PREDICTION_MODEL_KEY,
+    label: "Global cash price only",
+  },
+  {
+    description: "Scores each current favourite using only the all-country historical cash average for the matching final-starter-count bucket, excluding bonus-credit value.",
+    key: CASH_STARTER_ONLY_PREDICTION_MODEL_KEY,
+    label: "Global cash starters only",
   },
   {
     description: "Scores each current favourite using country-and-discipline historical buckets when available, blended back toward global buckets so small samples do not dominate.",
@@ -453,6 +465,16 @@ export async function upsertPromotionPredictionsToSupabase({ output, supabaseKey
     };
   }
 
+  if (isPredictionWindowClosed(output)) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Prediction window is closed because the first eligible race has started.",
+      skipped: true,
+      total: 0,
+    };
+  }
+
   const rows = createPredictionRowsFromPayload(output);
 
   if (!rows.length) {
@@ -508,7 +530,7 @@ export async function upsertPromotionPredictionsToSupabase({ output, supabaseKey
 /**
  * Reads the current racing date in Auckland so local previews do not drift on UTC.
  */
-function getTodayNzDate() {
+export function getTodayNzDate() {
   const parts = new Intl.DateTimeFormat("en-NZ", {
     day: "2-digit",
     month: "2-digit",
@@ -518,6 +540,55 @@ function getTodayNzDate() {
   const part = (type) => parts.find((entry) => entry.type === type)?.value;
 
   return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function formatNzDateTimeOrNull(value) {
+  return value ? formatNzDateTime(new Date(value)) : null;
+}
+
+function getEarliestIsoDate(values) {
+  const timestamps = values
+    .map((value) => new Date(value).valueOf())
+    .filter((value) => Number.isFinite(value));
+
+  if (!timestamps.length) {
+    return null;
+  }
+
+  return new Date(Math.min(...timestamps)).toISOString();
+}
+
+/**
+ * Decides whether a prediction refresh is still allowed to create stored rows.
+ */
+export function createPredictionWindowStatus({ firstRaceStart, generatedAt }) {
+  const firstRaceStartTime = firstRaceStart ? new Date(firstRaceStart).valueOf() : null;
+  const generatedAtTime = new Date(generatedAt).valueOf();
+  const isClosed = Number.isFinite(firstRaceStartTime) && generatedAtTime >= firstRaceStartTime;
+
+  return {
+    firstRaceStart,
+    firstRaceStartNz: formatNzDateTimeOrNull(firstRaceStart),
+    generatedBeforeFirstRace: !isClosed,
+    isClosed,
+    skippedReason: isClosed ? "first_race_started" : null,
+    status: isClosed ? "closed" : "open",
+  };
+}
+
+export function isPredictionWindowClosed(output) {
+  if (output?.predictionWindow) {
+    return output.predictionWindow.isClosed === true;
+  }
+
+  if (!output?.generatedAt) {
+    return false;
+  }
+
+  return createPredictionWindowStatus({
+    firstRaceStart: output.betBackCandidates?.firstEligibleRaceStart ?? null,
+    generatedAt: output.generatedAt,
+  }).isClosed;
 }
 
 /**
@@ -1285,8 +1356,14 @@ function shrinkBucketValue(scopedBucket, globalBucket, field) {
   return Number(((scopedValue * scopedWeight) + (globalValue * (1 - scopedWeight))).toFixed(3));
 }
 
-function createBetBackModelSignal(score, sampleSize, scopeLabel, metricLabel = "cash-plus-bonus") {
-  const baseSignal = createBetBackSignal(score, sampleSize, metricLabel);
+function createBetBackModelSignal(
+  score,
+  sampleSize,
+  scopeLabel,
+  metricLabel = "cash-plus-bonus",
+  bucketBasisLabel = "matching favourite price and starter buckets",
+) {
+  const baseSignal = createBetBackSignal(score, sampleSize, metricLabel, bucketBasisLabel);
 
   return {
     ...baseSignal,
@@ -1300,6 +1377,16 @@ function createBetBackModelSignal(score, sampleSize, scopeLabel, metricLabel = "
 function createCashOnlyPredictionModel(candidate, priceWeight = 0.65, starterWeight = 0.35) {
   const priceBucket = candidate.historical.priceBucket;
   const starterBucket = candidate.historical.starterBucket;
+  const bucketBasisLabel = priceWeight > 0 && starterWeight > 0
+    ? "matching favourite price and starter buckets"
+    : priceWeight > 0
+      ? "matching favourite price bucket"
+      : "matching final-starter-count bucket";
+  const metricLabel = priceWeight > 0 && starterWeight > 0
+    ? "cash average"
+    : priceWeight > 0
+      ? "price-bucket cash average"
+      : "starter-count cash average";
   const score = weightedAverage([
     {
       value: priceBucket?.averageReturnPerDollar,
@@ -1310,9 +1397,15 @@ function createCashOnlyPredictionModel(candidate, priceWeight = 0.65, starterWei
       weight: starterWeight,
     },
   ]);
-  const sampleSize = (priceBucket?.favouriteSelections ?? 0)
-    + (starterBucket?.favouriteSelections ?? 0);
-  const signal = createBetBackModelSignal(score, sampleSize, "all countries and all disciplines", "cash average");
+  const sampleSize = (priceWeight > 0 ? priceBucket?.favouriteSelections ?? 0 : 0)
+    + (starterWeight > 0 ? starterBucket?.favouriteSelections ?? 0 : 0);
+  const signal = createBetBackModelSignal(
+    score,
+    sampleSize,
+    "all countries and all disciplines",
+    metricLabel,
+    bucketBasisLabel,
+  );
 
   return {
     blendedCashPlusBonusAverage: score,
@@ -1458,14 +1551,21 @@ function buildPredictionModelsForCandidate(candidate, historicalStats, context) 
     [DEFAULT_PREDICTION_MODEL_KEY]: createDefaultPredictionModel(candidate),
     [CASH_ONLY_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate),
     [CASH_EVEN_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 0.5, 0.5),
+    [CASH_PRICE_ONLY_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 1, 0),
+    [CASH_STARTER_ONLY_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 0, 1),
     [SCOPED_PREDICTION_MODEL_KEY]: createScopedPredictionModel(candidate, historicalStats, context),
     [DISTANCE_CONDITION_PREDICTION_MODEL_KEY]: createDistanceConditionPredictionModel(candidate, historicalStats, context),
   };
 }
 
 function getCashReturnModelKey(modelKey) {
-  return modelKey === CASH_ONLY_PREDICTION_MODEL_KEY
-    ? CASH_ONLY_PREDICTION_MODEL_KEY
+  return [
+    CASH_ONLY_PREDICTION_MODEL_KEY,
+    CASH_EVEN_PREDICTION_MODEL_KEY,
+    CASH_PRICE_ONLY_PREDICTION_MODEL_KEY,
+    CASH_STARTER_ONLY_PREDICTION_MODEL_KEY,
+  ].includes(modelKey)
+    ? modelKey
     : CASH_EVEN_PREDICTION_MODEL_KEY;
 }
 
@@ -1475,7 +1575,12 @@ function getCashReturnSortScore(candidate, modelKey) {
   return candidate.predictionModels?.[cashModelKey]?.blendedCashPlusBonusAverage ?? null;
 }
 
-function createBetBackSignal(score, sampleSize, metricLabel = "cash-plus-bonus") {
+function createBetBackSignal(
+  score,
+  sampleSize,
+  metricLabel = "cash-plus-bonus",
+  bucketBasisLabel = "matching favourite price and starter buckets",
+) {
   if (score === null) {
     return {
       detail: "Favourite price is available, but matching historical starter or price bucket data is limited.",
@@ -1486,7 +1591,7 @@ function createBetBackSignal(score, sampleSize, metricLabel = "cash-plus-bonus")
 
   if (sampleSize < 10) {
     return {
-      detail: "Historical buckets are available, but the combined sample size is small.",
+      detail: "Historical bucket data is available, but the sample size is small.",
       label: "Small sample",
       tone: "neutral",
     };
@@ -1494,7 +1599,7 @@ function createBetBackSignal(score, sampleSize, metricLabel = "cash-plus-bonus")
 
   if (score >= 1.05) {
     return {
-      detail: `Blended historical ${metricLabel} is above break-even for the matching favourite price and starter buckets.`,
+      detail: `Historical ${metricLabel} is above break-even for the ${bucketBasisLabel}.`,
       label: "Positive candidate",
       tone: "positive",
     };
@@ -1502,14 +1607,14 @@ function createBetBackSignal(score, sampleSize, metricLabel = "cash-plus-bonus")
 
   if (score >= 0.95) {
     return {
-      detail: `Blended historical ${metricLabel} is close to break-even for the matching favourite price and starter buckets.`,
+      detail: `Historical ${metricLabel} is close to break-even for the ${bucketBasisLabel}.`,
       label: "Neutral candidate",
       tone: "neutral",
     };
   }
 
   return {
-    detail: `Blended historical ${metricLabel} is below break-even for the matching favourite price and starter buckets.`,
+    detail: `Historical ${metricLabel} is below break-even for the ${bucketBasisLabel}.`,
     label: "Weak candidate",
     tone: "caution",
   };
@@ -1601,6 +1706,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     .filter(({ targetTrack }) => targetTrack !== null);
   const candidates = [];
   const errors = [];
+  const eligibleRaceStarts = [];
   let scannedRaceCount = 0;
 
   for (const { meeting, targetTrack } of targetMeetings) {
@@ -1608,12 +1714,20 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
       scannedRaceCount += 1;
 
       try {
+        if (race.advertisedStart) {
+          eligibleRaceStarts.push(race.advertisedStart);
+        }
+
         const raceCard = (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, {
           id: toRaceCardId(race.id),
         })).data?.raceCard;
 
         if (!raceCard) {
           continue;
+        }
+
+        if (raceCard.advertisedStart) {
+          eligibleRaceStarts.push(raceCard.advertisedStart);
         }
 
         const candidate = deriveBetBackCandidate(raceCard, {
@@ -1647,6 +1761,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     candidates: rankedCandidates,
     eligibleRaceCount: candidates.length,
     errors,
+    firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
     note: "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by estimated cash return per $1. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
@@ -1845,6 +1960,10 @@ export async function generateCurrentPredictionPayload({
   const betBackCandidates = betchaSource
     ? await fetchBetBackCandidates(betchaSource, historicalStats, date)
     : null;
+  const predictionWindow = createPredictionWindowStatus({
+    firstRaceStart: betBackCandidates?.firstEligibleRaceStart ?? null,
+    generatedAt,
+  });
 
   return {
     betBackCandidates,
@@ -1854,6 +1973,7 @@ export async function generateCurrentPredictionPayload({
     sourceDate: date,
     sourceTimeZone: SOURCE_TIME_ZONE,
     sources: [],
+    predictionWindow,
     statsBasis: {
       basisLabel: historicalStats.basisLabel ?? `${historicalStats.fixtureCount} fixture days`,
       fixtureCount: historicalStats.fixtureCount,
@@ -1862,6 +1982,7 @@ export async function generateCurrentPredictionPayload({
     },
     summary: {
       betBackCandidates: betBackCandidates?.candidates.length ?? 0,
+      predictionWindowStatus: predictionWindow.status,
       raceSpecificPromotions: 0,
       racingPromotions: 0,
       sources: 0,

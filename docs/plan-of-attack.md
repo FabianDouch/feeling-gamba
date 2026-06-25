@@ -87,10 +87,12 @@ source-of-truth docs in the same change.
   buckets. The first scan on `2026-06-16` checked 12 Whanganui Straight
   greyhound races and surfaced 8 ranked candidates in the Promos page.
 - Prediction tracking now supports multiple model variations through
-  `prediction_model`. The first two models are the original global bucket blend
-  and a country+discipline bucket blend shrunk toward global history. Future
-  variations should add new model keys and preserve model-scoped aggregates
-  rather than overwriting earlier model results.
+  `prediction_model`. Current models include the original global bucket blend,
+  cash-only 65/35 and 50/50 global bucket blends, cash-only 100% price-bucket
+  and 100% starter-count variations, a country+discipline bucket blend shrunk
+  toward global history, and a distance+condition blend. Future variations
+  should add new model keys and preserve model-scoped aggregates rather than
+  overwriting earlier model results.
 - The Promos page no longer displays broad racing offers that cannot be matched
   to race cards or bet-back candidate race cards; those broad offers remain in
   the local fixture diagnostics only.
@@ -103,6 +105,13 @@ source-of-truth docs in the same change.
   be upserted so overall, country, course, and race-code rows are present.
 - The Predictions screen now shows prediction variation tabs and a short method
   summary for the active variation above its performance metrics and history.
+- Prediction refreshes now use a pre-first-race write cutoff. The current
+  prediction scan may return the same-day cached snapshot after the first
+  eligible race has started, but it must not write late-day snapshots or
+  prediction rows that would mix partial-card predictions into model
+  performance. A scheduled GitHub Actions workflow now calls
+  `refresh-current-predictions` at `17:35` and `18:35` UTC so pre-race
+  prediction data is captured even when nobody opens the app.
 - Race Days was observed on 2026-06-24 as only current through `2026-06-21`,
   which left recent prediction outcomes pending. A daily overnight GitHub
   Actions workflow now invokes `refresh-race-days-and-insights` with a
@@ -400,20 +409,32 @@ Source plan: `architecture/mobile-delivery-plan.md`.
      `refresh-current-promotions`, `refresh-current-predictions`,
      `refresh-race-days-and-insights`, and `request-track-race-odds` with
      optional non-mutating route smoke checks.
+   - Status: `refresh-current-predictions` is scheduled through GitHub Actions
+     as daily morning pre-first-race capture attempts rather than an intraday
+     rolling writer. Server-side guards still protect app/manual refreshes after
+     racing starts, and Supabase Cron remains an optional backup.
    - Defer Supabase migration automation to a separate manual-approved workflow
      with stronger review and read-model smoke checks.
 4. Add EAS iOS internal distribution.
    - Configure `eas.json`, app identity, bundle identifier, icon, splash, and
      build profile.
    - Status: added `apps/mobile/eas.json` with a manual `preview` internal
-     distribution profile, and set the initial iOS identity in
+     distribution profile tied to the EAS `preview` environment, and set the
+     initial iOS identity in
      `apps/mobile/app.config.js` as `Feeling Gamba`,
      `com.fabiandouch.feelinggamba`, and `feelinggamba`.
+   - Status: app config declares standard/exempt iOS encryption with
+     `ITSAppUsesNonExemptEncryption: false`; EAS Update channels are deferred
+     until `expo-updates` is deliberately added later.
+   - Status: added `expo-crypto` as a direct mobile dependency after the first
+     installed internal build crashed on iPhone with `Cannot find native module
+     'ExpoCrypto'` during AuthSession startup.
    - Status: `npx eas-cli init` created EAS project
      `c5cf0669-d55e-42ab-9361-d7d9fb6b9531`; the project ID is set manually in
      `apps/mobile/app.config.js` because Expo dynamic config cannot be updated
      automatically by EAS CLI.
-   - Next step: register the target iPhone, then run the first preview build.
+   - Next step: finish target iPhone registration, set the EAS `preview`
+     environment public runtime values, then run the first preview build.
    - Register the target iPhone with `eas device:create`.
    - Build with `eas build --platform ios --profile preview`.
 5. Run real-device acceptance testing.

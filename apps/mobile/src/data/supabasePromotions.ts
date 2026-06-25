@@ -17,6 +17,21 @@ export const hasPromotionRefreshEndpoint = Boolean(publicEnv.promotionRefreshUrl
 export const hasPredictionRefreshEndpoint = Boolean(publicEnv.predictionRefreshUrl);
 
 /**
+ * Returns today's prediction source date in the Auckland racing calendar.
+ */
+function getTodayNzDate() {
+  const parts = new Intl.DateTimeFormat("en-NZ", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Pacific/Auckland",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value;
+
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/**
  * Reads the latest public promotion cache row through Supabase REST.
  */
 export async function fetchLatestPromotionSnapshot<TPayload>(): Promise<CurrentPromotionSnapshot<TPayload> | null> {
@@ -69,6 +84,7 @@ export async function fetchLatestPredictionSnapshot<TPayload>(): Promise<Current
 
   const url = new URL("/rest/v1/current_prediction_snapshots", publicEnv.supabaseUrl);
   url.searchParams.set("select", "payload,generated_at,generated_at_nz,source_date");
+  url.searchParams.set("source_date", `eq.${getTodayNzDate()}`);
   url.searchParams.set("order", "generated_at.desc");
   url.searchParams.set("limit", "1");
 
@@ -97,7 +113,7 @@ export async function fetchLatestPredictionSnapshot<TPayload>(): Promise<Current
   const row = rows[0];
 
   if (!row) {
-    return await fetchLatestPromotionSnapshot<TPayload>();
+    return null;
   }
 
   return {
@@ -147,7 +163,21 @@ export async function requestPromotionRefresh<TPayload>() {
 
   const body = await response.json().catch(() => null) as {
     payload?: TPayload;
+    predictionWindow?: {
+      firstRaceStart?: string | null;
+      firstRaceStartNz?: string | null;
+      skippedReason?: string | null;
+      status?: string;
+    };
+    predictionWindowClosed?: boolean;
   } | null;
+
+  if (body?.predictionWindowClosed && !body.payload) {
+    const firstRaceStart = body.predictionWindow?.firstRaceStartNz
+      ?? body.predictionWindow?.firstRaceStart
+      ?? "the first eligible race";
+    throw new Error(`Prediction window closed after ${firstRaceStart}. No pre-race prediction snapshot was captured today.`);
+  }
 
   return body?.payload ?? null;
 }

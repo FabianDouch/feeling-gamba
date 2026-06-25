@@ -17,9 +17,10 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-06-23 for prediction variation tabs, model
-explanations, and the cash-only bucket prediction variation. Rendered IA
-outputs should be regenerated from the YAML before being treated as current.
+Note: the YAML was updated on 2026-06-25 for the two cash-only prediction
+variations that isolate 100% price-bucket and 100% starter-count scoring.
+Rendered IA outputs should be regenerated from the YAML before being treated as
+current.
 
 ## Principles
 
@@ -261,11 +262,16 @@ Main content:
 - Current bet candidates grouped by discipline, with favourite, fixed-win price,
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, MarketMover, and manual track action.
+- Current bet candidates must come from the current Auckland source date's
+  pre-first-race prediction snapshot. If the first eligible race has started
+  and no pre-race snapshot was captured, show an explicit closed-window empty
+  state instead of displaying an older source date.
 - Current bet candidates should be ordered by estimated cash return per `$1`,
-  not cash-plus-bonus value. The `Global cash 50/50 blend` tab uses its 50/50
-  cash estimate for both ordering and the visible cash-return metric.
+  not cash-plus-bonus value. Cash-only tabs use their own cash estimate for
+  both ordering and the visible cash-return metric.
 - Prediction variation tabs, starting with `Global bucket blend`,
   `Global cash bucket blend`, `Global cash 50/50 blend`,
+  `Global cash price only`, `Global cash starters only`,
   `Country + discipline blend`, and `Distance + condition blend`.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
@@ -275,6 +281,10 @@ Main content:
 - `Global cash 50/50 blend` should score candidates as 50% favourite
   price-bucket cash average plus 50% starter-count cash average, excluding
   bonus-credit value.
+- `Global cash price only` should score candidates as 100% favourite
+  price-bucket cash average, excluding bonus-credit value.
+- `Global cash starters only` should score candidates as 100% final
+  starter-count cash average, excluding bonus-credit value.
 - `$1` prediction return by discipline.
 - Cash average, cash net, bonus average, cash-plus-bonus average,
   cash-plus-bonus net, cash ROI, and cash-plus-bonus ROI for each discipline,
@@ -292,7 +302,9 @@ Rules:
 - Read stored `prediction_aggregates` and recent `promotion_predictions` rows
   from Supabase filtered by the selected prediction model.
 - Read current bet candidates from the latest Supabase
-  `current_prediction_snapshots` payload.
+  `current_prediction_snapshots` payload for the current Auckland source date.
+- Do not create or store new prediction rows after the first eligible race in
+  the day's configured prediction coverage has started.
 - Do not calculate prediction performance from raw prediction rows in the app.
 - Use raw prediction rows only for server-side filtered itemised history
   display.

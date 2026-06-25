@@ -1,4 +1,4 @@
--- Schedule intraday current prediction refreshes through Supabase Cron.
+-- Schedule a daily pre-race current prediction refresh through Supabase Cron.
 -- Replace <project-ref> and <anon-or-service-token> before applying.
 
 select cron.unschedule('refresh-current-predictions-intraday')
@@ -8,9 +8,16 @@ where exists (
   where jobname = 'refresh-current-predictions-intraday'
 );
 
+select cron.unschedule('refresh-current-predictions-morning')
+where exists (
+  select 1
+  from cron.job
+  where jobname = 'refresh-current-predictions-morning'
+);
+
 select cron.schedule(
-  'refresh-current-predictions-intraday',
-  '*/15 22-10 * * *',
+  'refresh-current-predictions-morning',
+  '35 17,18 * * *',
   $$
   select net.http_post(
     url := 'https://<project-ref>.supabase.co/functions/v1/refresh-current-predictions',

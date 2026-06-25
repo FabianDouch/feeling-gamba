@@ -10,6 +10,8 @@ export type PredictionModelKey =
   | "global_bucket_blend_v1"
   | "global_bucket_cash_blend_v1"
   | "global_bucket_cash_even_blend_v1"
+  | "global_bucket_cash_price_only_v1"
+  | "global_bucket_cash_starter_only_v1"
   | "country_code_bucket_blend_shrunk_v1"
   | "country_code_distance_condition_v1";
 
@@ -38,6 +40,18 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
     detail: "Score = 50% favourite price-bucket cash average plus 50% starter-count cash average. Bonus-credit value is excluded, and current cards use this cash score for ordering.",
     key: "global_bucket_cash_even_blend_v1",
     label: "Global cash 50/50 blend",
+  },
+  {
+    description: "Scores each current favourite using only the all-country historical cash average for the matching favourite price bucket.",
+    detail: "Score = 100% favourite price-bucket cash average. Bonus-credit value is excluded, and current cards use this cash score for ordering.",
+    key: "global_bucket_cash_price_only_v1",
+    label: "Global cash price only",
+  },
+  {
+    description: "Scores each current favourite using only the all-country historical cash average for the matching final-starter-count bucket.",
+    detail: "Score = 100% starter-count cash average. Bonus-credit value is excluded, and current cards use this cash score for ordering.",
+    key: "global_bucket_cash_starter_only_v1",
+    label: "Global cash starters only",
   },
   {
     description: "Scores each current favourite using country-and-discipline buckets when available, blended back toward the global buckets to reduce small-sample noise.",

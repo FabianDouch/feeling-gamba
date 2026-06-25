@@ -287,9 +287,10 @@ systems:
         - Store current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
         - Attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus statistical signals.
         - Rank Betcha bet-back candidates by discipline, keeping at most five per discipline, without stake sizing or automated wagering actions.
-        - Refresh the app-facing prediction cache throughout active race windows so same-day race cards receive predictions.
-        - Store one prediction row per model and Betcha source race card and replace it only when the prediction signature changes.
-        - Rebuild prediction_aggregates after storing current predictions so the Predictions tab can show pending model rows before races settle.
+        - Capture one app-facing pre-first-race prediction cache for each Auckland source date.
+        - Store one prediction row per model and Betcha source race card before the first eligible race starts, replacing it only when the prediction signature changes before that cutoff.
+        - Refuse to write snapshots, promotion_predictions, or prediction_aggregates after the first eligible race in the configured prediction coverage has started.
+        - Rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending model rows before races settle.
       reads_from:
         - betcha_graphql
         - insight_aggregates
@@ -581,7 +582,7 @@ flows:
       - treat current_promotion_snapshots rows older than 15 minutes as stale in the app because live race cards and prices can change.
 
   prediction_fetch:
-    trigger: App-triggered refresh-current-predictions Edge Function plus frequent scheduled job during active NZ/AU race windows.
+    trigger: GitHub Actions scheduled morning refresh-current-predictions workflow, optional Supabase Cron backup, and app-triggered stale refresh before the first expected eligible NZ/AU race.
     steps:
       - fetch_current_predictions scans Betcha current NZ and Tier 1 AU pilot-track race cards for daily bet-back candidate ranking by discipline, independent of active promotions.
       - keep Betcha bet-back candidate rankings visible in the app even when no race-specific public promotion URL matches current race cards.
@@ -591,12 +592,16 @@ flows:
       - rank default global_bucket_blend_v1 candidates from global price/starter buckets.
       - rank global_bucket_cash_blend_v1 candidates from global price/starter cash-return buckets without bonus-credit value.
       - rank global_bucket_cash_even_blend_v1 candidates from equal-weight global price/starter cash-return buckets without bonus-credit value.
+      - rank global_bucket_cash_price_only_v1 candidates from 100% global favourite price-bucket cash return without bonus-credit value.
+      - rank global_bucket_cash_starter_only_v1 candidates from 100% global final starter-count cash return without bonus-credit value.
       - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
       - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
-      - write the current app-facing payload to current_prediction_snapshots when Supabase is configured.
-      - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes.
-      - rebuild prediction_aggregates after storing predictions so the Predictions tab can show pending rows before races settle.
-      - treat current_prediction_snapshots rows older than 15 minutes as stale in the app because live race cards and prices can change.
+      - determine the earliest advertised start among eligible configured prediction races.
+      - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
+      - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
+      - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes before that cutoff.
+      - rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending rows before races settle.
+      - after the first eligible race has started, return the same-day cached pre-race snapshot when one exists and otherwise report a closed prediction window.
 
   race_day_refresh:
     trigger: GitHub Actions invokes refresh-race-days-and-insights daily overnight; Supabase Cron remains an optional later scheduler.
@@ -634,7 +639,7 @@ flows:
       - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.
       - Account reads user_favourite_tracks and user_race_bets through owner-only RLS, supports removals, and calculates bookmaker-scoped personal settled-row unit-return stats.
       - Account does not store balance updates or withdrawal records.
-      - Predictions reads current bet candidates from current_prediction_snapshots, model-filtered prediction_aggregates from Supabase for metrics, and recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history.
+      - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, model-filtered prediction_aggregates from Supabase for metrics, and recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Predictions shows model variation tabs and a short method explanation for each variation.
       - Supabase RLS allows read-only app access to app-facing read models.
@@ -655,7 +660,7 @@ operational_rules:
   security:
     - Store service-role keys as Supabase Edge Function secrets.
     - refresh-current-promotions disables JWT verification for app-triggered public refresh calls, but uses a 15-minute freshness guard and optional admin token for force refreshes.
-    - refresh-current-predictions disables JWT verification for app-triggered public refresh calls, but uses a 15-minute freshness guard and optional admin token for force refreshes.
+    - refresh-current-predictions disables JWT verification for app-triggered public refresh calls, but uses a same-day freshness guard, optional admin token for force refreshes, and a first-race-start write cutoff.
     - Use RLS for client-facing reads.
     - Keep normalized source/raw tables and operational tables server-side.
     - Do not expose source API details or service credentials to the Expo client.

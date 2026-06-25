@@ -10,14 +10,16 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-06-24 for the daily overnight race-day
-refresh schedule that keeps prediction outcomes settling. Rendered architecture
-outputs should be regenerated from the YAML before being treated as current.
-The 2026-06-23 update added model-aware prediction tracking, independent
-current prediction refreshes, distance/condition prediction scopes, the
-`country_code_distance_condition_v1` model, and the
-`global_bucket_cash_blend_v1` / `global_bucket_cash_even_blend_v1` cash-only
-bucket models.
+Note: the YAML was updated on 2026-06-25 for the
+`global_bucket_cash_price_only_v1` and
+`global_bucket_cash_starter_only_v1` prediction variations. Rendered
+architecture outputs should be regenerated from the YAML before being treated
+as current. The 2026-06-24 update added the daily overnight race-day refresh
+schedule that keeps prediction outcomes settling. The 2026-06-23 update added
+model-aware prediction tracking, independent current prediction refreshes,
+distance/condition prediction scopes, the `country_code_distance_condition_v1`
+model, and the `global_bucket_cash_blend_v1` /
+`global_bucket_cash_even_blend_v1` cash-only bucket models.
 
 Race-day ingestion scope is now all AUS/NZ domestic `HORSE`, `HARNESS`, and
 `GREYHOUND` meetings returned by the configured Betcha source. The older pilot
@@ -430,11 +432,21 @@ buckets. Cash-only prediction tabs use their own cash formula; other tabs order
 by the 50/50 cash-return estimate rather than cash-plus-bonus value. The scan
 keeps at most the five best candidates per discipline. It is a statistical
 signal only, with no stake sizing, bankroll guidance, automated wagering, or
-invented favourites. Predictions older than 15 minutes are stale because race
-cards and prices can change through the day. The app reads current candidates
-from `current_prediction_snapshots` and can call
-`EXPO_PUBLIC_PREDICTION_REFRESH_URL` to request the
-`refresh-current-predictions` Edge Function. The worker also writes
+invented favourites. Stored prediction rows must be created only before the
+first eligible race in the day's configured prediction coverage has started.
+The daily prediction refresh is scheduled through
+`.github/workflows/current-prediction-refresh.yml` at `17:35` and `18:35` UTC,
+with optional Supabase Cron backup using
+`supabase/sql/schedule-refresh-current-predictions.sql`, so prediction data is
+captured even when nobody opens the app. After the first advertised start,
+`refresh-current-predictions` may return the same-day cached pre-race snapshot,
+but it must not upsert a replacement `current_prediction_snapshots` row, write
+`promotion_predictions`, or rebuild `prediction_aggregates`. This keeps model
+performance comparable because each source date is measured from a full-card
+pre-race decision point rather than a late-day subset of remaining races. The
+app reads current candidates from `current_prediction_snapshots` for the current
+Auckland source date and can call `EXPO_PUBLIC_PREDICTION_REFRESH_URL` to
+request the `refresh-current-predictions` Edge Function. The worker also writes
 model-scoped rows to `promotion_predictions`, keyed by
 `(prediction_model, source, source_race_card_id)`, so multiple model variations
 can run in parallel on the same race card even when no active promotion exists.
@@ -450,9 +462,12 @@ cash-plus-bonus averages. The `global_bucket_cash_blend_v1` model uses the same
 65/35 price-bucket and starter-count weighting, but ranks on cash averages only
 and excludes bonus-credit value. The `global_bucket_cash_even_blend_v1` model
 also excludes bonus-credit value, but uses an even 50/50 price-bucket and
-starter-count cash average blend. The `country_code_bucket_blend_shrunk_v1`
-model uses country+discipline price and starter buckets where available, shrunk
-toward matching global bucket values to reduce small-sample noise. The
+starter-count cash average blend. The `global_bucket_cash_price_only_v1` and
+`global_bucket_cash_starter_only_v1` models isolate 100% favourite price-bucket
+cash average and 100% final starter-count cash average respectively, excluding
+bonus-credit value. The `country_code_bucket_blend_shrunk_v1` model uses
+country+discipline price and starter buckets where available, shrunk toward
+matching global bucket values to reduce small-sample noise. The
 `country_code_distance_condition_v1` model blends country+discipline price,
 starter-count, distance-band, and track-condition buckets with conservative
 shrinkage toward broader history. A prediction row is replaced only when its

@@ -1,0 +1,88 @@
+name: Current Prediction Refresh
+
+on:
+  schedule:
+    # 05:35 NZST / 06:35 NZDT. GitHub cron uses UTC.
+    - cron: "35 17 * * *"
+    # Backup run at 06:35 NZST / 07:35 NZDT before typical NZ/AU race-card starts.
+    - cron: "35 18 * * *"
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: Force refresh even when today's snapshot is fresh
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-prediction-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh Current Predictions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      FORCE_REFRESH: ${{ github.event.inputs.force_refresh }}
+      PREDICTION_REFRESH_ADMIN_TOKEN: ${{ secrets.PREDICTION_REFRESH_ADMIN_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Validate required secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+      - name: Invoke hosted prediction refresh
+        run: |
+          set -o pipefail
+
+          force_refresh="${FORCE_REFRESH:-false}"
+
+          if [ "$force_refresh" = "true" ] && [ -z "$PREDICTION_REFRESH_ADMIN_TOKEN" ]; then
+            echo "PREDICTION_REFRESH_ADMIN_TOKEN is required when force_refresh is true"
+            exit 1
+          fi
+
+          payload="$(
+            jq -nc \
+              --argjson force "$force_refresh" \
+              '{
+                force: $force
+              }'
+          )"
+
+          response_file="$(mktemp)"
+          header_args=(
+            -H "content-type: application/json"
+          )
+
+          if [ "$force_refresh" = "true" ]; then
+            header_args+=(-H "x-refresh-token: ${PREDICTION_REFRESH_ADMIN_TOKEN}")
+          fi
+
+          http_status="$(
+            curl --max-time 300 -sS \
+              -o "$response_file" \
+              -w "%{http_code}" \
+              -X POST \
+              "${header_args[@]}" \
+              --data "$payload" \
+              "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-current-predictions"
+          )"
+
+          jq . "$response_file" || cat "$response_file"
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "refresh-current-predictions returned HTTP ${http_status}"
+            exit 1
+          fi
+
+          if jq -e '.predictionWindowClosed == true and .payload == null' "$response_file" >/dev/null; then
+            echo "Prediction window closed before a same-day snapshot was captured"
+            exit 1
+          fi

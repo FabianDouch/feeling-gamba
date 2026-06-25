@@ -113,6 +113,7 @@ export type RecommendationPayload = {
     errors: { message: string; raceId: string }[];
     models?: BetCandidateModelRun[];
     note: string;
+    firstEligibleRaceStart?: string | null;
     provider: string;
     scannedMeetings: number;
     scannedRaceCount: number;
@@ -121,6 +122,14 @@ export type RecommendationPayload = {
   generatedAt: string;
   generatedAtNz?: string;
   note: string;
+  predictionWindow?: {
+    firstRaceStart: string | null;
+    firstRaceStartNz: string | null;
+    generatedBeforeFirstRace: boolean;
+    isClosed: boolean;
+    skippedReason: string | null;
+    status: "closed" | "open";
+  };
   sourceDate: string;
   sourceTimeZone?: string;
   sources: RecommendationSource[];
@@ -132,6 +141,7 @@ export type RecommendationPayload = {
   };
   summary: {
     betBackCandidates: number;
+    predictionWindowStatus?: string;
     raceSpecificPromotions: number;
     racingPromotions: number;
     sources: number;
