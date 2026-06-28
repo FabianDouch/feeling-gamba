@@ -33,8 +33,16 @@ export type RecommendationRace = {
   } | null;
   historical: {
     historicalDelta: number | null;
+    otherStartersAveragePriceBucket: HistoricalBucket | null;
     priceBucket: HistoricalBucket | null;
     starterBucket: HistoricalBucket | null;
+  };
+  fieldPriceShape?: {
+    otherStartersAverageFixedWinPrice: number | null;
+    otherStartersAveragePriceBucket: string | null;
+    otherStartersPriceCount: number;
+    otherStartersPriceOutlierCount: number;
+    outlierCutoff: number;
   };
   marketMover: {
     name: string;
@@ -136,6 +144,7 @@ export type RecommendationPayload = {
   statsBasis: {
     basisLabel?: string;
     fixtureCount: number;
+    otherStartersAveragePriceBucketCount?: number;
     priceBucketCount: number;
     starterBucketCount: number;
   };

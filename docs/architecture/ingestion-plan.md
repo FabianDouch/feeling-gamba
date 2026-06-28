@@ -454,12 +454,13 @@ Purpose:
 - Derive current favourite, fixed-win price, starter count, MarketMover, and
   missing-price state.
 - Attach historical starter-count, price-bucket, distance-band,
-  track-condition, cash, and cash-plus-bonus statistical signals from stored
-  `insight_aggregates`.
+  track-condition, other-starters average fixed-win price, cash, and
+  cash-plus-bonus statistical signals from stored `insight_aggregates`.
 - Rank bet-back candidates by discipline and model, including
   `global_bucket_cash_blend_v1`, `global_bucket_cash_even_blend_v1`,
   `global_bucket_cash_price_only_v1`, and
-  `global_bucket_cash_starter_only_v1`.
+  `global_bucket_cash_starter_only_v1`, and
+  `global_other_starters_average_price_cash_v1`.
 - Keep candidate rankings available in Predictions even when no public
   race-specific promotion URL matches current race cards.
 
@@ -574,6 +575,13 @@ Parsing rules:
   price-bucket cash average, excluding bonus-credit value.
 - The global cash starter-count-only variation ranks candidates with 100% final
   starter-count cash average, excluding bonus-credit value.
+- The other-starters average price variation ranks candidates with 100% of the
+  matching bucket's cash average for the average fixed-win price of all other
+  priced starters. Prices at `$70.00` or above are excluded from that average
+  and counted separately so outlier handling is visible.
+- Keep the metric implementation ready for `median_other_fixed_win_price` as a
+  follow-up signal; do not treat the average as the final field-shape measure if
+  one or two long-priced outsiders are distorting results.
 - The country+discipline model ranks the same source-backed favourites using
   country+discipline buckets where available, with each bucket value shrunk
   toward the matching global bucket value before the same 65%/35% blend.

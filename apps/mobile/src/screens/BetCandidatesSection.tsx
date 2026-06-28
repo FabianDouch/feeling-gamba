@@ -371,6 +371,11 @@ export function BetCandidatesSection({
                     value={formatCurrency(getCandidateCashAverage(race, selectedModelKey))}
                     detail="Estimated, no bonus"
                   />
+                  <Metric
+                    label="Other avg fixed win"
+                    value={formatCurrency(race.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null)}
+                    detail={formatOtherStartersPriceShape(race)}
+                  />
                 </View>
 
                 <View style={styles.metricGrid}>
@@ -506,6 +511,7 @@ function isCashReturnModel(modelKey: string) {
     "global_bucket_cash_even_blend_v1",
     "global_bucket_cash_price_only_v1",
     "global_bucket_cash_starter_only_v1",
+    "global_other_starters_average_price_cash_v1",
   ].includes(modelKey);
 }
 
@@ -651,6 +657,20 @@ function formatCurrency(value: number | null) {
   }
 
   return `$${value.toFixed(2)}`;
+}
+
+function formatOtherStartersPriceShape(race: BetCandidate) {
+  const shape = race.fieldPriceShape;
+
+  if (!shape) {
+    return undefined;
+  }
+
+  const outlierDetail = shape.otherStartersPriceOutlierCount
+    ? ` · ${shape.otherStartersPriceOutlierCount} at $${shape.outlierCutoff}+ excluded`
+    : "";
+
+  return `${shape.otherStartersAveragePriceBucket ?? "No bucket"} · ${shape.otherStartersPriceCount} prices${outlierDetail}`;
 }
 
 function formatPercentage(value: number | null) {

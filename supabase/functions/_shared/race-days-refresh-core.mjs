@@ -7,6 +7,7 @@ const DEFAULT_COLLECTION_START = "2025-12-15";
 const DEFAULT_LOOKBACK_DAYS = 7;
 const DEFAULT_LOCK_TTL_MINUTES = 15;
 const RACE_NOT_FOUND_GRACE_HOURS = 24;
+const OTHER_STARTER_PRICE_OUTLIER_CUTOFF = 70;
 const COVERAGE_MODE_ALL_DOMESTIC = "all_domestic";
 const COVERAGE_MODE_PILOT = "pilot";
 const SUPPORTED_DOMESTIC_COUNTRIES = new Set(["AUS", "NZ"]);
@@ -347,6 +348,25 @@ function getFixedWinPrice(runner) {
   return Number.isFinite(decimal) ? decimal : null;
 }
 
+/**
+ * Measures the priced shape of the non-favourite field, excluding extreme prices.
+ */
+function getOtherStartersFixedWinPriceMetrics(pricedRunners, favouriteId) {
+  const otherPrices = pricedRunners
+    .filter((runner) => runner.id !== favouriteId)
+    .map((runner) => Number(runner.fixedWinPrice))
+    .filter((price) => Number.isFinite(price));
+  const usablePrices = otherPrices.filter((price) => price < OTHER_STARTER_PRICE_OUTLIER_CUTOFF);
+
+  return {
+    average: usablePrices.length
+      ? Number((usablePrices.reduce((total, price) => total + price, 0) / usablePrices.length).toFixed(2))
+      : null,
+    outlierCount: otherPrices.length - usablePrices.length,
+    priceCount: usablePrices.length,
+  };
+}
+
 function getResultRows(raceCard) {
   const result = raceCard?.results?.find(
     (entry) => entry.__typename === "RacingResults" && Array.isArray(entry.runnerRows),
@@ -677,6 +697,15 @@ export function buildRaceRowsFromFixtures(fixtures) {
         const favourite = race.derived?.favourites?.[0] ?? null;
         const marketMover = race.derived?.marketMovers?.[0] ?? null;
         const winner = race.derived?.winners?.[0] ?? null;
+        const pricedRunners = activeRunners
+          .map((runner) => ({
+            fixedWinPrice: getFixedWinPrice(runner),
+            id: runner.id,
+          }))
+          .filter((runner) => runner.fixedWinPrice !== null);
+        const otherStartersFixedWin = favourite
+          ? getOtherStartersFixedWinPriceMetrics(pricedRunners, favourite.id)
+          : { average: null, outlierCount: 0, priceCount: 0 };
 
         races.push({
           advertised_start: raceCard.advertisedStart ?? sourceRace.advertisedStart ?? null,
@@ -805,6 +834,9 @@ export function buildRaceRowsFromFixtures(fixtures) {
           missing_favourite: !favourite,
           missing_price: !Number.isFinite(favourite?.fixedWinPrice),
           missing_result: favourite ? favourite.resultPosition === null : !race.derived?.hasResultRows,
+          other_starters_average_fixed_win_price: otherStartersFixedWin.average,
+          other_starters_price_count: otherStartersFixedWin.priceCount,
+          other_starters_price_outlier_count: otherStartersFixedWin.outlierCount,
           race_code: raceCode,
           race_key: raceKey,
           race_name: raceCard.name ?? sourceRace.name ?? null,
@@ -1249,6 +1281,65 @@ function getFavouritePriceBucketScopes(race, favouritePrice) {
   ];
 }
 
+function getOtherStartersAveragePriceBucketStart(price) {
+  const normalizedPrice = Number(price);
+
+  if (!Number.isFinite(normalizedPrice)) {
+    return null;
+  }
+
+  if (normalizedPrice < 3) {
+    return 0;
+  }
+
+  if (normalizedPrice < 5) {
+    return 3;
+  }
+
+  if (normalizedPrice < 7) {
+    return 5;
+  }
+
+  if (normalizedPrice < 10) {
+    return 7;
+  }
+
+  if (normalizedPrice < 15) {
+    return 10;
+  }
+
+  if (normalizedPrice < 25) {
+    return 15;
+  }
+
+  return 25;
+}
+
+function getOtherStartersAveragePriceBucketLabel(start) {
+  if (start >= 25) {
+    return "$25.00+";
+  }
+
+  return `$${start.toFixed(2)} - $${(start + 2.99).toFixed(2)}`;
+}
+
+function getOtherStartersAveragePriceBucketScopes(race) {
+  const bucketStart = getOtherStartersAveragePriceBucketStart(race.otherStartersAverageFixedWinPrice);
+
+  if (bucketStart === null) {
+    return [];
+  }
+
+  const priceBucketEnd = bucketStart >= 25 ? null : bucketStart + 2.99;
+  const priceBucketLabel = getOtherStartersAveragePriceBucketLabel(bucketStart);
+
+  return [
+    { otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, scopeKey: `other_starters_average_price_bucket:all:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+    { otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, raceCode: race.raceCode, scopeKey: `other_starters_average_price_bucket:race_code:${race.raceCode}:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+    { country: race.country, otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, raceCode: race.raceCode, scopeKey: `other_starters_average_price_bucket:country_race_code:${race.country}:${race.raceCode}:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+  ];
+}
+
 function addRaceToAggregate(bucket, race) {
   bucket.raceKeys.add(race.raceKey);
   bucket.missingFavouriteCount += race.missingFavourite ? 1 : 0;
@@ -1315,6 +1406,9 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       missingFavourite: Boolean(row.missing_favourite),
       missingPrice: Boolean(row.missing_price),
       missingResult: Boolean(row.missing_result),
+      otherStartersAverageFixedWinPrice: row.other_starters_average_fixed_win_price === null
+        ? null
+        : Number(row.other_starters_average_fixed_win_price),
       raceCode: row.race_code,
       raceKey: row.race_id,
       starterCount: row.starter_count,
@@ -1336,6 +1430,12 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
     }
 
     for (const scope of getFavouritePriceBucketScopes(race, race.favouritePrice)) {
+      const bucket = getBucket(scope);
+      addRaceToAggregate(bucket, race);
+      addFavouriteToAggregate(bucket, race);
+    }
+
+    for (const scope of getOtherStartersAveragePriceBucketScopes(race)) {
       const bucket = getBucket(scope);
       addRaceToAggregate(bucket, race);
       addFavouriteToAggregate(bucket, race);
@@ -1363,6 +1463,9 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       missing_price_count: bucket.missingPriceCount,
       missing_result_count: bucket.missingResultCount,
       net_return: netReturn,
+      other_starters_average_price_bucket_end: bucket.otherStartersAveragePriceBucketEnd ?? null,
+      other_starters_average_price_bucket_label: bucket.otherStartersAveragePriceBucketLabel ?? null,
+      other_starters_average_price_bucket_start: bucket.otherStartersAveragePriceBucketStart ?? null,
       price_bucket_end: bucket.priceBucketEnd ?? null,
       price_bucket_label: bucket.priceBucketLabel ?? null,
       price_bucket_start: bucket.priceBucketStart ?? null,
@@ -1413,6 +1516,9 @@ export async function rebuildInsightAggregatesFromSupabase({ batchSize = DEFAULT
       "missing_favourite",
       "missing_price",
       "missing_result",
+      "other_starters_average_fixed_win_price",
+      "other_starters_price_count",
+      "other_starters_price_outlier_count",
     ].join(","),
   );
   const dateTo = sourceMaxDate ?? rows.at(-1)?.meeting_date ?? collectionStart;

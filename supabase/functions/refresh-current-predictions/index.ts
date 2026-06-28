@@ -128,6 +128,9 @@ async function fetchPredictionInsightAggregateRows(config: SupabaseConfig) {
       "country",
       "race_code",
       "distance_band",
+      "other_starters_average_price_bucket_end",
+      "other_starters_average_price_bucket_label",
+      "other_starters_average_price_bucket_start",
       "track_condition_group",
       "starter_count",
       "price_bucket_label",
@@ -149,9 +152,9 @@ async function fetchPredictionInsightAggregateRows(config: SupabaseConfig) {
       "bonus_credit_percentage",
     ].join(","),
   );
-  url.searchParams.set("scope_type", "in.(starter_count,price_bucket,distance_band,track_condition)");
+  url.searchParams.set("scope_type", "in.(starter_count,price_bucket,distance_band,track_condition,other_starters_average_price_bucket)");
   url.searchParams.set("course_slug", "is.null");
-  url.searchParams.set("order", "scope_type.asc,country.asc,race_code.asc,starter_count.asc,price_bucket_start.asc,distance_band.asc,track_condition_group.asc");
+  url.searchParams.set("order", "scope_type.asc,country.asc,race_code.asc,starter_count.asc,price_bucket_start.asc,distance_band.asc,other_starters_average_price_bucket_start.asc,track_condition_group.asc");
 
   const response = await fetch(url.toString(), {
     headers: {

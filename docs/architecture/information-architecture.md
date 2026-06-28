@@ -261,7 +261,8 @@ Main content:
   counts, shown near the top under a `Stored model performance` heading.
 - Current bet candidates grouped by discipline, with favourite, fixed-win price,
   active model score, estimated cash return per `$1`, price bucket, starter
-  bucket, MarketMover, and manual track action.
+  bucket, other-starters average fixed-win price, MarketMover, and manual track
+  action.
 - Current bet candidates must come from the current Auckland source date's
   pre-first-race prediction snapshot. If the first eligible race has started
   and no pre-race snapshot was captured, show an explicit closed-window empty
@@ -272,7 +273,8 @@ Main content:
 - Prediction variation tabs, starting with `Global bucket blend`,
   `Global cash bucket blend`, `Global cash 50/50 blend`,
   `Global cash price only`, `Global cash starters only`,
-  `Country + discipline blend`, and `Distance + condition blend`.
+  `Other starters avg price`, `Country + discipline blend`, and
+  `Distance + condition blend`.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -285,6 +287,11 @@ Main content:
   price-bucket cash average, excluding bonus-credit value.
 - `Global cash starters only` should score candidates as 100% final
   starter-count cash average, excluding bonus-credit value.
+- `Other starters avg price` should score candidates as 100% of the matching
+  other-starters average fixed-win price bucket's cash average. Other-starter
+  prices at `$70.00` or above are excluded from the average and counted
+  separately. Median other-starter fixed-win price remains a planned follow-up
+  signal.
 - `$1` prediction return by discipline.
 - Cash average, cash net, bonus average, cash-plus-bonus average,
   cash-plus-bonus net, cash ROI, and cash-plus-bonus ROI for each discipline,
@@ -305,6 +312,8 @@ Rules:
   `current_prediction_snapshots` payload for the current Auckland source date.
 - Do not create or store new prediction rows after the first eligible race in
   the day's configured prediction coverage has started.
+- Treat other-starters average fixed-win price as a statistical field-shape
+  signal, not certainty about race strength.
 - Do not calculate prediction performance from raw prediction rows in the app.
 - Use raw prediction rows only for server-side filtered itemised history
   display.

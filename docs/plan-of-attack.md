@@ -89,8 +89,9 @@ source-of-truth docs in the same change.
 - Prediction tracking now supports multiple model variations through
   `prediction_model`. Current models include the original global bucket blend,
   cash-only 65/35 and 50/50 global bucket blends, cash-only 100% price-bucket
-  and 100% starter-count variations, a country+discipline bucket blend shrunk
-  toward global history, and a distance+condition blend. Future variations
+  and 100% starter-count variations, an other-starters average fixed-win price
+  cash model, a country+discipline bucket blend shrunk toward global history,
+  and a distance+condition blend. Future variations
   should add new model keys and preserve model-scoped aggregates rather than
   overwriting earlier model results.
 - The Promos page no longer displays broad racing offers that cannot be matched

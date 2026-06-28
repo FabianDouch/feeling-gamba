@@ -12,6 +12,7 @@ const DEFAULT_FIXTURES_DIR = "data/raw/betcha-graphql";
 const DEFAULT_BATCH_SIZE = 300;
 const COVERAGE_MODE_PILOT = "pilot";
 const COVERAGE_MODE_ALL_DOMESTIC = "all_domestic";
+const OTHER_STARTER_PRICE_OUTLIER_CUTOFF = 70;
 
 /**
  * Parses CLI options for a local-fixture-to-Supabase backfill run.
@@ -209,6 +210,25 @@ function getFixedWinPrice(runner) {
   const decimal = Number(price?.odds?.decimal);
 
   return Number.isFinite(decimal) ? decimal : null;
+}
+
+/**
+ * Measures the priced shape of the non-favourite field, excluding extreme prices.
+ */
+function getOtherStartersFixedWinPriceMetrics(pricedRunners, favouriteId) {
+  const otherPrices = pricedRunners
+    .filter((runner) => runner.id !== favouriteId)
+    .map((runner) => Number(runner.fixedWinPrice))
+    .filter((price) => Number.isFinite(price));
+  const usablePrices = otherPrices.filter((price) => price < OTHER_STARTER_PRICE_OUTLIER_CUTOFF);
+
+  return {
+    average: usablePrices.length
+      ? Number((usablePrices.reduce((total, price) => total + price, 0) / usablePrices.length).toFixed(2))
+      : null,
+    outlierCount: otherPrices.length - usablePrices.length,
+    priceCount: usablePrices.length,
+  };
 }
 
 function getResultRows(raceCard) {
@@ -435,6 +455,15 @@ function buildBackfillRows(fixtures) {
         const favourite = race.derived?.favourites?.[0] ?? null;
         const marketMover = race.derived?.marketMovers?.[0] ?? null;
         const winner = race.derived?.winners?.[0] ?? null;
+        const pricedRunners = activeRunners
+          .map((runner) => ({
+            fixedWinPrice: getFixedWinPrice(runner),
+            id: runner.id,
+          }))
+          .filter((runner) => runner.fixedWinPrice !== null);
+        const otherStartersFixedWin = favourite
+          ? getOtherStartersFixedWinPriceMetrics(pricedRunners, favourite.id)
+          : { average: null, outlierCount: 0, priceCount: 0 };
 
         races.push({
           advertised_start: raceCard.advertisedStart ?? sourceRace.advertisedStart ?? null,
@@ -572,6 +601,9 @@ function buildBackfillRows(fixtures) {
           missing_favourite: !favourite,
           missing_price: !Number.isFinite(favourite?.fixedWinPrice),
           missing_result: favourite ? favourite.resultPosition === null : !race.derived?.hasResultRows,
+          other_starters_average_fixed_win_price: otherStartersFixedWin.average,
+          other_starters_price_count: otherStartersFixedWin.priceCount,
+          other_starters_price_outlier_count: otherStartersFixedWin.outlierCount,
           race_code: raceCode,
           race_key: raceKey,
           race_name: raceCard.name ?? sourceRace.name ?? null,
@@ -597,6 +629,7 @@ function buildBackfillRows(fixtures) {
           missingFavourite: !favourite,
           missingPrice: !Number.isFinite(favourite?.fixedWinPrice),
           missingResult: favourite ? favourite.resultPosition === null : !race.derived?.hasResultRows,
+          otherStartersAverageFixedWinPrice: otherStartersFixedWin.average,
           raceCode,
           raceKey,
           starterCount: race.derived?.activeStarterCount ?? activeRunners.length,
@@ -837,6 +870,65 @@ function getFavouritePriceBucketScopes(race, favourite) {
   ];
 }
 
+function getOtherStartersAveragePriceBucketStart(price) {
+  const normalizedPrice = Number(price);
+
+  if (!Number.isFinite(normalizedPrice)) {
+    return null;
+  }
+
+  if (normalizedPrice < 3) {
+    return 0;
+  }
+
+  if (normalizedPrice < 5) {
+    return 3;
+  }
+
+  if (normalizedPrice < 7) {
+    return 5;
+  }
+
+  if (normalizedPrice < 10) {
+    return 7;
+  }
+
+  if (normalizedPrice < 15) {
+    return 10;
+  }
+
+  if (normalizedPrice < 25) {
+    return 15;
+  }
+
+  return 25;
+}
+
+function getOtherStartersAveragePriceBucketLabel(start) {
+  if (start >= 25) {
+    return "$25.00+";
+  }
+
+  return `$${start.toFixed(2)} - $${(start + 2.99).toFixed(2)}`;
+}
+
+function getOtherStartersAveragePriceBucketScopes(race) {
+  const bucketStart = getOtherStartersAveragePriceBucketStart(race.otherStartersAverageFixedWinPrice);
+
+  if (bucketStart === null) {
+    return [];
+  }
+
+  const priceBucketEnd = bucketStart >= 25 ? null : bucketStart + 2.99;
+  const priceBucketLabel = getOtherStartersAveragePriceBucketLabel(bucketStart);
+
+  return [
+    { otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, scopeKey: `other_starters_average_price_bucket:all:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+    { otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, raceCode: race.raceCode, scopeKey: `other_starters_average_price_bucket:race_code:${race.raceCode}:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+    { country: race.country, otherStartersAveragePriceBucketEnd: priceBucketEnd, otherStartersAveragePriceBucketLabel: priceBucketLabel, otherStartersAveragePriceBucketStart: bucketStart, raceCode: race.raceCode, scopeKey: `other_starters_average_price_bucket:country_race_code:${race.country}:${race.raceCode}:${bucketStart.toFixed(2)}`, scopeType: "other_starters_average_price_bucket" },
+  ];
+}
+
 /**
  * Builds stored aggregate rows from the same race-level facts used by the app read model.
  */
@@ -870,6 +962,12 @@ function buildInsightAggregates(aggregateInput, dateFrom, dateTo) {
         addRaceToAggregate(bucket, race);
         addFavouriteToAggregate(bucket, favourite);
       }
+
+      for (const scope of getOtherStartersAveragePriceBucketScopes(race)) {
+        const bucket = getBucket(scope);
+        addRaceToAggregate(bucket, race);
+        addFavouriteToAggregate(bucket, favourite);
+      }
     }
   }
 
@@ -896,6 +994,9 @@ function buildInsightAggregates(aggregateInput, dateFrom, dateTo) {
       missing_price_count: bucket.missingPriceCount,
       missing_result_count: bucket.missingResultCount,
       net_return: netReturn,
+      other_starters_average_price_bucket_end: bucket.otherStartersAveragePriceBucketEnd ?? null,
+      other_starters_average_price_bucket_label: bucket.otherStartersAveragePriceBucketLabel ?? null,
+      other_starters_average_price_bucket_start: bucket.otherStartersAveragePriceBucketStart ?? null,
       price_bucket_end: bucket.priceBucketEnd ?? null,
       price_bucket_label: bucket.priceBucketLabel ?? null,
       price_bucket_start: bucket.priceBucketStart ?? null,

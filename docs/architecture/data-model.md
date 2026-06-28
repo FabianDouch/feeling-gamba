@@ -250,6 +250,8 @@ Notes:
 
 - This table is the source of truth for market state over time.
 - `is_market_mover` should only be populated when the source explicitly provides it.
+- Current prediction models can derive field-shape signals from this table,
+  including the average fixed-win price of non-favourite starters.
 
 ### `race_results`
 
@@ -456,6 +458,9 @@ Key fields:
 - `predicted_runner_number int`
 - `predicted_runner_name text`
 - `predicted_fixed_win_price numeric`
+- `predicted_other_starters_average_fixed_win_price numeric`
+- `predicted_other_starters_price_count int`
+- `predicted_other_starters_price_outlier_count int`
 - `predicted_starter_count int`
 - `rank int`
 - `blended_cash_plus_bonus_average numeric`
@@ -489,6 +494,11 @@ Rules:
   - `global_bucket_cash_starter_only_v1`: scores current favourites using only
     the all-country final starter-count cash average; bonus-credit value is
     excluded.
+  - `global_other_starters_average_price_cash_v1`: scores current favourites
+    using the all-country cash average for the matching bucket of average
+    fixed-win price among the other priced starters. Other-starter prices at
+    `$70.00` or above are excluded from the average to reduce outlier
+    distortion; the excluded count is stored with each prediction row.
   - `country_code_bucket_blend_shrunk_v1`: scores current favourites using
     country-and-discipline buckets where available, shrunk toward matching
     global bucket values to reduce small-sample noise.
@@ -612,6 +622,9 @@ Key fields:
 - `favourite_win_return numeric`
 - `favourite_bonus_credit numeric`
 - `favourite_total_value_with_bonus_credit numeric`
+- `other_starters_average_fixed_win_price numeric`
+- `other_starters_price_count int`
+- `other_starters_price_outlier_count int`
 - `market_mover_runner_name text`
 - `winner_runner_name text`
 - `winner_win_dividend numeric`
@@ -672,6 +685,9 @@ Key fields:
 - `price_bucket_start numeric`
 - `price_bucket_end numeric`
 - `price_bucket_label text`
+- `other_starters_average_price_bucket_start numeric`
+- `other_starters_average_price_bucket_end numeric`
+- `other_starters_average_price_bucket_label text`
 - `race_count int`
 - `favourite_selections int`
 - `wins int`

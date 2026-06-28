@@ -12,6 +12,7 @@ export type PredictionModelKey =
   | "global_bucket_cash_even_blend_v1"
   | "global_bucket_cash_price_only_v1"
   | "global_bucket_cash_starter_only_v1"
+  | "global_other_starters_average_price_cash_v1"
   | "country_code_bucket_blend_shrunk_v1"
   | "country_code_distance_condition_v1";
 
@@ -52,6 +53,12 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
     detail: "Score = 100% starter-count cash average. Bonus-credit value is excluded, and current cards use this cash score for ordering.",
     key: "global_bucket_cash_starter_only_v1",
     label: "Global cash starters only",
+  },
+  {
+    description: "Scores each current favourite using the all-country historical cash average for the matching average fixed-win price bucket of the other starters.",
+    detail: "Score = 100% other-starters average fixed-win price bucket cash average. Other-starter prices at $70.00 or above are excluded from the average to reduce outlier distortion.",
+    key: "global_other_starters_average_price_cash_v1",
+    label: "Other starters avg price",
   },
   {
     description: "Scores each current favourite using country-and-discipline buckets when available, blended back toward the global buckets to reduce small-sample noise.",

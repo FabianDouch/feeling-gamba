@@ -221,6 +221,8 @@ navigation:
           - Include a global cash 50/50 blend variation that uses equal favourite price-bucket and starter-count cash averages and excludes bonus-credit value.
           - Include a global cash price-only variation that uses 100% favourite price-bucket cash average and excludes bonus-credit value.
           - Include a global cash starter-count-only variation that uses 100% final starter-count cash average and excludes bonus-credit value.
+          - Include an other-starters average price variation that uses 100% of the matching other-starters average fixed-win price bucket cash average and excludes $70.00+ other-starter outlier prices from the average.
+          - Keep median other-starter fixed-win price as a planned follow-up field-shape signal.
           - Order current bet candidates by estimated historical cash return per $1 rather than cash-plus-bonus value; cash-only variations use their own estimate for ordering and display.
           - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
           - Show notional $1 return metrics by racing discipline, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
@@ -234,6 +236,7 @@ navigation:
           - prediction_summary_stats
           - current_bet_candidates
           - bet_candidate_estimated_cash_return_per_dollar_metric
+          - bet_candidate_other_starters_average_fixed_win_metric
           - bet_candidate_refresh_control
           - bet_candidate_track_control
           - prediction_return_by_discipline
@@ -422,6 +425,10 @@ content_rules:
     history display.
   - Prediction refreshes must not create or store new prediction rows after the
     first eligible race in the day's configured prediction coverage has started.
+  - Predictions must show other-starters average fixed-win price as a
+    statistical field-shape signal, with $70.00+ other-starter prices excluded
+    from that average and counted separately.
+  - Median other-starter fixed-win price remains a planned follow-up signal.
   - Bet candidates should be ranked statistical candidates, not instructions to
     bet, and should use configured NZ and Tier 1 Australian pilot-track races.
     They should be grouped by discipline with a maximum of five candidates per

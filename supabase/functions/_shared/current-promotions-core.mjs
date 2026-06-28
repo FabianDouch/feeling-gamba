@@ -5,9 +5,11 @@ const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
 const CASH_PRICE_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_price_only_v1";
 const CASH_STARTER_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_starter_only_v1";
+const OTHER_STARTERS_AVERAGE_PRICE_MODEL_KEY = "global_other_starters_average_price_cash_v1";
 const SCOPED_PREDICTION_MODEL_KEY = "country_code_bucket_blend_shrunk_v1";
 const DISTANCE_CONDITION_PREDICTION_MODEL_KEY = "country_code_distance_condition_v1";
 const SCOPED_MODEL_MIN_SAMPLE = 100;
+const OTHER_STARTER_PRICE_OUTLIER_CUTOFF = 70;
 export const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export const PREDICTION_MODELS = [
@@ -35,6 +37,11 @@ export const PREDICTION_MODELS = [
     description: "Scores each current favourite using only the all-country historical cash average for the matching final-starter-count bucket, excluding bonus-credit value.",
     key: CASH_STARTER_ONLY_PREDICTION_MODEL_KEY,
     label: "Global cash starters only",
+  },
+  {
+    description: "Scores each current favourite using all-country historical cash averages for the matching average fixed-win price bucket of the other starters, excluding other-starter prices at $70.00 or above.",
+    key: OTHER_STARTERS_AVERAGE_PRICE_MODEL_KEY,
+    label: "Other starters avg price",
   },
   {
     description: "Scores each current favourite using country-and-discipline historical buckets when available, blended back toward global buckets so small samples do not dominate.",
@@ -372,6 +379,7 @@ function createPredictionSignature(candidate, modelKey = DEFAULT_PREDICTION_MODE
     favouriteName: candidate.favourite?.name ?? null,
     favouriteNumber: candidate.favourite?.number ?? null,
     modelKey,
+    otherStartersAverageFixedWinPrice: candidate.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null,
     rank: candidate.rank ?? null,
     signalLabel: candidate.candidate?.label ?? null,
     starters: candidate.starters ?? null,
@@ -397,6 +405,9 @@ function createPredictionRowsFromPayload(output) {
     prediction_model: model.key ?? DEFAULT_PREDICTION_MODEL_KEY,
     predicted_at: output.generatedAt,
     predicted_fixed_win_price: candidate.favourite?.fixedWinPrice ?? null,
+    predicted_other_starters_average_fixed_win_price: candidate.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null,
+    predicted_other_starters_price_count: candidate.fieldPriceShape?.otherStartersPriceCount ?? null,
+    predicted_other_starters_price_outlier_count: candidate.fieldPriceShape?.otherStartersPriceOutlierCount ?? null,
     predicted_implied_win_percentage: candidate.favourite?.impliedWinPercentage ?? null,
     predicted_runner_name: candidate.favourite?.name ?? null,
     predicted_runner_number: candidate.favourite?.number ?? null,
@@ -759,6 +770,61 @@ function getPriceBucketStart(price) {
   return 1 + Math.floor(Math.max(0, price - 1) / 0.5) * 0.5;
 }
 
+function createOtherStartersAveragePriceBucketLabel(start) {
+  if (start >= 25) {
+    return "$25.00+";
+  }
+
+  return `$${start.toFixed(2)} - $${(start + 2.99).toFixed(2)}`;
+}
+
+function getOtherStartersAveragePriceBucketStart(price) {
+  const normalizedPrice = Number(price);
+
+  if (!Number.isFinite(normalizedPrice)) {
+    return null;
+  }
+
+  if (normalizedPrice < 3) {
+    return 0;
+  }
+
+  if (normalizedPrice < 5) {
+    return 3;
+  }
+
+  if (normalizedPrice < 7) {
+    return 5;
+  }
+
+  if (normalizedPrice < 10) {
+    return 7;
+  }
+
+  if (normalizedPrice < 15) {
+    return 10;
+  }
+
+  if (normalizedPrice < 25) {
+    return 15;
+  }
+
+  return 25;
+}
+
+function createOtherStartersAveragePriceBucket(value) {
+  const bucketStart = getOtherStartersAveragePriceBucketStart(value);
+
+  if (bucketStart === null) {
+    return null;
+  }
+
+  return {
+    label: createOtherStartersAveragePriceBucketLabel(bucketStart),
+    start: bucketStart,
+  };
+}
+
 function createStatsBucket(label) {
   return {
     averageReturnPerDollar: 0,
@@ -850,6 +916,7 @@ function finalizeStatsBucket(bucket) {
 function createHistoricalStatsContainer(basisLabel, fixtureCount) {
   return {
     byDistanceBand: {},
+    byOtherStartersAveragePriceBucket: {},
     byPriceBucket: {},
     byStarterCount: {},
     byTrackConditionGroup: {},
@@ -862,6 +929,7 @@ function createHistoricalStatsContainer(basisLabel, fixtureCount) {
 function getHistoricalScope(stats, scopeKey) {
   const scope = stats.scopes[scopeKey] ?? {
     byDistanceBand: new Map(),
+    byOtherStartersAveragePriceBucket: new Map(),
     byPriceBucket: new Map(),
     byStarterCount: new Map(),
     byTrackConditionGroup: new Map(),
@@ -879,7 +947,9 @@ function addStatsBucketToScope(scope, type, label, favourite, starterCount) {
       ? scope.byDistanceBand
       : type === "track_condition"
         ? scope.byTrackConditionGroup
-        : scope.byPriceBucket;
+        : type === "other_starters_average_price_bucket"
+          ? scope.byOtherStartersAveragePriceBucket
+          : scope.byPriceBucket;
   const bucket = bucketMap.get(label) ?? createStatsBucket(label);
 
   addFavouriteToStats(bucket, favourite, starterCount);
@@ -1063,6 +1133,13 @@ export function createHistoricalStatsFromFixtures(fixtures) {
         const starterCount = race.derived?.activeStarterCount ?? null;
         const distanceBand = getDistanceBand(race.raceCard?.distance);
         const trackConditionGroup = getTrackConditionGroup(race.raceCard?.trackCondition);
+        const pricedRunners = (race.raceCard?.finalField?.runnerRows ?? [])
+          .filter((runner) => !runner.scratchedTimestamp && normalizeName(runner.name) !== "vacant box")
+          .map((runner) => ({
+            fixedWinPrice: getFixedWinPrice(runner),
+            id: runner.id,
+          }))
+          .filter((runner) => runner.fixedWinPrice !== null);
 
         for (const favourite of race.derived?.favourites ?? []) {
           if (
@@ -1075,6 +1152,10 @@ export function createHistoricalStatsFromFixtures(fixtures) {
           const starterLabel = String(starterCount);
           const priceStart = getPriceBucketStart(favourite.fixedWinPrice);
           const priceLabel = createPriceBucketLabel(priceStart);
+          const otherStartersPriceMetrics = getOtherStartersFixedWinPriceMetrics(pricedRunners, favourite.id);
+          const otherStartersAveragePriceBucket = createOtherStartersAveragePriceBucket(
+            otherStartersPriceMetrics.average,
+          );
 
           for (const scope of [globalScope, raceCodeScope, countryRaceCodeScope].filter(Boolean)) {
             addStatsBucketToScope(scope, "starter_count", starterLabel, favourite, starterCount);
@@ -1087,6 +1168,16 @@ export function createHistoricalStatsFromFixtures(fixtures) {
             if (trackConditionGroup) {
               addStatsBucketToScope(scope, "track_condition", trackConditionGroup, favourite, starterCount);
             }
+
+            if (otherStartersAveragePriceBucket) {
+              addStatsBucketToScope(
+                scope,
+                "other_starters_average_price_bucket",
+                otherStartersAveragePriceBucket.label,
+                favourite,
+                starterCount,
+              );
+            }
           }
         }
       }
@@ -1096,6 +1187,7 @@ export function createHistoricalStatsFromFixtures(fixtures) {
   for (const [scopeKey, scope] of Object.entries(stats.scopes)) {
     stats.scopes[scopeKey] = {
       byDistanceBand: finalizeBucketMap(scope.byDistanceBand),
+      byOtherStartersAveragePriceBucket: finalizeBucketMap(scope.byOtherStartersAveragePriceBucket),
       byPriceBucket: finalizeBucketMap(scope.byPriceBucket),
       byStarterCount: finalizeBucketMap(scope.byStarterCount),
       byTrackConditionGroup: finalizeBucketMap(scope.byTrackConditionGroup),
@@ -1103,6 +1195,7 @@ export function createHistoricalStatsFromFixtures(fixtures) {
   }
 
   stats.byDistanceBand = stats.scopes.global?.byDistanceBand ?? {};
+  stats.byOtherStartersAveragePriceBucket = stats.scopes.global?.byOtherStartersAveragePriceBucket ?? {};
   stats.byPriceBucket = stats.scopes.global?.byPriceBucket ?? {};
   stats.byStarterCount = stats.scopes.global?.byStarterCount ?? {};
   stats.byTrackConditionGroup = stats.scopes.global?.byTrackConditionGroup ?? {};
@@ -1127,6 +1220,7 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
         row.price_bucket_label
           ?? row.starter_count
           ?? row.distance_band
+          ?? row.other_starters_average_price_bucket_label
           ?? row.track_condition_group
           ?? "Unknown",
       ),
@@ -1160,6 +1254,8 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
       scope.byPriceBucket.set(row.price_bucket_label, bucket);
     } else if (row.scope_type === "distance_band" && row.distance_band) {
       scope.byDistanceBand.set(row.distance_band, bucket);
+    } else if (row.scope_type === "other_starters_average_price_bucket" && row.other_starters_average_price_bucket_label) {
+      scope.byOtherStartersAveragePriceBucket.set(row.other_starters_average_price_bucket_label, bucket);
     } else if (row.scope_type === "track_condition" && row.track_condition_group) {
       scope.byTrackConditionGroup.set(row.track_condition_group, bucket);
     }
@@ -1168,6 +1264,7 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
   for (const [scopeKey, scope] of Object.entries(stats.scopes)) {
     stats.scopes[scopeKey] = {
       byDistanceBand: finalizeBucketMap(scope.byDistanceBand),
+      byOtherStartersAveragePriceBucket: finalizeBucketMap(scope.byOtherStartersAveragePriceBucket),
       byPriceBucket: finalizeBucketMap(scope.byPriceBucket),
       byStarterCount: finalizeBucketMap(scope.byStarterCount),
       byTrackConditionGroup: finalizeBucketMap(scope.byTrackConditionGroup),
@@ -1175,6 +1272,7 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
   }
 
   stats.byDistanceBand = stats.scopes.global?.byDistanceBand ?? {};
+  stats.byOtherStartersAveragePriceBucket = stats.scopes.global?.byOtherStartersAveragePriceBucket ?? {};
   stats.byPriceBucket = stats.scopes.global?.byPriceBucket ?? {};
   stats.byStarterCount = stats.scopes.global?.byStarterCount ?? {};
   stats.byTrackConditionGroup = stats.scopes.global?.byTrackConditionGroup ?? {};
@@ -1189,6 +1287,25 @@ function getFixedWinPrice(runner) {
   const decimal = Number(price?.odds?.decimal);
 
   return Number.isFinite(decimal) ? decimal : null;
+}
+
+/**
+ * Calculates the other-starter fixed-win average while excluding extreme prices.
+ */
+function getOtherStartersFixedWinPriceMetrics(pricedRunners, favouriteId) {
+  const otherPrices = pricedRunners
+    .filter((runner) => runner.id !== favouriteId)
+    .map((runner) => Number(runner.fixedWinPrice))
+    .filter((price) => Number.isFinite(price));
+  const usablePrices = otherPrices.filter((price) => price < OTHER_STARTER_PRICE_OUTLIER_CUTOFF);
+
+  return {
+    average: usablePrices.length
+      ? Number((usablePrices.reduce((total, price) => total + price, 0) / usablePrices.length).toFixed(2))
+      : null,
+    outlierCount: otherPrices.length - usablePrices.length,
+    priceCount: usablePrices.length,
+  };
 }
 
 function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
@@ -1217,6 +1334,15 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
     : pricedRunners.filter((runner) => runner.fixedWinPrice === shortestPrice);
   const favourite = favourites[0] ?? null;
   const priceBucketLabel = favourite ? createPriceBucketLabel(getPriceBucketStart(favourite.fixedWinPrice)) : null;
+  const otherStartersFixedWin = favourite
+    ? getOtherStartersFixedWinPriceMetrics(pricedRunners, favourite.id)
+    : { average: null, outlierCount: 0, priceCount: 0 };
+  const otherStartersAveragePriceBucketInfo = createOtherStartersAveragePriceBucket(
+    otherStartersFixedWin.average,
+  );
+  const otherStartersAveragePriceBucket = otherStartersAveragePriceBucketInfo
+    ? historicalStats.byOtherStartersAveragePriceBucket?.[otherStartersAveragePriceBucketInfo.label] ?? null
+    : null;
   const starterBucket = historicalStats.byStarterCount[String(activeRunners.length)] ?? null;
   const priceBucket = priceBucketLabel ? historicalStats.byPriceBucket[priceBucketLabel] ?? null : null;
   const impliedWinPercentage = favourite ? Number(((1 / favourite.fixedWinPrice) * 100).toFixed(2)) : null;
@@ -1272,8 +1398,16 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
           priceBucket: priceBucketLabel,
         }
       : null,
+    fieldPriceShape: {
+      otherStartersAverageFixedWinPrice: otherStartersFixedWin.average,
+      otherStartersAveragePriceBucket: otherStartersAveragePriceBucketInfo?.label ?? null,
+      otherStartersPriceCount: otherStartersFixedWin.priceCount,
+      otherStartersPriceOutlierCount: otherStartersFixedWin.outlierCount,
+      outlierCutoff: OTHER_STARTER_PRICE_OUTLIER_CUTOFF,
+    },
     historical: {
       historicalDelta,
+      otherStartersAveragePriceBucket,
       priceBucket,
       starterBucket,
     },
@@ -1405,6 +1539,29 @@ function createCashOnlyPredictionModel(candidate, priceWeight = 0.65, starterWei
     "all countries and all disciplines",
     metricLabel,
     bucketBasisLabel,
+  );
+
+  return {
+    blendedCashPlusBonusAverage: score,
+    detail: signal.detail,
+    label: signal.label,
+    sampleSize,
+    tone: signal.tone,
+  };
+}
+
+function createOtherStartersAveragePricePredictionModel(candidate) {
+  const bucket = candidate.historical.otherStartersAveragePriceBucket;
+  const score = Number.isFinite(Number(bucket?.averageReturnPerDollar))
+    ? Number(bucket.averageReturnPerDollar)
+    : null;
+  const sampleSize = bucket?.favouriteSelections ?? 0;
+  const signal = createBetBackModelSignal(
+    score,
+    sampleSize,
+    "all countries and all disciplines",
+    "other-starters average price cash average",
+    "matching other-starters average fixed-win price bucket",
   );
 
   return {
@@ -1553,6 +1710,7 @@ function buildPredictionModelsForCandidate(candidate, historicalStats, context) 
     [CASH_EVEN_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 0.5, 0.5),
     [CASH_PRICE_ONLY_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 1, 0),
     [CASH_STARTER_ONLY_PREDICTION_MODEL_KEY]: createCashOnlyPredictionModel(candidate, 0, 1),
+    [OTHER_STARTERS_AVERAGE_PRICE_MODEL_KEY]: createOtherStartersAveragePricePredictionModel(candidate),
     [SCOPED_PREDICTION_MODEL_KEY]: createScopedPredictionModel(candidate, historicalStats, context),
     [DISTANCE_CONDITION_PREDICTION_MODEL_KEY]: createDistanceConditionPredictionModel(candidate, historicalStats, context),
   };
@@ -1564,6 +1722,7 @@ function getCashReturnModelKey(modelKey) {
     CASH_EVEN_PREDICTION_MODEL_KEY,
     CASH_PRICE_ONLY_PREDICTION_MODEL_KEY,
     CASH_STARTER_ONLY_PREDICTION_MODEL_KEY,
+    OTHER_STARTERS_AVERAGE_PRICE_MODEL_KEY,
   ].includes(modelKey)
     ? modelKey
     : CASH_EVEN_PREDICTION_MODEL_KEY;
@@ -1929,6 +2088,7 @@ export async function generateCurrentPromotionPayload({
     statsBasis: {
       basisLabel: historicalStats.basisLabel ?? `${historicalStats.fixtureCount} fixture days`,
       fixtureCount: historicalStats.fixtureCount,
+      otherStartersAveragePriceBucketCount: Object.keys(historicalStats.byOtherStartersAveragePriceBucket ?? {}).length,
       priceBucketCount: Object.keys(historicalStats.byPriceBucket).length,
       starterBucketCount: Object.keys(historicalStats.byStarterCount).length,
     },
@@ -1977,6 +2137,7 @@ export async function generateCurrentPredictionPayload({
     statsBasis: {
       basisLabel: historicalStats.basisLabel ?? `${historicalStats.fixtureCount} fixture days`,
       fixtureCount: historicalStats.fixtureCount,
+      otherStartersAveragePriceBucketCount: Object.keys(historicalStats.byOtherStartersAveragePriceBucket ?? {}).length,
       priceBucketCount: Object.keys(historicalStats.byPriceBucket).length,
       starterBucketCount: Object.keys(historicalStats.byStarterCount).length,
     },

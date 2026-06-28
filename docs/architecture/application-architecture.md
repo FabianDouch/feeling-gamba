@@ -465,9 +465,14 @@ also excludes bonus-credit value, but uses an even 50/50 price-bucket and
 starter-count cash average blend. The `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` models isolate 100% favourite price-bucket
 cash average and 100% final starter-count cash average respectively, excluding
-bonus-credit value. The `country_code_bucket_blend_shrunk_v1` model uses
-country+discipline price and starter buckets where available, shrunk toward
-matching global bucket values to reduce small-sample noise. The
+bonus-credit value. The `global_other_starters_average_price_cash_v1` model
+uses the cash average for the bucket matching the average fixed-win price of the
+other priced starters, excluding other-starter prices at `$70.00` or above from
+that average. This is the first field-shape signal; median other-starter fixed
+win price remains a planned follow-up to reduce sensitivity to long-priced
+outliers. The `country_code_bucket_blend_shrunk_v1` model uses country+discipline
+price and starter buckets where available, shrunk toward matching global bucket
+values to reduce small-sample noise. The
 `country_code_distance_condition_v1` model blends country+discipline price,
 starter-count, distance-band, and track-condition buckets with conservative
 shrinkage toward broader history. A prediction row is replaced only when its

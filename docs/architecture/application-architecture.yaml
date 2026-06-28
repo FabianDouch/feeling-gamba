@@ -285,7 +285,7 @@ systems:
       responsibility:
         - Scan current Betcha race cards for configured NZ and Tier 1 Australian pilot tracks independently of promotion availability.
         - Store current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
-        - Attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus statistical signals.
+        - Attach historical starter-count, price-bucket, distance-band, track-condition, other-starters average fixed-win price, cash, and cash-plus-bonus statistical signals.
         - Rank Betcha bet-back candidates by discipline, keeping at most five per discipline, without stake sizing or automated wagering actions.
         - Capture one app-facing pre-first-race prediction cache for each Auckland source date.
         - Store one prediction row per model and Betcha source race card before the first eligible race starts, replacing it only when the prediction signature changes before that cutoff.
@@ -594,6 +594,8 @@ flows:
       - rank global_bucket_cash_even_blend_v1 candidates from equal-weight global price/starter cash-return buckets without bonus-credit value.
       - rank global_bucket_cash_price_only_v1 candidates from 100% global favourite price-bucket cash return without bonus-credit value.
       - rank global_bucket_cash_starter_only_v1 candidates from 100% global final starter-count cash return without bonus-credit value.
+      - rank global_other_starters_average_price_cash_v1 candidates from 100% global other-starters average fixed-win price bucket cash return, excluding other-starter prices at $70.00 or above from the average.
+      - keep median_other_fixed_win_price as the next field-shape signal candidate because average can still be distorted by long-priced outsiders.
       - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
       - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
       - determine the earliest advertised start among eligible configured prediction races.
