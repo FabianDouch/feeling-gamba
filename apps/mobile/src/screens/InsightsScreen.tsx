@@ -23,6 +23,7 @@ import { FavouriteTrackQuickFilter } from "./FavouriteTrackQuickFilter";
 const emptyInsights: InsightsData = {
   disciplineReturns: [],
   favouriteStats: [],
+  otherStartersAveragePriceBreakdown: [],
   priceBreakdown: [],
   starterBreakdown: [],
 };
@@ -74,7 +75,8 @@ export function InsightsScreen() {
   const hasInsightRows = insights.favouriteStats.length > 0
     || insights.disciplineReturns.length > 0
     || insights.starterBreakdown.length > 0
-    || insights.priceBreakdown.length > 0;
+    || insights.priceBreakdown.length > 0
+    || insights.otherStartersAveragePriceBreakdown.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -389,6 +391,28 @@ export function InsightsScreen() {
 
           <Text style={styles.subheading}>Favourite price breakdown</Text>
           {insights.priceBreakdown.length ? insights.priceBreakdown.map((row) => (
+            <View key={row.label} style={styles.priceRow}>
+              <View style={styles.priceLabelBlock}>
+                <Text style={styles.priceLabel}>{row.label}</Text>
+                <Text style={styles.breakdownNote}>{row.selections}</Text>
+              </View>
+              <View style={styles.priceMetric}>
+                <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
+                <Text style={styles.breakdownMetricLabel}>Win</Text>
+              </View>
+              <View style={styles.priceMetric}>
+                <Text style={styles.breakdownMetricValue}>{row.averageReturn}</Text>
+                <Text style={styles.breakdownMetricLabel}>Avg return</Text>
+              </View>
+              <View style={styles.priceMetric}>
+                <Text style={styles.breakdownMetricValue}>{row.netReturn}</Text>
+                <Text style={styles.breakdownMetricLabel}>Net</Text>
+              </View>
+            </View>
+          )) : <EmptyState />}
+
+          <Text style={styles.subheading}>Other starters avg fixed-win breakdown</Text>
+          {insights.otherStartersAveragePriceBreakdown.length ? insights.otherStartersAveragePriceBreakdown.map((row) => (
             <View key={row.label} style={styles.priceRow}>
               <View style={styles.priceLabelBlock}>
                 <Text style={styles.priceLabel}>{row.label}</Text>

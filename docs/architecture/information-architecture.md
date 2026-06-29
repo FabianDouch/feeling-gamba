@@ -140,10 +140,13 @@ Purpose:
   for thoroughbred, harness, and greyhound races.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
+- Break favourite performance down by the average fixed-win price of the other
+  priced starters.
 - Show notional `$1` favourite return metrics by racing discipline.
-- Filter the `$1` favourite return by discipline, starter-count breakdown, and
-  favourite price breakdown by all countries or one selected country, then by
-  all tracks or one selected track inside that country.
+- Filter the `$1` favourite return by discipline, starter-count breakdown,
+  favourite price breakdown, and other-starters average fixed-win breakdown by
+  all countries or one selected country, then by all tracks or one selected
+  track inside that country.
 - When one track and one discipline are selected, allow an on-demand public odds
   request for races 1 and 2 at that track so account-visible hidden promos can
   be compared manually.
@@ -170,6 +173,10 @@ Main content:
 - Starter-count breakdown, for example 7 starters, 8 starters, 9 starters.
 - Favourite price breakdown, for example `$1.00-$1.49`, `$1.50-$1.99`, and
   onward.
+- Other-starters average fixed-win breakdown, for example `$3.00-$5.99`,
+  `$7.00-$9.99`, and `$25.00+`. These buckets use the average fixed-win price
+  of priced non-favourite starters, with `$70.00+` prices excluded from the
+  stored average.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
@@ -263,13 +270,16 @@ Main content:
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, other-starters average fixed-win price, MarketMover, and manual track
   action.
+- Candidate status pills should include the active model's cash metric basis,
+  such as `Positive cash blend` or `Weak price cash`, so users do not compare
+  different cash formulas as if they were the same signal.
 - Current bet candidates must come from the current Auckland source date's
   pre-first-race prediction snapshot. If the first eligible race has started
   and no pre-race snapshot was captured, show an explicit closed-window empty
   state instead of displaying an older source date.
-- Current bet candidates should be ordered by estimated cash return per `$1`,
-  not cash-plus-bonus value. Cash-only tabs use their own cash estimate for
-  both ordering and the visible cash-return metric.
+- Current bet candidates should be ordered by the active prediction variation's
+  model-specific `cashAverageScore`. Cash-plus-bonus remains visible as
+  supporting context but must not drive recommendations.
 - Prediction variation tabs, starting with `Global bucket blend`,
   `Global cash bucket blend`, `Global cash 50/50 blend`,
   `Global cash price only`, `Global cash starters only`,
@@ -369,6 +379,7 @@ flowchart TD
   insights --> disciplineStats[Discipline Sections]
   insights --> starterBreakdown[Starter Count Breakdown]
   insights --> priceBreakdown[Favourite Price Breakdown]
+  insights --> otherPriceBreakdown[Other Starters Avg Fixed-Win Breakdown]
   insights --> missingData[Missing Data Counts]
   insights --> recommendations[Recommendations]
   insights --> raceDays[Race Days]
@@ -497,7 +508,7 @@ flowchart LR
 
 | Screen | Primary user | MVP priority | Notes |
 | --- | --- | --- | --- |
-| Insights | App user | Required | Default app screen; favourite win/2nd/3rd rates over the collected date range, country/track-filtered unit-stake returns by discipline, starter-count breakdowns, and price-bucket breakdowns. |
+| Insights | App user | Required | Default app screen; favourite win/2nd/3rd rates over the collected date range, country/track-filtered unit-stake returns by discipline, starter-count breakdowns, price-bucket breakdowns, and other-starters average fixed-win breakdowns. |
 | Recommendations | App user | Required | Source-backed promotion signals using TAB/Betcha promotions, current race facts, and historical buckets; no staking advice. |
 | Race Days | App user | Required | Secondary historical browsing screen with date, country, discipline, and racecourse filters. |
 | Race Detail | App user | Required | Must make source and missing data clear. |
@@ -520,6 +531,9 @@ flowchart LR
   denominator and missing-data counts.
 - Favourite price breakdowns should use 50c fixed-win price ranges, such as
   `$1.00-$1.49` and `$1.50-$1.99`, and show selection counts beside win rates.
+- Other-starters average fixed-win breakdowns should use
+  `other_starters_average_price_bucket` aggregate rows and inherit the `$70.00+`
+  outlier exclusion used by prediction models.
 - Insight return tables should be filterable by all countries or one selected
   country, then by all tracks or one individual track inside the selected
   country, with the same metric definitions in each scope. They should read

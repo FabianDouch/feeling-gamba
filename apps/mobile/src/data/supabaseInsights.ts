@@ -3,6 +3,7 @@ import type {
   DisciplineReturn,
   FavouriteStat,
   InsightsData,
+  OtherStartersAveragePriceBreakdown,
   PriceBreakdown,
   RaceFilterOption,
   StarterBreakdown,
@@ -20,6 +21,8 @@ type InsightAggregateRow = {
   favourite_selections: number;
   missing_price_count: number;
   net_return: NullableNumber;
+  other_starters_average_price_bucket_label: string | null;
+  other_starters_average_price_bucket_start: NullableNumber;
   price_bucket_label: string | null;
   price_bucket_start: NullableNumber;
   race_code: string | null;
@@ -55,7 +58,8 @@ type InsightScopeType =
   | "country_race_code"
   | "course_race_code"
   | "starter_count"
-  | "price_bucket";
+  | "price_bucket"
+  | "other_starters_average_price_bucket";
 
 type InsightScope = {
   country: string;
@@ -91,6 +95,8 @@ const INSIGHT_SELECT = [
   "favourite_selections",
   "missing_price_count",
   "net_return",
+  "other_starters_average_price_bucket_label",
+  "other_starters_average_price_bucket_start",
   "price_bucket_label",
   "price_bucket_start",
   "race_code",
@@ -160,12 +166,13 @@ export async function fetchInsightMetadata(): Promise<InsightMetadata> {
  */
 export async function fetchInsights(filters: InsightFilters): Promise<InsightsData> {
   const scope = getInsightScope(filters);
-  const [overallRows, disciplineRows, disciplineFallbackRows, starterRows, priceRows] = await Promise.all([
+  const [overallRows, disciplineRows, disciplineFallbackRows, starterRows, priceRows, otherStartersAveragePriceRows] = await Promise.all([
     fetchOverallRows(scope),
     fetchDisciplineRows(scope),
     fetchDisciplineFallbackRows(scope),
     fetchBucketRows(scope, "starter_count"),
     fetchBucketRows(scope, "price_bucket"),
+    fetchBucketRows(scope, "other_starters_average_price_bucket"),
   ]);
   const overall = overallRows[0] ?? combineAggregateRows(starterRows);
   const disciplineSourceRows = disciplineRows.length
@@ -175,6 +182,9 @@ export async function fetchInsights(filters: InsightFilters): Promise<InsightsDa
   return {
     disciplineReturns: disciplineSourceRows.map(mapDisciplineReturn),
     favouriteStats: overall ? mapFavouriteStats(overall) : [],
+    otherStartersAveragePriceBreakdown: otherStartersAveragePriceRows.map(
+      mapOtherStartersAveragePriceBreakdown,
+    ),
     priceBreakdown: priceRows.map(mapPriceBreakdown),
     starterBreakdown: starterRows.map(mapStarterBreakdown),
   };
@@ -370,11 +380,14 @@ function fetchDisciplineFallbackRows(scope: InsightScope) {
 }
 
 /**
- * Reads starter-count or favourite-price bucket rows for the current Insights scope.
+ * Reads starter-count, favourite-price, or other-starter price bucket rows for the current Insights scope.
  */
-function fetchBucketRows(scope: InsightScope, scopeType: "starter_count" | "price_bucket") {
+function fetchBucketRows(
+  scope: InsightScope,
+  scopeType: "starter_count" | "price_bucket" | "other_starters_average_price_bucket",
+) {
   const params: Record<string, string> = {
-    order: scopeType === "starter_count" ? "starter_count.asc" : "price_bucket_start.asc",
+    order: getBucketOrder(scopeType),
     scope_type: `eq.${scopeType}`,
     select: INSIGHT_SELECT,
   };
@@ -397,6 +410,18 @@ function fetchBucketRows(scope: InsightScope, scopeType: "starter_count" | "pric
   }
 
   return supabaseSelect<InsightAggregateRow>(params);
+}
+
+function getBucketOrder(scopeType: "starter_count" | "price_bucket" | "other_starters_average_price_bucket") {
+  if (scopeType === "starter_count") {
+    return "starter_count.asc";
+  }
+
+  if (scopeType === "other_starters_average_price_bucket") {
+    return "other_starters_average_price_bucket_start.asc";
+  }
+
+  return "price_bucket_start.asc";
 }
 
 /**
@@ -599,6 +624,21 @@ function mapPriceBreakdown(row: InsightAggregateRow): PriceBreakdown {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     label: row.price_bucket_label ?? "Missing price bucket",
+    netReturn: formatCurrency(numeric(row.net_return)),
+    selections: `${row.favourite_selections} selections`,
+    totalReturned: formatCurrency(numeric(row.total_return)),
+    totalStaked: formatCurrency(numeric(row.total_stake)),
+    winRate: formatPercentage(numeric(row.win_percentage)),
+  };
+}
+
+/**
+ * Converts an average-other-starters fixed-win bucket row into the Insights row model.
+ */
+function mapOtherStartersAveragePriceBreakdown(row: InsightAggregateRow): OtherStartersAveragePriceBreakdown {
+  return {
+    averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
+    label: row.other_starters_average_price_bucket_label ?? "Missing other-starters price bucket",
     netReturn: formatCurrency(numeric(row.net_return)),
     selections: `${row.favourite_selections} selections`,
     totalReturned: formatCurrency(numeric(row.total_return)),

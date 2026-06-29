@@ -123,8 +123,9 @@ navigation:
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
           - Break favourite win percentage down by 50c fixed-win price bucket.
+          - Break favourite performance down by average fixed-win price of the other priced starters.
           - Show notional $1 favourite return metrics by racing discipline.
-          - Filter return, starter-count, and favourite-price breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
+          - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for races 1 and 2 when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
           - Surface missing-data counts.
@@ -146,6 +147,7 @@ navigation:
           - bonus_average_return_metric
           - starter_count_breakdown
           - favourite_price_bucket_breakdown
+          - other_starters_average_fixed_win_breakdown
           - market_mover_outcomes
           - missing_data_counts
           - denominator_counts
@@ -214,6 +216,7 @@ navigation:
         audience: app_user
         purpose:
           - Show current ranked Betcha-derived bet candidates from the latest prediction snapshot.
+          - Show candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
           - Track candidate predictions made by independent current prediction scans.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
@@ -223,7 +226,7 @@ navigation:
           - Include a global cash starter-count-only variation that uses 100% final starter-count cash average and excludes bonus-credit value.
           - Include an other-starters average price variation that uses 100% of the matching other-starters average fixed-win price bucket cash average and excludes $70.00+ other-starter outlier prices from the average.
           - Keep median other-starter fixed-win price as a planned follow-up field-shape signal.
-          - Order current bet candidates by estimated historical cash return per $1 rather than cash-plus-bonus value; cash-only variations use their own estimate for ordering and display.
+          - Order current bet candidates by the active prediction variation's model-specific cashAverageScore; cash-plus-bonus remains visible as supporting context but must not drive recommendations.
           - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
           - Show notional $1 return metrics by racing discipline, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
           - Show recent stored prediction history with race, runner, price, status, and outcome value.
@@ -399,6 +402,9 @@ content_rules:
     denominators and missing-data counts.
   - Favourite price breakdowns should use 50c fixed-win price ranges, such as
     $1.00-$1.49 and $1.50-$1.99, and show selection counts beside win rates.
+  - Other-starters average fixed-win breakdowns should use
+    other_starters_average_price_bucket aggregate rows and inherit the $70.00+
+    outlier exclusion used by prediction models.
   - Insight return tables should be filterable by all countries or one selected
     country, then by all tracks or one individual track inside the selected
     country, with the same metric definitions in each scope. They should read

@@ -14,7 +14,7 @@ export const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export const PREDICTION_MODELS = [
   {
-    description: "Scores each current favourite using all-country historical cash-plus-bonus averages for the matching favourite price bucket and final-starter-count bucket.",
+    description: "Scores each current favourite using all-country historical cash averages for the matching favourite price bucket and final-starter-count bucket, with cash-plus-bonus retained as supporting context.",
     key: DEFAULT_PREDICTION_MODEL_KEY,
     label: "Global bucket blend",
   },
@@ -44,12 +44,12 @@ export const PREDICTION_MODELS = [
     label: "Other starters avg price",
   },
   {
-    description: "Scores each current favourite using country-and-discipline historical buckets when available, blended back toward global buckets so small samples do not dominate.",
+    description: "Scores each current favourite using country-and-discipline historical cash buckets when available, blended back toward global buckets so small samples do not dominate.",
     key: SCOPED_PREDICTION_MODEL_KEY,
     label: "Country + discipline blend",
   },
   {
-    description: "Scores each current favourite using country-and-discipline price, starter, distance-band, and track-condition buckets with conservative shrinkage toward broader history.",
+    description: "Scores each current favourite using country-and-discipline cash buckets for price, starter, distance-band, and track-condition signals with conservative shrinkage toward broader history.",
     key: DISTANCE_CONDITION_PREDICTION_MODEL_KEY,
     label: "Distance + condition blend",
   },
@@ -375,6 +375,7 @@ export async function upsertPredictionSnapshotToSupabase({ output, supabaseKey, 
 function createPredictionSignature(candidate, modelKey = DEFAULT_PREDICTION_MODEL_KEY) {
   return JSON.stringify({
     blendedCashPlusBonusAverage: candidate.candidate?.blendedCashPlusBonusAverage ?? null,
+    cashAverageScore: candidate.candidate?.cashAverageScore ?? null,
     favouriteFixedWinPrice: candidate.favourite?.fixedWinPrice ?? null,
     favouriteName: candidate.favourite?.name ?? null,
     favouriteNumber: candidate.favourite?.number ?? null,
@@ -397,6 +398,7 @@ function createPredictionRowsFromPayload(output) {
   return modelRuns.flatMap((model) => (model.candidates ?? []).map((candidate) => ({
     advertised_start: candidate.advertisedStart,
     blended_cash_plus_bonus_average: candidate.candidate?.blendedCashPlusBonusAverage ?? null,
+    cash_average_score: candidate.candidate?.cashAverageScore ?? null,
     canonical_track: candidate.canonicalTrack ?? null,
     country: candidate.country ?? null,
     course_name: candidate.canonicalTrack ?? candidate.sourceTrack ?? null,
@@ -1543,6 +1545,7 @@ function createCashOnlyPredictionModel(candidate, priceWeight = 0.65, starterWei
 
   return {
     blendedCashPlusBonusAverage: score,
+    cashAverageScore: score,
     detail: signal.detail,
     label: signal.label,
     sampleSize,
@@ -1566,6 +1569,7 @@ function createOtherStartersAveragePricePredictionModel(candidate) {
 
   return {
     blendedCashPlusBonusAverage: score,
+    cashAverageScore: score,
     detail: signal.detail,
     label: signal.label,
     sampleSize,
@@ -1576,7 +1580,7 @@ function createOtherStartersAveragePricePredictionModel(candidate) {
 function createDefaultPredictionModel(candidate) {
   const priceBucket = candidate.historical.priceBucket;
   const starterBucket = candidate.historical.starterBucket;
-  const score = weightedAverage([
+  const cashPlusBonusScore = weightedAverage([
     {
       value: priceBucket?.averageValuePerDollarWithBonusCredit,
       weight: 0.65,
@@ -1586,12 +1590,28 @@ function createDefaultPredictionModel(candidate) {
       weight: 0.35,
     },
   ]);
+  const cashScore = weightedAverage([
+    {
+      value: priceBucket?.averageReturnPerDollar,
+      weight: 0.65,
+    },
+    {
+      value: starterBucket?.averageReturnPerDollar,
+      weight: 0.35,
+    },
+  ]);
   const sampleSize = (priceBucket?.favouriteSelections ?? 0)
     + (starterBucket?.favouriteSelections ?? 0);
-  const signal = createBetBackModelSignal(score, sampleSize, "all countries and all disciplines");
+  const signal = createBetBackModelSignal(
+    cashScore,
+    sampleSize,
+    "all countries and all disciplines",
+    "cash average",
+  );
 
   return {
-    blendedCashPlusBonusAverage: score,
+    blendedCashPlusBonusAverage: cashPlusBonusScore,
+    cashAverageScore: cashScore,
     detail: signal.detail,
     label: signal.label,
     sampleSize,
@@ -1612,7 +1632,7 @@ function createScopedPredictionModel(candidate, historicalStats, context) {
     ? scopedStats.byPriceBucket[candidate.favourite.priceBucket] ?? null
     : null;
   const scopedStarterBucket = scopedStats.byStarterCount[String(candidate.starters)] ?? null;
-  const score = weightedAverage([
+  const cashPlusBonusScore = weightedAverage([
     {
       value: shrinkBucketValue(scopedPriceBucket, globalPriceBucket, "averageValuePerDollarWithBonusCredit"),
       weight: 0.65,
@@ -1622,15 +1642,31 @@ function createScopedPredictionModel(candidate, historicalStats, context) {
       weight: 0.35,
     },
   ]);
+  const cashScore = weightedAverage([
+    {
+      value: shrinkBucketValue(scopedPriceBucket, globalPriceBucket, "averageReturnPerDollar"),
+      weight: 0.65,
+    },
+    {
+      value: shrinkBucketValue(scopedStarterBucket, globalStarterBucket, "averageReturnPerDollar"),
+      weight: 0.35,
+    },
+  ]);
   const sampleSize = (scopedPriceBucket?.favouriteSelections ?? 0)
     + (scopedStarterBucket?.favouriteSelections ?? 0);
   const scopeLabel = context.country && context.raceCode
     ? `${context.country} ${context.raceCode}`
     : context.raceCode ?? "global";
-  const signal = createBetBackModelSignal(score, sampleSize, `${scopeLabel}, shrunk toward global buckets`);
+  const signal = createBetBackModelSignal(
+    cashScore,
+    sampleSize,
+    `${scopeLabel}, shrunk toward global buckets`,
+    "cash average",
+  );
 
   return {
-    blendedCashPlusBonusAverage: score,
+    blendedCashPlusBonusAverage: cashPlusBonusScore,
+    cashAverageScore: cashScore,
     detail: signal.detail,
     label: signal.label,
     sampleSize,
@@ -1663,7 +1699,7 @@ function createDistanceConditionPredictionModel(candidate, historicalStats, cont
   const scopedTrackConditionBucket = candidate.trackConditionGroup
     ? scopedStats.byTrackConditionGroup?.[candidate.trackConditionGroup] ?? null
     : null;
-  const score = weightedAverage([
+  const cashPlusBonusScore = weightedAverage([
     {
       value: shrinkBucketValue(scopedPriceBucket, globalPriceBucket, "averageValuePerDollarWithBonusCredit"),
       weight: 0.45,
@@ -1681,6 +1717,24 @@ function createDistanceConditionPredictionModel(candidate, historicalStats, cont
       weight: 0.1,
     },
   ]);
+  const cashScore = weightedAverage([
+    {
+      value: shrinkBucketValue(scopedPriceBucket, globalPriceBucket, "averageReturnPerDollar"),
+      weight: 0.45,
+    },
+    {
+      value: shrinkBucketValue(scopedStarterBucket, globalStarterBucket, "averageReturnPerDollar"),
+      weight: 0.25,
+    },
+    {
+      value: shrinkBucketValue(scopedDistanceBucket, globalDistanceBucket, "averageReturnPerDollar"),
+      weight: 0.2,
+    },
+    {
+      value: shrinkBucketValue(scopedTrackConditionBucket, globalTrackConditionBucket, "averageReturnPerDollar"),
+      weight: 0.1,
+    },
+  ]);
   const sampleSize = (scopedPriceBucket?.favouriteSelections ?? 0)
     + (scopedStarterBucket?.favouriteSelections ?? 0)
     + (scopedDistanceBucket?.favouriteSelections ?? 0)
@@ -1689,13 +1743,15 @@ function createDistanceConditionPredictionModel(candidate, historicalStats, cont
     ? `${context.country} ${context.raceCode}`
     : context.raceCode ?? "global";
   const signal = createBetBackModelSignal(
-    score,
+    cashScore,
     sampleSize,
     `${scopeLabel}, with distance ${candidate.distanceBand ?? "unknown"} and condition ${candidate.trackConditionGroup ?? "unknown"} shrunk toward broader buckets`,
+    "cash average",
   );
 
   return {
-    blendedCashPlusBonusAverage: score,
+    blendedCashPlusBonusAverage: cashPlusBonusScore,
+    cashAverageScore: cashScore,
     detail: signal.detail,
     label: signal.label,
     sampleSize,
@@ -1716,22 +1772,10 @@ function buildPredictionModelsForCandidate(candidate, historicalStats, context) 
   };
 }
 
-function getCashReturnModelKey(modelKey) {
-  return [
-    CASH_ONLY_PREDICTION_MODEL_KEY,
-    CASH_EVEN_PREDICTION_MODEL_KEY,
-    CASH_PRICE_ONLY_PREDICTION_MODEL_KEY,
-    CASH_STARTER_ONLY_PREDICTION_MODEL_KEY,
-    OTHER_STARTERS_AVERAGE_PRICE_MODEL_KEY,
-  ].includes(modelKey)
-    ? modelKey
-    : CASH_EVEN_PREDICTION_MODEL_KEY;
-}
-
-function getCashReturnSortScore(candidate, modelKey) {
-  const cashModelKey = getCashReturnModelKey(modelKey);
-
-  return candidate.predictionModels?.[cashModelKey]?.blendedCashPlusBonusAverage ?? null;
+function getPredictionModelSortScore(candidate, modelKey) {
+  return candidate.predictionModels?.[modelKey]?.cashAverageScore
+    ?? candidate.candidate?.cashAverageScore
+    ?? null;
 }
 
 function createBetBackSignal(
@@ -1800,7 +1844,7 @@ function deriveBetBackCandidate(raceCard, context, historicalStats) {
 }
 
 /**
- * Orders Betcha bet-back candidates by estimated cash return and discipline.
+ * Orders Betcha bet-back candidates by the active model's cashAverageScore and discipline.
  */
 function rankBetBackCandidatesByDiscipline(candidates, modelKey = DEFAULT_PREDICTION_MODEL_KEY) {
   const disciplineOrder = ["horse", "harness", "greyhound"];
@@ -1832,8 +1876,8 @@ function rankBetBackCandidatesByDiscipline(candidates, modelKey = DEFAULT_PREDIC
           candidate: candidate.predictionModels?.[modelKey] ?? candidate.candidate,
         }))
         .sort((left, right) => {
-          const rightScore = getCashReturnSortScore(right, modelKey) ?? -Infinity;
-          const leftScore = getCashReturnSortScore(left, modelKey) ?? -Infinity;
+          const rightScore = getPredictionModelSortScore(right, modelKey) ?? -Infinity;
+          const leftScore = getPredictionModelSortScore(left, modelKey) ?? -Infinity;
 
           if (rightScore !== leftScore) {
             return rightScore - leftScore;
@@ -1922,7 +1966,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     errors,
     firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
-    note: "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by estimated cash return per $1. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    note: "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by the active prediction model's cashAverageScore. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
     scannedRaceCount,

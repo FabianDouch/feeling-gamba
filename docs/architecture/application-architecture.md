@@ -427,13 +427,13 @@ diagnostic only and is not used by the app runtime.
 Betcha candidate scan independently of promotions. It scans current Betcha race
 cards for configured New Zealand and Australian coverage, derives the live
 favourite from fixed-win prices, then ranks races within each discipline using
-estimated historical cash return per `$1` from starter-count and favourite-price
-buckets. Cash-only prediction tabs use their own cash formula; other tabs order
-by the 50/50 cash-return estimate rather than cash-plus-bonus value. The scan
-keeps at most the five best candidates per discipline. It is a statistical
-signal only, with no stake sizing, bankroll guidance, automated wagering, or
-invented favourites. Stored prediction rows must be created only before the
-first eligible race in the day's configured prediction coverage has started.
+the active prediction variation's model-specific `cashAverageScore`.
+Cash-plus-bonus remains visible as supporting context, but it must not drive
+recommendation ordering or status pills. The scan keeps at most the five best
+candidates per discipline. It is a statistical signal only, with no stake
+sizing, bankroll guidance, automated wagering, or invented favourites. Stored
+prediction rows must be created only before the first eligible race in the
+day's configured prediction coverage has started.
 The daily prediction refresh is scheduled through
 `.github/workflows/current-prediction-refresh.yml` at `17:35` and `18:35` UTC,
 with optional Supabase Cron backup using
@@ -457,10 +457,12 @@ for candidate display and show a clear transition message. This fallback should
 disappear from normal operation once the prediction snapshot table is deployed
 and populated.
 The first model remains `global_bucket_blend_v1`, which ranks current
-favourites from all-country historical price-bucket and starter-count
-cash-plus-bonus averages. The `global_bucket_cash_blend_v1` model uses the same
-65/35 price-bucket and starter-count weighting, but ranks on cash averages only
-and excludes bonus-credit value. The `global_bucket_cash_even_blend_v1` model
+favourites from all-country historical price-bucket and starter-count cash
+averages using the same 65/35 price/starter weighting as the earlier bucket
+blend.
+The `global_bucket_cash_blend_v1` model uses the same 65/35 price-bucket and
+starter-count weighting, but is named explicitly as cash-only and excludes
+bonus-credit value. The `global_bucket_cash_even_blend_v1` model
 also excludes bonus-credit value, but uses an even 50/50 price-bucket and
 starter-count cash average blend. The `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` models isolate 100% favourite price-bucket

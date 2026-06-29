@@ -25,8 +25,8 @@ export type PredictionModelVariant = {
 
 export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
   {
-    description: "Scores each current favourite using all-country historical cash-plus-bonus averages for matching favourite price and final-starter-count buckets.",
-    detail: "Score = 65% favourite price-bucket cash+bonus average plus 35% starter-count cash+bonus average. Current cards are ordered by estimated cash return per $1.",
+    description: "Scores each current favourite using all-country historical cash averages for matching favourite price and final-starter-count buckets.",
+    detail: "Score = 65% favourite price-bucket cash average plus 35% starter-count cash average. Cash+bonus value is retained as supporting context, not recommendation ranking.",
     key: "global_bucket_blend_v1",
     label: "Global bucket blend",
   },
@@ -61,14 +61,14 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
     label: "Other starters avg price",
   },
   {
-    description: "Scores each current favourite using country-and-discipline buckets when available, blended back toward the global buckets to reduce small-sample noise.",
-    detail: "Score = 65% scoped price-bucket value plus 35% scoped starter-count value. Each scoped bucket is shrunk toward the matching global bucket. Current cards are ordered by estimated cash return per $1.",
+    description: "Scores each current favourite using country-and-discipline cash buckets when available, blended back toward the global buckets to reduce small-sample noise.",
+    detail: "Score = 65% scoped price-bucket cash average plus 35% scoped starter-count cash average. Each scoped bucket is shrunk toward the matching global cash bucket.",
     key: "country_code_bucket_blend_shrunk_v1",
     label: "Country + discipline blend",
   },
   {
-    description: "Scores each current favourite using country-and-discipline price, starter, distance-band, and track-condition buckets with conservative shrinkage toward broader history.",
-    detail: "Score = 45% scoped price bucket, 25% scoped starter count, 20% scoped distance band, and 10% scoped track condition. Each bucket is shrunk toward the matching broader bucket. Current cards are ordered by estimated cash return per $1.",
+    description: "Scores each current favourite using country-and-discipline cash buckets for price, starter, distance-band, and track-condition signals with conservative shrinkage toward broader history.",
+    detail: "Score = 45% scoped price-bucket cash average, 25% scoped starter-count cash average, 20% scoped distance-band cash average, and 10% scoped track-condition cash average. Each bucket is shrunk toward matching broader cash history.",
     key: "country_code_distance_condition_v1",
     label: "Distance + condition blend",
   },

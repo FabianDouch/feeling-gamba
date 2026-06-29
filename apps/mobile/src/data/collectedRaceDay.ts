@@ -227,6 +227,8 @@ export type PriceBreakdown = {
   winRate: string;
 };
 
+export type OtherStartersAveragePriceBreakdown = PriceBreakdown;
+
 export type RaceFilterOption = {
   label: string;
   value: string;
@@ -235,6 +237,7 @@ export type RaceFilterOption = {
 export type InsightsData = {
   disciplineReturns: DisciplineReturn[];
   favouriteStats: FavouriteStat[];
+  otherStartersAveragePriceBreakdown: OtherStartersAveragePriceBreakdown[];
   priceBreakdown: PriceBreakdown[];
   starterBreakdown: StarterBreakdown[];
 };
@@ -796,6 +799,7 @@ export function getInsightsForTrack(trackValue: string, countryValue = "all"): I
   return {
     disciplineReturns: buckets.byDiscipline.map(mapDisciplineReturn),
     favouriteStats: mapFavouriteStats(buckets.overall),
+    otherStartersAveragePriceBreakdown: [],
     priceBreakdown: buckets.byPrice.map(mapPriceBreakdown),
     starterBreakdown: buckets.byStarterCount.map(mapStarterBreakdown),
   };

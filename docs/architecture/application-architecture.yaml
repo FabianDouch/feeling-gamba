@@ -588,7 +588,7 @@ flows:
       - keep Betcha bet-back candidate rankings visible in the app even when no race-specific public promotion URL matches current race cards.
       - derive current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
       - attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus signal data.
-      - order current candidate lists by estimated historical cash return per $1 rather than cash-plus-bonus value.
+      - order current candidate lists by the active prediction variation's model-specific cashAverageScore; keep cash-plus-bonus visible as supporting context only.
       - rank default global_bucket_blend_v1 candidates from global price/starter buckets.
       - rank global_bucket_cash_blend_v1 candidates from global price/starter cash-return buckets without bonus-credit value.
       - rank global_bucket_cash_even_blend_v1 candidates from equal-weight global price/starter cash-return buckets without bonus-credit value.

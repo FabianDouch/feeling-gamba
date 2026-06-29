@@ -96,6 +96,7 @@ export type RecommendationSource = {
 export type BetCandidate = RecommendationRace & {
   candidate: {
     blendedCashPlusBonusAverage: number | null;
+    cashAverageScore?: number | null;
     detail: string;
     label: string;
     sampleSize: number;

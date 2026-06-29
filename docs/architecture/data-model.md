@@ -463,6 +463,7 @@ Key fields:
 - `predicted_other_starters_price_outlier_count int`
 - `predicted_starter_count int`
 - `rank int`
+- `cash_average_score numeric`
 - `blended_cash_plus_bonus_average numeric`
 - `outcome_status text`
 - `outcome_result_position int`
@@ -480,8 +481,9 @@ Rules:
   promotion is matched.
 - Current model keys:
   - `global_bucket_blend_v1`: scores current favourites using all-country
-    historical cash-plus-bonus averages for matching favourite price and final
-    starter-count buckets.
+    historical cash averages for matching favourite price and final
+    starter-count buckets, with cash-plus-bonus retained only as supporting
+    context.
   - `global_bucket_cash_blend_v1`: scores current favourites using all-country
     historical cash averages for matching favourite price and final
     starter-count buckets; bonus-credit value is excluded.
@@ -500,15 +502,16 @@ Rules:
     `$70.00` or above are excluded from the average to reduce outlier
     distortion; the excluded count is stored with each prediction row.
   - `country_code_bucket_blend_shrunk_v1`: scores current favourites using
-    country-and-discipline buckets where available, shrunk toward matching
-    global bucket values to reduce small-sample noise.
+    country-and-discipline cash buckets where available, shrunk toward matching
+    global cash bucket values to reduce small-sample noise.
   - `country_code_distance_condition_v1`: scores current favourites using
-    country-and-discipline price, starter-count, distance-band, and
-    track-condition buckets with conservative shrinkage toward broader history.
-- Current candidate lists are ordered by estimated historical cash return per
-  `$1`, not cash-plus-bonus value. Cash-only model tabs use their own cash
-  formula, including the 100% price-bucket and 100% starter-count variants;
-  other model tabs order by the 50/50 cash-return estimate.
+    country-and-discipline cash buckets for price, starter-count,
+    distance-band, and track-condition signals with conservative shrinkage
+    toward broader cash history.
+- Current candidate lists are ordered by the active prediction model's
+  `cashAverageScore`, which is calculated differently for each prediction type.
+  Cash-plus-bonus value remains supporting context and must not drive
+  recommendations.
 - Upsert only when the prediction signature changes, such as favourite, price,
   starter count, rank, signal, or model score changing.
 - Reconcile outcomes by matching `source_race_card_id` to `races` and the

@@ -591,6 +591,9 @@ Parsing rules:
   matching broader bucket where available.
 - Group candidate rankings by discipline and keep at most five candidates per
   discipline.
+- Order each prediction variation by that variation's model-specific
+  `cashAverageScore`. Cash-plus-bonus values can be retained for supporting
+  context, but must not drive recommendations.
 - Use the same `$1` bonus-credit rule as Insights: favourite win pays fixed-win
   cash return; favourite 2nd or 3rd earns one `$1` bonus face-value credit.
 - Show candidate rankings as statistical signals, not instructions to bet.

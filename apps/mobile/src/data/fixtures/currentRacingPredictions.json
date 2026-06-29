@@ -16021,7 +16021,7 @@
         ]
       }
     ],
-    "note": "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by estimated cash return per $1. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    "note": "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by the active prediction model's cashAverageScore. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     "provider": "Betcha",
     "scannedMeetings": 16,
     "scannedRaceCount": 162,

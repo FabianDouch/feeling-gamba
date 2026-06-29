@@ -56,9 +56,7 @@ export function BetCandidatesSection({
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const candidatesByDiscipline = groupBetCandidatesByDiscipline(betCandidates, selectedModelKey);
-  const modelScoreLabel = isCashReturnModel(selectedModelKey)
-    ? "Cash avg score"
-    : "Cash+bonus avg";
+  const modelScoreLabel = "Cash avg score";
   const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
   const candidatesAreStale = Boolean(payload)
@@ -344,7 +342,9 @@ export function BetCandidatesSection({
                     </Text>
                   </View>
                   <View style={[styles.signalBadge, styles[`signal_${race.candidate.tone}`]]}>
-                    <Text style={styles.signalText}>{race.candidate.label}</Text>
+                    <Text style={styles.signalText}>
+                      {formatCandidatePillLabel(race.candidate.label, selectedModelKey)}
+                    </Text>
                   </View>
                 </View>
 
@@ -363,13 +363,13 @@ export function BetCandidatesSection({
                   />
                   <Metric
                     label={modelScoreLabel}
-                    value={formatCurrency(race.candidate.blendedCashPlusBonusAverage)}
+                    value={formatCurrency(getCandidateCashAverage(race, selectedModelKey))}
                     detail={`${race.candidate.sampleSize} bucket selections`}
                   />
                   <Metric
-                    label="Cash return / $1"
-                    value={formatCurrency(getCandidateCashAverage(race, selectedModelKey))}
-                    detail="Estimated, no bonus"
+                    label="Cash+bonus avg"
+                    value={formatCurrency(race.candidate.blendedCashPlusBonusAverage)}
+                    detail="Supporting context"
                   />
                   <Metric
                     label="Other avg fixed win"
@@ -460,8 +460,8 @@ function groupBetCandidatesByDiscipline(candidates: BetCandidate[], modelKey: st
     .map(([code, groupCandidates]) => ({
       candidates: groupCandidates
         .sort((left, right) => {
-          const rightScore = getCandidateCashAverage(right, modelKey) ?? -Infinity;
-          const leftScore = getCandidateCashAverage(left, modelKey) ?? -Infinity;
+          const rightScore = getCandidateModelScore(right, modelKey) ?? -Infinity;
+          const leftScore = getCandidateModelScore(left, modelKey) ?? -Infinity;
 
           if (rightScore !== leftScore) {
             return rightScore - leftScore;
@@ -482,13 +482,22 @@ function groupBetCandidatesByDiscipline(candidates: BetCandidate[], modelKey: st
 }
 
 /**
- * Estimates the cash return per $1 from price-bucket and starter-count history.
+ * Reads the active model score used for recommendation ordering.
+ */
+function getCandidateModelScore(race: BetCandidate, modelKey: string) {
+  return race.predictionModels?.[modelKey]?.cashAverageScore
+    ?? race.candidate.cashAverageScore
+    ?? getCandidateCashAverage(race, modelKey);
+}
+
+/**
+ * Estimates the cash return per $1 from available cash-return history when snapshots predate cashAverageScore.
  */
 function getCandidateCashAverage(race: BetCandidate, modelKey: string) {
-  const cashModelKey = getCashReturnModelKey(modelKey);
-
-  return race.predictionModels?.[cashModelKey]?.blendedCashPlusBonusAverage
-    ?? weightedAverage(getCashReturnWeights(cashModelKey).map(({ field, weight }) => ({
+  return race.predictionModels?.[modelKey]?.cashAverageScore
+    ?? race.candidate.cashAverageScore
+    ?? getOtherStartersAverageCashAverage(race, modelKey)
+    ?? weightedAverage(getCashReturnWeights(modelKey).map(({ field, weight }) => ({
       value: field === "price"
         ? race.historical.priceBucket?.averageReturnPerDollar
         : race.historical.starterBucket?.averageReturnPerDollar,
@@ -496,31 +505,80 @@ function getCandidateCashAverage(race: BetCandidate, modelKey: string) {
     })));
 }
 
-function getCashReturnModelKey(modelKey: string) {
-  return isCashReturnModel(modelKey)
-    ? modelKey
-    : "global_bucket_cash_even_blend_v1";
-}
-
-/**
- * Identifies prediction variants whose model score is already a cash-return estimate.
- */
-function isCashReturnModel(modelKey: string) {
-  return [
-    "global_bucket_cash_blend_v1",
-    "global_bucket_cash_even_blend_v1",
-    "global_bucket_cash_price_only_v1",
-    "global_bucket_cash_starter_only_v1",
-    "global_other_starters_average_price_cash_v1",
-  ].includes(modelKey);
-}
-
 function isPredictionWindowClosedError(error: Error) {
   return error.message.includes("Prediction window closed");
 }
 
+/**
+ * Appends the active model's metric basis to generic recommendation labels.
+ */
+function formatCandidatePillLabel(label: string, modelKey: string) {
+  const baseLabel = label.replace(/ candidate$/i, "");
+
+  if (!["Positive", "Neutral", "Weak"].includes(baseLabel)) {
+    return label;
+  }
+
+  return `${baseLabel} ${getCandidatePillMetricLabel(modelKey)}`;
+}
+
+/**
+ * Keeps status pill wording aligned to the active prediction model's cash score.
+ */
+function getCandidatePillMetricLabel(modelKey: string) {
+  if (
+    modelKey === "global_bucket_blend_v1"
+    || modelKey === "global_bucket_cash_blend_v1"
+  ) {
+    return "cash blend";
+  }
+
+  if (modelKey === "global_bucket_cash_even_blend_v1") {
+    return "cash 50/50";
+  }
+
+  if (modelKey === "global_bucket_cash_price_only_v1") {
+    return "price cash";
+  }
+
+  if (modelKey === "global_bucket_cash_starter_only_v1") {
+    return "starter cash";
+  }
+
+  if (modelKey === "global_other_starters_average_price_cash_v1") {
+    return "other avg cash";
+  }
+
+  if (modelKey === "country_code_bucket_blend_shrunk_v1") {
+    return "scoped cash";
+  }
+
+  if (modelKey === "country_code_distance_condition_v1") {
+    return "condition cash";
+  }
+
+  return "cash";
+}
+
+/**
+ * Reads the other-starters average price cash bucket for legacy snapshots.
+ */
+function getOtherStartersAverageCashAverage(race: BetCandidate, modelKey: string) {
+  return modelKey === "global_other_starters_average_price_cash_v1"
+    ? race.historical.otherStartersAveragePriceBucket?.averageReturnPerDollar ?? null
+    : null;
+}
+
+/**
+ * Provides cash-only fallback weights for snapshots created before model-specific cash scores existed.
+ */
 function getCashReturnWeights(modelKey: string) {
-  if (modelKey === "global_bucket_cash_blend_v1") {
+  if (
+    modelKey === "global_bucket_blend_v1"
+    || modelKey === "global_bucket_cash_blend_v1"
+    || modelKey === "country_code_bucket_blend_shrunk_v1"
+    || modelKey === "country_code_distance_condition_v1"
+  ) {
     return [
       {
         field: "price" as const,
