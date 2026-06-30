@@ -16,6 +16,16 @@ export type PredictionModelKey =
   | "country_code_bucket_blend_shrunk_v1"
   | "country_code_distance_condition_v1";
 
+export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" | "greyhound";
+export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
+export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
+
+export type PredictionPerformanceFilters = {
+  discipline: PredictionPerformanceDisciplineFilter;
+  rank: PredictionPerformanceRankFilter;
+  signal: PredictionPerformanceSignalFilter;
+};
+
 export type PredictionModelVariant = {
   description: string;
   detail: string;
@@ -74,12 +84,10 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
   },
 ];
 
-type PredictionAggregateRow = {
+type PredictionSummaryMetrics = {
   average_return_per_dollar: NullableNumber;
   average_value_per_dollar_with_bonus_credit: NullableNumber;
   bonus_credit_percentage: NullableNumber;
-  date_from: string | null;
-  date_to: string | null;
   missing_result_count: number;
   missing_runner_count: number;
   net_return: NullableNumber;
@@ -88,8 +96,6 @@ type PredictionAggregateRow = {
   prediction_count: number;
   race_code: string | null;
   roi_percentage: NullableNumber;
-  scope_key: string;
-  scope_type: "overall" | "race_code";
   second_percentage: NullableNumber;
   seconds: number;
   settled_count: number;
@@ -101,6 +107,18 @@ type PredictionAggregateRow = {
   total_value_with_bonus_credit: NullableNumber;
   win_percentage: NullableNumber;
   wins: number;
+};
+
+type PredictionAggregateRow = PredictionSummaryMetrics & {
+  date_from: string | null;
+  date_to: string | null;
+  scope_key: string;
+  scope_type: "overall" | "race_code";
+};
+
+type PredictionPerformanceSummaryRow = PredictionSummaryMetrics & {
+  rank_filter: number | null;
+  signal_filter: string;
 };
 
 type PredictionHistoryRow = {
@@ -298,24 +316,51 @@ export async function fetchPredictionHistoryMetadata(): Promise<PredictionHistor
 export async function fetchPredictionStats(
   filters: PredictionHistoryFilters,
   predictionModel: PredictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
+  performanceFilters: PredictionPerformanceFilters = {
+    discipline: "all",
+    rank: "all",
+    signal: "all",
+  },
 ): Promise<PredictionsData> {
-  const [rows, historyResult] = await Promise.all([
+  const [rows, performanceSummary, historyResult] = await Promise.all([
     supabaseSelect<PredictionAggregateRow>("prediction_aggregates", {
       order: "scope_type.asc,race_code.asc",
       prediction_model: `eq.${predictionModel}`,
       select: PREDICTION_AGGREGATE_SELECT,
     }),
+    fetchPredictionPerformanceSummary(predictionModel, performanceFilters),
     fetchPredictionHistoryEntries(filters, predictionModel),
   ]);
-  const overall = rows.find((row) => row.scope_type === "overall") ?? null;
   const disciplineRows = rows.filter((row) => row.scope_type === "race_code");
 
   return {
     disciplineReturns: disciplineRows.map(mapDisciplineReturn),
     history: historyResult.history,
-    summaryStats: overall ? mapSummaryStats(overall) : [],
+    summaryStats: performanceSummary && performanceSummary.prediction_count > 0
+      ? mapSummaryStats(performanceSummary)
+      : [],
     totalHistoryCount: historyResult.totalCount,
   };
+}
+
+/**
+ * Reads the filtered Stored model performance summary from the source prediction rows.
+ */
+async function fetchPredictionPerformanceSummary(
+  predictionModel: PredictionModelKey,
+  filters: PredictionPerformanceFilters,
+) {
+  const rows = await supabaseRpc<PredictionPerformanceSummaryRow[]>(
+    "get_prediction_performance_summary",
+    {
+      p_max_rank: filters.rank === "all" ? null : Number(filters.rank),
+      p_prediction_model: predictionModel,
+      p_race_code: filters.discipline === "all" ? null : filters.discipline,
+      p_signal_filter: filters.signal,
+    },
+  );
+
+  return rows[0] ?? null;
 }
 
 /**
@@ -440,9 +485,35 @@ async function supabaseSelectWithCount<TRow>(
 }
 
 /**
+ * Calls a PostgREST RPC using the public Supabase key.
+ */
+async function supabaseRpc<TResult>(name: string, body: Record<string, unknown>) {
+  if (!publicEnv.supabaseUrl || !publicEnv.supabaseKey) {
+    throw new Error("Supabase client configuration is missing.");
+  }
+
+  const url = new URL(`/rest/v1/rpc/${name}`, publicEnv.supabaseUrl);
+  const response = await fetch(url.toString(), {
+    body: JSON.stringify(body),
+    headers: {
+      apikey: publicEnv.supabaseKey,
+      authorization: `Bearer ${publicEnv.supabaseKey}`,
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase prediction RPC ${name} failed with HTTP ${response.status}`);
+  }
+
+  return await response.json() as TResult;
+}
+
+/**
  * Converts a stored prediction race-code aggregate into the same return metrics used by Insights.
  */
-function mapDisciplineReturn(row: PredictionAggregateRow): DisciplineReturn {
+function mapDisciplineReturn(row: PredictionSummaryMetrics & { race_code: string | null }): DisciplineReturn {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     bonusAverageReturn: formatReturn(bonusAverage(row)),
@@ -501,7 +572,7 @@ function buildCourseOptionsByCountry(rows: {
   ]));
 }
 
-function mapSummaryStats(row: PredictionAggregateRow): FavouriteStat[] {
+function mapSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] {
   return [
     {
       detail: `${row.settled_count} settled · ${row.pending_count} pending`,
@@ -630,13 +701,13 @@ function unique<TValue>(values: TValue[]) {
   return Array.from(new Set(values));
 }
 
-function bonusAverage(row: PredictionAggregateRow) {
+function bonusAverage(row: PredictionSummaryMetrics) {
   return numeric(row.total_stake)
     ? numeric(row.total_bonus_credit) / numeric(row.total_stake)
     : 0;
 }
 
-function promoRoi(row: PredictionAggregateRow) {
+function promoRoi(row: PredictionSummaryMetrics) {
   const totalStake = numeric(row.total_stake);
 
   if (!totalStake) {

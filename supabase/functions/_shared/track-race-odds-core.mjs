@@ -1,4 +1,6 @@
 const BETCHA_GRAPHQL_ENDPOINT = "https://api.betcha.co.nz/graphql";
+const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
+const DEFAULT_PREDICTION_MODEL_LABEL = "Global bucket blend";
 const FIXED_WIN_PRODUCT_TYPE_ID = "940b8704-e497-4a76-b390-00918ff7d282";
 const SOURCE_NAME = "betcha_graphql";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
@@ -198,7 +200,7 @@ function createBetBackSignal(score, sampleSize) {
 
   if (score >= 1.05) {
     return {
-      detail: "Blended historical cash-plus-bonus average is above break-even for the matching favourite price and starter buckets.",
+      detail: "Default model cash average score is above break-even for the matching favourite price and starter buckets.",
       label: "Positive candidate",
       tone: "positive",
     };
@@ -206,14 +208,14 @@ function createBetBackSignal(score, sampleSize) {
 
   if (score >= 0.95) {
     return {
-      detail: "Blended historical cash-plus-bonus average is close to break-even for the matching favourite price and starter buckets.",
+      detail: "Default model cash average score is close to break-even for the matching favourite price and starter buckets.",
       label: "Neutral candidate",
       tone: "neutral",
     };
   }
 
   return {
-    detail: "Blended historical cash-plus-bonus average is below break-even for the matching favourite price and starter buckets.",
+    detail: "Default model cash average score is below break-even for the matching favourite price and starter buckets.",
     label: "Weak candidate",
     tone: "caution",
   };
@@ -258,15 +260,28 @@ function deriveFavouriteContext({ favourite, historicalStats, starterCount }) {
       weight: 0.35,
     },
   ]);
+  const cashAverageScore = weightedAverage([
+    {
+      value: priceBucket?.averageReturnPerDollar,
+      weight: 0.65,
+    },
+    {
+      value: starterBucket?.averageReturnPerDollar,
+      weight: 0.35,
+    },
+  ]);
   const sampleSize = (priceBucket?.favouriteSelections ?? 0)
     + (starterBucket?.favouriteSelections ?? 0);
-  const candidateSignal = createBetBackSignal(blendedCashPlusBonusAverage, sampleSize);
+  const candidateSignal = createBetBackSignal(cashAverageScore, sampleSize);
 
   return {
     candidate: {
       blendedCashPlusBonusAverage,
+      cashAverageScore,
       detail: candidateSignal.detail,
       label: candidateSignal.label,
+      predictionModelKey: DEFAULT_PREDICTION_MODEL_KEY,
+      predictionModelLabel: DEFAULT_PREDICTION_MODEL_LABEL,
       sampleSize,
       tone: candidateSignal.tone,
     },
@@ -349,13 +364,13 @@ function meetingMatches(meeting, request) {
 }
 
 /**
- * Fetches public fixed-win odds for races 1 and 2 at the requested track/date/code.
+ * Fetches public fixed-win odds for either selected race numbers or the full meeting.
  */
 export async function fetchTrackRaceOdds(request, historicalStats = {
   byPriceBucket: {},
   byStarterCount: {},
 }) {
-  const raceNumbers = request.raceNumbers?.length ? request.raceNumbers : [1, 2];
+  const requestedRaceNumbers = request.raceNumbers?.length ? request.raceNumbers : null;
   const sourceDate = request.sourceDate ?? getTodayInSourceTimeZone();
   const racingDay = await graphql("RacingHomeMeetingsDesktopScreen", RACING_DAY_QUERY, {
     categories: [toBetchaCategory(request.raceCode)],
@@ -375,7 +390,7 @@ export async function fetchTrackRaceOdds(request, historicalStats = {
       fetchedAt: new Date().toISOString(),
       meeting: null,
       raceCode: request.raceCode,
-      raceNumbers,
+      raceNumbers: requestedRaceNumbers ?? [],
       races: [],
       source: SOURCE_NAME,
       sourceDate,
@@ -385,7 +400,7 @@ export async function fetchTrackRaceOdds(request, historicalStats = {
   }
 
   const sourceRaces = (meeting.races?.nodes ?? [])
-    .filter((race) => raceNumbers.includes(Number(race.number)))
+    .filter((race) => !requestedRaceNumbers || requestedRaceNumbers.includes(Number(race.number)))
     .sort((left, right) => Number(left.number) - Number(right.number));
   const races = [];
 
@@ -412,7 +427,7 @@ export async function fetchTrackRaceOdds(request, historicalStats = {
       venueName: meeting.venue?.name ?? null,
     },
     raceCode: request.raceCode,
-    raceNumbers,
+    raceNumbers: sourceRaces.map((race) => Number(race.number)),
     races,
     source: SOURCE_NAME,
     sourceDate,
@@ -432,7 +447,7 @@ export function createTrackRaceOddsRequestRow({ errorMessage = null, payload, re
     fetched_at: payload?.fetchedAt ?? new Date().toISOString(),
     payload: payload ?? {},
     race_code: request.raceCode,
-    race_numbers: request.raceNumbers?.length ? request.raceNumbers : [1, 2],
+    race_numbers: payload?.raceNumbers ?? request.raceNumbers ?? [],
     source: SOURCE_NAME,
     source_date: request.sourceDate ?? payload?.sourceDate ?? getTodayInSourceTimeZone(),
     source_time_zone: SOURCE_TIME_ZONE,

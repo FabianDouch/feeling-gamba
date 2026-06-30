@@ -16,6 +16,7 @@ type TrackRaceOddsRunnerPayload = {
 };
 
 type HistoricalBucketPayload = {
+  averageReturnPerDollar: number;
   averageValuePerDollarWithBonusCredit: number;
   bonusBetCreditPercentage: number;
   favouriteSelections: number;
@@ -27,8 +28,11 @@ type TrackRaceOddsRacePayload = {
   advertisedStart: string;
   candidate: {
     blendedCashPlusBonusAverage: number | null;
+    cashAverageScore: number | null;
     detail: string;
     label: string;
+    predictionModelKey: string;
+    predictionModelLabel: string;
     sampleSize: number;
     tone: "caution" | "muted" | "neutral" | "positive";
   } | null;
@@ -77,8 +81,10 @@ export type TrackRaceOddsRunner = {
 export type TrackRaceOddsRace = {
   advertisedStart: string;
   candidateAverage: string;
+  candidateCashAverageScore: string;
   candidateDetail: string;
   candidateLabel: string;
+  candidateModelLabel: string;
   candidateSampleSize: string;
   candidateTone: "caution" | "muted" | "neutral" | "positive";
   favourite: string;
@@ -117,7 +123,7 @@ export const hasTrackRaceOddsConfig = Boolean(
 );
 
 /**
- * Requests current public odds for races 1 and 2 at one selected track/code.
+ * Requests current public odds for every race at one selected track/code.
  */
 export async function requestTrackRaceOdds(
   params: RequestTrackRaceOddsParams,
@@ -131,7 +137,7 @@ export async function requestTrackRaceOdds(
   const response = await fetch(url, {
     body: JSON.stringify({
       ...params,
-      raceNumbers: [1, 2],
+      allRaces: true,
       sourceDate: getTodayInSourceTimeZone(),
     }),
     headers: {
@@ -169,8 +175,10 @@ function mapTrackRaceOddsPayload(payload: TrackRaceOddsPayload): TrackRaceOddsRe
     races: payload.races.map((race) => ({
       advertisedStart: formatDateTime(race.advertisedStart),
       candidateAverage: formatCurrency(race.candidate?.blendedCashPlusBonusAverage ?? null),
+      candidateCashAverageScore: formatCurrency(race.candidate?.cashAverageScore ?? null),
       candidateDetail: race.candidate?.detail ?? race.signal.detail,
       candidateLabel: race.candidate?.label ?? race.signal.label,
+      candidateModelLabel: race.candidate?.predictionModelLabel ?? "Global bucket blend",
       candidateSampleSize: `${race.candidate?.sampleSize ?? 0} bucket selections`,
       candidateTone: race.candidate?.tone ?? race.signal.tone,
       favourite: race.favourite

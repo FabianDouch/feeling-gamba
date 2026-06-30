@@ -563,8 +563,8 @@ Rules:
 
 ### `track_race_odds_requests`
 
-Stores an audit record for on-demand first-two-races public odds requests from
-the Insights screen.
+Stores an audit record for on-demand track-race public odds requests from the
+Insights screen.
 
 Key fields:
 
@@ -576,7 +576,7 @@ Key fields:
 - `country text`
 - `course_slug text`
 - `race_code text`
-- `race_numbers int[]`
+- `race_numbers int[] not null default array[]::int[]`
 - `status text`
 - `fetched_at timestamptz`
 - `payload jsonb`
@@ -586,13 +586,16 @@ Rules:
 
 - The app may request these rows only through the `request-track-race-odds`
   Edge Function.
-- The function fetches public Betcha race-card odds for races 1 and 2 only.
+- The function fetches public Betcha race-card odds for all races at the
+  selected track by default. It can still accept explicit race numbers for
+  targeted diagnostics.
 - Payloads may include runner number, runner name, fixed-win price, favourite
   flag, MarketMover flag, starter count, race status, and fetched timestamp.
 - Payloads may also include the same source-backed favourite context shown for
   Betcha bet-back candidates: implied win percentage, favourite price bucket,
-  historical price bucket, starter bucket, blended cash-plus-bonus average,
-  sample size, and signal text.
+  historical price bucket, starter bucket, default `global_bucket_blend_v1`
+  cash average score, blended cash-plus-bonus average, sample size, and signal
+  text.
 - Do not store TAB/Betcha account credentials or automate personalised promo
   access in this table or function.
 
@@ -777,9 +780,37 @@ Rules:
 - Keep pending and missing-outcome counts visible.
 - Public RLS read access is allowed because this table contains app-facing
   aggregate facts only.
-- This remains the source for Predictions tab performance metrics even when the
-  tab also displays recent model-filtered `promotion_predictions` rows as
-  history.
+- This remains the source for the Predictions tab `$1` return by discipline
+  section. The top `Stored model performance` cards use
+  `get_prediction_performance_summary` when discipline/rank/signal filters are
+  applied.
+
+### `get_prediction_performance_summary(...)`
+
+PostgREST RPC used by the Predictions tab `Stored model performance` cards when
+the user filters by discipline, prediction rank, or recommendation signal.
+
+Parameters:
+
+- `p_prediction_model text`
+- `p_race_code text default null` - `horse`, `harness`, `greyhound`, or null for
+  all disciplines.
+- `p_max_rank int default null` - `1`, `2`, `3`, or null for all ranks.
+- `p_signal_filter text default 'all'` - `all`, `positive_only`, or
+  `neutral_or_better`.
+
+Rules:
+
+- Aggregate directly from `promotion_predictions`, not `prediction_aggregates`,
+  so rank and signal filters are available.
+- `positive_only` includes only `Positive candidate`.
+- `neutral_or_better` includes only `Positive candidate` and
+  `Neutral candidate`; it excludes `Small sample` and `Limited history`.
+- Use settled predictions as the return denominator.
+- Exclude pending, missing-result, missing-runner, and race-not-found rows from
+  stake, cash, bonus, net, ROI, and average-return calculations.
+- Keep prediction, pending, missing-result, and missing-runner counts visible for
+  the selected filter set.
 
 ### Legacy Named Insight Views
 

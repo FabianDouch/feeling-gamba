@@ -148,8 +148,8 @@ Purpose:
   all countries or one selected country, then by all tracks or one selected
   track inside that country.
 - When one track and one discipline are selected, allow an on-demand public odds
-  request for races 1 and 2 at that track so account-visible hidden promos can
-  be compared manually.
+  request for all races at that track so account-visible hidden promos can be
+  compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
 
@@ -163,7 +163,7 @@ Main content:
   discipline, and track scope.
 - Favourite-track save/remove control when one country, discipline, and track
   scope are selected.
-- On-demand first-two-races odds panel, visible only for one selected track.
+- On-demand track-race odds panel, visible only for one selected track.
 - Default to the full collected date range.
 - Separate discipline sections for thoroughbred, harness, and greyhound.
 - Favourite win/place outcomes.
@@ -180,12 +180,14 @@ Main content:
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
-- First-two-races odds response: runner number, runner name, fixed-win price,
+- Track-race odds response: runner number, runner name, fixed-win price,
   favourite flag, MarketMover flag, starter count, race status, and fetched
   timestamp.
-- First-two-races favourite context matching Betcha bet-back candidates:
+- Track-race favourite context matching the default Betcha bet-back candidate
+  model:
   implied win percentage, favourite price bucket, historical price bucket,
-  starter bucket, blended cash-plus-bonus average, sample size, and signal text.
+  starter bucket, default cash average score, blended cash-plus-bonus average,
+  sample size, and signal text.
 - Links back to filtered Race Days and Race Detail screens.
 
 Entry points:
@@ -266,13 +268,25 @@ Main content:
 
 - Overall prediction count, settled count, pending count, and missing-outcome
   counts, shown near the top under a `Stored model performance` heading.
+- Stored model performance should have filters for all/horse/harness/greyhound,
+  all/top 1/top 2/top 3 ranks, and all/positive-only/neutral-or-better signals.
+  `Neutral or better` includes only Positive and Neutral candidate signals,
+  excluding Small sample and Limited history.
 - Current bet candidates grouped by discipline, with favourite, fixed-win price,
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, other-starters average fixed-win price, MarketMover, and manual track
   action.
+- Bet candidate disciplines should be shown as tabs for horse, harness, and
+  greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
   such as `Positive cash blend` or `Weak price cash`, so users do not compare
   different cash formulas as if they were the same signal.
+- A compact signal guide should appear above the candidate cards and explain
+  the active prediction model's cash-score formula plus `Positive`, `Neutral`,
+  `Weak`, `Small sample`, and `Limited history` meanings.
+- Candidate bucket details should label cash average and cash-plus-bonus average
+  separately so supporting bonus context is not mistaken for the recommendation
+  score.
 - Current bet candidates must come from the current Auckland source date's
   pre-first-race prediction snapshot. If the first eligible race has started
   and no pre-race snapshot was captured, show an explicit closed-window empty

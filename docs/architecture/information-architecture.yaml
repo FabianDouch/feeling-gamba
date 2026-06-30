@@ -126,7 +126,7 @@ navigation:
           - Break favourite performance down by average fixed-win price of the other priced starters.
           - Show notional $1 favourite return metrics by racing discipline.
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
-          - Let users request public odds for races 1 and 2 when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
+          - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
           - Surface missing-data counts.
           - Link users back to filtered race lists and race details.
@@ -138,7 +138,7 @@ navigation:
           - track_scope_filter
           - saved_track_quick_filter
           - favourite_track_save_remove_control
-          - first_two_race_odds_request_panel
+          - track_race_odds_request_panel
           - full_collected_date_range_default
           - discipline_summary_sections
           - favourite_outcomes
@@ -151,10 +151,10 @@ navigation:
           - market_mover_outcomes
           - missing_data_counts
           - denominator_counts
-          - first_two_race_runner_odds
-          - first_two_race_favourite_and_market_mover_flags
-          - first_two_race_favourite_historical_signal
-          - first_two_race_cash_plus_bonus_average_signal
+          - track_race_runner_odds
+          - track_race_favourite_and_market_mover_flags
+          - track_race_default_cash_average_score_signal
+          - track_race_cash_plus_bonus_average_context
         limits:
           - no_stake_sizing
           - no_bankroll_tracking
@@ -216,7 +216,12 @@ navigation:
         audience: app_user
         purpose:
           - Show current ranked Betcha-derived bet candidates from the latest prediction snapshot.
+          - Filter Stored model performance by all, horse, harness, or greyhound; all ranks, top 1, top 2, or top 3; and all signals, positive only, or neutral or better.
+          - Treat neutral or better as Positive candidate or Neutral candidate only, excluding Small sample and Limited history.
+          - Show horse, harness, and greyhound bet candidates in discipline tabs so the mobile page does not become a long stacked list.
           - Show candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
+          - Show a compact signal guide above candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
+          - Label candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
           - Track candidate predictions made by independent current prediction scans.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
@@ -236,8 +241,10 @@ navigation:
           - prediction_variation_tabs
           - prediction_variation_method_summary
           - stored_model_performance_heading
+          - stored_model_performance_filters
           - prediction_summary_stats
           - current_bet_candidates
+          - bet_candidate_discipline_tabs
           - bet_candidate_estimated_cash_return_per_dollar_metric
           - bet_candidate_other_starters_average_fixed_win_metric
           - bet_candidate_refresh_control

@@ -14,9 +14,11 @@ Note: the YAML was updated on 2026-06-25 for the
 `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` prediction variations. Rendered
 architecture outputs should be regenerated from the YAML before being treated
-as current. The 2026-06-24 update added the daily overnight race-day refresh
-schedule that keeps prediction outcomes settling. The 2026-06-23 update added
-model-aware prediction tracking, independent current prediction refreshes,
+as current. The source also describes the later track-wide Insights odds
+request contract, so the rendered outputs remain stale until regenerated. The
+2026-06-24 update added the daily overnight race-day refresh schedule that
+keeps prediction outcomes settling. The 2026-06-23 update added model-aware
+prediction tracking, independent current prediction refreshes,
 distance/condition prediction scopes, the `country_code_distance_condition_v1`
 model, and the `global_bucket_cash_blend_v1` /
 `global_bucket_cash_even_blend_v1` cash-only bucket models.
@@ -504,9 +506,11 @@ repo-root public Supabase env values before Metro bundles the app.
   calculate the main historical insight tables from local fixtures at runtime.
   Insights filters include country, track, and discipline. When one track and
   one discipline are selected, the app can call `request-track-race-odds` to
-  fetch current public Betcha odds for races 1 and 2, store an audit row in
-  `track_race_odds_requests`, and show the response for manual comparison with
-  account-visible hidden promos.
+  fetch current public Betcha odds for all races at the selected track, store
+  an audit row in `track_race_odds_requests`, and show the response for manual
+  comparison with account-visible hidden promos. The response includes the
+  default `global_bucket_blend_v1` cash average score plus cash-plus-bonus
+  context for each returned race.
 - Signed-in users can select saved favourite-track chips in Insights; the chip
   applies the stored country, discipline, and track scope before reading
   `insight_aggregates`.

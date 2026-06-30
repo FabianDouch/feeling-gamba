@@ -51,11 +51,15 @@ export function BetCandidatesSection({
   const [trackedBets, setTrackedBets] = useState<UserRaceBet[]>([]);
   const [trackedBetMessage, setTrackedBetMessage] = useState<string | null>(null);
   const [trackedBetError, setTrackedBetError] = useState<string | null>(null);
+  const [selectedDisciplineCode, setSelectedDisciplineCode] = useState<string | null>(null);
   const betCandidateScan = payload?.betBackCandidates ?? null;
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const candidatesByDiscipline = groupBetCandidatesByDiscipline(betCandidates, selectedModelKey);
+  const activeCandidateGroup = candidatesByDiscipline.find((group) => group.code === selectedDisciplineCode)
+    ?? candidatesByDiscipline[0]
+    ?? null;
   const modelScoreLabel = "Cash avg score";
   const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
@@ -320,106 +324,135 @@ export function BetCandidatesSection({
         <Text style={styles.contextText}>{trackedBetMessage}</Text>
       ) : null}
 
+      <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
+
       {!payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
       ) : betCandidates.length ? (
-        candidatesByDiscipline.map((group) => (
-          <View key={group.code} style={styles.candidateGroup}>
-            <Text style={styles.candidateGroupHeading}>{group.label}</Text>
-            {group.candidates.map((race) => (
-              <View key={race.raceCardId} style={styles.candidateCard}>
-                <View style={styles.candidateHeader}>
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankText}>#{race.rank}</Text>
-                  </View>
-                  <View style={styles.candidateTitleBlock}>
-                    <Text style={styles.raceTitle}>
-                      R{race.raceNumber} {race.sourceTrack}
-                    </Text>
-                    <Text style={styles.raceMeta}>
-                      {formatDateTime(race.advertisedStart)} · {race.starters} starters ·{" "}
-                      {race.code}
-                    </Text>
-                  </View>
-                  <View style={[styles.signalBadge, styles[`signal_${race.candidate.tone}`]]}>
-                    <Text style={styles.signalText}>
-                      {formatCandidatePillLabel(race.candidate.label, selectedModelKey)}
-                    </Text>
-                  </View>
-                </View>
+        <>
+          <View style={styles.disciplineTabs}>
+            {candidatesByDiscipline.map((group) => {
+              const isActive = group.code === activeCandidateGroup?.code;
 
-                <Text style={styles.raceName}>{race.raceName}</Text>
-
-                <View style={styles.metricGrid}>
-                  <Metric
-                    label="Favourite"
-                    value={race.favourite
-                      ? `#${race.favourite.number} ${race.favourite.name}`
-                      : "Price unavailable"}
-                  />
-                  <Metric
-                    label="Fixed win"
-                    value={formatCurrency(race.favourite?.fixedWinPrice ?? null)}
-                  />
-                  <Metric
-                    label={modelScoreLabel}
-                    value={formatCurrency(getCandidateCashAverage(race, selectedModelKey))}
-                    detail={`${race.candidate.sampleSize} bucket selections`}
-                  />
-                  <Metric
-                    label="Cash+bonus avg"
-                    value={formatCurrency(race.candidate.blendedCashPlusBonusAverage)}
-                    detail="Supporting context"
-                  />
-                  <Metric
-                    label="Other avg fixed win"
-                    value={formatCurrency(race.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null)}
-                    detail={formatOtherStartersPriceShape(race)}
-                  />
-                </View>
-
-                <View style={styles.metricGrid}>
-                  <Metric
-                    label="Price bucket"
-                    value={race.historical.priceBucket
-                      ? race.historical.priceBucket.label
-                      : "-"}
-                    detail={race.historical.priceBucket
-                      ? `${formatPercentage(race.historical.priceBucket.bonusBetCreditPercentage)} bonus hit`
-                      : undefined}
-                  />
-                  <Metric
-                    label="Starter bucket"
-                    value={race.historical.starterBucket
-                      ? `${formatCurrency(
-                        race.historical.starterBucket.averageValuePerDollarWithBonusCredit,
-                      )} avg`
-                      : "-"}
-                    detail={race.historical.starterBucket
-                      ? `${race.historical.starterBucket.label} starters`
-                      : undefined}
-                  />
-                  <Metric
-                    label="MarketMover"
-                    value={race.marketMover
-                      ? `#${race.marketMover.number} ${race.marketMover.name}`
-                      : "-"}
-                  />
-                </View>
-
-                <Text style={styles.contextText}>{race.candidate.detail}</Text>
-                <TrackBetButton
-                  disabledReason={getTrackBetDisabledReason(Boolean(user), race)}
-                  isLogged={isUserRaceBetLogged(trackedBets, race.raceCardId, "betcha")}
-                  onPress={() => trackCandidateBet(createCandidateBetInput({
-                    payload,
-                    race,
-                  }))}
-                />
-              </View>
-            ))}
+              return (
+                <Pressable
+                  key={group.code}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => setSelectedDisciplineCode(group.code)}
+                  style={[
+                    styles.disciplineTab,
+                    isActive ? styles.disciplineTabActive : null,
+                  ]}
+                >
+                  <Text style={[
+                    styles.disciplineTabText,
+                    isActive ? styles.disciplineTabTextActive : null,
+                  ]}
+                  >
+                    {group.label} {group.candidates.length}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-        ))
+
+          {activeCandidateGroup ? (
+            <View key={activeCandidateGroup.code} style={styles.candidateGroup}>
+              <Text style={styles.candidateGroupHeading}>{activeCandidateGroup.label}</Text>
+              {activeCandidateGroup.candidates.map((race) => (
+                <View key={race.raceCardId} style={styles.candidateCard}>
+                  <View style={styles.candidateHeader}>
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankText}>#{race.rank}</Text>
+                    </View>
+                    <View style={styles.candidateTitleBlock}>
+                      <Text style={styles.raceTitle}>
+                        R{race.raceNumber} {race.sourceTrack}
+                      </Text>
+                      <Text style={styles.raceMeta}>
+                        {formatDateTime(race.advertisedStart)} · {race.starters} starters ·{" "}
+                        {race.code}
+                      </Text>
+                    </View>
+                    <View style={[styles.signalBadge, styles[`signal_${race.candidate.tone}`]]}>
+                      <Text style={styles.signalText}>
+                        {formatCandidatePillLabel(race.candidate.label, selectedModelKey)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.raceName}>{race.raceName}</Text>
+
+                  <View style={styles.metricGrid}>
+                    <Metric
+                      label="Favourite"
+                      value={race.favourite
+                        ? `#${race.favourite.number} ${race.favourite.name}`
+                        : "Price unavailable"}
+                    />
+                    <Metric
+                      label="Fixed win"
+                      value={formatCurrency(race.favourite?.fixedWinPrice ?? null)}
+                    />
+                    <Metric
+                      label={modelScoreLabel}
+                      value={formatCurrency(getCandidateCashAverage(race, selectedModelKey))}
+                      detail={`${race.candidate.sampleSize} bucket selections`}
+                    />
+                    <Metric
+                      label="Cash+bonus avg"
+                      value={formatCurrency(race.candidate.blendedCashPlusBonusAverage)}
+                      detail="Supporting context"
+                    />
+                    <Metric
+                      label="Other avg fixed win"
+                      value={formatCurrency(race.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null)}
+                      detail={formatOtherStartersPriceShape(race)}
+                    />
+                  </View>
+
+                  <View style={styles.metricGrid}>
+                    <Metric
+                      label="Price bucket"
+                      value={race.historical.priceBucket
+                        ? race.historical.priceBucket.label
+                        : "-"}
+                      detail={race.historical.priceBucket
+                        ? `${formatCurrency(race.historical.priceBucket.averageReturnPerDollar)} cash avg · ${formatCurrency(race.historical.priceBucket.averageValuePerDollarWithBonusCredit)} cash+bonus · ${formatPercentage(race.historical.priceBucket.bonusBetCreditPercentage)} bonus hit`
+                        : undefined}
+                    />
+                    <Metric
+                      label="Starter bucket"
+                      value={race.historical.starterBucket
+                        ? `${race.historical.starterBucket.label} starters`
+                        : "-"}
+                      detail={race.historical.starterBucket
+                        ? `${formatCurrency(race.historical.starterBucket.averageReturnPerDollar)} cash avg · ${formatCurrency(race.historical.starterBucket.averageValuePerDollarWithBonusCredit)} cash+bonus`
+                        : undefined}
+                    />
+                    <Metric
+                      label="MarketMover"
+                      value={race.marketMover
+                        ? `#${race.marketMover.number} ${race.marketMover.name}`
+                        : "-"}
+                    />
+                  </View>
+
+                  <Text style={styles.contextText}>{race.candidate.detail}</Text>
+                  <TrackBetButton
+                    disabledReason={getTrackBetDisabledReason(Boolean(user), race)}
+                    isLogged={isUserRaceBetLogged(trackedBets, race.raceCardId, "betcha")}
+                    onPress={() => trackCandidateBet(createCandidateBetInput({
+                      payload,
+                      race,
+                    }))}
+                  />
+                </View>
+              ))}
+              </View>
+          ) : null}
+        </>
       ) : (
         <StateMessage text="No priced bet candidates are available in the Supabase prediction snapshot." />
       )}
@@ -812,6 +845,64 @@ type TrackBetButtonProps = {
   onPress: () => void;
 };
 
+type SignalGuideProps = {
+  modelKey: string;
+  modelLabel: string;
+};
+
+/**
+ * Explains the active model's cash score thresholds without mixing in bonus context.
+ */
+function SignalGuide({ modelKey, modelLabel }: SignalGuideProps) {
+  const explanation = getSignalGuideExplanation(modelKey);
+
+  return (
+    <View style={styles.signalGuide}>
+      <Text style={styles.signalGuideTitle}>{modelLabel} signals</Text>
+      <Text style={styles.signalGuideText}>{explanation}</Text>
+      <View style={styles.signalGuidePills}>
+        <Text style={[styles.signalGuidePill, styles.signalGuidePositive]}>Positive &gt;= $1.05</Text>
+        <Text style={[styles.signalGuidePill, styles.signalGuideNeutral]}>Neutral $0.95-$1.04</Text>
+        <Text style={[styles.signalGuidePill, styles.signalGuideWeak]}>Weak &lt; $0.95</Text>
+      </View>
+      <Text style={styles.signalGuideText}>
+        Small sample means fewer than 10 matching historical selections. Limited history means no usable cash average for the active model.
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Returns the cash-score formula shown in the candidate signal guide for each model.
+ */
+function getSignalGuideExplanation(modelKey: string) {
+  if (modelKey === "global_bucket_cash_even_blend_v1") {
+    return "Score estimates cash returned per $1 using 50% favourite price-bucket cash average and 50% starter-count cash average.";
+  }
+
+  if (modelKey === "global_bucket_cash_price_only_v1") {
+    return "Score estimates cash returned per $1 using only the matching favourite price-bucket cash average.";
+  }
+
+  if (modelKey === "global_bucket_cash_starter_only_v1") {
+    return "Score estimates cash returned per $1 using only the matching final-starter-count cash average.";
+  }
+
+  if (modelKey === "global_other_starters_average_price_cash_v1") {
+    return "Score estimates cash returned per $1 using the matching other-starters average fixed-win price bucket, excluding $70+ outlier prices.";
+  }
+
+  if (modelKey === "country_code_bucket_blend_shrunk_v1") {
+    return "Score estimates cash returned per $1 using 65% scoped price-bucket cash average and 35% scoped starter-count cash average, shrunk toward global cash buckets.";
+  }
+
+  if (modelKey === "country_code_distance_condition_v1") {
+    return "Score estimates cash returned per $1 using scoped cash averages: 45% price bucket, 25% starter count, 20% distance band, and 10% track condition.";
+  }
+
+  return "Score estimates cash returned per $1 using 65% favourite price-bucket cash average and 35% starter-count cash average.";
+}
+
 function TrackBetButton({ disabledReason, isLogged, onPress }: TrackBetButtonProps) {
   const isDisabled = Boolean(disabledReason);
 
@@ -899,6 +990,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 8,
+  },
+  disciplineTab: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#d0d5dd",
+    borderRadius: 6,
+    borderWidth: 1,
+    flexGrow: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  disciplineTabActive: {
+    backgroundColor: "#18202f",
+    borderColor: "#18202f",
+  },
+  disciplineTabText: {
+    color: "#475467",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  disciplineTabTextActive: {
+    color: "#ffffff",
+  },
+  disciplineTabs: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
   },
   emptyState: {
     backgroundColor: "#f8fafc",
@@ -1016,6 +1135,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,
+  },
+  signalGuide: {
+    backgroundColor: "#ffffff",
+    borderColor: "#d0d5dd",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  signalGuideNeutral: {
+    backgroundColor: "#eef2ff",
+    borderColor: "#c7d2fe",
+  },
+  signalGuidePill: {
+    borderRadius: 6,
+    borderWidth: 1,
+    color: "#18202f",
+    fontSize: 11,
+    fontWeight: "900",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  signalGuidePills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  signalGuidePositive: {
+    backgroundColor: "#e7f5f2",
+    borderColor: "#9ad0c9",
+  },
+  signalGuideText: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  signalGuideTitle: {
+    color: "#18202f",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  signalGuideWeak: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#fed7aa",
   },
   signal_caution: {
     backgroundColor: "#fff7ed",

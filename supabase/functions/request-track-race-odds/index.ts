@@ -17,6 +17,7 @@ const corsHeaders = {
 type RaceCode = "horse" | "harness" | "greyhound";
 
 type TrackRaceOddsRequestBody = {
+  allRaces?: boolean;
   country?: string;
   courseSlug?: string;
   raceCode?: RaceCode;
@@ -163,7 +164,7 @@ async function fetchInsightAggregateRows(config: SupabaseConfig, raceCode: RaceC
 }
 
 /**
- * Parses and validates the app's first-two-races odds request.
+ * Parses and validates the app's track odds request, defaulting to the full meeting.
  */
 async function readRequestBody(request: Request) {
   const body = await request.json().catch(() => ({})) as TrackRaceOddsRequestBody;
@@ -177,11 +178,15 @@ async function readRequestBody(request: Request) {
     throw new Error("raceCode must be horse, harness, or greyhound.");
   }
 
+  const raceNumbers = body.raceNumbers
+    ?.map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
   return {
     country: body.country,
     courseSlug: body.courseSlug,
     raceCode,
-    raceNumbers: body.raceNumbers?.length ? body.raceNumbers : [1, 2],
+    raceNumbers: body.allRaces ? null : raceNumbers?.length ? raceNumbers : null,
     sourceDate: body.sourceDate ?? getTodayInSourceTimeZone(),
   };
 }

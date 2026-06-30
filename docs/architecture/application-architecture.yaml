@@ -305,8 +305,8 @@ systems:
       type: edge_function
       responsibility:
         - Accept one selected country, track, discipline, and source date from Insights.
-        - Fetch public Betcha race-card odds for races 1 and 2 only.
-        - Return runner fixed-win odds, favourite flags, MarketMover flags, starter count, race status, fetched timestamp, and favourite historical signal context matching Betcha bet-back candidates.
+        - Fetch public Betcha race-card odds for all races at a selected track.
+        - Return runner fixed-win odds, favourite flags, MarketMover flags, starter count, race status, fetched timestamp, default cash average score, and favourite historical signal context matching Betcha bet-back candidates.
         - Store one track_race_odds_requests audit row for each request.
         - Avoid account credential storage, personalised promo scraping, stake sizing, and automated wagering actions.
       reads_from:
@@ -520,7 +520,7 @@ data_model:
       purpose: Stored app-facing insight rows by overall, country, course, race-code, starter-count, price-bucket, distance-band, and track-condition scope.
       key: scope_key
     track_race_odds_requests:
-      purpose: Audit log of on-demand first-two-races public odds requests made from Insights.
+      purpose: Audit log of on-demand track-race public odds requests made from Insights.
       key: id
 
 derived_views:
@@ -635,7 +635,7 @@ flows:
       - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ records.
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
-      - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for races 1 and 2.
+      - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.

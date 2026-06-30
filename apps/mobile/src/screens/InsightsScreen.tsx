@@ -198,9 +198,9 @@ export function InsightsScreen() {
   }
 
   /**
-   * Requests public odds for races 1 and 2 at the selected track and discipline.
+   * Requests public odds for every race at the selected track and discipline.
    */
-  async function checkFirstTwoRaceOdds() {
+  async function checkTrackRaceOdds() {
     if (!selectedTrack || !isRaceCode(filters.discipline)) {
       return;
     }
@@ -264,7 +264,7 @@ export function InsightsScreen() {
           canRequest={canRequestTrackOdds}
           errorMessage={oddsErrorMessage}
           isLoading={isRequestingOdds}
-          onRequest={checkFirstTwoRaceOdds}
+          onRequest={checkTrackRaceOdds}
           result={oddsResult}
           selectedDisciplineLabel={selectedDisciplineLabel}
           selectedTrackLabel={selectedTrackLabel}
@@ -457,7 +457,7 @@ type TrackRaceOddsPanelProps = {
 };
 
 /**
- * Shows the on-demand public odds request for races 1 and 2 at one selected track.
+ * Shows the on-demand public odds request for every race at one selected track.
  */
 function TrackRaceOddsPanel({
   canRequest,
@@ -472,7 +472,7 @@ function TrackRaceOddsPanel({
     <View style={styles.oddsPanel}>
       <View style={styles.oddsHeader}>
         <View style={styles.oddsHeaderText}>
-          <Text style={styles.oddsTitle}>First 2 race odds</Text>
+          <Text style={styles.oddsTitle}>Track race odds</Text>
           <Text style={styles.oddsNote}>
             {selectedTrackLabel} · {selectedDisciplineLabel}
           </Text>
@@ -523,6 +523,11 @@ function TrackRaceOddsPanel({
                   <Text style={styles.oddsMetricLabel}>Implied win</Text>
                 </View>
                 <View style={styles.oddsMetric}>
+                  <Text style={styles.oddsMetricValue}>{race.candidateCashAverageScore}</Text>
+                  <Text style={styles.oddsMetricLabel}>Cash avg score</Text>
+                  <Text style={styles.oddsMetricDetail}>{race.candidateModelLabel}</Text>
+                </View>
+                <View style={styles.oddsMetric}>
                   <Text style={styles.oddsMetricValue}>{race.candidateAverage}</Text>
                   <Text style={styles.oddsMetricLabel}>Cash+bonus avg</Text>
                   <Text style={styles.oddsMetricDetail}>{race.candidateSampleSize}</Text>
@@ -570,7 +575,7 @@ function TrackRaceOddsPanel({
               </View>
             </View>
           )) : (
-            <Text style={styles.oddsHelp}>No race-card odds were returned for races 1 and 2.</Text>
+            <Text style={styles.oddsHelp}>No race-card odds were returned for this track.</Text>
           )}
         </View>
       ) : (

@@ -9,6 +9,10 @@ import {
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
   PREDICTION_MODEL_VARIANTS,
+  type PredictionPerformanceDisciplineFilter,
+  type PredictionPerformanceFilters,
+  type PredictionPerformanceRankFilter,
+  type PredictionPerformanceSignalFilter,
   type PredictionHistoryFilters,
   type PredictionHistoryMetadata,
   type PredictionModelKey,
@@ -22,6 +26,23 @@ const emptyPredictions: PredictionsData = {
   summaryStats: [],
   totalHistoryCount: 0,
 };
+const PERFORMANCE_DISCIPLINE_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Horse", value: "horse" },
+  { label: "Harness", value: "harness" },
+  { label: "Greyhound", value: "greyhound" },
+] satisfies { label: string; value: PredictionPerformanceDisciplineFilter }[];
+const PERFORMANCE_RANK_OPTIONS = [
+  { label: "All ranks", value: "all" },
+  { label: "Top 1", value: "1" },
+  { label: "Top 2", value: "2" },
+  { label: "Top 3", value: "3" },
+] satisfies { label: string; value: PredictionPerformanceRankFilter }[];
+const PERFORMANCE_SIGNAL_OPTIONS = [
+  { label: "All signals", value: "all" },
+  { label: "Positive only", value: "positive_only" },
+  { label: "Neutral or better", value: "neutral_or_better" },
+] satisfies { label: string; value: PredictionPerformanceSignalFilter }[];
 
 /**
  * Shows stored Betcha candidate prediction outcomes by racing discipline.
@@ -37,6 +58,11 @@ export function PredictionsScreen() {
   const [metadata, setMetadata] = useState<PredictionHistoryMetadata | null>(null);
   const [predictions, setPredictions] = useState<PredictionsData>(emptyPredictions);
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [performanceFilters, setPerformanceFilters] = useState<PredictionPerformanceFilters>({
+    discipline: "all",
+    rank: "all",
+    signal: "all",
+  });
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -99,7 +125,7 @@ export function PredictionsScreen() {
       try {
         setIsLoadingPredictions(true);
         setErrorMessage(null);
-        const nextPredictions = await fetchPredictionStats(filters, activeModelKey);
+        const nextPredictions = await fetchPredictionStats(filters, activeModelKey, performanceFilters);
 
         if (!cancelled) {
           setPredictions(nextPredictions);
@@ -121,7 +147,7 @@ export function PredictionsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [activeModelKey, filters, metadata]);
+  }, [activeModelKey, filters, metadata, performanceFilters]);
 
   function updateFilter(key: keyof PredictionHistoryFilters, value: string) {
     setFilters((current) => ({
@@ -158,6 +184,19 @@ export function PredictionsScreen() {
     });
   }
 
+  /**
+   * Applies one Stored model performance filter without changing history filters.
+   */
+  function updatePerformanceFilter<TKey extends keyof PredictionPerformanceFilters>(
+    key: TKey,
+    value: PredictionPerformanceFilters[TKey],
+  ) {
+    setPerformanceFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
   function resetDateRange() {
     if (!metadata) {
       return;
@@ -186,6 +225,38 @@ export function PredictionsScreen() {
       </View>
 
       <Text style={styles.subheading}>Stored model performance</Text>
+      <View style={styles.performanceFilters}>
+        <FilterGroup
+          label="Performance discipline"
+          options={PERFORMANCE_DISCIPLINE_OPTIONS}
+          selectedValue={performanceFilters.discipline}
+          onChange={(value) => updatePerformanceFilter(
+            "discipline",
+            value as PredictionPerformanceDisciplineFilter,
+          )}
+        />
+        <FilterGroup
+          label="Prediction rank"
+          options={PERFORMANCE_RANK_OPTIONS}
+          selectedValue={performanceFilters.rank}
+          onChange={(value) => updatePerformanceFilter(
+            "rank",
+            value as PredictionPerformanceRankFilter,
+          )}
+        />
+        <FilterGroup
+          label="Signal"
+          options={PERFORMANCE_SIGNAL_OPTIONS}
+          selectedValue={performanceFilters.signal}
+          onChange={(value) => updatePerformanceFilter(
+            "signal",
+            value as PredictionPerformanceSignalFilter,
+          )}
+        />
+        <Text style={styles.performanceFilterNote}>
+          Neutral or better includes Positive and Neutral only; Small sample and Limited history are excluded.
+        </Text>
+      </View>
       {errorMessage ? (
         <StateMessage tone="error" text={errorMessage} />
       ) : isLoadingMetadata || isLoadingPredictions ? (
@@ -824,6 +895,15 @@ const styles = StyleSheet.create({
   outcomeBadgeWarning: {
     backgroundColor: "#fff7ed",
     borderColor: "#fed7aa",
+  },
+  performanceFilterNote: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+  },
+  performanceFilters: {
+    marginTop: 2,
   },
   returnBadge: {
     backgroundColor: "#e7f5f2",
