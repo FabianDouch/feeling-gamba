@@ -1,6 +1,6 @@
 # Feeling Gamba Docs
 
-Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outcomes across thoroughbred, harness, and greyhound races, starting with New Zealand domestic tracks and expanding into Australian comparison tracks for promotion analysis.
+Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outcomes across thoroughbred, harness, and greyhound races, starting with New Zealand domestic tracks and expanding into Australian and Hong Kong domestic-region coverage for promotion analysis.
 
 ## Documents
 
@@ -30,7 +30,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 
 ## Current MVP Goal
 
-Build a daily process that records each configured NZ and Australian comparison race, the favourite runner, the runner marked as TAB market mover where available, the final result, and available payout/dividend data.
+Build a daily process that records each configured NZ, Australian comparison, and Hong Kong domestic-region race, the favourite runner, the runner marked as TAB/Betcha market mover where available, the final result, and available payout/dividend data.
 
 The app should start as a reliable data log before adding advanced betting analysis. A promotions/recommendations view is now in scope for source-backed TAB/Betcha racing promotions, current race-card facts, and historical statistical signals only.
 

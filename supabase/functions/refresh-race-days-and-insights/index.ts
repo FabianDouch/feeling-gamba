@@ -14,7 +14,7 @@ const corsHeaders = {
 type RefreshRequestBody = {
   categories?: Array<"HORSE" | "HARNESS" | "GREYHOUND">;
   collectionStart?: string;
-  countries?: Array<"AUS" | "NZ">;
+  countries?: Array<"AUS" | "HK" | "NZ">;
   coverageMode?: "all_domestic" | "all-domestic" | "pilot";
   dryRun?: boolean;
   force?: boolean;

@@ -10,7 +10,8 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-06-25 for the
+Note: the YAML was updated on 2026-07-01 for HK domestic-region prediction and
+race-day coverage. It was previously updated on 2026-06-25 for the
 `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` prediction variations. Rendered
 architecture outputs should be regenerated from the YAML before being treated
@@ -23,8 +24,8 @@ distance/condition prediction scopes, the `country_code_distance_condition_v1`
 model, and the `global_bucket_cash_blend_v1` /
 `global_bucket_cash_even_blend_v1` cash-only bucket models.
 
-Race-day ingestion scope is now all AUS/NZ domestic `HORSE`, `HARNESS`, and
-`GREYHOUND` meetings returned by the configured Betcha source. The older pilot
+Race-day ingestion scope is now all AUS/NZ/HK domestic-region `HORSE`,
+`HARNESS`, and `GREYHOUND` meetings returned by the configured Betcha source. The older pilot
 track list is retained for diagnostics and reproducing historical fixture runs,
 not as the production collection boundary.
 
@@ -427,15 +428,16 @@ diagnostic only and is not used by the app runtime.
 
 `fetch-current-predictions` / `refresh-current-predictions` owns the current
 Betcha candidate scan independently of promotions. It scans current Betcha race
-cards for configured New Zealand and Australian coverage, derives the live
-favourite from fixed-win prices, then ranks races within each discipline using
-the active prediction variation's model-specific `cashAverageScore`.
+cards for all NZ/AUS/HK domestic-region meetings returned by the source, derives the live
+favourite from fixed-win prices, then ranks races within each country/discipline
+group using the active prediction variation's model-specific `cashAverageScore`.
 Cash-plus-bonus remains visible as supporting context, but it must not drive
 recommendation ordering or status pills. The scan keeps at most the five best
-candidates per discipline. It is a statistical signal only, with no stake
+candidates per country/discipline group so HK candidates are not hidden behind
+larger NZ/AUS race volumes. It is a statistical signal only, with no stake
 sizing, bankroll guidance, automated wagering, or invented favourites. Stored
 prediction rows must be created only before the first eligible race in the
-day's configured prediction coverage has started.
+day's all-domestic NZ/AUS/HK prediction coverage has started.
 The daily prediction refresh is scheduled through
 `.github/workflows/current-prediction-refresh.yml` at `17:35` and `18:35` UTC,
 with optional Supabase Cron backup using
@@ -494,7 +496,7 @@ repo-root public Supabase env values before Metro bundles the app.
 ## Runtime App Data Contract
 
 - Race Days reads `race_day_entries` from Supabase. The default query should
-  request the latest 20 races across all AUS/NZ records. Auckland is used only
+  request the latest 20 races across all AUS/NZ/HK records. Auckland is used only
   as the calendar timezone when source timestamps need date conversion, not as a
   racecourse filter.
 - Race Days filters should query Supabase for the selected date range, country,

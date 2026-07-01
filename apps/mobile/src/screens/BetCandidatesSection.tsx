@@ -56,9 +56,9 @@ export function BetCandidatesSection({
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
-  const candidatesByDiscipline = groupBetCandidatesByDiscipline(betCandidates, selectedModelKey);
-  const activeCandidateGroup = candidatesByDiscipline.find((group) => group.code === selectedDisciplineCode)
-    ?? candidatesByDiscipline[0]
+  const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
+  const activeCandidateGroup = candidateGroups.find((group) => group.code === selectedDisciplineCode)
+    ?? candidateGroups[0]
     ?? null;
   const modelScoreLabel = "Cash avg score";
   const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
@@ -331,7 +331,7 @@ export function BetCandidatesSection({
       ) : betCandidates.length ? (
         <>
           <View style={styles.disciplineTabs}>
-            {candidatesByDiscipline.map((group) => {
+            {candidateGroups.map((group) => {
               const isActive = group.code === activeCandidateGroup?.code;
 
               return (
@@ -372,7 +372,7 @@ export function BetCandidatesSection({
                       </Text>
                       <Text style={styles.raceMeta}>
                         {formatDateTime(race.advertisedStart)} · {race.starters} starters ·{" "}
-                        {race.code}
+                        {race.country ?? "Unknown"} · {race.code}
                       </Text>
                     </View>
                     <View style={[styles.signalBadge, styles[`signal_${race.candidate.tone}`]]}>
@@ -461,9 +461,9 @@ export function BetCandidatesSection({
 }
 
 /**
- * Groups current bet candidates into stable discipline sections for scanning.
+ * Groups current bet candidates into stable country/discipline sections for scanning.
  */
-function groupBetCandidatesByDiscipline(candidates: BetCandidate[], modelKey: string) {
+function groupBetCandidatesByCountryAndDiscipline(candidates: BetCandidate[], modelKey: string) {
   const labels = {
     greyhound: "Greyhound",
     harness: "Harness",
@@ -473,45 +473,59 @@ function groupBetCandidatesByDiscipline(candidates: BetCandidate[], modelKey: st
   const grouped = new Map<string, BetCandidate[]>();
 
   for (const candidate of candidates) {
-    const matchingCandidates = grouped.get(candidate.code) ?? [];
+    const country = candidate.country ?? "Unknown";
+    const groupKey = `${country}:${candidate.code}`;
+    const matchingCandidates = grouped.get(groupKey) ?? [];
     matchingCandidates.push(candidate);
-    grouped.set(candidate.code, matchingCandidates);
+    grouped.set(groupKey, matchingCandidates);
   }
 
   return Array.from(grouped.entries())
     .sort(([left], [right]) => {
-      const leftIndex = disciplineOrder.indexOf(left);
-      const rightIndex = disciplineOrder.indexOf(right);
+      const [leftCountry, leftCode] = left.split(":");
+      const [rightCountry, rightCode] = right.split(":");
+      const countrySort = leftCountry.localeCompare(rightCountry);
+
+      if (countrySort !== 0) {
+        return countrySort;
+      }
+
+      const leftIndex = disciplineOrder.indexOf(leftCode);
+      const rightIndex = disciplineOrder.indexOf(rightCode);
 
       if (leftIndex !== -1 || rightIndex !== -1) {
         return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex)
           - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
       }
 
-      return left.localeCompare(right);
+      return leftCode.localeCompare(rightCode);
     })
-    .map(([code, groupCandidates]) => ({
-      candidates: groupCandidates
-        .sort((left, right) => {
-          const rightScore = getCandidateModelScore(right, modelKey) ?? -Infinity;
-          const leftScore = getCandidateModelScore(left, modelKey) ?? -Infinity;
+    .map(([code, groupCandidates]) => {
+      const [country, disciplineCode] = code.split(":");
 
-          if (rightScore !== leftScore) {
-            return rightScore - leftScore;
-          }
+      return {
+        candidates: groupCandidates
+          .sort((left, right) => {
+            const rightScore = getCandidateModelScore(right, modelKey) ?? -Infinity;
+            const leftScore = getCandidateModelScore(left, modelKey) ?? -Infinity;
 
-          return new Date(left.advertisedStart).valueOf()
-            - new Date(right.advertisedStart).valueOf();
-        })
-        .map((candidate, index) => ({
-          ...candidate,
-          rank: index + 1,
-        })),
-      code,
-      label: code in labels
-        ? labels[code as keyof typeof labels]
-        : code,
-    }));
+            if (rightScore !== leftScore) {
+              return rightScore - leftScore;
+            }
+
+            return new Date(left.advertisedStart).valueOf()
+              - new Date(right.advertisedStart).valueOf();
+          })
+          .map((candidate, index) => ({
+            ...candidate,
+            rank: index + 1,
+          })),
+        code,
+        label: `${country} ${disciplineCode in labels
+          ? labels[disciplineCode as keyof typeof labels]
+          : disciplineCode}`,
+      };
+    });
 }
 
 /**

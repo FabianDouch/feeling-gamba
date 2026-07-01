@@ -3,6 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const FIXED_WIN_PRODUCT_TYPE_ID = "940b8704-e497-4a76-b390-00918ff7d282";
+const FIXED_WIN_PRICE_ID_PATTERNS = [
+  `:${FIXED_WIN_PRODUCT_TYPE_ID}:`,
+  ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
+];
 const SOURCE_NAME = "betcha_graphql_fixture";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 const DOT_ENV_FILES = [".env.local", ".env"];
@@ -203,9 +207,12 @@ function getEntrantUuid(id) {
   return String(id ?? "").replace(/^RacingEntrant:/, "") || null;
 }
 
+/**
+ * Selects the source-backed fixed-win price row across NZ/AUS and HK product IDs.
+ */
 function getFixedWinPrice(runner) {
   const price = runner.prices?.find((candidate) =>
-    String(candidate.id).includes(`:${FIXED_WIN_PRODUCT_TYPE_ID}:`),
+    FIXED_WIN_PRICE_ID_PATTERNS.some((pattern) => String(candidate.id).includes(pattern)),
   );
   const decimal = Number(price?.odds?.decimal);
 
@@ -518,6 +525,7 @@ function buildBackfillRows(fixtures) {
             is_market_mover: Boolean(runner.isMarketMover),
             race_key: raceKey,
             raw: {
+              fixedWinPriceIdPatterns: FIXED_WIN_PRICE_ID_PATTERNS,
               fixedWinProductTypeId: FIXED_WIN_PRODUCT_TYPE_ID,
               sourceRunnerId: runner.id,
             },

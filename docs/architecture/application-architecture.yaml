@@ -6,8 +6,8 @@ purpose:
   summary: >
     Log favourite runners, MarketMovers, results, field sizes, payout data,
     favourite-performance statistics, and source-backed promotion signals for
-    AUS/NZ domestic thoroughbred, harness, and greyhound race days returned by
-    configured public sources.
+    AUS/NZ/HK domestic-region thoroughbred, harness, and greyhound race days
+    returned by configured public sources.
   primary_users:
     - App user browsing historical race outcomes.
     - Developer/operator monitoring ingestion quality.
@@ -18,6 +18,7 @@ scope:
     countries:
       - NZ
       - AUS
+      - HK
     source_categories:
       - HORSE
       - HARNESS
@@ -26,8 +27,9 @@ scope:
       - DOMESTIC
     note: >
       Historical backfill and weekly race-day refresh should collect every
-      AUS/NZ domestic meeting returned by Betcha racingDay for these source
-      categories. The pilot track list remains available only for diagnostics.
+      AUS/NZ/HK domestic-region meeting returned by Betcha racingDay for these
+      source categories. The pilot track list remains available only for
+      diagnostics.
   pilot_tracks:
     - Ellerslie
     - New Plymouth
@@ -101,7 +103,7 @@ systems:
         - Show notional $1 favourite return metrics by racing discipline.
         - Filter return-by-discipline, starter-count, and price-bucket insight tables by discipline, all countries or one selected country, then by all tracks or one selected track.
         - Show source-backed TAB/Betcha race-specific promotion signals with current race facts.
-        - Show Betcha bet-back race candidates from independent current prediction snapshots for configured NZ and Tier 1 Australian pilot-track race cards.
+        - Show Betcha bet-back race candidates from independent current prediction snapshots for all NZ/AUS/HK domestic-region race cards returned by the source.
         - Show Account navigation for Google sign-in, persisted session state, and sign out.
         - Let signed-in users save or remove favourite tracks for one concrete country, discipline, and course.
         - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
@@ -283,13 +285,13 @@ systems:
     fetch_current_predictions:
       type: edge_function_or_manual_worker
       responsibility:
-        - Scan current Betcha race cards for configured NZ and Tier 1 Australian pilot tracks independently of promotion availability.
+        - Scan current Betcha race cards for all NZ/AUS/HK domestic-region meetings returned by the source independently of promotion availability.
         - Store current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
         - Attach historical starter-count, price-bucket, distance-band, track-condition, other-starters average fixed-win price, cash, and cash-plus-bonus statistical signals.
-        - Rank Betcha bet-back candidates by discipline, keeping at most five per discipline, without stake sizing or automated wagering actions.
+        - Rank Betcha bet-back candidates by country and discipline, keeping at most five per country/discipline group, without stake sizing or automated wagering actions.
         - Capture one app-facing pre-first-race prediction cache for each Auckland source date.
         - Store one prediction row per model and Betcha source race card before the first eligible race starts, replacing it only when the prediction signature changes before that cutoff.
-        - Refuse to write snapshots, promotion_predictions, or prediction_aggregates after the first eligible race in the configured prediction coverage has started.
+        - Refuse to write snapshots, promotion_predictions, or prediction_aggregates after the first eligible race in the all-domestic NZ/AUS/HK prediction coverage has started.
         - Rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending model rows before races settle.
       reads_from:
         - betcha_graphql
@@ -318,7 +320,7 @@ systems:
       type: edge_function_or_manual_worker
       responsibility:
         - Run weekly to fill race dates missing since the last successful update.
-        - Cover all AUS/NZ domestic horse, harness, and greyhound race days returned by configured source coverage.
+        - Cover all AUS/NZ/HK domestic-region horse, harness, and greyhound race days returned by configured source coverage.
         - Upsert normalized race data and refresh app-facing race_day_entries.
         - Refresh stored insight_aggregates after new race data lands.
         - Reconcile unsettled promotion_predictions against stored race, runner, and result rows.
@@ -582,9 +584,9 @@ flows:
       - treat current_promotion_snapshots rows older than 15 minutes as stale in the app because live race cards and prices can change.
 
   prediction_fetch:
-    trigger: GitHub Actions scheduled morning refresh-current-predictions workflow, optional Supabase Cron backup, and app-triggered stale refresh before the first expected eligible NZ/AU race.
+    trigger: GitHub Actions scheduled morning refresh-current-predictions workflow, optional Supabase Cron backup, and app-triggered stale refresh before the first expected eligible NZ/AU/HK race.
     steps:
-      - fetch_current_predictions scans Betcha current NZ and Tier 1 AU pilot-track race cards for daily bet-back candidate ranking by discipline, independent of active promotions.
+      - fetch_current_predictions scans Betcha current NZ/AUS/HK domestic-region race cards for daily bet-back candidate ranking by country and discipline, independent of active promotions.
       - keep Betcha bet-back candidate rankings visible in the app even when no race-specific public promotion URL matches current race cards.
       - derive current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
       - attach historical starter-count, price-bucket, distance-band, track-condition, cash, and cash-plus-bonus signal data.
@@ -598,7 +600,7 @@ flows:
       - keep median_other_fixed_win_price as the next field-shape signal candidate because average can still be distorted by long-priced outsiders.
       - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
       - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
-      - determine the earliest advertised start among eligible configured prediction races.
+      - determine the earliest advertised start among eligible all-domestic NZ/AUS/HK prediction races.
       - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
       - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
       - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes before that cutoff.
@@ -632,7 +634,7 @@ flows:
   app_read:
     trigger: User opens Expo app.
     steps:
-      - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ records.
+      - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ/HK records.
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.

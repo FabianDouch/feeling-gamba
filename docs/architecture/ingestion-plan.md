@@ -49,12 +49,12 @@ Initial pilot tracks, retained only for diagnostics and small source checks:
 - Whanganui
 - Cambridge
 
-Australian promotion coverage:
+Australian and Hong Kong promotion coverage:
 
-- Because TAB/Betcha racing promos can apply to Australian thoroughbred,
-  greyhound, and harness races, the production race-day collection target is all
-  AUS and NZ domestic meetings returned by the source for `HORSE`, `HARNESS`,
-  and `GREYHOUND`.
+- Because TAB/Betcha racing promos can apply to Australian and Hong Kong
+  thoroughbred, greyhound, and harness races, the production race-day collection
+  target is all AUS, NZ, and HK domestic-region meetings returned by the source
+  for `HORSE`, `HARNESS`, and `GREYHOUND`.
 - On 2026-06-20 the historical and weekly race-day collectors were moved to an
   explicit `--all-domestic` / `all_domestic` coverage mode by default. The old
   configured pilot list remains available through `--pilot-tracks` only for
@@ -63,11 +63,11 @@ Australian promotion coverage:
   allow-list, including Randwick when Betcha returns a Randwick domestic
   meeting in the selected date window.
 - The current completeness claim is source-backed: the collector can capture
-  every AUS/NZ horse, harness, and greyhound race returned by Betcha
+  every AUS/NZ/HK horse, harness, and greyhound race returned by Betcha
   `racingDay(categories: [HORSE, HARNESS, GREYHOUND], regions: [DOMESTIC])`.
   It is not an independent guarantee against official-code calendars until
-  reconciliation against NZTR, HRNZ, GRNZ, and Australian official sources is
-  added.
+  reconciliation against NZTR, HRNZ, GRNZ, Australian official sources, and
+  Hong Kong official sources is added.
 - Tier 1 AU tracks were the previous local-historical collector scope and remain
   useful examples when checking old pilot fixtures. They were selected from
   high-frequency AU tracks observed in the bundled `2025-12-15` to
@@ -117,7 +117,7 @@ Local fixture validation now has a first automated test suite at
 `apps/mobile/test/fixturePipeline.test.mjs`, run with
 `npm --workspace @feeling-gamba/mobile test`. It reads the bundled saved JSON
 fixtures directly and checks the collected date range, flattened race-card ID
-uniqueness, active-starter parsing from scratched/vacant rows, AU/NZ track
+uniqueness, active-starter parsing from scratched/vacant rows, AU/NZ/HK track
 filter metadata, bet-back bonus starter thresholds, and exclusion of missing
 favourite results from settled denominators.
 
@@ -290,8 +290,8 @@ Selection rule:
 
 - Race dates between the configured collection start date and the current date.
 - Race codes: `horse`, `harness`, `greyhound`.
-- Use `--all-domestic` for normal historical backfills so all AUS/NZ domestic
-  meetings returned by the source are written to Supabase.
+- Use `--all-domestic` for normal historical backfills so all AUS/NZ/HK
+  domestic-region meetings returned by the source are written to Supabase.
 - Use `--pilot-tracks` only for targeted diagnostics or reproducing older
   fixture files.
 
@@ -342,8 +342,9 @@ Selection rule:
   `npm --workspace @feeling-gamba/ingestion run refresh:race-days-and-insights`.
 - Hosted implementation:
   `supabase/functions/refresh-race-days-and-insights`.
-- Both implementations default to `all_domestic` coverage for AUS/NZ domestic
-  `HORSE`, `HARNESS`, and `GREYHOUND` meetings returned by Betcha.
+- Both implementations default to `all_domestic` coverage for AUS/NZ/HK
+  domestic-region `HORSE`, `HARNESS`, and `GREYHOUND` meetings returned by
+  Betcha.
 - The local worker defaults to the latest 14 completed Auckland dates, ending
   yesterday, so late results and corrections can be picked up.
 - The hosted Edge Function defaults to the latest 7 completed Auckland dates,
@@ -377,7 +378,7 @@ Expected writes:
 
 Runtime app rule:
 
-- The Race Days tab should request the latest 20 races across AUS/NZ from
+- The Race Days tab should request the latest 20 races across AUS/NZ/HK from
   `race_day_entries` when opened.
 - After the user applies filters, the app should query Supabase with those
   filter parameters instead of downloading all historical rows.
@@ -449,14 +450,14 @@ Initial mode:
 
 Purpose:
 
-- Scan Betcha current race cards for configured NZ and Tier 1 Australian
-  pilot-track races independently of active promotions.
+- Scan Betcha current race cards for all NZ/AUS/HK domestic-region meetings
+  returned by the source independently of active promotions.
 - Derive current favourite, fixed-win price, starter count, MarketMover, and
   missing-price state.
 - Attach historical starter-count, price-bucket, distance-band,
   track-condition, other-starters average fixed-win price, cash, and
   cash-plus-bonus statistical signals from stored `insight_aggregates`.
-- Rank bet-back candidates by discipline and model, including
+- Rank bet-back candidates by country, discipline, and model, including
   `global_bucket_cash_blend_v1`, `global_bucket_cash_even_blend_v1`,
   `global_bucket_cash_price_only_v1`, and
   `global_bucket_cash_starter_only_v1`, and
@@ -484,9 +485,9 @@ Initial mode:
   `supabase/functions/refresh-current-predictions`.
 - `refresh-current-predictions` reads historical signal rows from stored
   `insight_aggregates`, fetches fresh public Betcha current race-card data,
-  determines the first eligible advertised start in the configured prediction
-  coverage, and upserts `current_prediction_snapshots` only when the request was
-  generated before that first race started.
+  determines the first eligible advertised start in the all-domestic NZ/AUS/HK
+  prediction coverage, and upserts `current_prediction_snapshots` only when the
+  request was generated before that first race started.
 - After the first eligible race has started, `refresh-current-predictions`
   returns the same-day cached pre-race snapshot when one exists. It must not
   write a new snapshot, upsert `promotion_predictions`, or rebuild
@@ -559,10 +560,10 @@ Parsing rules:
   invent a favourite.
 - Exclude favourites with missing final result positions from favourite outcome
   denominators so abandoned or unsettled races do not count as losses.
-- For Betcha bet-back candidates, scan configured pilot-track races:
-  Ellerslie, New Plymouth, Te Rapa, Addington, Alexandra Park, Wingatui,
-  Whanganui/Hatrick, Cambridge, and Doomben. Doomben is the explicit Australian
-  comparison track.
+- For Betcha bet-back candidates, scan all NZ/AUS/HK domestic-region meetings
+  returned by the source. The old pilot-track list remains useful for
+  diagnostics and known alias handling, but it is not the prediction coverage
+  boundary.
 - Derive each candidate favourite from the current shortest fixed-win price.
 - The current default prediction model ranks candidates by a blended historical
   cash-plus-bonus average: 65% favourite price bucket and 35% final
@@ -589,8 +590,8 @@ Parsing rules:
   country+discipline blend of 45% price bucket, 25% starter-count bucket, 20%
   distance-band bucket, and 10% track-condition bucket, each shrunk toward the
   matching broader bucket where available.
-- Group candidate rankings by discipline and keep at most five candidates per
-  discipline.
+- Group candidate rankings by country and discipline, keeping at most five
+  candidates per country/discipline group.
 - Order each prediction variation by that variation's model-specific
   `cashAverageScore`. Cash-plus-bonus values can be retained for supporting
   context, but must not drive recommendations.
@@ -688,8 +689,8 @@ calls the hosted Edge Function at `18:10` UTC, which is early morning in New
 Zealand. The scheduled run uses a 4-day completed Auckland-date lookback, but it
 does not send that as one large Edge Function request. Instead, it loops over
 each completed source date and calls the hosted function with `from` and `to`
-set to that date. Each date is further sliced by country (`NZ`, `AUS`) and
-source category (`HORSE`, `HARNESS`, `GREYHOUND`). These source-fetch chunks
+set to that date. Each date is further sliced by country (`NZ`, `AUS`, `HK`)
+and source category (`HORSE`, `HARNESS`, `GREYHOUND`). These source-fetch chunks
 use `refreshRaceData: true`, `rebuildInsights: false`, and
 `reconcileOutcomes: false`. After all source slices finish, the workflow makes
 one final aggregate/reconcile-only request with `refreshRaceData: false`,

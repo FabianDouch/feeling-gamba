@@ -103,6 +103,7 @@ export type BetCandidate = RecommendationRace & {
     tone: "caution" | "muted" | "neutral" | "positive";
   };
   canonicalTrack: string;
+  country: string | null;
   predictionModels?: Record<string, BetCandidate["candidate"]>;
   rank: number;
   sourceTrack: string;

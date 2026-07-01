@@ -2,6 +2,10 @@ const BETCHA_GRAPHQL_ENDPOINT = "https://api.betcha.co.nz/graphql";
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const DEFAULT_PREDICTION_MODEL_LABEL = "Global bucket blend";
 const FIXED_WIN_PRODUCT_TYPE_ID = "940b8704-e497-4a76-b390-00918ff7d282";
+const FIXED_WIN_PRICE_ID_PATTERNS = [
+  `:${FIXED_WIN_PRODUCT_TYPE_ID}:`,
+  ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
+];
 const SOURCE_NAME = "betcha_graphql";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
@@ -151,9 +155,12 @@ async function graphql(operationName, query, variables) {
   return payload;
 }
 
+/**
+ * Selects the source-backed fixed-win price row across NZ/AUS and HK product IDs.
+ */
 function getFixedWinPrice(runner) {
   const price = runner.prices?.find((candidate) =>
-    String(candidate.id).includes(`:${FIXED_WIN_PRODUCT_TYPE_ID}:`),
+    FIXED_WIN_PRICE_ID_PATTERNS.some((pattern) => String(candidate.id).includes(pattern)),
   );
   const decimal = Number(price?.odds?.decimal);
 

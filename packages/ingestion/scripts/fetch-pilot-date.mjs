@@ -4,10 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const BETCHA_GRAPHQL_ENDPOINT = "https://api.betcha.co.nz/graphql";
 const FIXED_WIN_PRODUCT_TYPE_ID = "940b8704-e497-4a76-b390-00918ff7d282";
+const FIXED_WIN_PRICE_ID_PATTERNS = [
+  `:${FIXED_WIN_PRODUCT_TYPE_ID}:`,
+  ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
+];
 const DEFAULT_UNIT_STAKE = 1;
 const COVERAGE_MODE_PILOT = "pilot";
 const COVERAGE_MODE_ALL_DOMESTIC = "all_domestic";
-const SUPPORTED_DOMESTIC_COUNTRIES = new Set(["AUS", "NZ"]);
+const SUPPORTED_DOMESTIC_COUNTRIES = new Set(["AUS", "HK", "NZ"]);
 const SUPPORTED_RACING_CATEGORIES = new Set(["HORSE", "HARNESS", "GREYHOUND"]);
 
 /**
@@ -326,7 +330,7 @@ function isSupportedDomesticMeeting(meeting) {
 }
 
 /**
- * Builds a source-backed track object for broad AU/NZ domestic collection.
+ * Builds a source-backed track object for broad AU/NZ/HK domestic collection.
  */
 function createDomesticTrackFromMeeting(meeting) {
   const canonicalName = getMeetingTrackName(meeting);
@@ -460,9 +464,12 @@ async function graphql(operationName, query, variables) {
   return payload;
 }
 
+/**
+ * Selects the source-backed fixed-win price row across NZ/AUS and HK product IDs.
+ */
 function getFixedWinPrice(runner) {
   const price = runner.prices?.find((candidate) =>
-    String(candidate.id).includes(`:${FIXED_WIN_PRODUCT_TYPE_ID}:`),
+    FIXED_WIN_PRICE_ID_PATTERNS.some((pattern) => String(candidate.id).includes(pattern)),
   );
 
   return price?.odds?.decimal ?? null;
@@ -491,7 +498,7 @@ function getWinDividend(resultRow) {
 }
 
 /**
- * Applies AU/NZ place-style bet-back terms from the final starter count.
+ * Applies AU/NZ/HK place-style bet-back terms from the final starter count.
  */
 function getBonusBetCredit(resultPosition, starterCount) {
   if (resultPosition === 2 && starterCount >= 5) {
@@ -554,6 +561,7 @@ function deriveRaceInsights(raceCard) {
   return {
     activeStarterCount: activeRunners.length,
     scratchedCount: runnerRows.length - activeRunners.length,
+    fixedWinPriceIdPatterns: FIXED_WIN_PRICE_ID_PATTERNS,
     fixedWinProductTypeId: FIXED_WIN_PRODUCT_TYPE_ID,
     unitStake: DEFAULT_UNIT_STAKE,
     fixedWinFavouritePrice: shortestFixedWinPrice,

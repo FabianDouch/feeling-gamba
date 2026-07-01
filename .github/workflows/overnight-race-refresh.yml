@@ -71,7 +71,7 @@ jobs:
           force_refresh="${FORCE_REFRESH:-false}"
           today="$(TZ=Pacific/Auckland date +%F)"
           start_epoch="$(TZ=Pacific/Auckland date -d "${today} - ${lookback_days} days" +%s)"
-          countries="NZ AUS"
+          countries="NZ AUS HK"
           categories="HORSE HARNESS GREYHOUND"
           final_source_date=""
 

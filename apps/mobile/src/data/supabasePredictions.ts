@@ -257,11 +257,14 @@ export const hasSupabasePredictionsConfig = Boolean(
 );
 
 /**
- * Reads metadata used to build Prediction history filters without loading every row.
+ * Reads model-scoped metadata used to build Prediction history filters without loading every row.
  */
-export async function fetchPredictionHistoryMetadata(): Promise<PredictionHistoryMetadata> {
+export async function fetchPredictionHistoryMetadata(
+  predictionModel: PredictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
+): Promise<PredictionHistoryMetadata> {
   const dateRows = await supabaseSelect<{ source_date: string }>("promotion_predictions", {
     order: "source_date.desc",
+    prediction_model: `eq.${predictionModel}`,
     select: "source_date",
   });
   const metadataRows = await supabaseSelect<{
@@ -271,6 +274,7 @@ export async function fetchPredictionHistoryMetadata(): Promise<PredictionHistor
     race_code: string | null;
   }>("promotion_predictions", {
     order: "country.asc,course_name.asc,race_code.asc",
+    prediction_model: `eq.${predictionModel}`,
     select: "country,course_name,course_slug,race_code",
   });
   const dates = unique(dateRows.map((row) => row.source_date)).sort();

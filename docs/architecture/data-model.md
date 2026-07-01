@@ -641,9 +641,9 @@ Key fields:
 
 Rules:
 
-- Default Race Days reads should request the latest 20 races across all AUS/NZ
-  records, interpreted by the app using the `Pacific/Auckland` calendar timezone
-  where date conversion is needed.
+- Default Race Days reads should request the latest 20 races across all
+  AUS/NZ/HK records, interpreted by the app using the `Pacific/Auckland`
+  calendar timezone where date conversion is needed.
 - Date, country, discipline, and course filters should query Supabase for the
   specific filtered rows instead of filtering a bundled all-data fixture.
 - Missing favourite, price, and result states must be explicit.

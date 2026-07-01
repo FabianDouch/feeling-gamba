@@ -1,5 +1,9 @@
 const FIXED_WIN_PRODUCT_TYPE_ID = "940b8704-e497-4a76-b390-00918ff7d282";
-const BET_BACK_CANDIDATES_PER_DISCIPLINE = 5;
+const FIXED_WIN_PRICE_ID_PATTERNS = [
+  `:${FIXED_WIN_PRODUCT_TYPE_ID}:`,
+  ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
+];
+const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -851,7 +855,7 @@ function createStatsBucket(label) {
 }
 
 /**
- * Applies AU/NZ place-style bet-back terms from the final starter count.
+ * Applies AU/NZ/HK place-style bet-back terms from the final starter count.
  */
 function getBonusBetCredit(resultPosition, starterCount) {
   if (resultPosition === 2 && starterCount >= 5) {
@@ -1282,9 +1286,12 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
   return stats;
 }
 
+/**
+ * Selects the source-backed fixed-win price row across NZ/AUS and HK product IDs.
+ */
 function getFixedWinPrice(runner) {
   const price = runner.prices?.find((candidate) =>
-    String(candidate.id).includes(`:${FIXED_WIN_PRODUCT_TYPE_ID}:`),
+    FIXED_WIN_PRICE_ID_PATTERNS.some((pattern) => String(candidate.id).includes(pattern)),
   );
   const decimal = Number(price?.odds?.decimal);
 
@@ -1437,19 +1444,39 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
   };
 }
 
+/**
+ * Resolves a Betcha meeting into the prediction coverage set for all NZ/AUS/HK domestic races.
+ */
 function findTargetBetBackTrack(meeting) {
   const meetingNames = [
     meeting.name,
     meeting.venue?.name,
     meeting.meetingCode,
   ].map(normalizeName);
-
-  return TARGET_BET_BACK_TRACKS.find((track) =>
+  const configuredTrack = TARGET_BET_BACK_TRACKS.find((track) =>
     meeting.venue?.country === track.country
     && track.aliases.some((alias) =>
       meetingNames.some((name) => name === alias || name.includes(alias)),
     ),
-  ) ?? null;
+  );
+
+  if (configuredTrack) {
+    return configuredTrack;
+  }
+
+  if (!["AUS", "HK", "NZ"].includes(meeting.venue?.country)) {
+    return null;
+  }
+
+  const canonicalName = meeting.venue?.name ?? meeting.name ?? meeting.meetingCode;
+
+  return canonicalName
+    ? {
+        aliases: meetingNames,
+        canonicalName,
+        country: meeting.venue.country,
+      }
+    : null;
 }
 
 function weightedAverage(entries) {
@@ -1844,21 +1871,31 @@ function deriveBetBackCandidate(raceCard, context, historicalStats) {
 }
 
 /**
- * Orders Betcha bet-back candidates by the active model's cashAverageScore and discipline.
+ * Orders Betcha bet-back candidates by the active model's cashAverageScore within country and discipline.
  */
-function rankBetBackCandidatesByDiscipline(candidates, modelKey = DEFAULT_PREDICTION_MODEL_KEY) {
+function rankBetBackCandidatesByCountryAndDiscipline(candidates, modelKey = DEFAULT_PREDICTION_MODEL_KEY) {
   const disciplineOrder = ["horse", "harness", "greyhound"];
   const grouped = new Map();
 
   for (const candidate of candidates) {
+    const country = candidate.country ?? "unknown";
     const raceCode = candidate.code ?? "unknown";
-    const matchingCandidates = grouped.get(raceCode) ?? [];
+    const groupKey = `${country}:${raceCode}`;
+    const matchingCandidates = grouped.get(groupKey) ?? [];
     matchingCandidates.push(candidate);
-    grouped.set(raceCode, matchingCandidates);
+    grouped.set(groupKey, matchingCandidates);
   }
 
   return Array.from(grouped.entries())
-    .sort(([leftCode], [rightCode]) => {
+    .sort(([leftKey], [rightKey]) => {
+      const [leftCountry, leftCode] = leftKey.split(":");
+      const [rightCountry, rightCode] = rightKey.split(":");
+      const countrySort = leftCountry.localeCompare(rightCountry);
+
+      if (countrySort !== 0) {
+        return countrySort;
+      }
+
       const leftIndex = disciplineOrder.indexOf(leftCode);
       const rightIndex = disciplineOrder.indexOf(rightCode);
 
@@ -1886,7 +1923,7 @@ function rankBetBackCandidatesByDiscipline(candidates, modelKey = DEFAULT_PREDIC
           return new Date(left.advertisedStart).valueOf()
             - new Date(right.advertisedStart).valueOf();
         })
-        .slice(0, BET_BACK_CANDIDATES_PER_DISCIPLINE)
+        .slice(0, BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE)
         .map((candidate, index) => ({
           ...candidate,
           rank: index + 1,
@@ -1955,10 +1992,10 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
 
   const models = PREDICTION_MODELS.map((model) => ({
     ...model,
-    candidates: rankBetBackCandidatesByDiscipline(candidates, model.key),
+    candidates: rankBetBackCandidatesByCountryAndDiscipline(candidates, model.key),
   }));
   const rankedCandidates = models.find((model) => model.key === DEFAULT_PREDICTION_MODEL_KEY)?.candidates
-    ?? rankBetBackCandidatesByDiscipline(candidates);
+    ?? rankBetBackCandidatesByCountryAndDiscipline(candidates);
 
   return {
     candidates: rankedCandidates,
@@ -1966,7 +2003,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     errors,
     firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
-    note: "Betcha bet-back candidates scan current races on the configured NZ and Tier 1 Australian pilot tracks. Ranking is grouped by discipline and keeps up to five candidates per discipline ordered by the active prediction model's cashAverageScore. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
     scannedRaceCount,

@@ -106,7 +106,7 @@ Current promotion check on 2026-06-15:
 - Betcha returned runner rows and MarketMover state but no numeric fixed-win
   decimals for this race at fetch time, so no favourite could be derived.
 - Stats should not assume this six-starter race pays 3rd-place bonus credit.
-  Apply AU/NZ place-style terms: 5-7 starters credits 2nd only, while 8+
+  Apply AU/NZ/HK place-style terms: 5-7 starters credits 2nd only, while 8+
   starters credits 2nd/3rd unless a source-backed promotion overrides it.
 
 Bet-back candidate scan on 2026-06-16:
@@ -179,8 +179,10 @@ Example variables:
 
 Important filter:
 
-- `regions: ["DOMESTIC"]` can return both NZ and AU meetings.
-- For the app's domestic NZ racing scope, filter `meeting.venue.country === "NZ"`.
+- `regions: ["DOMESTIC"]` can return NZ, AU, and Hong Kong meetings.
+- Hong Kong meetings use `meeting.venue.country === "HK"` and `state === "HK"`.
+- For country-scoped app coverage, filter by the source `venue.country` value
+  rather than assuming `DOMESTIC` means NZ/AUS only.
 
 Example settled NZ meetings returned for 2026-05-24:
 
@@ -190,6 +192,35 @@ Example settled NZ meetings returned for 2026-05-24:
 | Manukau | GREYHOUND | NZ | 12 |
 | Timaru | HARNESS | NZ | 11 |
 | Winton | HARNESS | NZ | 10 |
+
+Live Hong Kong check on 2026-07-01 NZ time:
+
+- Query: `date: "2026-07-01"`, categories `HORSE`, `HARNESS`,
+  `GREYHOUND`, `regions: ["DOMESTIC"]`.
+- Betcha returned `Sha Tin` as `category: "HORSE"`, `venue.country: "HK"`,
+  `venue.state: "HK"`, with 11 races.
+- The same date with `regions: ["INTERNATIONAL"]` returned no Hong Kong
+  meetings.
+- First race ID: `RacingRace:520d5f8c-2641-4933-b55c-0487a358c205`.
+- The corresponding `RacingRaceCard` returned distance, track condition,
+  runner rows, scratches, `isMarketMover`, and price rows.
+- Hong Kong price IDs observed on that card did not include the existing
+  NZ/AUS fixed-win product UUID used by the parser
+  (`940b8704-e497-4a76-b390-00918ff7d282`). The source-backed HK fixed-win
+  selector added on 2026-07-01 is the ID pattern
+  `:1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8`.
+  It covered all 14 active runners on the sampled Sha Tin race and produced the
+  win-like odds spread from `$2.90` to `$30.80`.
+- A second HK price group,
+  `:a95f59f0-9605-472a-9578-a61677705b75:18ba60da-abd2-463c-a34a-dc6368377ac8`,
+  also covered all 14 active runners but produced a lower compressed odds range
+  from `$1.60` to `$8.20`, so it is treated as place-like and is not used for
+  favourite derivation.
+- Betcha's public GraphQL `Price` type rejected product label fields such as
+  `productType`, `product`, `bettingProduct`, `marketType`, `type`, `name`,
+  `label`, and `description` in this check. The HK mapping is therefore an
+  inferred, source-observed ID-pattern allow-list rather than a labelled API
+  contract.
 
 Race IDs use the same typed global ID pattern:
 

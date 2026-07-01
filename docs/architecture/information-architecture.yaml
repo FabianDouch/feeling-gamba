@@ -17,13 +17,14 @@ principles:
   - Make country, date, discipline, and racecourse the primary browsing controls.
   - Show missing market/result data explicitly rather than inventing values.
   - Keep source/debug information available without making it the main user flow.
-  - Treat Australian coverage as visible comparison data in Race Days, Insights,
-    and bet-back candidate scans, with country labels available in app filters.
+  - Treat Australian and Hong Kong coverage as visible comparison data in Race
+    Days, Insights, and bet-back candidate scans, with country labels available
+    in app filters.
   - Use Supabase app-facing read models for runtime race and insight data; local
     fixtures are development/backfill inputs only.
   - Populate Race Days and Insights course filters from Supabase rows produced
-    by all-domestic AUS/NZ race-day ingestion, not from a hardcoded app track
-    list.
+    by all-domestic AUS/NZ/HK race-day ingestion, not from a hardcoded app
+    track list.
 
 navigation:
   app_root:
@@ -37,7 +38,7 @@ navigation:
           - Browse races by date.
           - Filter by collected date range, country, discipline, and racecourse.
           - Compare field size, favourite, MarketMover, result, and payouts.
-          - Load the latest 20 races across AUS/NZ by default and query Supabase when filters change.
+          - Load the latest 20 races across AUS/NZ/HK by default and query Supabase when filters change.
         components:
           - collected_date_range_picker
           - latest_20_race_supabase_result_set
@@ -399,7 +400,7 @@ content_rules:
     dividend data as explicit unavailable states.
   - Race Days should remain a separate page from Insights and provide date,
     country, discipline, and racecourse filters. It should load the latest 20
-    races across AUS/NZ from Supabase by default, then query Supabase with
+    races across AUS/NZ/HK from Supabase by default, then query Supabase with
     selected filters.
   - Race Detail should show the snapshot timestamp used for favourite/MM when
     the data came from pre-race odds.
@@ -436,16 +437,20 @@ content_rules:
     model-filtered Supabase prediction aggregates for performance metrics, and
     model-filtered promotion_predictions only for server-side filtered itemised
     history display.
+  - Prediction history country, discipline, and racecourse filter options must
+    be scoped to the selected prediction model so unavailable country/model
+    combinations are not shown as selectable filters.
   - Prediction refreshes must not create or store new prediction rows after the
-    first eligible race in the day's configured prediction coverage has started.
+    first eligible race in the day's all-domestic NZ/AUS/HK prediction coverage
+    has started.
   - Predictions must show other-starters average fixed-win price as a
     statistical field-shape signal, with $70.00+ other-starter prices excluded
     from that average and counted separately.
   - Median other-starter fixed-win price remains a planned follow-up signal.
   - Bet candidates should be ranked statistical candidates, not instructions to
-    bet, and should use configured NZ and Tier 1 Australian pilot-track races.
-    They should be grouped by discipline with a maximum of five candidates per
-    discipline.
+    bet, and should use all NZ/AUS/HK domestic-region race cards returned by
+    the source. They should be grouped by country and discipline with a maximum
+    of five candidates per country/discipline group.
   - Predictions must show a concise method summary for the selected prediction
     variation before its performance metrics.
   - Prediction outcomes must use the predicted runner and predicted fixed-win

@@ -90,7 +90,7 @@ export function PredictionsScreen() {
       try {
         setIsLoadingMetadata(true);
         setErrorMessage(null);
-        const nextMetadata = await fetchPredictionHistoryMetadata();
+        const nextMetadata = await fetchPredictionHistoryMetadata(activeModelKey);
 
         if (!cancelled) {
           setMetadata(nextMetadata);
@@ -112,7 +112,7 @@ export function PredictionsScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeModelKey]);
 
   useEffect(() => {
     let cancelled = false;
