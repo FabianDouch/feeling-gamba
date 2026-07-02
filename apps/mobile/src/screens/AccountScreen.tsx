@@ -15,6 +15,7 @@ import {
   type Bookmaker,
   type UserRaceBet,
 } from "../data/userRaceBets";
+import { BalanceTracker } from "./BalanceTracker";
 
 /**
  * Shows the current Supabase auth state and Google sign-in controls.
@@ -155,6 +156,8 @@ export function AccountScreen() {
 
       {user ? (
         <>
+          <BalanceTracker />
+
           <View style={styles.panel}>
             <Text style={styles.sectionHeading}>Favourite tracks</Text>
             {isLoadingUserData ? (

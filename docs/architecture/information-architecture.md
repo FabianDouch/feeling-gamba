@@ -110,12 +110,19 @@ Purpose:
 - Sign out of the persisted Supabase session.
 - Manage saved favourite tracks.
 - Review manually tracked promo-bet performance.
+- Maintain a manual personal balance ledger.
 
 Main content:
 
 - Google sign-in action.
 - Signed-in identity.
 - Sign-out action.
+- Current manual balance card.
+- Initial balance setup when no balance account exists.
+- Deposit, withdrawal, and manual balance update controls.
+- Balance history line graph built from stored balance events.
+- Recent balance event list with event type, balance delta, balance after, and
+  optional note.
 - Favourite-track list with remove actions.
 - Tracked promo-bet summary: logged count, settled count, pending count, and
   missing-outcome count.
@@ -201,7 +208,7 @@ Entry points:
 MVP limits:
 
 - No stake sizing.
-- No bankroll tracking.
+- No bankroll guidance.
 - No automated wagering.
 - No account credential storage or automated access to personalised promo
   surfaces.
@@ -249,8 +256,8 @@ Main content:
 MVP limits:
 
 - No stake sizing.
-- No bankroll tracking.
-- No account balance or withdrawal ledger.
+- No bankroll guidance.
+- No automated connection to bookmaker balances.
 - No automated wagering.
 - No invented prices or favourites.
 

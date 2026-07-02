@@ -71,10 +71,18 @@ navigation:
           - Sign out of the persisted Supabase session.
           - Manage saved favourite tracks.
           - Review manually tracked promo-bet performance.
+          - Maintain a manual personal balance ledger.
         components:
           - google_sign_in_button
           - signed_in_identity
           - sign_out_button
+          - current_balance_card
+          - initial_balance_setup_form
+          - balance_deposit_control
+          - balance_withdrawal_control
+          - manual_balance_update_control
+          - balance_history_line_graph
+          - recent_balance_event_list
           - favourite_track_management_list
           - favourite_track_remove_control
           - tracked_promo_bet_bookmaker_toggle
@@ -158,7 +166,7 @@ navigation:
           - track_race_cash_plus_bonus_average_context
         limits:
           - no_stake_sizing
-          - no_bankroll_tracking
+          - no_bankroll_guidance
           - no_automated_wagering
           - no_account_credential_storage
           - no_push_notifications_until_ingestion_is_reliable
@@ -199,8 +207,8 @@ navigation:
           - missing_price_state
         limits:
           - no_stake_sizing
-          - no_bankroll_tracking
-          - no_account_balance_or_withdrawal_ledger
+          - no_bankroll_guidance
+          - no_bookmaker_balance_connection
           - no_automated_wagering
           - no_invented_prices_or_favourites
         entry_points:
@@ -261,7 +269,7 @@ navigation:
           - supabase_prediction_aggregate_status
         limits:
           - no_stake_sizing
-          - no_bankroll_tracking
+          - no_bankroll_guidance
           - no_automated_wagering
         entry_points:
           - main_navigation

@@ -529,8 +529,11 @@ repo-root public Supabase env values before Metro bundles the app.
   RLS. It supports removing favourite tracks and tracked promo bets, and it
   calculates bookmaker-scoped personal unit-return statistics from settled
   tracked rows only.
-- Account balance and withdrawal ledgers remain out of scope because they would
-  introduce bankroll tracking.
+- Account also reads `user_balance_accounts` and `user_balance_events` through
+  owner-only RLS. Signed-in users can set one initial manual balance, record
+  deposits and withdrawals, add manual balance updates, and view the resulting
+  balance history line graph. The balance ledger must remain manual tracking
+  only and must not feed stake sizing, bankroll guidance, or automated wagering.
 - Predictions reads current bet candidates from the latest
   `current_prediction_snapshots` payload, stored model-filtered rows from
   `prediction_aggregates` for performance metrics, and recent model-filtered

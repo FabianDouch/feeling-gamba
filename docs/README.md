@@ -35,3 +35,9 @@ Build a daily process that records each configured NZ, Australian comparison, an
 The app should start as a reliable data log before adding advanced betting analysis. A promotions/recommendations view is now in scope for source-backed TAB/Betcha racing promotions, current race-card facts, and historical statistical signals only.
 
 The first statistics target uses all collected historical data starting from the initial collection start date, which was chosen at roughly six months before project start. The dataset should keep expanding as new race days are collected rather than being capped to a rolling six-month window. It should show favourite win, 2nd, and 3rd percentages overall, by final starter count, by country, by track, and by 50c favourite price bucket, plus `$1` unit-stake return metrics split by racing discipline.
+
+Signed-in account features include saved favourite tracks, manual promo-bet
+tracking, and a manual balance ledger for initial balance, deposits,
+withdrawals, balance updates, and balance history. These account features must
+not provide stake sizing, bankroll guidance, account scraping, or automated
+wagering.

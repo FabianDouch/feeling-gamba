@@ -148,8 +148,65 @@ Rules:
   outcomes from return denominators.
 - Personal return metrics use `$1` unit-return calculations only. The table does
   not store real stake size.
-- Do not add stake sizing, balance ledgers, withdrawal ledgers, bankroll
-  guidance, account scraping, or automated wagering.
+- Do not add stake sizing, bankroll guidance, account scraping, or automated
+  wagering.
+
+### `user_balance_accounts`
+
+Manual personal balance tracker account for signed-in users. This is a
+user-entered ledger, not a betting recommendation, stake-sizing engine, or
+bookmaker account integration.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `currency text not null default 'NZD'`
+- `initial_balance numeric(12, 2)`
+- `current_balance numeric(12, 2)`
+- `opened_at timestamptz`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Unique key:
+
+- `(user_id)` so each signed-in user has one active manual balance account.
+
+Rules:
+
+- A user can read only their own balance account through RLS.
+- Balance mutations should go through the `create_user_balance_account` and
+  `add_user_balance_event` RPC functions so the current balance and event log
+  remain consistent.
+- Balances cannot be negative in the MVP.
+
+### `user_balance_events`
+
+Append-style manual balance history used to draw the Account balance line
+graph.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `account_id uuid references user_balance_accounts(id) on delete cascade`
+- `event_type text` - `initial`, `deposit`, `withdrawal`, or `manual_update`
+- `amount numeric(12, 2)`
+- `balance_delta numeric(12, 2)`
+- `balance_after numeric(12, 2)`
+- `note text`
+- `occurred_at timestamptz`
+- `created_at timestamptz`
+
+Rules:
+
+- A user can read only their own balance events through RLS.
+- Deposit and withdrawal events store a positive `amount`; withdrawals store a
+  negative `balance_delta`.
+- Manual update events store the resulting `balance_after` and the implied
+  `balance_delta`, so corrections are visible on the graph.
+- Events are not linked to predictions, recommendations, or tracked promo bets
+  for stake sizing.
 
 ### `meetings`
 

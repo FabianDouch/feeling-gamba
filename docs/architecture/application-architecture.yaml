@@ -109,13 +109,16 @@ systems:
         - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
         - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
-        - Keep account balance and withdrawal ledgers out of scope to avoid bankroll tracking.
+        - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
+        - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
       reads_from:
         - supabase_auth
         - supabase_postgres
       writes_to:
         - user_favourite_tracks
         - user_race_bets
+        - user_balance_accounts
+        - user_balance_events
 
     expo_auth_client:
       type: client_auth
@@ -641,8 +644,8 @@ flows:
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.
-      - Account reads user_favourite_tracks and user_race_bets through owner-only RLS, supports removals, and calculates bookmaker-scoped personal settled-row unit-return stats.
-      - Account does not store balance updates or withdrawal records.
+      - Account reads user_favourite_tracks, user_race_bets, user_balance_accounts, and user_balance_events through owner-only RLS, supports removals where available, calculates bookmaker-scoped personal settled-row unit-return stats, and shows a manual balance ledger graph.
+      - Account balance events are manual tracking only and must not feed stake sizing, bankroll guidance, account scraping, or automated wagering.
       - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, model-filtered prediction_aggregates from Supabase for metrics, and recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Predictions shows model variation tabs and a short method explanation for each variation.
