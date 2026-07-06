@@ -1325,6 +1325,9 @@ function createStatsBucket(label) {
     bonusBetCredits: 0,
     favouriteSelections: 0,
     label,
+    placeEligibleSelections: 0,
+    placeHits: 0,
+    placePercentage: 0,
     profitLoss: 0,
     profitLossWithBonusCredit: 0,
     secondPercentage: 0,
@@ -1356,11 +1359,37 @@ function getBonusBetCredit(resultPosition, starterCount) {
 }
 
 /**
+ * Returns how many finishing positions pay a place dividend for the source field size.
+ */
+function getPlacePayoutDepth(country, starterCount) {
+  const starters = Number(starterCount);
+
+  if (!Number.isFinite(starters)) {
+    return 0;
+  }
+
+  if (country === "HK") {
+    if (starters >= 7) {
+      return 3;
+    }
+
+    return starters >= 4 ? 2 : 0;
+  }
+
+  if (starters >= 8) {
+    return 3;
+  }
+
+  return starters >= 5 ? 2 : 0;
+}
+
+/**
  * Adds a settled favourite into historical promotion signal stats.
  */
-function addFavouriteToStats(bucket, favourite, starterCount) {
+function addFavouriteToStats(bucket, favourite, starterCount, country = null) {
   const winReturn = favourite.resultPosition === 1 ? favourite.fixedWinPrice : 0;
   const bonusBetCredit = getBonusBetCredit(favourite.resultPosition, starterCount);
+  const placePayoutDepth = getPlacePayoutDepth(country, starterCount);
 
   bucket.favouriteSelections += 1;
   bucket.totalStake += 1;
@@ -1371,6 +1400,11 @@ function addFavouriteToStats(bucket, favourite, starterCount) {
   bucket.seconds += favourite.resultPosition === 2 ? 1 : 0;
   bucket.thirds += favourite.resultPosition === 3 ? 1 : 0;
   bucket.bonusBetCredits += bonusBetCredit > 0 ? 1 : 0;
+
+  if (placePayoutDepth > 0) {
+    bucket.placeEligibleSelections += 1;
+    bucket.placeHits += favourite.resultPosition <= placePayoutDepth ? 1 : 0;
+  }
 }
 
 function finalizeStatsBucket(bucket) {
@@ -1384,6 +1418,9 @@ function finalizeStatsBucket(bucket) {
       : 0,
     bonusBetCreditPercentage: bucket.favouriteSelections
       ? Number(((bucket.bonusBetCredits / bucket.favouriteSelections) * 100).toFixed(2))
+      : 0,
+    placePercentage: bucket.placeEligibleSelections
+      ? Number(((bucket.placeHits / bucket.placeEligibleSelections) * 100).toFixed(2))
       : 0,
     profitLoss: Number((bucket.totalReturn - bucket.totalStake).toFixed(2)),
     profitLossWithBonusCredit: Number(
@@ -1432,7 +1469,7 @@ function getHistoricalScope(stats, scopeKey) {
   return scope;
 }
 
-function addStatsBucketToScope(scope, type, label, favourite, starterCount) {
+function addStatsBucketToScope(scope, type, label, favourite, starterCount, country = null) {
   const bucketMap = type === "starter_count"
     ? scope.byStarterCount
     : type === "distance_band"
@@ -1444,7 +1481,7 @@ function addStatsBucketToScope(scope, type, label, favourite, starterCount) {
           : scope.byPriceBucket;
   const bucket = bucketMap.get(label) ?? createStatsBucket(label);
 
-  addFavouriteToStats(bucket, favourite, starterCount);
+  addFavouriteToStats(bucket, favourite, starterCount, country);
   bucketMap.set(label, bucket);
 }
 
@@ -1650,15 +1687,15 @@ export function createHistoricalStatsFromFixtures(fixtures) {
           );
 
           for (const scope of [globalScope, raceCodeScope, countryRaceCodeScope].filter(Boolean)) {
-            addStatsBucketToScope(scope, "starter_count", starterLabel, favourite, starterCount);
-            addStatsBucketToScope(scope, "price_bucket", priceLabel, favourite, starterCount);
+            addStatsBucketToScope(scope, "starter_count", starterLabel, favourite, starterCount, country);
+            addStatsBucketToScope(scope, "price_bucket", priceLabel, favourite, starterCount, country);
 
             if (distanceBand) {
-              addStatsBucketToScope(scope, "distance_band", distanceBand, favourite, starterCount);
+              addStatsBucketToScope(scope, "distance_band", distanceBand, favourite, starterCount, country);
             }
 
             if (trackConditionGroup) {
-              addStatsBucketToScope(scope, "track_condition", trackConditionGroup, favourite, starterCount);
+              addStatsBucketToScope(scope, "track_condition", trackConditionGroup, favourite, starterCount, country);
             }
 
             if (otherStartersAveragePriceBucket) {
@@ -1668,6 +1705,7 @@ export function createHistoricalStatsFromFixtures(fixtures) {
                 otherStartersAveragePriceBucket.label,
                 favourite,
                 starterCount,
+                country,
               );
             }
           }
@@ -1716,6 +1754,9 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
           ?? row.track_condition_group
           ?? "Unknown",
       ),
+      placeEligibleSelections: Number(row.place_eligible_selections ?? 0),
+      placeHits: Number(row.place_hits ?? 0),
+      placePercentage: Number(row.place_percentage ?? 0),
       profitLoss: Number(row.net_return ?? 0),
       profitLossWithBonusCredit: Number(
         row.net_value_with_bonus_credit
@@ -1845,6 +1886,7 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
   const historicalDelta = impliedWinPercentage !== null && historicalWinPercentage !== null
     ? Number((historicalWinPercentage - impliedWinPercentage).toFixed(2))
     : null;
+  const placePayoutDepth = getPlacePayoutDepth(context.country, activeRunners.length);
 
   let signal = {
     detail: "Fixed-win prices are not currently available, so favourite and price-bucket comparison cannot be calculated yet.",
@@ -1915,6 +1957,7 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
     raceCardId: raceCard.id,
     raceName: raceCard.name,
     raceNumber: raceCard.number,
+    placePayoutDepth,
     signal,
     starters: activeRunners.length,
     status: raceCard.status,
@@ -2017,6 +2060,90 @@ function createBetBackModelSignal(
   return {
     ...baseSignal,
     detail: `${baseSignal.detail} Scope: ${scopeLabel}.`,
+  };
+}
+
+function createPlaceSignal(score, sampleSize, placePayoutDepth, scopeLabel) {
+  if (!placePayoutDepth) {
+    return {
+      detail: "This field size does not currently have a place market under the source place rules.",
+      label: "No place market",
+      tone: "muted",
+    };
+  }
+
+  if (score === null) {
+    return {
+      detail: `Matching historical place data is limited for the ${placePayoutDepth === 3 ? "top-three" : "top-two"} place market. Scope: ${scopeLabel}.`,
+      label: "Limited placing history",
+      tone: "neutral",
+    };
+  }
+
+  if (sampleSize < 10) {
+    return {
+      detail: `Historical place data is available, but the sample size is small. Scope: ${scopeLabel}.`,
+      label: "Small placing sample",
+      tone: "neutral",
+    };
+  }
+
+  if (score >= 70) {
+    return {
+      detail: `Historical place rate is at least 70% for the ${placePayoutDepth === 3 ? "top-three" : "top-two"} place market. Scope: ${scopeLabel}.`,
+      label: "Positive placing signal",
+      tone: "positive",
+    };
+  }
+
+  if (score >= 60) {
+    return {
+      detail: `Historical place rate is at least 60% for the ${placePayoutDepth === 3 ? "top-three" : "top-two"} place market. Scope: ${scopeLabel}.`,
+      label: "Neutral placing signal",
+      tone: "neutral",
+    };
+  }
+
+  return {
+    detail: `Historical place rate is below 60% for the ${placePayoutDepth === 3 ? "top-three" : "top-two"} place market. Scope: ${scopeLabel}.`,
+    label: "Weak placing signal",
+    tone: "caution",
+  };
+}
+
+function createPlacingPrediction(candidate, priceWeight = 0.65, starterWeight = 0.35) {
+  const priceBucket = candidate.historical.priceBucket;
+  const starterBucket = candidate.historical.starterBucket;
+  const score = weightedAverage([
+    {
+      value: Number(priceBucket?.placeEligibleSelections ?? 0) > 0
+        ? priceBucket?.placePercentage
+        : undefined,
+      weight: priceWeight,
+    },
+    {
+      value: Number(starterBucket?.placeEligibleSelections ?? 0) > 0
+        ? starterBucket?.placePercentage
+        : undefined,
+      weight: starterWeight,
+    },
+  ]);
+  const sampleSize = (priceWeight > 0 ? priceBucket?.placeEligibleSelections ?? 0 : 0)
+    + (starterWeight > 0 ? starterBucket?.placeEligibleSelections ?? 0 : 0);
+  const signal = createPlaceSignal(
+    score,
+    sampleSize,
+    candidate.placePayoutDepth,
+    "all countries and all disciplines",
+  );
+
+  return {
+    detail: signal.detail,
+    label: signal.label,
+    placePayoutDepth: candidate.placePayoutDepth,
+    placeScore: score,
+    sampleSize,
+    tone: signal.tone,
   };
 }
 
@@ -2355,6 +2482,7 @@ function deriveBetBackCandidate(raceCard, context, historicalStats) {
     candidate: defaultModel,
     canonicalTrack: context.canonicalTrack,
     country: context.country ?? null,
+    placingCandidate: createPlacingPrediction(recommendation),
     predictionModels,
     sourceTrack: context.track,
   };
@@ -2419,6 +2547,46 @@ function rankBetBackCandidatesByCountryAndDiscipline(candidates, modelKey = DEFA
           rank: index + 1,
         })),
     );
+}
+
+/**
+ * Orders place recommendations from all scanned candidates before win-model trimming.
+ */
+function rankPlacingCandidatesByCountryAndDiscipline(candidates) {
+  const grouped = new Map();
+
+  for (const candidate of candidates) {
+    if (!candidate.placingCandidate || candidate.placingCandidate.placePayoutDepth <= 0) {
+      continue;
+    }
+
+    const country = candidate.country ?? "unknown";
+    const raceCode = candidate.code ?? "unknown";
+    const groupKey = `${country}:${raceCode}`;
+    const matchingCandidates = grouped.get(groupKey) ?? [];
+    matchingCandidates.push(candidate);
+    grouped.set(groupKey, matchingCandidates);
+  }
+
+  return Array.from(grouped.entries()).flatMap(([, groupCandidates]) =>
+    groupCandidates
+      .sort((left, right) => {
+        const rightScore = right.placingCandidate?.placeScore ?? -Infinity;
+        const leftScore = left.placingCandidate?.placeScore ?? -Infinity;
+
+        if (rightScore !== leftScore) {
+          return rightScore - leftScore;
+        }
+
+        return new Date(left.advertisedStart).valueOf()
+          - new Date(right.advertisedStart).valueOf();
+      })
+      .slice(0, BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE)
+      .map((candidate, index) => ({
+        ...candidate,
+        rank: index + 1,
+      })),
+  );
 }
 
 async function fetchBetBackCandidates(source, historicalStats, date) {
@@ -2490,6 +2658,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
   }));
   const rankedCandidates = models.find((model) => model.key === DEFAULT_PREDICTION_MODEL_KEY)?.candidates
     ?? rankBetBackCandidatesByCountryAndDiscipline(candidates);
+  const placingCandidates = rankPlacingCandidatesByCountryAndDiscipline(candidates);
 
   return {
     candidates: rankedCandidates,
@@ -2497,7 +2666,8 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     errors,
     firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
-    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    placingCandidates,
+    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
     scannedRaceCount,

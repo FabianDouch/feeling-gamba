@@ -847,6 +847,9 @@ Key fields:
 - `win_percentage numeric`
 - `second_percentage numeric`
 - `third_percentage numeric`
+- `place_eligible_selections int`
+- `place_hits int`
+- `place_percentage numeric`
 - `total_stake numeric`
 - `total_return numeric`
 - `net_return numeric`

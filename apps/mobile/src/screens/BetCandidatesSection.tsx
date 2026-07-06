@@ -65,8 +65,10 @@ export function BetCandidatesSection({
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
+  const placingCandidatePool = betCandidateScan?.placingCandidates ?? betCandidates;
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
+  const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
   const activeCandidateGroup = candidateGroups.find((group) => group.code === selectedDisciplineCode)
     ?? candidateGroups[0]
     ?? null;
@@ -346,6 +348,8 @@ export function BetCandidatesSection({
             recommendation={multiBetRecommendation}
           />
 
+          <PlacingRecommendationsPanel recommendations={placingRecommendations} />
+
           <View style={styles.disciplineTabs}>
             {candidateGroups.map((group) => {
               const isActive = group.code === activeCandidateGroup?.code;
@@ -481,6 +485,63 @@ type MultiBetRecommendationPanelProps = {
   recommendation: MultiBetRecommendation | null;
 };
 
+type PlacingRecommendationsPanelProps = {
+  recommendations: BetCandidate[];
+};
+
+/**
+ * Shows the strongest current favourite place signals as a separate prediction family.
+ */
+function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendationsPanelProps) {
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>Placing recommendations</Text>
+          <Text style={styles.multiContext}>
+            Place means paid placings only: top 2 in smaller place fields, top 3 in larger fields.
+          </Text>
+        </View>
+      </View>
+
+      {recommendations.length ? (
+        <View style={styles.multiLegList}>
+          {recommendations.map((race, index) => {
+            const placing = race.placingCandidate;
+
+            return (
+              <View key={`place-${race.raceCardId}`} style={styles.multiLeg}>
+                <View style={styles.multiLegIndex}>
+                  <Text style={styles.multiLegIndexText}>{index + 1}</Text>
+                </View>
+                <View style={styles.multiLegTextBlock}>
+                  <Text style={styles.multiLegTitle}>
+                    R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                  </Text>
+                  <Text style={styles.multiLegMeta}>
+                    {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
+                    {race.starters} starters · pays top {placing?.placePayoutDepth ?? race.placePayoutDepth ?? "-"}
+                  </Text>
+                  <Text style={styles.multiLegMeta}>
+                    {formatPercentage(placing?.placeScore ?? null)} place score · {placing?.sampleSize ?? 0} place-eligible samples
+                  </Text>
+                </View>
+                <View style={[styles.signalBadge, styles[`signal_${placing?.tone ?? "neutral"}`]]}>
+                  <Text style={styles.signalText}>{formatPlacingSignalLabel(placing?.tone)}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <Text style={styles.multiFooter}>
+          No positive or neutral place signals are available in the current snapshot yet.
+        </Text>
+      )}
+    </View>
+  );
+}
+
 /**
  * Shows the derived same-model multi suggestion without storing or sizing a wager.
  */
@@ -557,6 +618,30 @@ function MultiBetRecommendationPanel({
       )}
     </View>
   );
+}
+
+/**
+ * Orders current placing recommendations by place score, ignoring races with no place market.
+ */
+function buildPlacingRecommendations(candidates: BetCandidate[]) {
+  return candidates
+    .filter((candidate) =>
+      candidate.placingCandidate
+      && candidate.placingCandidate.placePayoutDepth > 0
+      && Number.isFinite(candidate.placingCandidate.placeScore)
+      && ["neutral", "positive"].includes(candidate.placingCandidate.tone))
+    .sort((left, right) => {
+      const rightScore = right.placingCandidate?.placeScore ?? -Infinity;
+      const leftScore = left.placingCandidate?.placeScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .slice(0, 8);
 }
 
 /**
@@ -761,6 +846,22 @@ function formatCandidatePillLabel(label: string, modelKey: string) {
   }
 
   return `${baseLabel} ${getCandidatePillMetricLabel(modelKey)}`;
+}
+
+function formatPlacingSignalLabel(tone: NonNullable<BetCandidate["placingCandidate"]>["tone"] | undefined) {
+  if (tone === "positive") {
+    return "Positive place";
+  }
+
+  if (tone === "neutral") {
+    return "Neutral place";
+  }
+
+  if (tone === "caution") {
+    return "Weak place";
+  }
+
+  return "Place";
 }
 
 /**

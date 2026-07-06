@@ -93,6 +93,9 @@ type PredictionSummaryMetrics = {
   missing_runner_count: number;
   net_return: NullableNumber;
   pending_count: number;
+  place_eligible_count?: number;
+  place_percentage?: NullableNumber;
+  places?: number;
   prediction_model: string | null;
   prediction_count: number;
   race_code: string | null;
@@ -289,6 +292,7 @@ export type PredictionsData = {
   multiBetHistory: MultiBetRecommendationHistoryItem[];
   multiBetPerformanceStats: FavouriteStat[];
   multiBetSummaryStats: FavouriteStat[];
+  placingPerformanceStats: FavouriteStat[];
   summaryStats: FavouriteStat[];
   totalMultiBetHistoryCount: number;
   totalHistoryCount: number;
@@ -487,6 +491,9 @@ export async function fetchPredictionStats(
       : [],
     multiBetSummaryStats: multiBetSummary && multiBetSummary.prediction_count > 0
       ? mapMultiBetSummaryStats(multiBetSummary)
+      : [],
+    placingPerformanceStats: performanceSummary && Number(performanceSummary.place_eligible_count ?? 0) > 0
+      ? mapPlacingSummaryStats(performanceSummary)
       : [],
     summaryStats: performanceSummary && performanceSummary.prediction_count > 0
       ? mapSummaryStats(performanceSummary)
@@ -911,6 +918,36 @@ function mapSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] {
       value: formatCurrency(
         numeric(row.total_value_with_bonus_credit) - numeric(row.total_stake),
       ),
+    },
+    {
+      detail: `${row.missing_result_count} missing results · ${row.missing_runner_count} missing runners`,
+      label: "Open issues",
+      value: String(row.missing_result_count + row.missing_runner_count),
+    },
+  ];
+}
+
+function mapPlacingSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.settled_count} settled · ${row.pending_count} pending`,
+      label: "Predictions",
+      value: String(row.prediction_count),
+    },
+    {
+      detail: `${row.places ?? 0} places from ${row.place_eligible_count ?? 0} place-eligible settled`,
+      label: "Place rate",
+      value: formatPercentage(numeric(row.place_percentage ?? 0)),
+    },
+    {
+      detail: `${row.wins} wins · ${row.seconds} seconds · ${row.thirds} thirds`,
+      label: "Position split",
+      value: `${row.wins}/${row.seconds}/${row.thirds}`,
+    },
+    {
+      detail: "AU/NZ: 5-7 starters pays top 2, 8+ pays top 3. HK: 4-6 pays top 2, 7+ pays top 3.",
+      label: "Place rule",
+      value: String(row.place_eligible_count ?? 0),
     },
     {
       detail: `${row.missing_result_count} missing results · ${row.missing_runner_count} missing runners`,

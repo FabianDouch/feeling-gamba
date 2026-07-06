@@ -301,6 +301,11 @@ Main content:
   if at least three active-model Positive signals exist, show a Positive multi;
   otherwise show a Neutral multi from active-model Positive and Neutral signals
   when at least three priced legs are available.
+- Placing recommendations panel derived from the current candidate snapshot,
+  using historical place percentages from stored insight aggregates. A place
+  counts as top 2 in smaller place fields and top 3 in larger fields: AU/NZ
+  uses 5-7 starters for top 2 and 8+ for top 3; HK uses 4-6 starters for top 2
+  and 7+ for top 3. Smaller fields with no place market are excluded.
 - Bet candidate disciplines should be shown as tabs for horse, harness, and
   greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
@@ -375,6 +380,9 @@ Main content:
   for the selected prediction model across all tracked dates, using cash-only
   multi-bet prediction count, settled/pending count, win rate, cash average, cash net,
   and open-issue metrics.
+- Placing prediction performance in Stored model performance for the selected
+  model, using place-eligible settled rows and country-aware starter-count place
+  rules instead of raw 1st/2nd/3rd totals.
 - Multi bet date-range breakdown for the selected prediction model using the
   same cash-only metrics and the active Prediction history filters.
 - Multi bet recommendation history rows showing recommendation type, leg count,

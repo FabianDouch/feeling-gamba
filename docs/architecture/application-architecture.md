@@ -439,7 +439,10 @@ recommendation ordering or status pills. The scan keeps at most the five best
 candidates per country/discipline group so HK candidates are not hidden behind
 larger NZ/AUS race volumes. The scan excludes source races marked abandoned or
 cancelled by the racing-day listing or race-card status before ranking
-candidates or building multi-bet recommendations. It is a statistical signal
+candidates or building multi-bet recommendations. It also attaches a separate
+placing signal to each current candidate from stored place-rate insight
+aggregates, using country-aware place-market depth: AU/NZ 5-7 starters pays top
+2 and 8+ pays top 3; HK 4-6 pays top 2 and 7+ pays top 3. It is a statistical signal
 only, with no stake sizing, bankroll guidance, automated wagering, or invented
 favourites. Stored prediction rows must be created only before the first
 eligible race in the day's all-domestic NZ/AUS/HK prediction coverage has

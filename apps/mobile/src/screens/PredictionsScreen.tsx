@@ -28,6 +28,7 @@ const emptyPredictions: PredictionsData = {
   multiBetHistory: [],
   multiBetPerformanceStats: [],
   multiBetSummaryStats: [],
+  placingPerformanceStats: [],
   summaryStats: [],
   totalMultiBetHistoryCount: 0,
   totalHistoryCount: 0,
@@ -85,7 +86,8 @@ export function PredictionsScreen() {
     || predictions.history.length > 0
     || predictions.multiBetHistory.length > 0
     || predictions.multiBetPerformanceStats.length > 0
-    || predictions.multiBetSummaryStats.length > 0;
+    || predictions.multiBetSummaryStats.length > 0
+    || predictions.placingPerformanceStats.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -326,6 +328,21 @@ export function PredictionsScreen() {
 
       {!errorMessage && !isLoadingMetadata && !isLoadingPredictions ? (
         <>
+          <Text style={styles.historyBreakdownHeading}>Placing prediction performance</Text>
+          {predictions.placingPerformanceStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.placingPerformanceStats.map((stat) => (
+                <View key={`placing-performance-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No place-eligible settled predictions are available for this model yet." />
+          )}
+
           <Text style={styles.historyBreakdownHeading}>Multi-bet prediction performance</Text>
           {predictions.multiBetPerformanceStats.length ? (
             <View style={styles.statsRow}>

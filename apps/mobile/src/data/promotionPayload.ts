@@ -9,6 +9,9 @@ export type HistoricalBucket = {
   label: string;
   profitLoss: number;
   profitLossWithBonusCredit: number;
+  placeEligibleSelections?: number;
+  placeHits?: number;
+  placePercentage?: number;
   secondPercentage: number;
   seconds: number;
   thirdPercentage: number;
@@ -51,6 +54,7 @@ export type RecommendationRace = {
   raceCardId: string;
   raceName: string;
   raceNumber: number;
+  placePayoutDepth?: number;
   signal: {
     detail: string;
     label: string;
@@ -104,6 +108,14 @@ export type BetCandidate = RecommendationRace & {
   };
   canonicalTrack: string;
   country: string | null;
+  placingCandidate?: {
+    detail: string;
+    label: string;
+    placePayoutDepth: number;
+    placeScore: number | null;
+    sampleSize: number;
+    tone: "caution" | "muted" | "neutral" | "positive";
+  };
   predictionModels?: Record<string, BetCandidate["candidate"]>;
   rank: number;
   sourceTrack: string;
@@ -124,6 +136,7 @@ export type RecommendationPayload = {
     models?: BetCandidateModelRun[];
     note: string;
     firstEligibleRaceStart?: string | null;
+    placingCandidates?: BetCandidate[];
     provider: string;
     scannedMeetings: number;
     scannedRaceCount: number;

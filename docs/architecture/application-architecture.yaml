@@ -669,6 +669,7 @@ flows:
       - Predictions tags model tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
       - Predictions presents current Bet candidates as a separate section from Stored model performance while keeping both scoped to the selected prediction model.
       - Predictions excludes races marked abandoned or cancelled from current candidate snapshots and tracked multi-bet recommendation creation.
+      - Predictions attaches current placing recommendations from stored place-rate insight aggregates, using AU/NZ 5-7 starters for top 2 and 8+ for top 3, and HK 4-6 starters for top 2 and 7+ for top 3.
       - Predictions defaults and resets the history date range to yesterday in Pacific/Auckland time.
       - Predictions calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
       - Predictions calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.

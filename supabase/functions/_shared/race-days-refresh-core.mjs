@@ -1156,6 +1156,8 @@ function createAggregateBucket(scope) {
     missingFavouriteCount: 0,
     missingPriceCount: 0,
     missingResultCount: 0,
+    placeEligibleSelections: 0,
+    placeHits: 0,
     raceKeys: new Set(),
     seconds: 0,
     thirds: 0,
@@ -1165,6 +1167,31 @@ function createAggregateBucket(scope) {
     totalValueWithBonusCredit: 0,
     wins: 0,
   };
+}
+
+/**
+ * Returns how many finishing positions pay a place dividend for the source field size.
+ */
+function getPlacePayoutDepth(country, starterCount) {
+  const starters = Number(starterCount);
+
+  if (!Number.isFinite(starters)) {
+    return 0;
+  }
+
+  if (country === "HK") {
+    if (starters >= 7) {
+      return 3;
+    }
+
+    return starters >= 4 ? 2 : 0;
+  }
+
+  if (starters >= 8) {
+    return 3;
+  }
+
+  return starters >= 5 ? 2 : 0;
 }
 
 function getPriceBucketStart(price) {
@@ -1376,6 +1403,13 @@ function addFavouriteToAggregate(bucket, race) {
   bucket.seconds += race.favouriteResultPosition === 2 ? 1 : 0;
   bucket.thirds += race.favouriteResultPosition === 3 ? 1 : 0;
   bucket.bonusCreditHits += (race.favouriteBonusCredit ?? 0) > 0 ? 1 : 0;
+
+  const placePayoutDepth = getPlacePayoutDepth(race.country, race.starterCount);
+
+  if (placePayoutDepth > 0) {
+    bucket.placeEligibleSelections += 1;
+    bucket.placeHits += race.favouriteResultPosition <= placePayoutDepth ? 1 : 0;
+  }
 }
 
 function percentage(numerator, denominator) {
@@ -1477,6 +1511,9 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       other_starters_average_price_bucket_end: bucket.otherStartersAveragePriceBucketEnd ?? null,
       other_starters_average_price_bucket_label: bucket.otherStartersAveragePriceBucketLabel ?? null,
       other_starters_average_price_bucket_start: bucket.otherStartersAveragePriceBucketStart ?? null,
+      place_eligible_selections: bucket.placeEligibleSelections,
+      place_hits: bucket.placeHits,
+      place_percentage: percentage(bucket.placeHits, bucket.placeEligibleSelections),
       price_bucket_end: bucket.priceBucketEnd ?? null,
       price_bucket_label: bucket.priceBucketLabel ?? null,
       price_bucket_start: bucket.priceBucketStart ?? null,
