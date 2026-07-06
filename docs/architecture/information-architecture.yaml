@@ -224,6 +224,8 @@ navigation:
         priority: required
         audience: app_user
         purpose:
+          - Show a shared prediction model selector and method summary before model-scoped content.
+          - Keep current Bet candidates visually separate from Stored model performance so today's snapshot is not confused with historical outcomes.
           - Show current ranked Betcha-derived bet candidates from the latest prediction snapshot.
           - Filter Stored model performance by all, horse, harness, or greyhound; all ranks, top 1, top 2, or top 3; and all signals, positive only, or neutral or better.
           - Treat neutral or better as Positive candidate or Neutral candidate only, excluding Small sample and Limited history.
@@ -231,6 +233,9 @@ navigation:
           - Show candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
           - Show a compact signal guide above candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
           - Label candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
+          - Show a Multi bet recommendation panel derived from the active model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
+          - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
+          - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - Track candidate predictions made by independent current prediction scans.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
@@ -242,20 +247,31 @@ navigation:
           - Keep median other-starter fixed-win price as a planned follow-up field-shape signal.
           - Order current bet candidates by the active prediction variation's model-specific cashAverageScore; cash-plus-bonus remains visible as supporting context but must not drive recommendations.
           - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
-          - Show notional $1 return metrics by racing discipline, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
-          - Show recent stored prediction history with race, runner, price, status, and outcome value.
+          - Exclude source races marked abandoned or cancelled from current Bet candidates and Multi bet recommendations.
+          - Render an existing closed-window current prediction snapshot immediately instead of attempting a stale-cache refresh that cannot replace the locked pre-race snapshot.
+          - Show discipline prediction performance by racing code, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
+          - Show recent stored prediction history with race, runner, price, status, cash returns, and bonus-bet credits.
+          - Style settled Prediction history outcome badges so cash wins are positive and 2nd/3rd bonus-credit outcomes are yellow bonus-bet labels, not generic value labels.
+          - Order Prediction history rows by outcome before time: wins first, then 2nd, then 3rd, then other settled losses, then unresolved rows.
           - Filter only the prediction history list by date range, country, discipline, and racecourse.
+          - Default and reset the Prediction history date range to yesterday in Pacific/Auckland time, even when no rows exist for that date yet.
+          - Show a date range breakdown for the selected Prediction history filters with prediction count, settled/pending count, win rate, cash average, cash net, cash-plus-bonus average, cash-plus-bonus net, and open issues.
+          - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
+          - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
+          - Show tracked Multi bet recommendation history with recommendation type, leg count, combined fixed-win price, average cash score, cash return, and per-leg Won/Lost/Pending/Missing outcomes.
           - Keep prediction tracking statistical only, with no stake sizing or wagering action.
         components:
           - prediction_variation_tabs
           - prediction_variation_method_summary
-          - stored_model_performance_heading
-          - stored_model_performance_filters
-          - prediction_summary_stats
+          - current_bet_candidates_section
           - current_bet_candidates
           - bet_candidate_discipline_tabs
           - bet_candidate_estimated_cash_return_per_dollar_metric
           - bet_candidate_other_starters_average_fixed_win_metric
+          - multi_bet_recommendation_panel
+          - stored_model_performance_heading
+          - stored_model_performance_filters
+          - prediction_summary_stats
           - bet_candidate_refresh_control
           - bet_candidate_track_control
           - prediction_return_by_discipline
@@ -264,6 +280,7 @@ navigation:
           - prediction_history_country_filter
           - prediction_history_discipline_filter
           - prediction_history_racecourse_filter
+          - prediction_history_date_range_breakdown
           - pending_prediction_count
           - missing_prediction_outcome_count
           - supabase_prediction_aggregate_status
@@ -445,12 +462,34 @@ content_rules:
     model-filtered Supabase prediction aggregates for performance metrics, and
     model-filtered promotion_predictions only for server-side filtered itemised
     history display.
+  - Predictions shows the current Multi bet recommendation from the active
+    model's current candidate payload. The server stores the same pre-race
+    recommendation for cash-only history and leg-level settlement, without
+    bonus-bet value.
+  - The active prediction model tab must drive every model-scoped Predictions
+    section, including Stored model performance, current candidates, current
+    multi, history metadata, history summaries, history rows, multi
+    performance, and multi history.
   - Prediction history country, discipline, and racecourse filter options must
     be scoped to the selected prediction model so unavailable country/model
     combinations are not shown as selectable filters.
+  - Prediction history date range breakdowns must be model-scoped and filter
+    scoped to the selected date range, country, discipline, and racecourse.
+    They must be calculated by a server-side aggregate over all matching rows,
+    not from the paginated visible history list.
+  - Prediction history row ordering must happen server-side before pagination,
+    ordered by wins, 2nd, 3rd, other settled losses, pending rows, then missing
+    or open issue rows.
+  - Prediction history defaults and resets must use yesterday's source date in
+    Pacific/Auckland time.
   - Prediction refreshes must not create or store new prediction rows after the
     first eligible race in the day's all-domestic NZ/AUS/HK prediction coverage
     has started.
+  - Prediction refreshes must exclude abandoned or cancelled source races before
+    ranking current candidates, building current multis, or writing tracked
+    multi-bet recommendations.
+  - Closed-window current prediction snapshots should render from cache without
+    an app-triggered stale-refresh request.
   - Predictions must show other-starters average fixed-win price as a
     statistical field-shape signal, with $70.00+ other-starter prices excluded
     from that average and counted separately.

@@ -1741,6 +1741,188 @@ export async function reconcilePromotionPredictionOutcomesFromSupabase({ batchSi
   return summary;
 }
 
+/**
+ * Resolves one tracked multi leg against the stored race result.
+ */
+function createMultiBetLegOutcomePatch(leg, race, runner, result) {
+  if (!race) {
+    if (shouldKeepPredictionPendingWithoutRace({ advertised_start: leg.advertised_start })) {
+      return {
+        outcome_status: "pending",
+        outcome_updated_at: new Date().toISOString(),
+      };
+    }
+
+    return {
+      outcome_status: "race_not_found",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  if (!runner) {
+    return {
+      outcome_race_id: race.id,
+      outcome_status: "missing_runner",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  if (!result || result.finish_position === null || result.finish_position === undefined) {
+    return {
+      outcome_race_id: race.id,
+      outcome_runner_id: runner.id,
+      outcome_status: "missing_result",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  const resultPosition = Number(result.finish_position);
+  const winReturn = resultPosition === 1 ? Number(leg.predicted_fixed_win_price ?? 0) : 0;
+
+  return {
+    outcome_race_id: race.id,
+    outcome_result_position: resultPosition,
+    outcome_runner_id: runner.id,
+    outcome_status: "settled",
+    outcome_updated_at: new Date().toISOString(),
+    outcome_win_return: roundMoney(winReturn),
+  };
+}
+
+/**
+ * Aggregates leg outcomes into a cash-only tracked multi result.
+ */
+function createMultiBetRecommendationOutcomePatch(recommendation, legPatches) {
+  const settledLegCount = legPatches.filter((patch) => patch.outcome_status === "settled").length;
+  const winningLegCount = legPatches.filter((patch) =>
+    patch.outcome_status === "settled" && Number(patch.outcome_result_position) === 1).length;
+  const missingRunnerCount = legPatches.filter((patch) => patch.outcome_status === "missing_runner").length;
+  const missingResultCount = legPatches.filter((patch) =>
+    ["missing_result", "race_not_found"].includes(patch.outcome_status)).length;
+  const hasPendingLeg = legPatches.some((patch) => patch.outcome_status === "pending");
+  const legCount = Number(recommendation.leg_count ?? legPatches.length);
+  const outcomeStatus = hasPendingLeg
+    ? "pending"
+    : missingRunnerCount > 0
+      ? "missing_runner"
+      : missingResultCount > 0
+        ? "missing_result"
+        : "settled";
+  const winReturn = outcomeStatus === "settled" && winningLegCount === legCount
+    ? Number(recommendation.combined_fixed_win_price ?? 0)
+    : 0;
+
+  return {
+    outcome_missing_result_count: missingResultCount,
+    outcome_missing_runner_count: missingRunnerCount,
+    outcome_settled_leg_count: settledLegCount,
+    outcome_status: outcomeStatus,
+    outcome_updated_at: new Date().toISOString(),
+    outcome_win_return: roundMoney(winReturn),
+    outcome_winning_leg_count: winningLegCount,
+  };
+}
+
+/**
+ * Matches stored multi-bet recommendation legs to refreshed race results and stores cash-only outcomes.
+ */
+export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, config }) {
+  const supabase = createSupabaseRestClient(config, batchSize);
+  const recommendations = await supabase.selectAll("multi_bet_recommendations", {
+    order: "source_date.asc,predicted_at.asc",
+    outcome_status: "neq.settled",
+    source: "eq.betcha",
+  }, [
+    "id",
+    "combined_fixed_win_price",
+    "leg_count",
+  ].join(","));
+
+  if (!recommendations.length) {
+    return {
+      checked: 0,
+      missingResults: 0,
+      missingRunners: 0,
+      pending: 0,
+      settled: 0,
+    };
+  }
+
+  const legs = await selectRowsByIn(supabase, "multi_bet_recommendation_legs", "recommendation_id", recommendations.map((row) => row.id), [
+    "id",
+    "advertised_start",
+    "recommendation_id",
+    "source_race_card_id",
+    "predicted_runner_number",
+    "predicted_fixed_win_price",
+  ].join(","));
+  const races = await selectRowsByIn(supabase, "races", "source_race_card_id", legs.map((row) => row.source_race_card_id), [
+    "id",
+    "source_race_card_id",
+  ].join(","));
+  const raceBySourceRaceCardId = new Map(races.map((race) => [race.source_race_card_id, race]));
+  const runners = await selectRowsByIn(supabase, "runners", "race_id", races.map((race) => race.id), [
+    "id",
+    "race_id",
+    "runner_number",
+  ].join(","));
+  const runnerByRaceAndNumber = new Map(runners.map((runner) => [
+    `${runner.race_id}:${runner.runner_number}`,
+    runner,
+  ]));
+  const results = await selectRowsByIn(supabase, "race_results", "runner_id", runners.map((runner) => runner.id), [
+    "runner_id",
+    "finish_position",
+  ].join(","));
+  const resultByRunnerId = new Map(results.map((result) => [result.runner_id, result]));
+  const legsByRecommendationId = new Map();
+  const summary = {
+    checked: recommendations.length,
+    missingResults: 0,
+    missingRunners: 0,
+    pending: 0,
+    settled: 0,
+  };
+
+  for (const leg of legs) {
+    const matchingLegs = legsByRecommendationId.get(leg.recommendation_id) ?? [];
+    matchingLegs.push(leg);
+    legsByRecommendationId.set(leg.recommendation_id, matchingLegs);
+  }
+
+  for (const recommendation of recommendations) {
+    const recommendationLegs = legsByRecommendationId.get(recommendation.id) ?? [];
+    const legPatches = [];
+
+    for (const leg of recommendationLegs) {
+      const race = raceBySourceRaceCardId.get(leg.source_race_card_id) ?? null;
+      const runner = race
+        ? runnerByRaceAndNumber.get(`${race.id}:${leg.predicted_runner_number}`) ?? null
+        : null;
+      const result = runner ? resultByRunnerId.get(runner.id) ?? null : null;
+      const patch = createMultiBetLegOutcomePatch(leg, race, runner, result);
+
+      await supabase.patch("multi_bet_recommendation_legs", leg.id, patch);
+      legPatches.push(patch);
+    }
+
+    const parentPatch = createMultiBetRecommendationOutcomePatch(recommendation, legPatches);
+    await supabase.patch("multi_bet_recommendations", recommendation.id, parentPatch);
+
+    if (parentPatch.outcome_status === "settled") {
+      summary.settled += 1;
+    } else if (parentPatch.outcome_status === "pending") {
+      summary.pending += 1;
+    } else if (parentPatch.outcome_status === "missing_runner") {
+      summary.missingRunners += 1;
+    } else {
+      summary.missingResults += 1;
+    }
+  }
+
+  return summary;
+}
+
 function createUserRaceBetOutcomePatch(bet, race, runner, result) {
   const starterCount = race?.starter_count ?? bet.selected_starter_count ?? null;
 
@@ -2128,6 +2310,12 @@ export async function runRaceDaysAndInsightsRefresh({
           config,
         })
       : null;
+    const multiBetRecommendationOutcomeWrite = reconcileOutcomes
+      ? await reconcileMultiBetRecommendationOutcomesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
     const userRaceBetOutcomeWrite = reconcileOutcomes
       ? await reconcileUserRaceBetOutcomesFromSupabase({
           batchSize,
@@ -2145,6 +2333,7 @@ export async function runRaceDaysAndInsightsRefresh({
       errors: fetched.errors,
       insightWrite,
       lockExpiresAt,
+      multiBetRecommendationOutcomeWrite,
       predictionAggregateWrite,
       predictionOutcomeWrite,
       raceWrite,

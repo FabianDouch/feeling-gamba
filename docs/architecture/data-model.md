@@ -586,6 +586,94 @@ Rules:
   continue using model-scoped `prediction_aggregates` for performance metrics.
 - Itemised history reads may filter by `source_date`, `country`, `race_code`,
   and `course_slug`.
+- The Predictions tab may call `get_prediction_history_summary` to summarise
+  the full selected history date range because the visible history list is
+  paginated and must not be used as an aggregate denominator.
+- The Predictions tab reads itemised history through
+  `get_prediction_history_entries` so ordering is applied before pagination.
+
+### `multi_bet_recommendations`
+
+Stores one tracked multi bet recommendation per prediction model/source date
+when the pre-race candidate snapshot has enough eligible legs. This is a
+cash-only statistical tracking record, not a staking recommendation.
+
+Key fields:
+
+- `id uuid primary key`
+- `prediction_model text`
+- `source text`
+- `source_date date`
+- `predicted_at timestamptz`
+- `prediction_signature text`
+- `recommendation_type text` - `neutral` or `positive`
+- `leg_count int`
+- `combined_fixed_win_price numeric`
+- `average_cash_score numeric`
+- `outcome_status text`
+- `outcome_win_return numeric`
+- `outcome_settled_leg_count int`
+- `outcome_winning_leg_count int`
+- `outcome_missing_result_count int`
+- `outcome_missing_runner_count int`
+- `raw jsonb`
+
+Rules:
+
+- Keep one current row per `(prediction_model, source, source_date,
+  recommendation_type)`, while the refresh worker removes stale same-day
+  recommendation types for the same model when a later pre-race refresh changes
+  the active recommendation.
+- Prefer a `positive` multi when at least three Positive priced legs exist for
+  the model; otherwise store a `neutral` multi from Positive-or-Neutral priced
+  legs.
+- Store three to five legs, ordered by the model-specific cash score and then
+  advertised start.
+- Settle as a cash win only when every leg wins; otherwise a fully resulted
+  multi settles as a cash loss.
+- Do not store or display bonus-bet value for multi recommendations.
+- Public RLS read access is allowed because rows contain app-facing prediction
+  facts and outcomes only.
+
+### `multi_bet_recommendation_legs`
+
+Stores the leg snapshot and settled outcome for each tracked multi bet
+recommendation.
+
+Key fields:
+
+- `id uuid primary key`
+- `recommendation_id uuid references multi_bet_recommendations(id)`
+- `leg_index int`
+- `source_race_card_id text`
+- `country text`
+- `race_code text`
+- `course_name text`
+- `course_slug text`
+- `race_number int`
+- `race_name text`
+- `advertised_start timestamptz`
+- `predicted_runner_number int`
+- `predicted_runner_name text`
+- `predicted_fixed_win_price numeric`
+- `cash_average_score numeric`
+- `signal_label text`
+- `signal_tone text`
+- `outcome_status text`
+- `outcome_result_position int`
+- `outcome_win_return numeric`
+- `raw jsonb`
+
+Rules:
+
+- Refresh replaces the leg snapshot whenever the parent recommendation
+  signature changes before the first eligible race starts.
+- Reconcile outcomes by matching `source_race_card_id` to `races` and the
+  predicted runner number to `runners` / `race_results`.
+- Keep no-race matches pending during the same 24-hour grace window used by
+  single-runner predictions.
+- Prediction history should show leg-level Won/Lost/Pending/Missing labels so a
+  multi loss can be inspected without recalculating from raw rows in the app.
 
 ### `promotion_recommendations`
 
@@ -868,6 +956,110 @@ Rules:
   stake, cash, bonus, net, ROI, and average-return calculations.
 - Keep prediction, pending, missing-result, and missing-runner counts visible for
   the selected filter set.
+
+### `get_prediction_history_summary(...)`
+
+PostgREST RPC used by the Predictions tab `Prediction history` date-range
+breakdown.
+
+Parameters:
+
+- `p_prediction_model text`
+- `p_from_date date default null`
+- `p_to_date date default null`
+- `p_country text default null`
+- `p_race_code text default null`
+- `p_course_slug text default null`
+
+Rules:
+
+- Aggregate directly from all matching `promotion_predictions` rows for the
+  selected prediction model and history filters.
+- Use the same output metric shape as `get_prediction_performance_summary` so
+  the app can format the date-range breakdown consistently with the top summary
+  cards.
+- Use settled predictions as the return denominator.
+- Exclude pending, missing-result, missing-runner, and race-not-found rows from
+  stake, cash, bonus, net, ROI, and average-return calculations.
+- Keep prediction, pending, missing-result, and missing-runner counts visible for
+  the selected history date range.
+
+### `get_prediction_history_entries(...)`
+
+PostgREST RPC used by the Predictions tab itemised history list.
+
+Parameters:
+
+- `p_prediction_model text`
+- `p_from_date date default null`
+- `p_to_date date default null`
+- `p_country text default null`
+- `p_race_code text default null`
+- `p_course_slug text default null`
+- `p_limit int default 50`
+- `p_offset int default 0`
+
+Rules:
+
+- Return filtered `promotion_predictions` rows plus a `total_count` value for
+  the full matching filter set.
+- Apply history ordering before pagination: wins first, then 2nd, then 3rd,
+  then other settled losses, then pending rows, then missing/open issue rows.
+- Within each outcome group, show the latest advertised starts first.
+- Keep the RPC model-scoped so prediction variation tabs do not mix rows.
+
+### `get_multi_bet_recommendation_summary(...)`
+
+PostgREST RPC used by the Predictions tab to summarise tracked multi bet
+recommendations for the selected history filters.
+
+Parameters:
+
+- `p_prediction_model text`
+- `p_from_date date default null`
+- `p_to_date date default null`
+- `p_country text default null`
+- `p_race_code text default null`
+- `p_course_slug text default null`
+- `p_recommendation_type text default null` - `neutral`, `positive`, or null
+  for all tracked multi types.
+
+Rules:
+
+- Aggregate directly from `multi_bet_recommendations`.
+- Use settled multi recommendations as the `$1` return denominator.
+- A settled multi wins only when every stored leg wins.
+- Return cash-only metrics: count, settled, pending, win rate, cash average,
+  cash net, ROI, and open issues.
+- Do not include bonus-bet value in multi recommendation summaries.
+- Country, discipline, and racecourse filters match recommendations that
+  include at least one matching leg because a multi can contain mixed legs.
+
+### `get_multi_bet_recommendation_entries(...)`
+
+PostgREST RPC used by the Predictions tab to show tracked multi bet
+recommendation outcomes and their legs.
+
+Parameters:
+
+- `p_prediction_model text`
+- `p_from_date date default null`
+- `p_to_date date default null`
+- `p_country text default null`
+- `p_race_code text default null`
+- `p_course_slug text default null`
+- `p_recommendation_type text default null`
+- `p_limit int default 50`
+- `p_offset int default 0`
+
+Rules:
+
+- Return one row per tracked multi recommendation plus ordered leg JSON.
+- Include leg-level outcome status and result position so the app can show
+  which legs won or lost without recalculating from raw prediction rows.
+- Apply ordering before pagination: cash-winning multis first, then settled
+  losses, then pending rows, then missing/open issue rows.
+- Keep the RPC model-scoped so prediction variation tabs do not mix rows.
 
 ### Legacy Named Insight Views
 

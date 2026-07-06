@@ -35,6 +35,15 @@ type BetCandidatesSectionProps = {
   predictionModelKey?: PredictionModelKey;
 };
 
+type MultiBetRecommendation = {
+  combinedFixedWinPrice: number | null;
+  legs: BetCandidate[];
+  tone: "neutral" | "positive";
+};
+
+const MULTI_BET_MAX_LEGS = 5;
+const MULTI_BET_MIN_LEGS = 3;
+
 /**
  * Shows current source-backed candidate races beside the stored prediction outcomes.
  */
@@ -57,6 +66,7 @@ export function BetCandidatesSection({
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
+  const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const activeCandidateGroup = candidateGroups.find((group) => group.code === selectedDisciplineCode)
     ?? candidateGroups[0]
     ?? null;
@@ -115,6 +125,7 @@ export function BetCandidatesSection({
           latestSnapshot?.sourceTable !== "current_promotion_snapshots"
           && latestSnapshot
           && isSnapshotStale(latestSnapshot.generatedAt)
+          && !isPredictionWindowClosedNow(latestSnapshot.payload.predictionWindow)
           && hasPredictionRefreshEndpoint
         ) {
           setIsRequestingRefresh(true);
@@ -330,6 +341,11 @@ export function BetCandidatesSection({
         <StateMessage text={getUnavailableMessage(status)} />
       ) : betCandidates.length ? (
         <>
+          <MultiBetRecommendationPanel
+            modelKey={selectedModelKey}
+            recommendation={multiBetRecommendation}
+          />
+
           <View style={styles.disciplineTabs}>
             {candidateGroups.map((group) => {
               const isActive = group.code === activeCandidateGroup?.code;
@@ -460,6 +476,185 @@ export function BetCandidatesSection({
   );
 }
 
+type MultiBetRecommendationPanelProps = {
+  modelKey: string;
+  recommendation: MultiBetRecommendation | null;
+};
+
+/**
+ * Shows the derived same-model multi suggestion without storing or sizing a wager.
+ */
+function MultiBetRecommendationPanel({
+  modelKey,
+  recommendation,
+}: MultiBetRecommendationPanelProps) {
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>Multi bet recommendation</Text>
+          <Text style={styles.multiContext}>
+            {recommendation
+              ? `${recommendation.legs.length} ${recommendation.tone} signal legs from the active model`
+              : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better legs from the active model`}
+          </Text>
+        </View>
+        {recommendation ? (
+          <View style={[styles.signalBadge, styles[`signal_${recommendation.tone}`]]}>
+            <Text style={styles.signalText}>
+              {recommendation.tone === "positive" ? "Positive multi" : "Neutral multi"}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {recommendation ? (
+        <>
+          <View style={styles.multiMetricRow}>
+            <Metric
+              label="Combined fixed win"
+              value={formatCombinedFixedWinPrice(recommendation.combinedFixedWinPrice)}
+            />
+            <Metric
+              label="Avg cash score"
+              value={formatCurrency(getAverageCandidateScore(recommendation.legs, modelKey))}
+            />
+          </View>
+          <View style={styles.multiLegList}>
+            {recommendation.legs.map((race, index) => {
+              const signal = getCandidateSignal(race, modelKey);
+
+              return (
+                <View key={race.raceCardId} style={styles.multiLeg}>
+                  <View style={styles.multiLegIndex}>
+                    <Text style={styles.multiLegIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.multiLegTextBlock}>
+                    <Text style={styles.multiLegTitle}>
+                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                    </Text>
+                    <Text style={styles.multiLegMeta}>
+                      {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
+                      {formatCurrency(race.favourite?.fixedWinPrice ?? null)} ·{" "}
+                      {formatCurrency(getCandidateCashAverage(race, modelKey))} cash avg
+                    </Text>
+                  </View>
+                  <Text style={[styles.multiLegSignal, styles[`signalText_${signal.tone}`]]}>
+                    {signal.tone}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          <Text style={styles.multiFooter}>
+            Statistical grouping only. No stake size or automated wagering action is provided.
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.multiFooter}>
+          Positive and neutral signals will appear here once the current snapshot has enough eligible priced legs.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Builds one active-model multi suggestion, preferring positive-only when enough legs exist.
+ */
+function buildMultiBetRecommendation(
+  candidates: BetCandidate[],
+  modelKey: string,
+): MultiBetRecommendation | null {
+  const eligibleCandidates = getUniquePricedCandidates(candidates, modelKey);
+  const positiveLegs = eligibleCandidates.filter((candidate) =>
+    getCandidateSignal(candidate, modelKey).tone === "positive");
+  const positiveRecommendation = createMultiBetRecommendation(positiveLegs, "positive");
+
+  if (positiveRecommendation) {
+    return positiveRecommendation;
+  }
+
+  return createMultiBetRecommendation(
+    eligibleCandidates.filter((candidate) => {
+      const tone = getCandidateSignal(candidate, modelKey).tone;
+
+      return tone === "neutral" || tone === "positive";
+    }),
+    "neutral",
+  );
+}
+
+/**
+ * Dedupes candidates by source race and keeps the strongest priced leg for each race.
+ */
+function getUniquePricedCandidates(candidates: BetCandidate[], modelKey: string) {
+  const bestByRace = new Map<string, BetCandidate>();
+
+  for (const candidate of candidates) {
+    const signal = getCandidateSignal(candidate, modelKey);
+
+    if (
+      !candidate.favourite?.fixedWinPrice
+      || !["neutral", "positive"].includes(signal.tone)
+    ) {
+      continue;
+    }
+
+    const existing = bestByRace.get(candidate.raceCardId);
+
+    if (!existing || compareCandidates(candidate, existing, modelKey) < 0) {
+      bestByRace.set(candidate.raceCardId, candidate);
+    }
+  }
+
+  return Array.from(bestByRace.values()).sort((left, right) => compareCandidates(left, right, modelKey));
+}
+
+/**
+ * Creates a capped multi recommendation when the candidate list has the required minimum.
+ */
+function createMultiBetRecommendation(
+  candidates: BetCandidate[],
+  tone: MultiBetRecommendation["tone"],
+): MultiBetRecommendation | null {
+  if (candidates.length < MULTI_BET_MIN_LEGS) {
+    return null;
+  }
+
+  const legs = candidates.slice(0, MULTI_BET_MAX_LEGS);
+  const combinedFixedWinPrice = legs.reduce<number | null>((total, race) => {
+    const price = race.favourite?.fixedWinPrice;
+
+    if (!total || typeof price !== "number" || !Number.isFinite(price)) {
+      return null;
+    }
+
+    return total * price;
+  }, 1);
+
+  return {
+    combinedFixedWinPrice,
+    legs,
+    tone,
+  };
+}
+
+/**
+ * Orders candidate legs by active-model score, then by earliest advertised start.
+ */
+function compareCandidates(left: BetCandidate, right: BetCandidate, modelKey: string) {
+  const rightScore = getCandidateModelScore(right, modelKey) ?? -Infinity;
+  const leftScore = getCandidateModelScore(left, modelKey) ?? -Infinity;
+
+  if (rightScore !== leftScore) {
+    return rightScore - leftScore;
+  }
+
+  return new Date(left.advertisedStart).valueOf()
+    - new Date(right.advertisedStart).valueOf();
+}
+
 /**
  * Groups current bet candidates into stable country/discipline sections for scanning.
  */
@@ -506,15 +701,7 @@ function groupBetCandidatesByCountryAndDiscipline(candidates: BetCandidate[], mo
       return {
         candidates: groupCandidates
           .sort((left, right) => {
-            const rightScore = getCandidateModelScore(right, modelKey) ?? -Infinity;
-            const leftScore = getCandidateModelScore(left, modelKey) ?? -Infinity;
-
-            if (rightScore !== leftScore) {
-              return rightScore - leftScore;
-            }
-
-            return new Date(left.advertisedStart).valueOf()
-              - new Date(right.advertisedStart).valueOf();
+            return compareCandidates(left, right, modelKey);
           })
           .map((candidate, index) => ({
             ...candidate,
@@ -526,6 +713,13 @@ function groupBetCandidatesByCountryAndDiscipline(candidates: BetCandidate[], mo
           : disciplineCode}`,
       };
     });
+}
+
+/**
+ * Reads the active model signal state, falling back to the snapshot's default candidate signal.
+ */
+function getCandidateSignal(race: BetCandidate, modelKey: string) {
+  return race.predictionModels?.[modelKey] ?? race.candidate;
 }
 
 /**
@@ -728,8 +922,19 @@ function isSnapshotStale(value: string | null) {
   return Number.isNaN(generatedAt) || Date.now() - generatedAt > PROMOTION_CACHE_MAX_AGE_MS;
 }
 
+/**
+ * Treats server-closed windows and locally elapsed first starts as locked snapshots.
+ */
 function isPredictionWindowClosedNow(window: RecommendationPayload["predictionWindow"] | undefined) {
-  if (!window?.firstRaceStart) {
+  if (!window) {
+    return false;
+  }
+
+  if (window.isClosed || window.status === "closed") {
+    return true;
+  }
+
+  if (!window.firstRaceStart) {
     return false;
   }
 
@@ -762,6 +967,43 @@ function formatCurrency(value: number | null) {
   }
 
   return `$${value.toFixed(2)}`;
+}
+
+/**
+ * Formats the displayed combined decimal price for the selected multi legs.
+ */
+function formatCombinedFixedWinPrice(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
+  return `${value.toFixed(2)}x`;
+}
+
+/**
+ * Formats a multi leg runner while tolerating malformed legacy snapshots.
+ */
+function formatMultiLegRunner(race: BetCandidate) {
+  if (!race.favourite) {
+    return "Favourite unavailable";
+  }
+
+  return `#${race.favourite.number} ${race.favourite.name}`;
+}
+
+/**
+ * Averages available active-model cash scores across a displayed multi.
+ */
+function getAverageCandidateScore(candidates: BetCandidate[], modelKey: string) {
+  const scores = candidates
+    .map((candidate) => getCandidateCashAverage(candidate, modelKey))
+    .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
+
+  if (!scores.length) {
+    return null;
+  }
+
+  return scores.reduce((total, score) => total + score, 0) / scores.length;
 }
 
 function formatOtherStartersPriceShape(race: BetCandidate) {
@@ -1089,6 +1331,89 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  multiContext: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  multiFooter: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 10,
+  },
+  multiHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  multiLeg: {
+    alignItems: "flex-start",
+    borderTopColor: "#e4e7ec",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingTop: 8,
+  },
+  multiLegIndex: {
+    alignItems: "center",
+    backgroundColor: "#18202f",
+    borderRadius: 6,
+    height: 24,
+    justifyContent: "center",
+    width: 24,
+  },
+  multiLegIndexText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  multiLegList: {
+    gap: 8,
+    marginTop: 10,
+  },
+  multiLegMeta: {
+    color: "#667085",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  multiLegSignal: {
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "capitalize",
+  },
+  multiLegTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  multiLegTitle: {
+    color: "#18202f",
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 17,
+  },
+  multiMetricRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+  multiPanel: {
+    backgroundColor: "#ffffff",
+    borderColor: "#d0d5dd",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  multiTitle: {
+    color: "#18202f",
+    fontSize: 13,
+    fontWeight: "900",
+  },
   panel: {
     backgroundColor: "#f8fafc",
     borderColor: "#e4e7ec",
@@ -1222,6 +1547,18 @@ const styles = StyleSheet.create({
     color: "#18202f",
     fontSize: 11,
     fontWeight: "900",
+  },
+  signalText_caution: {
+    color: "#9a3412",
+  },
+  signalText_muted: {
+    color: "#667085",
+  },
+  signalText_neutral: {
+    color: "#3730a3",
+  },
+  signalText_positive: {
+    color: "#067647",
   },
   staleState: {
     backgroundColor: "#fff7ed",

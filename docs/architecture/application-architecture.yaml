@@ -512,6 +512,24 @@ data_model:
     promotion_predictions:
       purpose: Latest stored Betcha bet-back candidate prediction per source race card, with reconciled outcome fields for itemised Predictions history.
       key: source, source_race_card_id
+    multi_bet_recommendations:
+      purpose: Cash-only tracked multi bet recommendation per prediction model/source date, with settled parent outcome.
+      key: prediction_model, source, source_date, recommendation_type
+    multi_bet_recommendation_legs:
+      purpose: Leg snapshots and leg-level outcomes for tracked multi bet recommendations.
+      key: recommendation_id, leg_index
+    get_prediction_history_summary:
+      purpose: Server-side model-scoped Prediction history summary for the selected date range, country, discipline, and racecourse filters.
+      key: rpc
+    get_prediction_history_entries:
+      purpose: Server-side model-scoped Prediction history rows ordered by result outcome before pagination.
+      key: rpc
+    get_multi_bet_recommendation_summary:
+      purpose: Server-side model-scoped cash-only tracked multi recommendation summary for the selected date range and leg filters.
+      key: rpc
+    get_multi_bet_recommendation_entries:
+      purpose: Server-side model-scoped tracked multi recommendation rows with ordered leg outcome JSON.
+      key: rpc
     prediction_aggregates:
       purpose: Stored app-facing prediction outcome metrics by overall and race-code scope.
       key: scope_key
@@ -549,7 +567,8 @@ derived_views:
     responsibility:
       - Store the current app-facing Betcha candidate prediction payload.
       - Keep candidate rankings available even when no race-specific promotion URL matches current race cards.
-      - Treat rows older than 15 minutes as stale because live race cards and fixed-win prices can change during the day.
+      - Treat rows older than 15 minutes as stale only while the prediction window remains open, because live race cards and fixed-win prices can change before the first eligible race starts.
+      - Treat closed-window rows as locked pre-race snapshots for app display.
   prediction_aggregates:
     responsibility:
       - Store Betcha prediction outcome counts and notional unit-stake return metrics by prediction_model.
@@ -646,9 +665,18 @@ flows:
       - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.
       - Account reads user_favourite_tracks, user_race_bets, user_balance_accounts, and user_balance_events through owner-only RLS, supports removals where available, calculates bookmaker-scoped personal settled-row unit-return stats, and shows a manual balance ledger graph.
       - Account balance events are manual tracking only and must not feed stake sizing, bankroll guidance, account scraping, or automated wagering.
-      - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, model-filtered prediction_aggregates from Supabase for metrics, and recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history.
+      - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, model-filtered prediction_aggregates from Supabase for metrics, recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history, and tracked multi bet recommendations from multi_bet_recommendations plus multi_bet_recommendation_legs.
+      - Predictions tags model tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
+      - Predictions presents current Bet candidates as a separate section from Stored model performance while keeping both scoped to the selected prediction model.
+      - Predictions excludes races marked abandoned or cancelled from current candidate snapshots and tracked multi-bet recommendation creation.
+      - Predictions defaults and resets the history date range to yesterday in Pacific/Auckland time.
+      - Predictions calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
+      - Predictions calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
+      - Predictions calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
+      - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because locked pre-race snapshots cannot be replaced after the first eligible race has started.
       - Predictions shows model variation tabs and a short method explanation for each variation.
+      - Predictions shows the current Multi bet recommendation from the active model's current candidate payload, while the prediction refresh stores the same pre-race recommendation for cash-only history and leg-level settlement.
       - Supabase RLS allows read-only app access to app-facing read models.
       - Debug/admin views remain restricted.
 

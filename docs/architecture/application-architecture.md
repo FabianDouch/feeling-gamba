@@ -10,8 +10,11 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-07-01 for HK domestic-region prediction and
-race-day coverage. It was previously updated on 2026-06-25 for the
+Note: the YAML was updated on 2026-07-04 for tracked cash-only multi bet
+recommendation outcomes, on 2026-07-03 for the Predictions history date-range
+breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
+and on 2026-07-01 for HK domestic-region prediction and race-day coverage. It
+was previously updated on 2026-06-25 for the
 `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` prediction variations. Rendered
 architecture outputs should be regenerated from the YAML before being treated
@@ -434,10 +437,13 @@ group using the active prediction variation's model-specific `cashAverageScore`.
 Cash-plus-bonus remains visible as supporting context, but it must not drive
 recommendation ordering or status pills. The scan keeps at most the five best
 candidates per country/discipline group so HK candidates are not hidden behind
-larger NZ/AUS race volumes. It is a statistical signal only, with no stake
-sizing, bankroll guidance, automated wagering, or invented favourites. Stored
-prediction rows must be created only before the first eligible race in the
-day's all-domestic NZ/AUS/HK prediction coverage has started.
+larger NZ/AUS race volumes. The scan excludes source races marked abandoned or
+cancelled by the racing-day listing or race-card status before ranking
+candidates or building multi-bet recommendations. It is a statistical signal
+only, with no stake sizing, bankroll guidance, automated wagering, or invented
+favourites. Stored prediction rows must be created only before the first
+eligible race in the day's all-domestic NZ/AUS/HK prediction coverage has
+started.
 The daily prediction refresh is scheduled through
 `.github/workflows/current-prediction-refresh.yml` at `17:35` and `18:35` UTC,
 with optional Supabase Cron backup using
@@ -450,7 +456,10 @@ performance comparable because each source date is measured from a full-card
 pre-race decision point rather than a late-day subset of remaining races. The
 app reads current candidates from `current_prediction_snapshots` for the current
 Auckland source date and can call `EXPO_PUBLIC_PREDICTION_REFRESH_URL` to
-request the `refresh-current-predictions` Edge Function. The worker also writes
+request the `refresh-current-predictions` Edge Function. If the stored snapshot's
+prediction window is already closed, the app should render that cached pre-race
+snapshot immediately and skip stale-refresh attempts, because the backend cannot
+replace the snapshot after the first eligible race has started. The worker also writes
 model-scoped rows to `promotion_predictions`, keyed by
 `(prediction_model, source, source_race_card_id)`, so multiple model variations
 can run in parallel on the same race card even when no active promotion exists.
@@ -460,6 +469,14 @@ the app may temporarily read the latest `current_promotion_snapshots` payload
 for candidate display and show a clear transition message. This fallback should
 disappear from normal operation once the prediction snapshot table is deployed
 and populated.
+The prediction refresh also stores one cash-only tracked multi bet
+recommendation per model/source date when enough eligible legs exist. It
+prefers a Positive multi when at least three priced Positive signals exist;
+otherwise it stores a Neutral multi when at least three priced
+Positive-or-Neutral signals exist. The recommendation keeps three to five legs,
+tracks leg-level outcomes, and settles as a cash win only when every leg wins.
+No bonus-bet value, stake sizing, bankroll guidance, or automated wagering is
+stored or displayed for tracked multis.
 The first model remains `global_bucket_blend_v1`, which ranks current
 favourites from all-country historical price-bucket and starter-count cash
 averages using the same 65/35 price/starter weighting as the earlier bucket
@@ -537,14 +554,36 @@ repo-root public Supabase env values before Metro bundles the app.
 - Predictions reads current bet candidates from the latest
   `current_prediction_snapshots` payload, stored model-filtered rows from
   `prediction_aggregates` for performance metrics, and recent model-filtered
-  `promotion_predictions` rows for itemised race history. The screen presents
-  prediction variations as tabs and shows a concise model-method explanation at
-  the top of each variation. The history filters query Supabase by date range,
-  country, discipline, and racecourse. The app must not calculate prediction
-  performance from raw prediction rows at runtime.
+  `promotion_predictions` rows for itemised race history. It also reads
+  tracked multi bet recommendations and their legs from
+  `multi_bet_recommendations` / `multi_bet_recommendation_legs` through
+  cash-only summary and history RPCs. The screen presents prediction variations
+  as tabs, tags tabs that have tracked multi-bet prediction rows for the current
+  Auckland source date, and shows a concise model-method explanation at the top
+  of each variation. The selected model is shared across the page, but current
+  Bet candidates are presented as a separate section from Stored model
+  performance so current snapshot recommendations are not confused with
+  historical outcomes.
+  The history filters query Supabase by date range, country,
+  discipline, and racecourse, defaulting and resetting the date range to
+  yesterday in `Pacific/Auckland` time. Multi history filters match
+  recommendations that include at least one leg in the selected
+  country/discipline/racecourse because a multi can contain mixed legs. The
+  screen also calls the multi summary RPC without date filters to show all-time
+  tracked multi recommendation totals for the active model inside Stored model
+  performance. The selected history date range is summarised through a server-side
+  `get_prediction_history_summary` RPC over all matching rows so the paginated
+  visible list is not used as an aggregate denominator. Itemised history rows
+  are read through
+  `get_prediction_history_entries`, which orders wins, 2nd, 3rd, then losses
+  before applying the visible row limit. During migration rollout, if that RPC
+  is not yet exposed by PostgREST, the app may temporarily fall back to a direct
+  `promotion_predictions` read ordered by result position. The app must not
+  calculate prediction performance from raw prediction rows at runtime.
 - Daily overnight `refresh-race-days-and-insights` reconciles pending
-  `user_race_bets` by `source_race_card_id` and selected runner number after
-  race results are refreshed.
+  `user_race_bets` and tracked multi bet recommendation legs by
+  `source_race_card_id` and selected runner number after race results are
+  refreshed.
 - Normalized race/source tables and operational tables remain server-side behind
   RLS. Public client reads are limited to app-facing read models and public
   promotion snapshots.

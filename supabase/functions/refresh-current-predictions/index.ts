@@ -8,6 +8,7 @@ import {
   isPredictionWindowClosed,
   normalizeSupabaseProjectUrl,
   SOURCE_TIME_ZONE,
+  upsertMultiBetRecommendationsToSupabase,
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
 } from "../_shared/current-promotions-core.mjs";
@@ -267,6 +268,11 @@ Deno.serve(async (request) => {
       supabaseKey: config.key,
       supabaseUrl: config.url,
     });
+    const multiBetRecommendationWrite = await upsertMultiBetRecommendationsToSupabase({
+      output: payload,
+      supabaseKey: config.key,
+      supabaseUrl: config.url,
+    });
     const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
       config,
     });
@@ -276,6 +282,7 @@ Deno.serve(async (request) => {
       generatedAt: payload.generatedAt,
       generatedAtNz: payload.generatedAtNz,
       payload,
+      multiBetRecommendationWrite,
       predictionAggregateWrite,
       predictionWrite,
       sourceDate: payload.sourceDate,

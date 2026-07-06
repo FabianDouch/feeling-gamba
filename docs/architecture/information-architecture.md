@@ -17,8 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-01 for HK domestic-region prediction and
-race-day coverage. It was previously updated on 2026-06-25 for the two
+Note: the YAML was updated on 2026-07-04 for tracked cash-only multi bet
+recommendation history, on 2026-07-03 for the Predictions history date-range
+breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
+and on 2026-07-01 for HK domestic-region prediction and race-day coverage. It
+was previously updated on 2026-06-25 for the two
 cash-only prediction variations that isolate 100% price-bucket and 100%
 starter-count scoring.
 Rendered IA outputs should be regenerated from the YAML before being treated as
@@ -276,8 +279,16 @@ Purpose:
 
 Main content:
 
+- A shared prediction model selector and method summary at the top of the
+  screen. The selected model drives both current candidates and stored
+  performance, but those areas should remain visually separate.
+- A `Bet candidates` section for the current Auckland source date's candidate
+  snapshot and current multi bet recommendation.
+- A separate `Stored model performance` section for historical outcomes,
+  discipline performance, date-range breakdowns, and prediction history.
 - Overall prediction count, settled count, pending count, and missing-outcome
-  counts, shown near the top under a `Stored model performance` heading.
+  counts, shown near the top under a `Single prediction performance` heading
+  inside Stored model performance.
 - Stored model performance should have filters for all/horse/harness/greyhound,
   all/top 1/top 2/top 3 ranks, and all/positive-only/neutral-or-better signals.
   `Neutral or better` includes only Positive and Neutral candidate signals,
@@ -286,6 +297,10 @@ Main content:
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, other-starters average fixed-win price, MarketMover, and manual track
   action.
+- Multi bet recommendation panel derived from the current candidate snapshot:
+  if at least three active-model Positive signals exist, show a Positive multi;
+  otherwise show a Neutral multi from active-model Positive and Neutral signals
+  when at least three priced legs are available.
 - Bet candidate disciplines should be shown as tabs for horse, harness, and
   greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
@@ -301,6 +316,11 @@ Main content:
   pre-first-race prediction snapshot. If the first eligible race has started
   and no pre-race snapshot was captured, show an explicit closed-window empty
   state instead of displaying an older source date.
+- Current bet candidates and multi bet recommendations must exclude source
+  races marked abandoned or cancelled by the race listing or race-card status.
+- If a stored current prediction snapshot exists and its prediction window is
+  already closed, render the cached snapshot immediately instead of attempting a
+  stale-cache refresh that cannot replace the locked pre-race snapshot.
 - Current bet candidates should be ordered by the active prediction variation's
   model-specific `cashAverageScore`. Cash-plus-bonus remains visible as
   supporting context but must not drive recommendations.
@@ -309,6 +329,9 @@ Main content:
   `Global cash price only`, `Global cash starters only`,
   `Other starters avg price`, `Country + discipline blend`, and
   `Distance + condition blend`.
+- Prediction variation tabs should show a small `Multi` tag when that model has
+  at least one tracked multi-bet prediction row for the current Auckland source
+  date.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -326,17 +349,37 @@ Main content:
   prices at `$70.00` or above are excluded from the average and counted
   separately. Median other-starter fixed-win price remains a planned follow-up
   signal.
-- `$1` prediction return by discipline.
+- Discipline prediction performance by racing code.
 - Cash average, cash net, bonus average, cash-plus-bonus average,
   cash-plus-bonus net, cash ROI, and cash-plus-bonus ROI for each discipline,
   with average returns displayed as dollar value per `$1` prediction.
 - Recent prediction history showing each stored race prediction, predicted
   runner, predicted price, race details, outcome status, and cash/bonus return.
+  Outcome badges should distinguish cash wins from bonus-bet credits: win
+  returns use the positive cash style, while 2nd/3rd bonus-credit outcomes use
+  a bonus-bet style and should not be labelled as generic value.
+- Prediction history rows should be ordered by outcome before time: wins first,
+  then 2nd, then 3rd, then other settled losses, then unresolved rows.
 - Prediction history filters for date range, country, discipline, and
   racecourse. These filters apply only to the itemised history list, not the
   aggregate performance cards. Country, discipline, and racecourse options are
   scoped to the selected prediction model so filters do not appear for models
   with no matching stored rows.
+- Prediction history date range should default and reset to yesterday in
+  `Pacific/Auckland` time, even if no prediction rows exist for that date yet.
+- Date range breakdown for the selected Prediction history filters, using the
+  same prediction count, settled/pending count, win rate, cash average, cash
+  net, cash-plus-bonus average, cash-plus-bonus net, and open-issue metrics as
+  the stored model performance cards.
+- Multi-bet prediction performance in the Stored model performance section
+  for the selected prediction model across all tracked dates, using cash-only
+  multi-bet prediction count, settled/pending count, win rate, cash average, cash net,
+  and open-issue metrics.
+- Multi bet date-range breakdown for the selected prediction model using the
+  same cash-only metrics and the active Prediction history filters.
+- Multi bet recommendation history rows showing recommendation type, leg count,
+  combined fixed-win price, average cash score, cash return, and leg-level
+  Won/Lost/Pending/Missing outcomes.
 - Explicit empty/loading/error states when Supabase prediction aggregates are
   unavailable.
 
@@ -346,6 +389,16 @@ Rules:
   from Supabase filtered by the selected prediction model.
 - Read current bet candidates from the latest Supabase
   `current_prediction_snapshots` payload for the current Auckland source date.
+- Show the current multi bet recommendation from the active-model
+  current-candidate payload, while storing the same pre-race recommendation
+  server-side for cash-only history and settlement.
+- Exclude abandoned or cancelled races before ranking candidates, building
+  current multis, or writing tracked multi-bet recommendations.
+- Do not include bonus-bet value in tracked multi recommendation stats.
+- Treat the selected prediction model tab as the single driver for the
+  Predictions page: stored performance, current candidates, current multi,
+  history metadata, history summaries, history rows, multi performance, and
+  multi history must all be scoped to the active model key.
 - Do not create or store new prediction rows after the first eligible race in
   the day's all-domestic NZ/AUS/HK prediction coverage has started.
 - Treat other-starters average fixed-win price as a statistical field-shape
@@ -353,6 +406,8 @@ Rules:
 - Do not calculate prediction performance from raw prediction rows in the app.
 - Use raw prediction rows only for server-side filtered itemised history
   display.
+- Summarise Prediction history date ranges through a server-side aggregate RPC
+  over all matching rows, not from the paginated visible history list.
 - Use the predicted runner and predicted fixed-win price when calculating
   outcomes, not the final favourite if it changed later.
 - Keep the screen as statistical tracking only: no stake sizing, bankroll

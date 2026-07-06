@@ -5,6 +5,7 @@ import {
   createDefaultPredictionHistoryFilters,
   DEFAULT_PREDICTION_MODEL_KEY,
   fetchPredictionStats,
+  fetchMultiBetRecommendationModelKeys,
   fetchPredictionHistoryMetadata,
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
@@ -23,7 +24,12 @@ import { BetCandidatesSection } from "./BetCandidatesSection";
 const emptyPredictions: PredictionsData = {
   disciplineReturns: [],
   history: [],
+  historySummaryStats: [],
+  multiBetHistory: [],
+  multiBetPerformanceStats: [],
+  multiBetSummaryStats: [],
   summaryStats: [],
+  totalMultiBetHistoryCount: 0,
   totalHistoryCount: 0,
 };
 const PERFORMANCE_DISCIPLINE_OPTIONS = [
@@ -58,6 +64,7 @@ export function PredictionsScreen() {
   const [metadata, setMetadata] = useState<PredictionHistoryMetadata | null>(null);
   const [predictions, setPredictions] = useState<PredictionsData>(emptyPredictions);
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [multiBetModelKeys, setMultiBetModelKeys] = useState<PredictionModelKey[]>([]);
   const [performanceFilters, setPerformanceFilters] = useState<PredictionPerformanceFilters>({
     discipline: "all",
     rank: "all",
@@ -75,7 +82,38 @@ export function PredictionsScreen() {
     ?? PREDICTION_MODEL_VARIANTS[0];
   const hasPredictionRows = predictions.summaryStats.length > 0
     || predictions.disciplineReturns.length > 0
-    || predictions.history.length > 0;
+    || predictions.history.length > 0
+    || predictions.multiBetHistory.length > 0
+    || predictions.multiBetPerformanceStats.length > 0
+    || predictions.multiBetSummaryStats.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMultiBetModelKeys() {
+      if (!hasSupabasePredictionsConfig) {
+        return;
+      }
+
+      try {
+        const nextModelKeys = await fetchMultiBetRecommendationModelKeys();
+
+        if (!cancelled) {
+          setMultiBetModelKeys(nextModelKeys);
+        }
+      } catch {
+        if (!cancelled) {
+          setMultiBetModelKeys([]);
+        }
+      }
+    }
+
+    loadMultiBetModelKeys();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,19 +250,30 @@ export function PredictionsScreen() {
   return (
     <View style={styles.section}>
       <Text style={styles.eyebrow}>Predictions</Text>
-      <Text style={styles.heading}>Bet candidates</Text>
+      <Text style={styles.heading}>Prediction models</Text>
       <Text style={styles.note}>
-        Current source-backed candidates and stored prediction outcomes reconciled against race results.
+        Choose a model, then review current bet candidates separately from stored outcome performance.
       </Text>
 
-      <ModelTabs activeModelKey={activeModelKey} onChange={setActiveModelKey} />
+      <ModelTabs
+        activeModelKey={activeModelKey}
+        multiBetModelKeys={multiBetModelKeys}
+        onChange={setActiveModelKey}
+      />
       <View style={styles.modelInfo}>
         <Text style={styles.modelInfoTitle}>{activeModel.label}</Text>
         <Text style={styles.modelInfoText}>{activeModel.description}</Text>
         <Text style={styles.modelInfoDetail}>{activeModel.detail}</Text>
       </View>
 
+      <BetCandidatesSection predictionModelKey={activeModelKey} />
+
+      <View style={styles.sectionDivider} />
       <Text style={styles.subheading}>Stored model performance</Text>
+      <Text style={styles.sectionIntro}>
+        Historical prediction outcomes for the selected model. These stats are stored results, not today's candidate list.
+      </Text>
+      <Text style={styles.historyBreakdownHeading}>Single prediction performance</Text>
       <View style={styles.performanceFilters}>
         <FilterGroup
           label="Performance discipline"
@@ -275,11 +324,28 @@ export function PredictionsScreen() {
         <StateMessage text="No stored prediction performance is available yet." />
       )}
 
-      <BetCandidatesSection predictionModelKey={activeModelKey} />
+      {!errorMessage && !isLoadingMetadata && !isLoadingPredictions ? (
+        <>
+          <Text style={styles.historyBreakdownHeading}>Multi-bet prediction performance</Text>
+          {predictions.multiBetPerformanceStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.multiBetPerformanceStats.map((stat) => (
+                <View key={`multi-performance-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No multi-bet prediction performance is available for this model yet." />
+          )}
+        </>
+      ) : null}
 
       {!errorMessage && !isLoadingMetadata && !isLoadingPredictions && hasPredictionRows ? (
         <>
-          <Text style={styles.subheading}>$1 prediction return by discipline</Text>
+          <Text style={styles.subheading}>Discipline prediction performance</Text>
           {predictions.disciplineReturns.length ? predictions.disciplineReturns.map((row) => (
             <View key={row.discipline} style={styles.returnCard}>
               <View style={styles.returnHeader}>
@@ -353,6 +419,110 @@ export function PredictionsScreen() {
             selectedValue={filters.course}
             onChange={(value) => updateFilter("course", value)}
           />
+
+          <Text style={styles.historyBreakdownHeading}>Date range breakdown</Text>
+          {predictions.historySummaryStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.historySummaryStats.map((stat) => (
+                <View key={`history-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No prediction outcomes match this history filter range." />
+          )}
+
+          <Text style={styles.historyBreakdownHeading}>Multi bet date range breakdown</Text>
+          {predictions.multiBetSummaryStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.multiBetSummaryStats.map((stat) => (
+                <View key={`multi-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No tracked multi bet recommendations match this history filter range." />
+          )}
+
+          <Text style={styles.historyCount}>
+            {predictions.multiBetHistory.length} of {predictions.totalMultiBetHistoryCount} multi recommendations
+          </Text>
+
+          <View key={`${activeModelKey}-${filterKey}-multi`}>
+            {predictions.multiBetHistory.length ? predictions.multiBetHistory.map((recommendation) => (
+              <View key={recommendation.id} style={styles.historyRow}>
+                <View style={styles.historyHeader}>
+                  <View style={styles.historyTitleWrap}>
+                    <Text style={styles.historyRace}>{recommendation.recommendationLabel}</Text>
+                    <Text style={styles.historyMeta}>
+                      {recommendation.sourceDateLabel} · {recommendation.summaryLabel}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.outcomeBadge,
+                      recommendation.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
+                      recommendation.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.outcomeBadgeText,
+                        recommendation.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
+                        recommendation.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
+                      ]}
+                    >
+                      {recommendation.outcomeLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.historyReturnRow}>
+                  <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
+                  <Text style={styles.historyReturnText}>Avg cash {recommendation.averageCashScore}</Text>
+                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
+                </View>
+
+                <View style={styles.multiHistoryLegList}>
+                  {recommendation.legs.map((leg) => (
+                    <View key={leg.id} style={styles.multiHistoryLeg}>
+                      <View style={styles.multiHistoryLegText}>
+                        <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
+                        <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.outcomeBadge,
+                          leg.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
+                          leg.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.outcomeBadgeText,
+                            leg.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
+                            leg.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
+                          ]}
+                        >
+                          {leg.outcomeLabel}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
+              </View>
+            )) : <StateMessage text="No tracked multi bet recommendation history matches these filters." />}
+          </View>
+
           <Text style={styles.historyCount}>
             {predictions.history.length} of {predictions.totalHistoryCount} predictions
           </Text>
@@ -370,6 +540,7 @@ export function PredictionsScreen() {
                   <View
                     style={[
                       styles.outcomeBadge,
+                      prediction.outcomeTone === "bonus" ? styles.outcomeBadgeBonus : null,
                       prediction.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
                       prediction.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
                     ]}
@@ -377,6 +548,7 @@ export function PredictionsScreen() {
                     <Text
                       style={[
                         styles.outcomeBadgeText,
+                        prediction.outcomeTone === "bonus" ? styles.outcomeBadgeTextBonus : null,
                         prediction.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
                         prediction.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
                       ]}
@@ -407,14 +579,18 @@ export function PredictionsScreen() {
 
 type ModelTabsProps = {
   activeModelKey: PredictionModelKey;
+  multiBetModelKeys: PredictionModelKey[];
   onChange: (value: PredictionModelKey) => void;
 };
 
-function ModelTabs({ activeModelKey, onChange }: ModelTabsProps) {
+function ModelTabs({ activeModelKey, multiBetModelKeys, onChange }: ModelTabsProps) {
+  const multiBetModels = new Set(multiBetModelKeys);
+
   return (
     <View style={styles.modelTabs}>
       {PREDICTION_MODEL_VARIANTS.map((model) => {
         const isActive = model.key === activeModelKey;
+        const hasMultiBet = multiBetModels.has(model.key);
 
         return (
           <Pressable
@@ -422,6 +598,11 @@ function ModelTabs({ activeModelKey, onChange }: ModelTabsProps) {
             onPress={() => onChange(model.key)}
             style={[styles.modelTab, isActive ? styles.modelTabActive : null]}
           >
+            {hasMultiBet ? (
+              <View style={styles.modelTabMultiTag}>
+                <Text style={styles.modelTabMultiTagText}>Multi</Text>
+              </View>
+            ) : null}
             <Text style={[styles.modelTabText, isActive ? styles.modelTabTextActive : null]}>
               {model.label}
             </Text>
@@ -753,6 +934,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 12,
   },
+  historyBreakdownHeading: {
+    color: "#18202f",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 14,
+  },
   historyHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
@@ -809,6 +996,28 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 10,
   },
+  multiHistoryLeg: {
+    alignItems: "flex-start",
+    borderTopColor: "#edf0f5",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  multiHistoryLegList: {
+    marginTop: 8,
+  },
+  multiHistoryLegText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  multiHistoryLegTitle: {
+    color: "#18202f",
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
   modelInfo: {
     backgroundColor: "#f8fafc",
     borderColor: "#e4e7ec",
@@ -839,12 +1048,32 @@ const styles = StyleSheet.create({
     borderColor: "#d7dce7",
     borderRadius: 6,
     borderWidth: 1,
+    minHeight: 38,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingBottom: 8,
+    paddingTop: 12,
+    position: "relative",
   },
   modelTabActive: {
     backgroundColor: "#18202f",
     borderColor: "#18202f",
+  },
+  modelTabMultiTag: {
+    backgroundColor: "#fef3c7",
+    borderColor: "#f59e0b",
+    borderRadius: 5,
+    borderWidth: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    position: "absolute",
+    right: 4,
+    top: -7,
+  },
+  modelTabMultiTagText: {
+    color: "#92400e",
+    fontSize: 9,
+    fontWeight: "900",
+    lineHeight: 11,
   },
   modelTabText: {
     color: "#475467",
@@ -875,6 +1104,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
+  outcomeBadgeBonus: {
+    backgroundColor: "#fef9c3",
+    borderColor: "#fde047",
+  },
   outcomeBadgeGood: {
     backgroundColor: "#ecfdf3",
     borderColor: "#abefc6",
@@ -885,6 +1118,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 14,
     textAlign: "right",
+  },
+  outcomeBadgeTextBonus: {
+    color: "#854d0e",
   },
   outcomeBadgeTextGood: {
     color: "#067647",
@@ -983,6 +1219,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
+  },
+  sectionDivider: {
+    borderTopColor: "#e4e7ec",
+    borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 2,
+  },
+  sectionIntro: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
   },
   stat: {
     backgroundColor: "#f8fafc",

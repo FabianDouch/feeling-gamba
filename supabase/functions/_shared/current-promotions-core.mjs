@@ -4,6 +4,8 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
   ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
 ];
 const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
+const MULTI_BET_MAX_LEGS = 5;
+const MULTI_BET_MIN_LEGS = 3;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -437,6 +439,158 @@ function createPredictionRowsFromPayload(output) {
   })));
 }
 
+/**
+ * Builds tracked multi-bet rows from each model's pre-race candidate list.
+ */
+function createMultiBetRecommendationRowsFromPayload(output) {
+  const modelRuns = output.betBackCandidates?.models?.length
+    ? output.betBackCandidates.models
+    : [{
+        candidates: output.betBackCandidates?.candidates ?? [],
+        key: DEFAULT_PREDICTION_MODEL_KEY,
+      }];
+
+  return modelRuns
+    .map((model) => createMultiBetRecommendationRow(output, model))
+    .filter(Boolean);
+}
+
+/**
+ * Creates one positive or neutral multi recommendation for a prediction model.
+ */
+function createMultiBetRecommendationRow(output, model) {
+  const candidates = getUniquePricedMultiCandidates(model.candidates ?? []);
+  const positiveLegs = candidates.filter((candidate) => candidate.candidate?.tone === "positive");
+  const positiveRecommendation = createMultiBetRecommendationFromLegs(output, model, positiveLegs, "positive");
+
+  if (positiveRecommendation) {
+    return positiveRecommendation;
+  }
+
+  return createMultiBetRecommendationFromLegs(
+    output,
+    model,
+    candidates.filter((candidate) => ["neutral", "positive"].includes(candidate.candidate?.tone)),
+    "neutral",
+  );
+}
+
+/**
+ * Dedupes same-race candidates so each tracked multi contains one leg per race.
+ */
+function getUniquePricedMultiCandidates(candidates) {
+  const bestByRace = new Map();
+
+  for (const candidate of candidates) {
+    if (
+      isAbandonedCandidate(candidate)
+      || !candidate.favourite?.fixedWinPrice
+      || !["neutral", "positive"].includes(candidate.candidate?.tone)
+    ) {
+      continue;
+    }
+
+    const existing = bestByRace.get(candidate.raceCardId);
+
+    if (!existing || compareMultiCandidates(candidate, existing) < 0) {
+      bestByRace.set(candidate.raceCardId, candidate);
+    }
+  }
+
+  return Array.from(bestByRace.values()).sort(compareMultiCandidates);
+}
+
+/**
+ * Orders multi legs by model cash score, then by advertised start time.
+ */
+function compareMultiCandidates(left, right) {
+  const rightScore = right.candidate?.cashAverageScore ?? -Infinity;
+  const leftScore = left.candidate?.cashAverageScore ?? -Infinity;
+
+  if (rightScore !== leftScore) {
+    return rightScore - leftScore;
+  }
+
+  return new Date(left.advertisedStart).valueOf()
+    - new Date(right.advertisedStart).valueOf();
+}
+
+/**
+ * Converts eligible model candidates into one capped tracked multi record.
+ */
+function createMultiBetRecommendationFromLegs(output, model, candidates, recommendationType) {
+  if (candidates.length < MULTI_BET_MIN_LEGS) {
+    return null;
+  }
+
+  const legs = candidates.slice(0, MULTI_BET_MAX_LEGS);
+  const combinedFixedWinPrice = legs.reduce((total, candidate) =>
+    total * Number(candidate.favourite?.fixedWinPrice ?? 0), 1);
+  const averageCashScore = legs.reduce((total, candidate) =>
+    total + Number(candidate.candidate?.cashAverageScore ?? 0), 0) / legs.length;
+  const legRows = legs.map((candidate, index) => ({
+    advertised_start: candidate.advertisedStart,
+    cash_average_score: candidate.candidate?.cashAverageScore ?? null,
+    country: candidate.country ?? null,
+    course_name: candidate.canonicalTrack ?? candidate.sourceTrack ?? null,
+    course_slug: candidate.canonicalTrack ? toSlug(candidate.canonicalTrack) : null,
+    leg_index: index + 1,
+    predicted_fixed_win_price: candidate.favourite?.fixedWinPrice ?? null,
+    predicted_runner_name: candidate.favourite?.name ?? null,
+    predicted_runner_number: candidate.favourite?.number ?? null,
+    predicted_starter_count: candidate.starters ?? null,
+    race_code: candidate.code,
+    race_name: candidate.raceName,
+    race_number: candidate.raceNumber,
+    raw: candidate,
+    signal_label: candidate.candidate?.label ?? null,
+    signal_tone: candidate.candidate?.tone ?? null,
+    source_race_card_id: candidate.raceCardId,
+  }));
+
+  return {
+    average_cash_score: Number.isFinite(averageCashScore) ? Number(averageCashScore.toFixed(4)) : null,
+    combined_fixed_win_price: Number.isFinite(combinedFixedWinPrice) ? Number(combinedFixedWinPrice.toFixed(2)) : null,
+    leg_count: legs.length,
+    legs: legRows,
+    prediction_model: model.key ?? DEFAULT_PREDICTION_MODEL_KEY,
+    predicted_at: output.generatedAt,
+    prediction_signature: createMultiBetRecommendationSignature({
+      combinedFixedWinPrice,
+      legs: legRows,
+      recommendationType,
+    }),
+    raw: {
+      recommendationType,
+      legs,
+    },
+    recommendation_type: recommendationType,
+    source: output.betBackCandidates?.source ?? "betcha",
+    source_date: output.sourceDate,
+    source_time_zone: output.sourceTimeZone ?? SOURCE_TIME_ZONE,
+  };
+}
+
+/**
+ * Captures the fields that materially change a tracked multi recommendation.
+ */
+function createMultiBetRecommendationSignature({ combinedFixedWinPrice, legs, recommendationType }) {
+  return JSON.stringify({
+    combinedFixedWinPrice: Number.isFinite(combinedFixedWinPrice)
+      ? Number(combinedFixedWinPrice.toFixed(2))
+      : null,
+    legs: legs.map((leg) => ({
+      cashAverageScore: leg.cash_average_score ?? null,
+      fixedWinPrice: leg.predicted_fixed_win_price ?? null,
+      runnerName: leg.predicted_runner_name ?? null,
+      runnerNumber: leg.predicted_runner_number ?? null,
+      signalLabel: leg.signal_label ?? null,
+      sourceRaceCardId: leg.source_race_card_id,
+    })),
+    recommendationType,
+  });
+}
+
 async function fetchExistingPredictionSignatures({ rows, supabaseKey, supabaseUrl }) {
   if (!rows.length) {
     return new Map();
@@ -467,6 +621,42 @@ async function fetchExistingPredictionSignatures({ rows, supabaseKey, supabaseUr
     `${row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY}:${row.source}:${row.source_race_card_id}`,
     row.prediction_signature,
   ]));
+}
+
+/**
+ * Reads same-day tracked multi rows so unchanged rows can be skipped and stale rows removed.
+ */
+async function fetchExistingMultiBetRecommendations({ source, sourceDate, supabaseKey, supabaseUrl }) {
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const url = new URL("/rest/v1/multi_bet_recommendations", normalizedUrl);
+  url.searchParams.set("select", "id,prediction_model,source,source_date,recommendation_type,prediction_signature");
+  url.searchParams.set("source", `eq.${source}`);
+  url.searchParams.set("source_date", `eq.${sourceDate}`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase multi_bet_recommendations read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const existingRows = await response.json();
+
+  return {
+    byKey: new Map(existingRows.map((row) => [
+      `${row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY}:${row.source}:${row.source_date}:${row.recommendation_type}`,
+      {
+        id: row.id,
+        signature: row.prediction_signature,
+      },
+    ])),
+    rows: existingRows,
+  };
 }
 
 /**
@@ -542,6 +732,246 @@ export async function upsertPromotionPredictionsToSupabase({ output, supabaseKey
     skipped: false,
     total: rows.length,
   };
+}
+
+/**
+ * Stores tracked multi recommendations and replaces their leg snapshots when changed.
+ */
+export async function upsertMultiBetRecommendationsToSupabase({ output, supabaseKey, supabaseUrl }) {
+  if (!supabaseUrl || !supabaseKey) {
+    return {
+      changed: 0,
+      ok: false,
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  if (isPredictionWindowClosed(output)) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Prediction window is closed because the first eligible race has started.",
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  const rows = createMultiBetRecommendationRowsFromPayload(output);
+  const source = output.betBackCandidates?.source ?? "betcha";
+
+  if (!rows.length) {
+    await deleteStaleMultiBetRecommendations({
+      currentKeys: new Set(),
+      modelKeys: getPredictionPayloadModelKeys(output),
+      source,
+      sourceDate: output.sourceDate,
+      supabaseKey,
+      supabaseUrl,
+    });
+
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: 0,
+    };
+  }
+
+  const existing = await fetchExistingMultiBetRecommendations({
+    source,
+    sourceDate: output.sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+  const currentKeys = new Set(rows.map((row) =>
+    `${row.prediction_model}:${row.source}:${row.source_date}:${row.recommendation_type}`));
+
+  await deleteStaleMultiBetRecommendations({
+    currentKeys,
+    existingRows: existing.rows,
+    modelKeys: getPredictionPayloadModelKeys(output),
+    source,
+    sourceDate: output.sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+
+  const changedRows = rows.filter((row) => {
+    const existingRow = existing.byKey.get(`${row.prediction_model}:${row.source}:${row.source_date}:${row.recommendation_type}`);
+
+    return existingRow?.signature !== row.prediction_signature;
+  });
+
+  if (!changedRows.length) {
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: rows.length,
+    };
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const recommendationRows = changedRows.map(({ legs, ...row }) => row);
+  const response = await fetch(
+    `${normalizedUrl}/rest/v1/multi_bet_recommendations?on_conflict=prediction_model,source,source_date,recommendation_type`,
+    {
+      body: JSON.stringify(recommendationRows),
+      headers: {
+        apikey: supabaseKey,
+        authorization: `Bearer ${supabaseKey}`,
+        "content-type": "application/json",
+        prefer: "resolution=merge-duplicates,return=representation",
+      },
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase multi_bet_recommendations upsert failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const storedRows = await response.json();
+  const idByKey = new Map(storedRows.map((row) => [
+    `${row.prediction_model}:${row.source}:${row.source_date}:${row.recommendation_type}`,
+    row.id,
+  ]));
+  const legRows = changedRows.flatMap((row) => {
+    const id = idByKey.get(`${row.prediction_model}:${row.source}:${row.source_date}:${row.recommendation_type}`);
+
+    return id ? row.legs.map((leg) => ({ ...leg, recommendation_id: id })) : [];
+  });
+
+  await deleteMultiBetRecommendationLegs({
+    recommendationIds: [...new Set(legRows.map((row) => row.recommendation_id))],
+    supabaseKey,
+    supabaseUrl,
+  });
+  await insertMultiBetRecommendationLegs({
+    rows: legRows,
+    supabaseKey,
+    supabaseUrl,
+  });
+
+  return {
+    changed: changedRows.length,
+    ok: true,
+    skipped: false,
+    total: rows.length,
+  };
+}
+
+/**
+ * Lists model keys represented in the current prediction payload.
+ */
+function getPredictionPayloadModelKeys(output) {
+  return (output.betBackCandidates?.models?.length
+    ? output.betBackCandidates.models
+    : [{ key: DEFAULT_PREDICTION_MODEL_KEY }])
+    .map((model) => model.key ?? DEFAULT_PREDICTION_MODEL_KEY);
+}
+
+/**
+ * Deletes same-day multi recommendations that are no longer the active output for their model.
+ */
+async function deleteStaleMultiBetRecommendations({
+  currentKeys,
+  existingRows,
+  modelKeys,
+  source,
+  sourceDate,
+  supabaseKey,
+  supabaseUrl,
+}) {
+  const existing = existingRows ?? (await fetchExistingMultiBetRecommendations({
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  })).rows;
+  const staleIds = existing
+    .filter((row) => modelKeys.includes(row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY))
+    .filter((row) => !currentKeys.has(`${row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY}:${row.source}:${row.source_date}:${row.recommendation_type}`))
+    .map((row) => row.id);
+
+  if (!staleIds.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const ids = staleIds.map((id) => `"${escapePostgrestInValue(id)}"`).join(",");
+  const url = new URL("/rest/v1/multi_bet_recommendations", normalizedUrl);
+  url.searchParams.set("id", `in.(${ids})`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      prefer: "return=minimal",
+    },
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase multi_bet_recommendations stale delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+/**
+ * Removes stale leg snapshots before inserting the changed tracked multi legs.
+ */
+async function deleteMultiBetRecommendationLegs({ recommendationIds, supabaseKey, supabaseUrl }) {
+  if (!recommendationIds.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const ids = recommendationIds.map((id) => `"${escapePostgrestInValue(id)}"`).join(",");
+  const url = new URL("/rest/v1/multi_bet_recommendation_legs", normalizedUrl);
+  url.searchParams.set("recommendation_id", `in.(${ids})`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      prefer: "return=minimal",
+    },
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase multi_bet_recommendation_legs delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+/**
+ * Inserts the latest leg snapshot rows for changed tracked multi recommendations.
+ */
+async function insertMultiBetRecommendationLegs({ rows, supabaseKey, supabaseUrl }) {
+  if (!rows.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const response = await fetch(`${normalizedUrl}/rest/v1/multi_bet_recommendation_legs`, {
+    body: JSON.stringify(rows),
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase multi_bet_recommendation_legs insert failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
 }
 
 /**
@@ -649,6 +1079,62 @@ function normalizeName(value) {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/**
+ * Detects abandoned or cancelled source races before they can become recommendations.
+ */
+function hasAbandonedRaceStatus(...values) {
+  return values.some((value) => {
+    const normalized = normalizeName(value);
+
+    return normalized === "abandoned"
+      || normalized === "abandon"
+      || normalized === "abnd"
+      || normalized === "cancelled"
+      || normalized === "canceled"
+      || normalized.includes("race abandoned")
+      || normalized.includes("meeting abandoned")
+      || normalized.includes("abandoned race")
+      || normalized.includes("abandoned meeting")
+      || normalized.includes("cancelled race")
+      || normalized.includes("canceled race")
+      || normalized.includes("meeting cancelled")
+      || normalized.includes("meeting canceled");
+  });
+}
+
+/**
+ * Checks the racing-day listing fields that can flag a race before loading its card.
+ */
+function isAbandonedRaceListing(race) {
+  return hasAbandonedRaceStatus(
+    race?.status,
+    race?.finalFieldMarket?.status,
+    race?.resultsSummary,
+  );
+}
+
+/**
+ * Checks the fetched race-card fields used by prediction and promotion recommendations.
+ */
+function isAbandonedRaceCard(raceCard) {
+  return hasAbandonedRaceStatus(
+    raceCard?.status,
+    raceCard?.finalFieldMarket?.status,
+    raceCard?.resultsSummary,
+  );
+}
+
+/**
+ * Keeps stale or legacy payload candidates with abandoned status out of tracked multis.
+ */
+function isAbandonedCandidate(candidate) {
+  return hasAbandonedRaceStatus(
+    candidate?.status,
+    candidate?.raw?.status,
+    candidate?.raceStatus,
+  );
 }
 
 function toTitleCase(value) {
@@ -1851,6 +2337,10 @@ function createBetBackSignal(
 }
 
 function deriveBetBackCandidate(raceCard, context, historicalStats) {
+  if (isAbandonedRaceCard(raceCard)) {
+    return null;
+  }
+
   const recommendation = deriveRaceCardRecommendation(raceCard, context, historicalStats);
 
   if (!recommendation.favourite) {
@@ -1954,8 +2444,8 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
       scannedRaceCount += 1;
 
       try {
-        if (race.advertisedStart) {
-          eligibleRaceStarts.push(race.advertisedStart);
+        if (isAbandonedRaceListing(race)) {
+          continue;
         }
 
         const raceCard = (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, {
@@ -1966,8 +2456,12 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
           continue;
         }
 
-        if (raceCard.advertisedStart) {
-          eligibleRaceStarts.push(raceCard.advertisedStart);
+        if (isAbandonedRaceCard(raceCard)) {
+          continue;
+        }
+
+        if (raceCard.advertisedStart ?? race.advertisedStart) {
+          eligibleRaceStarts.push(raceCard.advertisedStart ?? race.advertisedStart);
         }
 
         const candidate = deriveBetBackCandidate(raceCard, {
@@ -2052,13 +2546,13 @@ async function expandPromotionRaceCards(source, promotion, primaryRaceCard, raci
     : races.filter((race) => String(race.id).includes(primaryUuid));
   const expanded = [];
 
-  for (const race of selectedRaces) {
+  for (const race of selectedRaces.filter((candidate) => !isAbandonedRaceListing(candidate))) {
     const raceCardId = toRaceCardId(race.id);
     const raceCard = raceCardId === primaryRaceCard.id
       ? primaryRaceCard
       : (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, { id: raceCardId })).data?.raceCard;
 
-    if (!raceCard) {
+    if (!raceCard || isAbandonedRaceCard(raceCard)) {
       continue;
     }
 
@@ -2102,11 +2596,13 @@ async function fetchSourceRecommendations(source, historicalStats) {
       id: `RacingRaceCard:${uuid}`,
     })).data?.raceCard;
 
-    if (!primaryRaceCard) {
+    if (!primaryRaceCard || isAbandonedRaceCard(primaryRaceCard)) {
       recommendations.push({
         ...basePromotion,
         coverage: "race_specific",
-        note: "Promotion has a race-card URL, but the race card did not resolve.",
+        note: primaryRaceCard
+          ? "Promotion has a race-card URL, but the race is abandoned and has been excluded from recommendations."
+          : "Promotion has a race-card URL, but the race card did not resolve.",
         races: [],
       });
       continue;
