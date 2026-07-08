@@ -186,7 +186,15 @@ export type DisciplineReturn = {
   bonusHitRate: string;
   discipline: string;
   missingPrices: number;
+  missingPlaceReturns: number;
   netReturn: string;
+  placeAverageReturn: string;
+  placeHitRate: string;
+  placeNetReturn: string;
+  placeRoi: string;
+  placeSelections: string;
+  placeTotalReturned: string;
+  placeTotalStaked: string;
   promoAverageReturn: string;
   promoNetReturn: string;
   promoRoi: string;
@@ -205,6 +213,14 @@ export type StarterBreakdown = {
   cashNetReturn: string;
   cashReturned: string;
   cashRoi: string;
+  missingPlaceReturns: number;
+  placeAverageReturn: string;
+  placeHitRate: string;
+  placeNetReturn: string;
+  placeRoi: string;
+  placeSelections: string;
+  placeTotalReturned: string;
+  placeTotalStaked: string;
   promoAverageReturn: string;
   promoNetReturn: string;
   promoRoi: string;
@@ -220,7 +236,15 @@ export type StarterBreakdown = {
 export type PriceBreakdown = {
   averageReturn: string;
   label: string;
+  missingPlaceReturns: number;
   netReturn: string;
+  placeAverageReturn: string;
+  placeHitRate: string;
+  placeNetReturn: string;
+  placeRoi: string;
+  placeSelections: string;
+  placeTotalReturned: string;
+  placeTotalStaked: string;
   selections: string;
   totalReturned: string;
   totalStaked: string;
@@ -238,6 +262,7 @@ export type InsightsData = {
   disciplineReturns: DisciplineReturn[];
   favouriteStats: FavouriteStat[];
   otherStartersAveragePriceBreakdown: OtherStartersAveragePriceBreakdown[];
+  placeStats: FavouriteStat[];
   priceBreakdown: PriceBreakdown[];
   starterBreakdown: StarterBreakdown[];
 };
@@ -492,7 +517,15 @@ function mapDisciplineReturn(bucket: FavouriteBucket): DisciplineReturn {
     bonusHitRate: formatPercentage(bucket.bonusBetCreditPercentage),
     discipline: toTitleCase(bucket.label),
     missingPrices: 0,
+    missingPlaceReturns: 0,
     netReturn: formatCurrency(bucket.profitLoss),
+    placeAverageReturn: formatReturn(0),
+    placeHitRate: formatPercentage(0),
+    placeNetReturn: formatCurrency(0),
+    placeRoi: formatPercentage(0),
+    placeSelections: "0 place-eligible selections",
+    placeTotalReturned: formatCurrency(0),
+    placeTotalStaked: formatCurrency(0),
     promoAverageReturn: formatReturn(bucket.averageValuePerDollarWithBonusCredit),
     promoNetReturn: formatCurrency(bucket.profitLossWithBonusCredit),
     promoRoi: formatPercentage(promoRoi),
@@ -731,6 +764,14 @@ function mapStarterBreakdown(bucket: FavouriteBucket): StarterBreakdown {
     cashNetReturn: formatCurrency(bucket.profitLoss),
     cashReturned: formatCurrency(bucket.totalReturn),
     cashRoi: formatPercentage(cashRoi),
+    missingPlaceReturns: 0,
+    placeAverageReturn: formatReturn(0),
+    placeHitRate: formatPercentage(0),
+    placeNetReturn: formatCurrency(0),
+    placeRoi: formatPercentage(0),
+    placeSelections: "0 place-eligible selections",
+    placeTotalReturned: formatCurrency(0),
+    placeTotalStaked: formatCurrency(0),
     promoAverageReturn: formatReturn(bucket.averageValuePerDollarWithBonusCredit),
     promoNetReturn: formatCurrency(bucket.profitLossWithBonusCredit),
     promoRoi: formatPercentage(promoRoi),
@@ -751,7 +792,15 @@ function mapPriceBreakdown(bucket: FavouriteBucket): PriceBreakdown {
   return {
     averageReturn: formatReturn(bucket.averageReturnPerDollar),
     label: bucket.label,
+    missingPlaceReturns: 0,
     netReturn: formatCurrency(bucket.profitLoss),
+    placeAverageReturn: formatReturn(0),
+    placeHitRate: formatPercentage(0),
+    placeNetReturn: formatCurrency(0),
+    placeRoi: formatPercentage(0),
+    placeSelections: "0 place-eligible selections",
+    placeTotalReturned: formatCurrency(0),
+    placeTotalStaked: formatCurrency(0),
     selections: `${bucket.favouriteSelections} selections`,
     totalReturned: formatCurrency(bucket.totalReturn),
     totalStaked: formatCurrency(bucket.totalStake),
@@ -800,6 +849,7 @@ export function getInsightsForTrack(trackValue: string, countryValue = "all"): I
     disciplineReturns: buckets.byDiscipline.map(mapDisciplineReturn),
     favouriteStats: mapFavouriteStats(buckets.overall),
     otherStartersAveragePriceBreakdown: [],
+    placeStats: [],
     priceBreakdown: buckets.byPrice.map(mapPriceBreakdown),
     starterBreakdown: buckets.byStarterCount.map(mapStarterBreakdown),
   };

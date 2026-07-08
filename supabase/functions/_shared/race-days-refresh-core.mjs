@@ -404,6 +404,13 @@ function getWinDividend(resultRow) {
   return getNamedDividend(resultRow?.winPlaceDividends, "Win");
 }
 
+/**
+ * Reads the fixed-place dividend used for a notional $1 place return.
+ */
+function getPlaceDividend(resultRow) {
+  return getNamedDividend(resultRow?.winPlaceDividends, "Place");
+}
+
 function getBonusBetCredit(resultPosition, starterCount) {
   if (resultPosition === 2 && starterCount >= 5) {
     return 1;
@@ -416,7 +423,7 @@ function getBonusBetCredit(resultPosition, starterCount) {
   return 0;
 }
 
-function deriveRaceInsights(raceCard) {
+function deriveRaceInsights(raceCard, country) {
   const runnerRows = raceCard.finalField?.runnerRows ?? [];
   const activeRunners = runnerRows.filter((runner) => !runner.scratchedTimestamp && !isVacantRunner(runner));
   const resultRows = getResultRows(raceCard);
@@ -428,6 +435,7 @@ function deriveRaceInsights(raceCard) {
       isMarketMover: Boolean(runner.isMarketMover),
       name: runner.name,
       number: runner.number,
+      placeDividend: getPlaceDividend(resultByEntrantId.get(runner.id)),
       resultPosition: resultByEntrantId.get(runner.id)?.position ?? null,
       winDividend: getWinDividend(resultByEntrantId.get(runner.id)),
     }))
@@ -462,10 +470,17 @@ function deriveRaceInsights(raceCard) {
     favourites: favourites.map((runner) => {
       const oneDollarWinReturn = runner.resultPosition === 1 ? runner.fixedWinPrice : 0;
       const oneDollarBonusBetCredit = getBonusBetCredit(runner.resultPosition, activeRunners.length);
+      const placePayoutDepth = getPlacePayoutDepth(country, activeRunners.length);
+      const oneDollarPlaceReturn = placePayoutDepth > 0
+        ? runner.resultPosition !== null && runner.resultPosition <= placePayoutDepth
+          ? runner.placeDividend
+          : 0
+        : null;
 
       return {
         ...runner,
         oneDollarBonusBetCredit,
+        oneDollarPlaceReturn,
         oneDollarTotalValueWithBonusCredit: oneDollarWinReturn + oneDollarBonusBetCredit,
         oneDollarWinReturn,
       };
@@ -571,7 +586,7 @@ async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countri
         const raceCardResponse = await graphql("RaceCardLite", RACE_CARD_QUERY, { id: raceCardId });
         const raceCard = raceCardResponse.data?.raceCard;
         races.push({
-          derived: raceCard ? deriveRaceInsights(raceCard) : null,
+          derived: raceCard ? deriveRaceInsights(raceCard, getMeetingCountry(entry.meeting)) : null,
           raceCard,
           raceCardId,
           sourceRace: race,
@@ -830,6 +845,7 @@ export function buildRaceRowsFromFixtures(fixtures) {
           declared_runner_count: (raceCard.finalField?.runnerRows ?? []).filter((runner) => !isVacantRunner(runner)).length,
           distance_m: Number.isFinite(Number(raceCard.distance)) ? Number(raceCard.distance) : null,
           favourite_bonus_credit: favourite?.oneDollarBonusBetCredit ?? null,
+          favourite_place_return: favourite?.oneDollarPlaceReturn ?? null,
           favourite_price: favourite?.fixedWinPrice ?? null,
           favourite_result_position: favourite?.resultPosition ?? null,
           favourite_runner_key: favourite ? getRunnerKey({ raceKey, runnerNumber: favourite.number }) : null,
@@ -1158,10 +1174,13 @@ function createAggregateBucket(scope) {
     missingResultCount: 0,
     placeEligibleSelections: 0,
     placeHits: 0,
+    missingPlaceReturnCount: 0,
     raceKeys: new Set(),
     seconds: 0,
     thirds: 0,
     totalBonusCredit: 0,
+    totalPlaceReturn: 0,
+    totalPlaceStake: 0,
     totalReturn: 0,
     totalStake: 0,
     totalValueWithBonusCredit: 0,
@@ -1407,8 +1426,18 @@ function addFavouriteToAggregate(bucket, race) {
   const placePayoutDepth = getPlacePayoutDepth(race.country, race.starterCount);
 
   if (placePayoutDepth > 0) {
+    const placeHit = race.favouriteResultPosition <= placePayoutDepth;
     bucket.placeEligibleSelections += 1;
-    bucket.placeHits += race.favouriteResultPosition <= placePayoutDepth ? 1 : 0;
+    bucket.placeHits += placeHit ? 1 : 0;
+    bucket.totalPlaceStake += 1;
+
+    if (placeHit && !Number.isFinite(race.favouritePlaceReturn)) {
+      bucket.missingPlaceReturnCount += 1;
+    } else {
+      bucket.totalPlaceReturn += Number.isFinite(race.favouritePlaceReturn)
+        ? race.favouritePlaceReturn
+        : 0;
+    }
   }
 }
 
@@ -1444,6 +1473,7 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       courseSlug: row.course_slug,
       distanceBand: getDistanceBand(row.distance_m),
       favouriteBonusCredit: Number(row.favourite_bonus_credit ?? 0),
+      favouritePlaceReturn: row.favourite_place_return === null ? null : Number(row.favourite_place_return),
       favouritePrice: row.favourite_price === null ? null : Number(row.favourite_price),
       favouriteResultPosition: row.favourite_result_position,
       favouriteTotalValueWithBonusCredit: Number(row.favourite_total_value_with_bonus_credit ?? 0),
@@ -1490,8 +1520,11 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
   return Array.from(buckets.values()).map((bucket) => {
     const totalStake = roundMoney(bucket.totalStake);
     const totalReturn = roundMoney(bucket.totalReturn);
+    const totalPlaceStake = roundMoney(bucket.totalPlaceStake);
+    const totalPlaceReturn = roundMoney(bucket.totalPlaceReturn);
     const totalValueWithBonusCredit = roundMoney(bucket.totalValueWithBonusCredit);
     const netReturn = roundMoney(totalReturn - totalStake);
+    const placeNetReturn = roundMoney(totalPlaceReturn - totalPlaceStake);
 
     return {
       average_return_per_dollar: totalStake ? roundRatio(totalReturn / totalStake) : 0,
@@ -1513,7 +1546,11 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       other_starters_average_price_bucket_start: bucket.otherStartersAveragePriceBucketStart ?? null,
       place_eligible_selections: bucket.placeEligibleSelections,
       place_hits: bucket.placeHits,
+      missing_place_return_count: bucket.missingPlaceReturnCount,
+      place_average_return_per_dollar: totalPlaceStake ? roundRatio(totalPlaceReturn / totalPlaceStake) : 0,
+      place_net_return: placeNetReturn,
       place_percentage: percentage(bucket.placeHits, bucket.placeEligibleSelections),
+      place_roi_percentage: percentage(placeNetReturn, totalPlaceStake),
       price_bucket_end: bucket.priceBucketEnd ?? null,
       price_bucket_label: bucket.priceBucketLabel ?? null,
       price_bucket_start: bucket.priceBucketStart ?? null,
@@ -1529,6 +1566,8 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       thirds: bucket.thirds,
       track_condition_group: bucket.trackConditionGroup ?? null,
       total_bonus_credit: roundMoney(bucket.totalBonusCredit),
+      total_place_return: totalPlaceReturn,
+      total_place_stake: totalPlaceStake,
       total_return: totalReturn,
       total_stake: totalStake,
       total_value_with_bonus_credit: totalValueWithBonusCredit,
@@ -1558,6 +1597,7 @@ export async function rebuildInsightAggregatesFromSupabase({ batchSize = DEFAULT
       "track_condition",
       "favourite_price",
       "favourite_result_position",
+      "favourite_place_return",
       "favourite_win_return",
       "favourite_bonus_credit",
       "favourite_total_value_with_bonus_credit",
@@ -2285,8 +2325,12 @@ export async function runRaceDaysAndInsightsRefresh({
   from,
   lockKey = "refresh-race-days-and-insights",
   lookbackDays = DEFAULT_LOOKBACK_DAYS,
+  rebuildPredictionAggregates,
   refreshRaceData = true,
+  reconcileMultiBetRecommendationOutcomes,
   reconcileOutcomes = true,
+  reconcilePredictionOutcomes,
+  reconcileUserRaceBetOutcomes,
   rebuildInsights = true,
   to,
   triggeredBy = "edge",
@@ -2294,6 +2338,10 @@ export async function runRaceDaysAndInsightsRefresh({
   const window = resolveRefreshWindow({ from, lookbackDays, to });
   const categoryFilter = normalizeCategoryFilter(categories);
   const countryFilter = normalizeCountryFilter(countries);
+  const shouldReconcilePredictionOutcomes = reconcilePredictionOutcomes ?? reconcileOutcomes;
+  const shouldReconcileMultiBetRecommendationOutcomes = reconcileMultiBetRecommendationOutcomes ?? reconcileOutcomes;
+  const shouldReconcileUserRaceBetOutcomes = reconcileUserRaceBetOutcomes ?? reconcileOutcomes;
+  const shouldRebuildPredictionAggregates = rebuildPredictionAggregates ?? reconcileOutcomes;
 
   if (dryRun) {
     return {
@@ -2302,8 +2350,12 @@ export async function runRaceDaysAndInsightsRefresh({
       countries: countryFilter,
       coverageMode,
       lookbackDays,
+      rebuildPredictionAggregates: shouldRebuildPredictionAggregates,
       refreshRaceData,
+      reconcileMultiBetRecommendationOutcomes: shouldReconcileMultiBetRecommendationOutcomes,
       reconcileOutcomes,
+      reconcilePredictionOutcomes: shouldReconcilePredictionOutcomes,
+      reconcileUserRaceBetOutcomes: shouldReconcileUserRaceBetOutcomes,
       rebuildInsights,
       sourceTimeZone: SOURCE_TIME_ZONE,
       window,
@@ -2341,25 +2393,25 @@ export async function runRaceDaysAndInsightsRefresh({
           triggeredBy,
         })
       : null;
-    const predictionOutcomeWrite = reconcileOutcomes
+    const predictionOutcomeWrite = shouldReconcilePredictionOutcomes
       ? await reconcilePromotionPredictionOutcomesFromSupabase({
           batchSize,
           config,
         })
       : null;
-    const multiBetRecommendationOutcomeWrite = reconcileOutcomes
+    const multiBetRecommendationOutcomeWrite = shouldReconcileMultiBetRecommendationOutcomes
       ? await reconcileMultiBetRecommendationOutcomesFromSupabase({
           batchSize,
           config,
         })
       : null;
-    const userRaceBetOutcomeWrite = reconcileOutcomes
+    const userRaceBetOutcomeWrite = shouldReconcileUserRaceBetOutcomes
       ? await reconcileUserRaceBetOutcomesFromSupabase({
           batchSize,
           config,
         })
       : null;
-    const predictionAggregateWrite = reconcileOutcomes
+    const predictionAggregateWrite = shouldRebuildPredictionAggregates
       ? await rebuildPredictionAggregatesFromSupabase({
           batchSize,
           config,

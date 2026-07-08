@@ -93,8 +93,12 @@ type PredictionSummaryMetrics = {
   missing_runner_count: number;
   net_return: NullableNumber;
   pending_count: number;
+  missing_place_return_count?: number;
+  place_average_return_per_dollar?: NullableNumber;
   place_eligible_count?: number;
+  place_net_return?: NullableNumber;
   place_percentage?: NullableNumber;
+  place_roi_percentage?: NullableNumber;
   places?: number;
   prediction_model: string | null;
   prediction_count: number;
@@ -106,6 +110,8 @@ type PredictionSummaryMetrics = {
   third_percentage: NullableNumber;
   thirds: number;
   total_bonus_credit: NullableNumber;
+  total_place_return?: NullableNumber;
+  total_place_stake?: NullableNumber;
   total_return: NullableNumber;
   total_stake: NullableNumber;
   total_value_with_bonus_credit: NullableNumber;
@@ -834,7 +840,15 @@ function mapDisciplineReturn(row: PredictionSummaryMetrics & { race_code: string
     bonusHitRate: formatPercentage(numeric(row.bonus_credit_percentage)),
     discipline: toTitleCase(row.race_code ?? "Unknown"),
     missingPrices: row.missing_result_count + row.missing_runner_count,
+    missingPlaceReturns: 0,
     netReturn: formatCurrency(numeric(row.net_return)),
+    placeAverageReturn: formatReturn(0),
+    placeHitRate: formatPercentage(0),
+    placeNetReturn: formatCurrency(0),
+    placeRoi: formatPercentage(0),
+    placeSelections: "0 place-eligible selections",
+    placeTotalReturned: formatCurrency(0),
+    placeTotalStaked: formatCurrency(0),
     promoAverageReturn: formatReturn(numeric(row.average_value_per_dollar_with_bonus_credit)),
     promoNetReturn: formatCurrency(
       numeric(row.total_value_with_bonus_credit) - numeric(row.total_stake),
@@ -940,6 +954,16 @@ function mapPlacingSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] 
       value: formatPercentage(numeric(row.place_percentage ?? 0)),
     },
     {
+      detail: `${formatCurrency(numeric(row.total_place_return ?? 0))} cash returned on ${formatCurrency(numeric(row.total_place_stake ?? 0))} place staked`,
+      label: "Cash avg",
+      value: formatReturn(numeric(row.place_average_return_per_dollar ?? 0)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_place_return ?? 0))} cash returned on ${formatCurrency(numeric(row.total_place_stake ?? 0))} place staked`,
+      label: "Cash net",
+      value: formatCurrency(numeric(row.place_net_return ?? 0)),
+    },
+    {
       detail: `${row.wins} wins · ${row.seconds} seconds · ${row.thirds} thirds`,
       label: "Position split",
       value: `${row.wins}/${row.seconds}/${row.thirds}`,
@@ -950,9 +974,9 @@ function mapPlacingSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] 
       value: String(row.place_eligible_count ?? 0),
     },
     {
-      detail: `${row.missing_result_count} missing results · ${row.missing_runner_count} missing runners`,
+      detail: `${row.missing_result_count} missing results · ${row.missing_runner_count} missing runners · ${row.missing_place_return_count ?? 0} missing place dividends`,
       label: "Open issues",
-      value: String(row.missing_result_count + row.missing_runner_count),
+      value: String(row.missing_result_count + row.missing_runner_count + (row.missing_place_return_count ?? 0)),
     },
   ];
 }

@@ -255,6 +255,7 @@ systems:
         - Derive favourite finish-position percentages by final starter count.
         - Derive favourite win percentages by 50c fixed-win price bucket.
         - Derive notional $1 favourite return metrics by race code, country, track, and filters.
+        - Derive cash-only $1 favourite place-return metrics by race code, country, track, and filters, using AU/NZ and HK place-market starter-count rules.
         - Store derived insight metrics in insight_aggregates for app reads.
         - Apply starter-count eligibility to bonus-credit return metrics: 5-7 starters credits 2nd only; 8+ starters credits 2nd/3rd.
         - Keep denominators and missing-data counts visible.
@@ -555,7 +556,7 @@ derived_views:
     responsibility:
       - Store favourite win, 2nd, and 3rd percentages by scope.
       - Store starter-count, price-bucket, distance-band, track-condition, country, course, and race-code aggregate rows.
-      - Include unit-stake cash, bonus-credit, cash-plus-bonus, denominator, and missing-data metrics.
+      - Include unit-stake cash, place-cash, bonus-credit, cash-plus-bonus, denominator, and missing-data metrics.
       - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
   promotion_recommendations:
     responsibility:
@@ -638,10 +639,10 @@ flows:
       - Manual workflow dispatch can refresh 1 to 14 completed Auckland dates for catch-up runs, still chunked into one-day/country/category requests.
       - fetch source race dates for configured source coverage, using Pacific/Auckland only for calendar-date conversion where needed.
       - upsert normalized race data and app-facing race_day_entries.
-      - run one final aggregate/reconcile-only Edge Function request with refreshRaceData false after all source slices finish.
-      - rebuild insight_aggregates in that final request, including country+race-code starter, price, distance-band, and track-condition bucket scopes, from stored race_day_entries across the full collected range after refreshed rows are written.
-      - reconcile pending or missing promotion_predictions against stored results and rebuild model-scoped prediction_aggregates in that final request.
-      - reconcile pending or missing user_race_bets against stored results in that final request so Account personal statistics can settle.
+      - run separate final Edge Function requests after all source slices finish so insight rebuild, prediction outcome reconciliation, multi-bet recommendation reconciliation, user race-bet reconciliation, and prediction aggregate rebuild do not share one 150-second idle-timeout window.
+      - rebuild insight_aggregates in the final insight request, including country+race-code starter, price, distance-band, and track-condition bucket scopes, from stored race_day_entries across the full collected range after refreshed rows are written.
+      - reconcile pending or missing promotion_predictions against stored results in a dedicated final request, then rebuild model-scoped prediction_aggregates in a separate final request.
+      - reconcile pending or missing user_race_bets against stored results in a dedicated final request so Account personal statistics can settle.
       - require RACE_DAY_REFRESH_ADMIN_TOKEN for hosted write runs; store the same token as a Supabase Edge Function secret and a GitHub Actions repository secret.
 
   result_collection:

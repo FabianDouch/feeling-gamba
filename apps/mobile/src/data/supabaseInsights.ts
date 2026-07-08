@@ -20,11 +20,18 @@ type InsightAggregateRow = {
   course_slug: string | null;
   favourite_selections: number;
   missing_price_count: number;
+  missing_place_return_count: number;
   net_return: NullableNumber;
   other_starters_average_price_bucket_label: string | null;
   other_starters_average_price_bucket_start: NullableNumber;
   price_bucket_label: string | null;
   price_bucket_start: NullableNumber;
+  place_average_return_per_dollar: NullableNumber;
+  place_eligible_selections: number;
+  place_hits: number;
+  place_net_return: NullableNumber;
+  place_percentage: NullableNumber;
+  place_roi_percentage: NullableNumber;
   race_code: string | null;
   roi_percentage: NullableNumber;
   scope_key: string;
@@ -35,6 +42,8 @@ type InsightAggregateRow = {
   third_percentage: NullableNumber;
   thirds: number;
   total_bonus_credit: NullableNumber;
+  total_place_return: NullableNumber;
+  total_place_stake: NullableNumber;
   total_return: NullableNumber;
   total_stake: NullableNumber;
   total_value_with_bonus_credit: NullableNumber;
@@ -94,11 +103,18 @@ const INSIGHT_SELECT = [
   "course_slug",
   "favourite_selections",
   "missing_price_count",
+  "missing_place_return_count",
   "net_return",
   "other_starters_average_price_bucket_label",
   "other_starters_average_price_bucket_start",
   "price_bucket_label",
   "price_bucket_start",
+  "place_average_return_per_dollar",
+  "place_eligible_selections",
+  "place_hits",
+  "place_net_return",
+  "place_percentage",
+  "place_roi_percentage",
   "race_code",
   "roi_percentage",
   "scope_key",
@@ -109,6 +125,8 @@ const INSIGHT_SELECT = [
   "third_percentage",
   "thirds",
   "total_bonus_credit",
+  "total_place_return",
+  "total_place_stake",
   "total_return",
   "total_stake",
   "total_value_with_bonus_credit",
@@ -185,6 +203,7 @@ export async function fetchInsights(filters: InsightFilters): Promise<InsightsDa
     otherStartersAveragePriceBreakdown: otherStartersAveragePriceRows.map(
       mapOtherStartersAveragePriceBreakdown,
     ),
+    placeStats: overall ? mapPlaceStats(overall) : [],
     priceBreakdown: priceRows.map(mapPriceBreakdown),
     starterBreakdown: starterRows.map(mapStarterBreakdown),
   };
@@ -501,6 +520,8 @@ function combineAggregateRows(rows: InsightAggregateRow[]) {
   const totalStake = rows.reduce((sum, row) => sum + numeric(row.total_stake), 0);
   const totalReturn = rows.reduce((sum, row) => sum + numeric(row.total_return), 0);
   const totalBonusCredit = rows.reduce((sum, row) => sum + numeric(row.total_bonus_credit), 0);
+  const totalPlaceReturn = rows.reduce((sum, row) => sum + numeric(row.total_place_return), 0);
+  const totalPlaceStake = rows.reduce((sum, row) => sum + numeric(row.total_place_stake), 0);
   const totalValueWithBonusCredit = rows.reduce(
     (sum, row) => sum + numeric(row.total_value_with_bonus_credit),
     0,
@@ -509,6 +530,10 @@ function combineAggregateRows(rows: InsightAggregateRow[]) {
   const seconds = rows.reduce((sum, row) => sum + row.seconds, 0);
   const thirds = rows.reduce((sum, row) => sum + row.thirds, 0);
   const bonusHits = rows.reduce((sum, row) => sum + bonusCreditHits(row), 0);
+  const placeEligibleSelections = rows.reduce((sum, row) => sum + row.place_eligible_selections, 0);
+  const placeHits = rows.reduce((sum, row) => sum + row.place_hits, 0);
+  const missingPlaceReturnCount = rows.reduce((sum, row) => sum + row.missing_place_return_count, 0);
+  const placeNetReturn = totalPlaceReturn - totalPlaceStake;
 
   return {
     ...rows[0],
@@ -518,13 +543,22 @@ function combineAggregateRows(rows: InsightAggregateRow[]) {
       : 0,
     bonus_credit_percentage: favouriteSelections ? (bonusHits / favouriteSelections) * 100 : 0,
     favourite_selections: favouriteSelections,
+    missing_place_return_count: missingPlaceReturnCount,
     net_return: totalReturn - totalStake,
+    place_average_return_per_dollar: totalPlaceStake ? totalPlaceReturn / totalPlaceStake : 0,
+    place_eligible_selections: placeEligibleSelections,
+    place_hits: placeHits,
+    place_net_return: placeNetReturn,
+    place_percentage: placeEligibleSelections ? (placeHits / placeEligibleSelections) * 100 : 0,
+    place_roi_percentage: totalPlaceStake ? (placeNetReturn / totalPlaceStake) * 100 : 0,
     roi_percentage: totalStake ? ((totalReturn - totalStake) / totalStake) * 100 : 0,
     second_percentage: favouriteSelections ? (seconds / favouriteSelections) * 100 : 0,
     seconds,
     third_percentage: favouriteSelections ? (thirds / favouriteSelections) * 100 : 0,
     thirds,
     total_bonus_credit: totalBonusCredit,
+    total_place_return: totalPlaceReturn,
+    total_place_stake: totalPlaceStake,
     total_return: totalReturn,
     total_stake: totalStake,
     total_value_with_bonus_credit: totalValueWithBonusCredit,
@@ -576,7 +610,15 @@ function mapDisciplineReturn(row: InsightAggregateRow): DisciplineReturn {
     bonusHitRate: formatPercentage(numeric(row.bonus_credit_percentage)),
     discipline: toTitleCase(row.race_code ?? "Unknown"),
     missingPrices: row.missing_price_count,
+    missingPlaceReturns: row.missing_place_return_count,
     netReturn: formatCurrency(numeric(row.net_return)),
+    placeAverageReturn: formatReturn(numeric(row.place_average_return_per_dollar)),
+    placeHitRate: formatPercentage(numeric(row.place_percentage)),
+    placeNetReturn: formatCurrency(numeric(row.place_net_return)),
+    placeRoi: formatPercentage(numeric(row.place_roi_percentage)),
+    placeSelections: `${row.place_eligible_selections} place-eligible selections`,
+    placeTotalReturned: formatCurrency(numeric(row.total_place_return)),
+    placeTotalStaked: formatCurrency(numeric(row.total_place_stake)),
     promoAverageReturn: formatReturn(numeric(row.average_value_per_dollar_with_bonus_credit)),
     promoNetReturn: formatCurrency(
       numeric(row.total_value_with_bonus_credit) - numeric(row.total_stake),
@@ -602,6 +644,14 @@ function mapStarterBreakdown(row: InsightAggregateRow): StarterBreakdown {
     cashNetReturn: formatCurrency(numeric(row.net_return)),
     cashReturned: formatCurrency(numeric(row.total_return)),
     cashRoi: formatPercentage(numeric(row.roi_percentage)),
+    missingPlaceReturns: row.missing_place_return_count,
+    placeAverageReturn: formatReturn(numeric(row.place_average_return_per_dollar)),
+    placeHitRate: formatPercentage(numeric(row.place_percentage)),
+    placeNetReturn: formatCurrency(numeric(row.place_net_return)),
+    placeRoi: formatPercentage(numeric(row.place_roi_percentage)),
+    placeSelections: `${row.place_eligible_selections} place-eligible selections`,
+    placeTotalReturned: formatCurrency(numeric(row.total_place_return)),
+    placeTotalStaked: formatCurrency(numeric(row.total_place_stake)),
     promoAverageReturn: formatReturn(numeric(row.average_value_per_dollar_with_bonus_credit)),
     promoNetReturn: formatCurrency(
       numeric(row.total_value_with_bonus_credit) - numeric(row.total_stake),
@@ -624,7 +674,15 @@ function mapPriceBreakdown(row: InsightAggregateRow): PriceBreakdown {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     label: row.price_bucket_label ?? "Missing price bucket",
+    missingPlaceReturns: row.missing_place_return_count,
     netReturn: formatCurrency(numeric(row.net_return)),
+    placeAverageReturn: formatReturn(numeric(row.place_average_return_per_dollar)),
+    placeHitRate: formatPercentage(numeric(row.place_percentage)),
+    placeNetReturn: formatCurrency(numeric(row.place_net_return)),
+    placeRoi: formatPercentage(numeric(row.place_roi_percentage)),
+    placeSelections: `${row.place_eligible_selections} place-eligible selections`,
+    placeTotalReturned: formatCurrency(numeric(row.total_place_return)),
+    placeTotalStaked: formatCurrency(numeric(row.total_place_stake)),
     selections: `${row.favourite_selections} selections`,
     totalReturned: formatCurrency(numeric(row.total_return)),
     totalStaked: formatCurrency(numeric(row.total_stake)),
@@ -639,7 +697,15 @@ function mapOtherStartersAveragePriceBreakdown(row: InsightAggregateRow): OtherS
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     label: row.other_starters_average_price_bucket_label ?? "Missing other-starters price bucket",
+    missingPlaceReturns: row.missing_place_return_count,
     netReturn: formatCurrency(numeric(row.net_return)),
+    placeAverageReturn: formatReturn(numeric(row.place_average_return_per_dollar)),
+    placeHitRate: formatPercentage(numeric(row.place_percentage)),
+    placeNetReturn: formatCurrency(numeric(row.place_net_return)),
+    placeRoi: formatPercentage(numeric(row.place_roi_percentage)),
+    placeSelections: `${row.place_eligible_selections} place-eligible selections`,
+    placeTotalReturned: formatCurrency(numeric(row.total_place_return)),
+    placeTotalStaked: formatCurrency(numeric(row.total_place_stake)),
     selections: `${row.favourite_selections} selections`,
     totalReturned: formatCurrency(numeric(row.total_return)),
     totalStaked: formatCurrency(numeric(row.total_stake)),
@@ -671,6 +737,34 @@ function mapFavouriteStats(row: InsightAggregateRow): FavouriteStat[] {
       detail: `${bonusCreditHits(row)} credits earned`,
       label: "Bonus bet credits",
       value: formatCurrency(numeric(row.total_bonus_credit)),
+    },
+  ];
+}
+
+/**
+ * Converts the stored overall/country/course aggregate into Place tab KPI cards.
+ */
+function mapPlaceStats(row: InsightAggregateRow): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.place_hits} places from ${row.place_eligible_selections} place-eligible selections`,
+      label: "Favourite places",
+      value: formatPercentage(numeric(row.place_percentage)),
+    },
+    {
+      detail: `${row.seconds} finished 2nd · ${row.thirds} finished 3rd`,
+      label: "2nd / 3rd finishes",
+      value: `${formatPercentage(numeric(row.second_percentage))} / ${formatPercentage(numeric(row.third_percentage))}`,
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_place_return))} cash returned on ${formatCurrency(numeric(row.total_place_stake))} staked`,
+      label: "Place cash avg",
+      value: formatReturn(numeric(row.place_average_return_per_dollar)),
+    },
+    {
+      detail: `${row.missing_place_return_count} placed favourites missing place dividends`,
+      label: "Place cash net",
+      value: formatCurrency(numeric(row.place_net_return)),
     },
   ];
 }

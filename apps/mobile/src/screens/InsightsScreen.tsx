@@ -24,9 +24,12 @@ const emptyInsights: InsightsData = {
   disciplineReturns: [],
   favouriteStats: [],
   otherStartersAveragePriceBreakdown: [],
+  placeStats: [],
   priceBreakdown: [],
   starterBreakdown: [],
 };
+
+type InsightMode = "win" | "place";
 
 /**
  * Shows favourite-performance insights scoped by country and race track.
@@ -41,6 +44,7 @@ export function InsightsScreen() {
   const [insights, setInsights] = useState<InsightsData>(emptyInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
+  const [insightMode, setInsightMode] = useState<InsightMode>("win");
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
@@ -74,6 +78,7 @@ export function InsightsScreen() {
   );
   const hasInsightRows = insights.favouriteStats.length > 0
     || insights.disciplineReturns.length > 0
+    || insights.placeStats.length > 0
     || insights.starterBreakdown.length > 0
     || insights.priceBreakdown.length > 0
     || insights.otherStartersAveragePriceBreakdown.length > 0;
@@ -257,6 +262,8 @@ export function InsightsScreen() {
         selectedValue={filters.discipline}
       />
 
+      <InsightModeTabs selectedValue={insightMode} onChange={setInsightMode} />
+
       <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
 
       {filters.course !== "all" ? (
@@ -278,161 +285,9 @@ export function InsightsScreen() {
       ) : !hasInsightRows ? (
         <StateMessage text="No stored insight aggregates match this scope." />
       ) : (
-        <>
-          <View style={styles.statsRow}>
-            {insights.favouriteStats.map((stat) => (
-              <View key={stat.label} style={styles.stat}>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-                <Text style={styles.statDetail}>{stat.detail}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.subheading}>$1 favourite return by discipline</Text>
-          {insights.disciplineReturns.length ? insights.disciplineReturns.map((row) => (
-            <View key={row.discipline} style={styles.returnCard}>
-              <View style={styles.returnHeader}>
-                <View>
-                  <Text style={styles.returnDiscipline}>{row.discipline}</Text>
-                  <Text style={styles.returnNote}>
-                    {row.totalStaked} staked · {row.totalReturned} cash ·{" "}
-                    {row.bonusCredit} bonus
-                  </Text>
-                </View>
-                <View style={styles.returnBadge}>
-                  <Text style={styles.returnBadgeText}>{row.promoRoi}</Text>
-                </View>
-              </View>
-
-              <View style={styles.returnGrid}>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.averageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash avg</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.netReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash net</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.bonusAverageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Bonus avg</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.promoAverageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash+bonus avg</Text>
-                </View>
-              </View>
-
-              <Text style={styles.missingText}>
-                Bonus credits count 2nd for 5-7 starters and 2nd/3rd for 8+
-                starters. Cash ROI {row.roi}; cash+bonus value{" "}
-                {row.totalPromoValue}; bonus hit rate {row.bonusHitRate}.
-              </Text>
-            </View>
-          )) : <EmptyState />}
-
-          <Text style={styles.subheading}>Starter count breakdown</Text>
-          {insights.starterBreakdown.length ? insights.starterBreakdown.map((row) => (
-            <View key={row.starters} style={styles.breakdownCard}>
-              <View style={styles.breakdownHeader}>
-                <View>
-                  <Text style={styles.breakdownLabel}>{row.starters}</Text>
-                  <Text style={styles.breakdownNote}>
-                    {row.selections} · {row.totalStaked} staked ·{" "}
-                    {row.cashReturned} cash · {row.bonusCredit} bonus
-                  </Text>
-                </View>
-                <View style={styles.returnBadge}>
-                  <Text style={styles.returnBadgeText}>{row.promoRoi}</Text>
-                </View>
-              </View>
-
-              <View style={styles.breakdownGrid}>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
-                  <Text style={styles.breakdownMetricLabel}>Win</Text>
-                </View>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.secondRate}</Text>
-                  <Text style={styles.breakdownMetricLabel}>2nd</Text>
-                </View>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.thirdRate}</Text>
-                  <Text style={styles.breakdownMetricLabel}>3rd</Text>
-                </View>
-              </View>
-
-              <View style={styles.breakdownGrid}>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.cashAverageReturn}</Text>
-                  <Text style={styles.breakdownMetricLabel}>Cash avg</Text>
-                </View>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.cashNetReturn}</Text>
-                  <Text style={styles.breakdownMetricLabel}>Cash net</Text>
-                </View>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.bonusAverageReturn}</Text>
-                  <Text style={styles.breakdownMetricLabel}>Bonus avg</Text>
-                </View>
-                <View style={styles.breakdownMetric}>
-                  <Text style={styles.breakdownMetricValue}>{row.promoAverageReturn}</Text>
-                  <Text style={styles.breakdownMetricLabel}>Cash+bonus avg</Text>
-                </View>
-              </View>
-
-              <Text style={styles.missingText}>
-                Cash ROI {row.cashRoi}; cash+bonus value {row.totalPromoValue};
-                bonus hit rate {row.bonusHitRate}; cash+bonus net {row.promoNetReturn}.
-              </Text>
-            </View>
-          )) : <EmptyState />}
-
-          <Text style={styles.subheading}>Favourite price breakdown</Text>
-          {insights.priceBreakdown.length ? insights.priceBreakdown.map((row) => (
-            <View key={row.label} style={styles.priceRow}>
-              <View style={styles.priceLabelBlock}>
-                <Text style={styles.priceLabel}>{row.label}</Text>
-                <Text style={styles.breakdownNote}>{row.selections}</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
-                <Text style={styles.breakdownMetricLabel}>Win</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.averageReturn}</Text>
-                <Text style={styles.breakdownMetricLabel}>Avg return</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.netReturn}</Text>
-                <Text style={styles.breakdownMetricLabel}>Net</Text>
-              </View>
-            </View>
-          )) : <EmptyState />}
-
-          <Text style={styles.subheading}>Other starters avg fixed-win breakdown</Text>
-          {insights.otherStartersAveragePriceBreakdown.length ? insights.otherStartersAveragePriceBreakdown.map((row) => (
-            <View key={row.label} style={styles.priceRow}>
-              <View style={styles.priceLabelBlock}>
-                <Text style={styles.priceLabel}>{row.label}</Text>
-                <Text style={styles.breakdownNote}>{row.selections}</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
-                <Text style={styles.breakdownMetricLabel}>Win</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.averageReturn}</Text>
-                <Text style={styles.breakdownMetricLabel}>Avg return</Text>
-              </View>
-              <View style={styles.priceMetric}>
-                <Text style={styles.breakdownMetricValue}>{row.netReturn}</Text>
-                <Text style={styles.breakdownMetricLabel}>Net</Text>
-              </View>
-            </View>
-          )) : <EmptyState />}
-        </>
+        insightMode === "win"
+          ? <WinInsightsPanel insights={insights} />
+          : <PlaceInsightsPanel insights={insights} />
       )}
     </View>
   );
@@ -444,6 +299,347 @@ function isRaceCode(value: string): value is "horse" | "harness" | "greyhound" {
 
 function stripCountrySuffix(label: string, country: string) {
   return label.replace(new RegExp(`\\s\\(${country}\\)$`), "");
+}
+
+type InsightModeTabsProps = {
+  onChange: (value: InsightMode) => void;
+  selectedValue: InsightMode;
+};
+
+/**
+ * Switches Insights between win-return and place-return statistics.
+ */
+function InsightModeTabs({ onChange, selectedValue }: InsightModeTabsProps) {
+  const options: { label: string; value: InsightMode }[] = [
+    { label: "Win", value: "win" },
+    { label: "Place", value: "place" },
+  ];
+
+  return (
+    <View style={styles.modeTabs}>
+      {options.map((option) => {
+        const isActive = option.value === selectedValue;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.modeTab, isActive ? styles.modeTabActive : null]}
+          >
+            <Text style={[styles.modeTabText, isActive ? styles.modeTabTextActive : null]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+type InsightsPanelProps = {
+  insights: InsightsData;
+};
+
+/**
+ * Shows the existing win-focused Insights statistics.
+ */
+function WinInsightsPanel({ insights }: InsightsPanelProps) {
+  return (
+    <>
+      <View style={styles.statsRow}>
+        {insights.favouriteStats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={styles.statDetail}>{stat.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.subheading}>$1 favourite return by discipline</Text>
+      {insights.disciplineReturns.length ? insights.disciplineReturns.map((row) => (
+        <View key={row.discipline} style={styles.returnCard}>
+          <View style={styles.returnHeader}>
+            <View>
+              <Text style={styles.returnDiscipline}>{row.discipline}</Text>
+              <Text style={styles.returnNote}>
+                {row.totalStaked} staked · {row.totalReturned} cash ·{" "}
+                {row.bonusCredit} bonus
+              </Text>
+            </View>
+            <View style={styles.returnBadge}>
+              <Text style={styles.returnBadgeText}>{row.promoRoi}</Text>
+            </View>
+          </View>
+
+          <View style={styles.returnGrid}>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.averageReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Cash avg</Text>
+            </View>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.netReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Cash net</Text>
+            </View>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.bonusAverageReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Bonus avg</Text>
+            </View>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.promoAverageReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Cash+bonus avg</Text>
+            </View>
+          </View>
+
+          <Text style={styles.missingText}>
+            Bonus credits count 2nd for 5-7 starters and 2nd/3rd for 8+
+            starters. Cash ROI {row.roi}; cash+bonus value{" "}
+            {row.totalPromoValue}; bonus hit rate {row.bonusHitRate}.
+          </Text>
+        </View>
+      )) : <EmptyState />}
+
+      <Text style={styles.subheading}>Starter count breakdown</Text>
+      {insights.starterBreakdown.length ? insights.starterBreakdown.map((row) => (
+        <View key={row.starters} style={styles.breakdownCard}>
+          <View style={styles.breakdownHeader}>
+            <View>
+              <Text style={styles.breakdownLabel}>{row.starters}</Text>
+              <Text style={styles.breakdownNote}>
+                {row.selections} · {row.totalStaked} staked ·{" "}
+                {row.cashReturned} cash · {row.bonusCredit} bonus
+              </Text>
+            </View>
+            <View style={styles.returnBadge}>
+              <Text style={styles.returnBadgeText}>{row.promoRoi}</Text>
+            </View>
+          </View>
+
+          <View style={styles.breakdownGrid}>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
+              <Text style={styles.breakdownMetricLabel}>Win</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.secondRate}</Text>
+              <Text style={styles.breakdownMetricLabel}>2nd</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.thirdRate}</Text>
+              <Text style={styles.breakdownMetricLabel}>3rd</Text>
+            </View>
+          </View>
+
+          <View style={styles.breakdownGrid}>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.cashAverageReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash avg</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.cashNetReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash net</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.bonusAverageReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Bonus avg</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.promoAverageReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash+bonus avg</Text>
+            </View>
+          </View>
+
+          <Text style={styles.missingText}>
+            Cash ROI {row.cashRoi}; cash+bonus value {row.totalPromoValue};
+            bonus hit rate {row.bonusHitRate}; cash+bonus net {row.promoNetReturn}.
+          </Text>
+        </View>
+      )) : <EmptyState />}
+
+      <WinPriceBreakdown title="Favourite price breakdown" rows={insights.priceBreakdown} />
+      <WinPriceBreakdown
+        title="Other starters avg fixed-win breakdown"
+        rows={insights.otherStartersAveragePriceBreakdown}
+      />
+    </>
+  );
+}
+
+type WinPriceBreakdownProps = {
+  rows: InsightsData["priceBreakdown"];
+  title: string;
+};
+
+/**
+ * Shows win-rate and win-return metrics for price bucket rows.
+ */
+function WinPriceBreakdown({ rows, title }: WinPriceBreakdownProps) {
+  return (
+    <>
+      <Text style={styles.subheading}>{title}</Text>
+      {rows.length ? rows.map((row) => (
+        <View key={row.label} style={styles.priceRow}>
+          <View style={styles.priceLabelBlock}>
+            <Text style={styles.priceLabel}>{row.label}</Text>
+            <Text style={styles.breakdownNote}>{row.selections}</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.winRate}</Text>
+            <Text style={styles.breakdownMetricLabel}>Win</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.averageReturn}</Text>
+            <Text style={styles.breakdownMetricLabel}>Avg return</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.netReturn}</Text>
+            <Text style={styles.breakdownMetricLabel}>Net</Text>
+          </View>
+        </View>
+      )) : <EmptyState />}
+    </>
+  );
+}
+
+/**
+ * Shows place-focused Insights statistics without bonus-bet value.
+ */
+function PlaceInsightsPanel({ insights }: InsightsPanelProps) {
+  return (
+    <>
+      <View style={styles.statsRow}>
+        {insights.placeStats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={styles.statDetail}>{stat.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.subheading}>$1 favourite place return by discipline</Text>
+      {insights.disciplineReturns.length ? insights.disciplineReturns.map((row) => (
+        <View key={`place-${row.discipline}`} style={styles.returnCard}>
+          <View style={styles.returnHeader}>
+            <View>
+              <Text style={styles.returnDiscipline}>{row.discipline}</Text>
+              <Text style={styles.returnNote}>
+                {row.placeTotalStaked} staked · {row.placeTotalReturned} cash ·{" "}
+                {row.placeSelections}
+              </Text>
+            </View>
+            <View style={styles.returnBadge}>
+              <Text style={styles.returnBadgeText}>{row.placeHitRate}</Text>
+            </View>
+          </View>
+
+          <View style={styles.returnGrid}>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.placeAverageReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Cash avg</Text>
+            </View>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.placeNetReturn}</Text>
+              <Text style={styles.returnMetricLabel}>Cash net</Text>
+            </View>
+            <View style={styles.returnMetric}>
+              <Text style={styles.returnMetricValue}>{row.placeRoi}</Text>
+              <Text style={styles.returnMetricLabel}>Cash ROI</Text>
+            </View>
+          </View>
+
+          <Text style={styles.missingText}>
+            Place returns use paid place-market dividends only. AU/NZ fields
+            count 5-7 starters for top 2 and 8+ for top 3; HK fields count
+            4-6 starters for top 2 and 7+ for top 3.
+            {row.missingPlaceReturns > 0
+              ? ` ${row.missingPlaceReturns} placed favourites are missing place dividends.`
+              : ""}
+          </Text>
+        </View>
+      )) : <EmptyState />}
+
+      <Text style={styles.subheading}>Starter count breakdown</Text>
+      {insights.starterBreakdown.length ? insights.starterBreakdown.map((row) => (
+        <View key={`place-${row.starters}`} style={styles.breakdownCard}>
+          <View style={styles.breakdownHeader}>
+            <View>
+              <Text style={styles.breakdownLabel}>{row.starters}</Text>
+              <Text style={styles.breakdownNote}>
+                {row.placeSelections} · {row.placeTotalStaked} staked ·{" "}
+                {row.placeTotalReturned} cash
+              </Text>
+            </View>
+            <View style={styles.returnBadge}>
+              <Text style={styles.returnBadgeText}>{row.placeHitRate}</Text>
+            </View>
+          </View>
+
+          <View style={styles.breakdownGrid}>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.placeHitRate}</Text>
+              <Text style={styles.breakdownMetricLabel}>Place</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.placeAverageReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash avg</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.placeNetReturn}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash net</Text>
+            </View>
+            <View style={styles.breakdownMetric}>
+              <Text style={styles.breakdownMetricValue}>{row.placeRoi}</Text>
+              <Text style={styles.breakdownMetricLabel}>Cash ROI</Text>
+            </View>
+          </View>
+
+          {row.missingPlaceReturns > 0 ? (
+            <Text style={styles.missingText}>
+              {row.missingPlaceReturns} placed favourites are missing place dividends.
+            </Text>
+          ) : null}
+        </View>
+      )) : <EmptyState />}
+
+      <PlacePriceBreakdown rows={insights.priceBreakdown} />
+    </>
+  );
+}
+
+type PlacePriceBreakdownProps = {
+  rows: InsightsData["priceBreakdown"];
+};
+
+/**
+ * Shows place-rate and place-return metrics for favourite price bucket rows.
+ */
+function PlacePriceBreakdown({ rows }: PlacePriceBreakdownProps) {
+  return (
+    <>
+      <Text style={styles.subheading}>Favourite price breakdown</Text>
+      {rows.length ? rows.map((row) => (
+        <View key={`place-${row.label}`} style={styles.priceRow}>
+          <View style={styles.priceLabelBlock}>
+            <Text style={styles.priceLabel}>{row.label}</Text>
+            <Text style={styles.breakdownNote}>{row.placeSelections}</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.placeHitRate}</Text>
+            <Text style={styles.breakdownMetricLabel}>Place</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.placeAverageReturn}</Text>
+            <Text style={styles.breakdownMetricLabel}>Cash avg</Text>
+          </View>
+          <View style={styles.priceMetric}>
+            <Text style={styles.breakdownMetricValue}>{row.placeNetReturn}</Text>
+            <Text style={styles.breakdownMetricLabel}>Cash net</Text>
+          </View>
+        </View>
+      )) : <EmptyState />}
+    </>
+  );
 }
 
 type TrackRaceOddsPanelProps = {
@@ -905,6 +1101,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 10,
+  },
+  modeTab: {
+    alignItems: "center",
+    borderRadius: 6,
+    flex: 1,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  modeTabActive: {
+    backgroundColor: "#18202f",
+  },
+  modeTabText: {
+    color: "#344054",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  modeTabTextActive: {
+    color: "#ffffff",
+  },
+  modeTabs: {
+    backgroundColor: "#f2f4f7",
+    borderColor: "#d7dce7",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 14,
+    padding: 4,
   },
   priceLabel: {
     color: "#18202f",

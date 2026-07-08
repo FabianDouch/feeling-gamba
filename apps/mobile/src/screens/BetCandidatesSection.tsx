@@ -525,6 +525,11 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
                   <Text style={styles.multiLegMeta}>
                     {formatPercentage(placing?.placeScore ?? null)} place score · {placing?.sampleSize ?? 0} place-eligible samples
                   </Text>
+                  <Text style={styles.multiLegMeta}>
+                    {formatCurrency(placing?.cashAverageScore ?? null)} cash avg score · price{" "}
+                    {formatBucketWithCashAverage(placing?.priceBucketLabel, placing?.priceBucketCashAverage)} · starter{" "}
+                    {formatBucketWithCashAverage(placing?.starterBucketLabel, placing?.starterBucketCashAverage)}
+                  </Text>
                 </View>
                 <View style={[styles.signalBadge, styles[`signal_${placing?.tone ?? "neutral"}`]]}>
                   <Text style={styles.signalText}>{formatPlacingSignalLabel(placing?.tone)}</Text>
@@ -1068,6 +1073,15 @@ function formatCurrency(value: number | null) {
   }
 
   return `$${value.toFixed(2)}`;
+}
+
+/**
+ * Formats a placing recommendation bucket label with its place cash average.
+ */
+function formatBucketWithCashAverage(label: string | null | undefined, cashAverage: number | null | undefined) {
+  const bucketLabel = label || "-";
+
+  return `${bucketLabel} (${formatCurrency(cashAverage ?? null)})`;
 }
 
 /**

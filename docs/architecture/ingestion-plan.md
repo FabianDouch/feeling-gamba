@@ -675,7 +675,7 @@ Proposed recurring jobs:
 | `capture-market-snapshots` | `*/5 * * * *` | `capture-market-snapshots` | The function decides which races need snapshots. |
 | `collect-results` | `*/10 * * * *` | `collect-results` | Runs during and after race windows. |
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
-| `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs one aggregate/reconcile-only request. |
+| `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha prediction snapshot without waiting for an app open, writes all model variants including the global cash blends, and refuses to write late-day refreshes after the first eligible race has started. |
 
@@ -692,20 +692,21 @@ each completed source date and calls the hosted function with `from` and `to`
 set to that date. Each date is further sliced by country (`NZ`, `AUS`, `HK`)
 and source category (`HORSE`, `HARNESS`, `GREYHOUND`). These source-fetch chunks
 use `refreshRaceData: true`, `rebuildInsights: false`, and
-`reconcileOutcomes: false`. After all source slices finish, the workflow makes
-one final aggregate/reconcile-only request with `refreshRaceData: false`,
-`rebuildInsights: true`, and `reconcileOutcomes: true`. This keeps Race Days
-current, settles prediction outcomes, and avoids the 150 second request idle
-timeout seen when a 4-day all-domestic window and then a single all-domestic
-date were sent as one request. Manual workflow dispatch can use a larger
-lookback, up to 14 completed Auckland dates, for catch-up runs such as
-recovering data after the app only shows race days through `2026-06-21`.
+`reconcileOutcomes: false`. After all source slices finish, the workflow runs
+separate hosted requests for insight rebuild, promotion-prediction outcome
+reconciliation, multi-bet recommendation reconciliation, user race-bet
+reconciliation, and prediction aggregate rebuild. The split is required because
+the combined final aggregate/reconcile request started hitting Supabase's 150
+second request idle timeout as the stored data set grew. Manual workflow
+dispatch can use a larger lookback, up to 14 completed Auckland dates, for
+catch-up runs such as recovering data after the app only shows race days
+through `2026-06-21`.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,
 the hosted function will ignore new `countries`, `categories`,
-`refreshRaceData`, and `reconcileOutcomes` fields and can still time out on
-all-domestic requests.
+`refreshRaceData`, granular reconcile flags, and `reconcileOutcomes` fields and
+can still time out on all-domestic requests or combined final phases.
 
 The daily prediction refresh is deployed as `refresh-current-predictions` and
 scheduled through `.github/workflows/current-prediction-refresh.yml`. The
@@ -739,9 +740,9 @@ Troubleshooting:
   `npx supabase secrets set RACE_DAY_REFRESH_ADMIN_TOKEN=<same-token> --project-ref <project-ref>`.
 - If the workflow returns `504` with `IDLE_TIMEOUT`, reduce the manual
   `lookback_days` and confirm the latest `refresh-race-days-and-insights` Edge
-  Function has been deployed. The workflow chunks by date, country, and source
-  category, but a single very large source slice can still exceed Supabase's
-  request idle timeout.
+  Function has been deployed. The workflow chunks by date, country, source
+  category, and final reconciliation task, but a single very large source or
+  reconciliation slice can still exceed Supabase's request idle timeout.
 - The workflow must fail on non-2xx HTTP responses. Each `curl` call writes the
   response to a file before `jq` formats it so pipe handling cannot hide HTTP
   failures.

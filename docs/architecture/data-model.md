@@ -771,6 +771,7 @@ Key fields:
 - `favourite_price numeric`
 - `favourite_result_position int`
 - `favourite_win_return numeric`
+- `favourite_place_return numeric`
 - `favourite_bonus_credit numeric`
 - `favourite_total_value_with_bonus_credit numeric`
 - `other_starters_average_fixed_win_price numeric`
@@ -850,6 +851,12 @@ Key fields:
 - `place_eligible_selections int`
 - `place_hits int`
 - `place_percentage numeric`
+- `total_place_stake numeric`
+- `total_place_return numeric`
+- `place_net_return numeric`
+- `place_average_return_per_dollar numeric`
+- `place_roi_percentage numeric`
+- `missing_place_return_count int`
 - `total_stake numeric`
 - `total_return numeric`
 - `net_return numeric`
@@ -869,6 +876,10 @@ Rules:
   reconciled.
 - Store scoped rows separately so country/course filters use their own
   denominators.
+- Keep favourite place-return cash metrics separate from bonus-credit metrics.
+  Place-return aggregates stake `$1` only when the source field size pays a
+  place dividend: AU/NZ count 5-7 starters for top 2 and 8+ for top 3, while HK
+  counts 4-6 starters for top 2 and 7+ for top 3.
 - Starter-count and price-bucket rows should include all-country/all-discipline,
   country-only, race-code-only, country+race-code, and course scopes. The
   country+race-code bucket rows support prediction-model comparisons that need
@@ -959,6 +970,11 @@ Rules:
   stake, cash, bonus, net, ROI, and average-return calculations.
 - Keep prediction, pending, missing-result, and missing-runner counts visible for
   the selected filter set.
+- Include place-cash return fields for place-eligible settled predictions:
+  `total_place_stake`, `total_place_return`, `place_net_return`,
+  `place_average_return_per_dollar`, `place_roi_percentage`, and
+  `missing_place_return_count`. These are derived from the matched
+  `race_results` place dividend rather than bonus-bet credit.
 
 ### `get_prediction_history_summary(...)`
 

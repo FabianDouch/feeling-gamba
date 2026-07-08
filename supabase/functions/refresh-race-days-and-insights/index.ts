@@ -20,8 +20,12 @@ type RefreshRequestBody = {
   force?: boolean;
   from?: string;
   lookbackDays?: number;
+  rebuildPredictionAggregates?: boolean;
   refreshRaceData?: boolean;
+  reconcileMultiBetRecommendationOutcomes?: boolean;
   reconcileOutcomes?: boolean;
+  reconcilePredictionOutcomes?: boolean;
+  reconcileUserRaceBetOutcomes?: boolean;
   rebuildInsights?: boolean;
   to?: string;
 };
@@ -131,8 +135,12 @@ Deno.serve(async (request) => {
       force: Boolean(body.force),
       from: body.from,
       lookbackDays: body.lookbackDays,
+      rebuildPredictionAggregates: body.rebuildPredictionAggregates,
       refreshRaceData: body.refreshRaceData !== false,
+      reconcileMultiBetRecommendationOutcomes: body.reconcileMultiBetRecommendationOutcomes,
       reconcileOutcomes: body.reconcileOutcomes !== false,
+      reconcilePredictionOutcomes: body.reconcilePredictionOutcomes,
+      reconcileUserRaceBetOutcomes: body.reconcileUserRaceBetOutcomes,
       rebuildInsights: body.rebuildInsights !== false,
       to: body.to,
       triggeredBy: "edge",

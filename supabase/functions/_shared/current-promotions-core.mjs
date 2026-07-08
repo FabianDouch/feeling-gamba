@@ -1327,7 +1327,10 @@ function createStatsBucket(label) {
     label,
     placeEligibleSelections: 0,
     placeHits: 0,
+    placeAverageReturnPerDollar: 0,
+    placeNetReturn: 0,
     placePercentage: 0,
+    placeRoiPercentage: 0,
     profitLoss: 0,
     profitLossWithBonusCredit: 0,
     secondPercentage: 0,
@@ -1335,6 +1338,8 @@ function createStatsBucket(label) {
     thirdPercentage: 0,
     thirds: 0,
     totalBonusBetCredit: 0,
+    totalPlaceReturn: 0,
+    totalPlaceStake: 0,
     totalReturn: 0,
     totalStake: 0,
     totalValueWithBonusCredit: 0,
@@ -1756,7 +1761,10 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
       ),
       placeEligibleSelections: Number(row.place_eligible_selections ?? 0),
       placeHits: Number(row.place_hits ?? 0),
+      placeAverageReturnPerDollar: Number(row.place_average_return_per_dollar ?? 0),
+      placeNetReturn: Number(row.place_net_return ?? 0),
       placePercentage: Number(row.place_percentage ?? 0),
+      placeRoiPercentage: Number(row.place_roi_percentage ?? 0),
       profitLoss: Number(row.net_return ?? 0),
       profitLossWithBonusCredit: Number(
         row.net_value_with_bonus_credit
@@ -1767,6 +1775,8 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
       thirdPercentage: Number(row.third_percentage ?? 0),
       thirds: Number(row.thirds ?? 0),
       totalBonusBetCredit: Number(row.total_bonus_credit ?? 0),
+      totalPlaceReturn: Number(row.total_place_return ?? 0),
+      totalPlaceStake: Number(row.total_place_stake ?? 0),
       totalReturn: Number(row.total_return ?? 0),
       totalStake: Number(row.total_stake ?? 0),
       totalValueWithBonusCredit: Number(row.total_value_with_bonus_credit ?? 0),
@@ -2114,6 +2124,20 @@ function createPlaceSignal(score, sampleSize, placePayoutDepth, scopeLabel) {
 function createPlacingPrediction(candidate, priceWeight = 0.65, starterWeight = 0.35) {
   const priceBucket = candidate.historical.priceBucket;
   const starterBucket = candidate.historical.starterBucket;
+  const cashAverageScore = weightedAverage([
+    {
+      value: Number(priceBucket?.placeEligibleSelections ?? 0) > 0
+        ? priceBucket?.placeAverageReturnPerDollar
+        : undefined,
+      weight: priceWeight,
+    },
+    {
+      value: Number(starterBucket?.placeEligibleSelections ?? 0) > 0
+        ? starterBucket?.placeAverageReturnPerDollar
+        : undefined,
+      weight: starterWeight,
+    },
+  ]);
   const score = weightedAverage([
     {
       value: Number(priceBucket?.placeEligibleSelections ?? 0) > 0
@@ -2138,11 +2162,20 @@ function createPlacingPrediction(candidate, priceWeight = 0.65, starterWeight = 
   );
 
   return {
+    cashAverageScore,
     detail: signal.detail,
     label: signal.label,
     placePayoutDepth: candidate.placePayoutDepth,
     placeScore: score,
+    priceBucketCashAverage: Number(priceBucket?.placeEligibleSelections ?? 0) > 0
+      ? priceBucket?.placeAverageReturnPerDollar
+      : null,
+    priceBucketLabel: priceBucket?.label ?? candidate.favourite?.priceBucket ?? null,
     sampleSize,
+    starterBucketCashAverage: Number(starterBucket?.placeEligibleSelections ?? 0) > 0
+      ? starterBucket?.placeAverageReturnPerDollar
+      : null,
+    starterBucketLabel: starterBucket?.label ?? (candidate.starters ? `${candidate.starters} starters` : null),
     tone: signal.tone,
   };
 }

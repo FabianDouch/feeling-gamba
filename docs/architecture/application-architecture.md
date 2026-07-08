@@ -10,7 +10,8 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-07-04 for tracked cash-only multi bet
+Note: the YAML was updated on 2026-07-07 for cash-only favourite place-return
+discipline metrics in Insights, on 2026-07-04 for tracked cash-only multi bet
 recommendation outcomes, on 2026-07-03 for the Predictions history date-range
 breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
 and on 2026-07-01 for HK domestic-region prediction and race-day coverage. It
@@ -227,6 +228,7 @@ Insights must support an all-country/all-track view, a selected-country view,
 and an individual-track view inside the selected country for:
 
 - `$1` favourite return by discipline.
+- Cash-only `$1` favourite place return by discipline.
 - Starter-count breakdown.
 - Favourite price breakdown.
 
@@ -246,6 +248,13 @@ Cash-plus-bonus aggregates must apply starter-count eligibility before adding
 bonus credit: 5-7 final starters credits 2nd only, 8+ final starters credits
 2nd/3rd, and fewer than 5 final starters earns no place-style bonus credit
 unless a source-backed promotion supplies more specific terms.
+
+Favourite place-return aggregates are separate from bonus-credit aggregates.
+They stake `$1` only when the final starter count has a source-backed place
+market depth: AU/NZ count 5-7 starters for top 2 and 8+ for top 3, while HK
+counts 4-6 starters for top 2 and 7+ for top 3. Place returns use stored fixed
+place dividends and expose cash stake, cash return, cash average, cash net,
+cash ROI, hit rate, and missing place-dividend counts.
 
 ## Storage View
 
@@ -393,6 +402,7 @@ erDiagram
     numeric price_bucket_end
     numeric win_percentage
     numeric average_return_per_dollar
+    numeric place_average_return_per_dollar
   }
 
   PREDICTION_AGGREGATES {
@@ -504,11 +514,12 @@ starter-count, distance-band, and track-condition buckets with conservative
 shrinkage toward broader history. A prediction row is replaced only when its
 signature changes, covering material changes such as the predicted favourite,
 fixed-win price, starter count, rank, model score, or signal. The daily
-overnight `refresh-race-days-and-insights` invocation reconciles non-settled
-predictions against the stored race, runner, and result rows, then rebuilds
-model-scoped `prediction_aggregates` for the Predictions tab. Prediction
-outcomes use the predicted runner and predicted fixed-win price, not the later
-final favourite.
+overnight `refresh-race-days-and-insights` workflow reconciles non-settled
+predictions against the stored race, runner, and result rows in a dedicated
+final request, then rebuilds model-scoped `prediction_aggregates` for the
+Predictions tab in a separate final request so those jobs do not share one Edge
+Function idle-timeout window. Prediction outcomes use the predicted runner and
+predicted fixed-win price, not the later final favourite.
 
 Because Expo runs from `apps/mobile`, `apps/mobile/app.config.js` loads the
 repo-root public Supabase env values before Metro bundles the app.
@@ -586,7 +597,7 @@ repo-root public Supabase env values before Metro bundles the app.
 - Daily overnight `refresh-race-days-and-insights` reconciles pending
   `user_race_bets` and tracked multi bet recommendation legs by
   `source_race_card_id` and selected runner number after race results are
-  refreshed.
+  refreshed, using separate final requests for each reconciliation family.
 - Normalized race/source tables and operational tables remain server-side behind
   RLS. Public client reads are limited to app-facing read models and public
   promotion snapshots.

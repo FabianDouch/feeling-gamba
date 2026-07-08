@@ -11,12 +11,17 @@ export type HistoricalBucket = {
   profitLossWithBonusCredit: number;
   placeEligibleSelections?: number;
   placeHits?: number;
+  placeAverageReturnPerDollar?: number;
+  placeNetReturn?: number;
   placePercentage?: number;
+  placeRoiPercentage?: number;
   secondPercentage: number;
   seconds: number;
   thirdPercentage: number;
   thirds: number;
   totalBonusBetCredit: number;
+  totalPlaceReturn?: number;
+  totalPlaceStake?: number;
   totalReturn: number;
   totalStake: number;
   totalValueWithBonusCredit: number;
@@ -109,11 +114,16 @@ export type BetCandidate = RecommendationRace & {
   canonicalTrack: string;
   country: string | null;
   placingCandidate?: {
+    cashAverageScore?: number | null;
     detail: string;
     label: string;
     placePayoutDepth: number;
     placeScore: number | null;
+    priceBucketCashAverage?: number | null;
+    priceBucketLabel?: string | null;
     sampleSize: number;
+    starterBucketCashAverage?: number | null;
+    starterBucketLabel?: string | null;
     tone: "caution" | "muted" | "neutral" | "positive";
   };
   predictionModels?: Record<string, BetCandidate["candidate"]>;

@@ -17,11 +17,12 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-04 for tracked cash-only multi bet
-recommendation history, on 2026-07-03 for the Predictions history date-range
-breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
-and on 2026-07-01 for HK domestic-region prediction and race-day coverage. It
-was previously updated on 2026-06-25 for the two
+Note: the YAML was updated on 2026-07-07 for the Insights Win/Place tab split
+and cash-only favourite place-return discipline metrics, on 2026-07-04 for
+tracked cash-only multi bet recommendation history, on 2026-07-03 for the
+Predictions history date-range breakdown, on 2026-07-02 for the Predictions
+multi bet recommendation panel, and on 2026-07-01 for HK domestic-region
+prediction and race-day coverage. It was previously updated on 2026-06-25 for the two
 cash-only prediction variations that isolate 100% price-bucket and 100%
 starter-count scoring.
 Rendered IA outputs should be regenerated from the YAML before being treated as
@@ -156,6 +157,10 @@ Purpose:
 - Break favourite performance down by the average fixed-win price of the other
   priced starters.
 - Show notional `$1` favourite return metrics by racing discipline.
+- Show cash-only `$1` favourite place-return metrics by racing discipline,
+  separate from bonus-bet credit and cash-plus-bonus value.
+- Split Insights statistics into Win and Place tabs below the discipline
+  filter, so win-return and place-return metrics are not mixed in one stack.
 - Filter the `$1` favourite return by discipline, starter-count breakdown,
   favourite price breakdown, and other-starters average fixed-win breakdown by
   all countries or one selected country, then by all tracks or one selected
@@ -183,9 +188,18 @@ Main content:
 - Favourite win, 2nd, and 3rd percentages.
 - `$1` unit-stake return metrics: total staked, total returned, net return,
   average return, bonus average, cash-plus-bonus average, and ROI.
-- Starter-count breakdown, for example 7 starters, 8 starters, 9 starters.
-- Favourite price breakdown, for example `$1.00-$1.49`, `$1.50-$1.99`, and
-  onward.
+- `$1` place unit-stake return metrics: place-eligible staked, cash returned,
+  place hit rate, cash average, cash net, cash ROI, and missing place-dividend
+  count.
+- Win tab starter-count breakdown, for example 7 starters, 8 starters, 9
+  starters, with win rate, finish-position rates, cash return, and
+  cash-plus-bonus context.
+- Win tab favourite price breakdown, for example `$1.00-$1.49`,
+  `$1.50-$1.99`, and onward, with win rate and cash return.
+- Place tab starter-count breakdown with place hit rate, cash average, cash
+  net, cash ROI, and missing place-dividend counts.
+- Place tab favourite price breakdown with place hit rate, cash average, and
+  cash net.
 - Other-starters average fixed-win breakdown, for example `$3.00-$5.99`,
   `$7.00-$9.99`, and `$25.00+`. These buckets use the average fixed-win price
   of priced non-favourite starters, with `$70.00+` prices excluded from the
@@ -305,7 +319,9 @@ Main content:
   using historical place percentages from stored insight aggregates. A place
   counts as top 2 in smaller place fields and top 3 in larger fields: AU/NZ
   uses 5-7 starters for top 2 and 8+ for top 3; HK uses 4-6 starters for top 2
-  and 7+ for top 3. Smaller fields with no place market are excluded.
+  and 7+ for top 3. Smaller fields with no place market are excluded. Current
+  placing recommendation cards should show place score, place cash average
+  score, favourite price bucket, and starter-count bucket context.
 - Bet candidate disciplines should be shown as tabs for horse, harness, and
   greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
@@ -358,6 +374,9 @@ Main content:
 - Cash average, cash net, bonus average, cash-plus-bonus average,
   cash-plus-bonus net, cash ROI, and cash-plus-bonus ROI for each discipline,
   with average returns displayed as dollar value per `$1` prediction.
+- Placing prediction performance should include place rate, place cash average,
+  place cash net, position split, place-market rule, missing place-dividend
+  count, and open issues.
 - Recent prediction history showing each stored race prediction, predicted
   runner, predicted price, race details, outcome status, and cash/bonus return.
   Outcome badges should distinguish cash wins from bonus-bet credits: win

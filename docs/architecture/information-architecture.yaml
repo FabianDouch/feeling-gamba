@@ -134,6 +134,9 @@ navigation:
           - Break favourite win percentage down by 50c fixed-win price bucket.
           - Break favourite performance down by average fixed-win price of the other priced starters.
           - Show notional $1 favourite return metrics by racing discipline.
+          - Show cash-only $1 favourite place-return metrics by racing discipline, separate from bonus-bet credit and cash-plus-bonus value.
+          - Split the Insights body into Win and Place tabs below the discipline filter so win-return and place-return statistics stay separate.
+          - Show Place tab starter-count and favourite-price breakdowns using place hit rate, place cash average, place cash net, and missing place-dividend counts.
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
@@ -150,12 +153,16 @@ navigation:
           - track_race_odds_request_panel
           - full_collected_date_range_default
           - discipline_summary_sections
+          - insight_win_place_tabs
           - favourite_outcomes
           - favourite_finish_position_percentages
           - unit_stake_return_metrics
+          - place_unit_stake_return_metrics
           - bonus_average_return_metric
           - starter_count_breakdown
+          - place_starter_count_breakdown
           - favourite_price_bucket_breakdown
+          - place_favourite_price_bucket_breakdown
           - other_starters_average_fixed_win_breakdown
           - market_mover_outcomes
           - missing_data_counts
@@ -235,6 +242,7 @@ navigation:
           - Label candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
           - Show a Multi bet recommendation panel derived from the active model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
           - Show a separate Placing recommendations panel derived from stored place-rate insight aggregates; exclude fields with no place market.
+          - Show current placing recommendation cash-average score plus favourite price bucket and starter-count bucket context.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
           - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - Track candidate predictions made by independent current prediction scans.
@@ -258,6 +266,7 @@ navigation:
           - Default and reset the Prediction history date range to yesterday in Pacific/Auckland time, even when no rows exist for that date yet.
           - Show a date range breakdown for the selected Prediction history filters with prediction count, settled/pending count, win rate, cash average, cash net, cash-plus-bonus average, cash-plus-bonus net, and open issues.
           - Show Placing prediction performance in Stored model performance using country-aware starter-count place rules.
+          - Include place cash average, place cash net, and missing place-dividend counts in Placing prediction performance.
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, combined fixed-win price, average cash score, cash return, and per-leg Won/Lost/Pending/Missing outcomes.
