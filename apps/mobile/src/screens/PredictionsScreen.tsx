@@ -32,6 +32,10 @@ const emptyPredictions: PredictionsData = {
   summaryStats: [],
   totalMultiBetHistoryCount: 0,
   totalHistoryCount: 0,
+  totalWinPercentageMultiBetHistoryCount: 0,
+  winPercentageMultiBetHistory: [],
+  winPercentageMultiBetPerformanceStats: [],
+  winPercentageMultiBetSummaryStats: [],
 };
 const PERFORMANCE_DISCIPLINE_OPTIONS = [
   { label: "All", value: "all" },
@@ -87,7 +91,10 @@ export function PredictionsScreen() {
     || predictions.multiBetHistory.length > 0
     || predictions.multiBetPerformanceStats.length > 0
     || predictions.multiBetSummaryStats.length > 0
-    || predictions.placingPerformanceStats.length > 0;
+    || predictions.placingPerformanceStats.length > 0
+    || predictions.winPercentageMultiBetHistory.length > 0
+    || predictions.winPercentageMultiBetPerformanceStats.length > 0
+    || predictions.winPercentageMultiBetSummaryStats.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -357,6 +364,21 @@ export function PredictionsScreen() {
           ) : (
             <StateMessage text="No multi-bet prediction performance is available for this model yet." />
           )}
+
+          <Text style={styles.historyBreakdownHeading}>Multi-bet win percentage performance</Text>
+          {predictions.winPercentageMultiBetPerformanceStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.winPercentageMultiBetPerformanceStats.map((stat) => (
+                <View key={`win-percentage-multi-performance-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No win-percentage multi-bet performance is available yet." />
+          )}
         </>
       ) : null}
 
@@ -467,6 +489,21 @@ export function PredictionsScreen() {
             <StateMessage text="No tracked multi bet recommendations match this history filter range." />
           )}
 
+          <Text style={styles.historyBreakdownHeading}>Win percentage multi date range breakdown</Text>
+          {predictions.winPercentageMultiBetSummaryStats.length ? (
+            <View style={styles.statsRow}>
+              {predictions.winPercentageMultiBetSummaryStats.map((stat) => (
+                <View key={`win-percentage-multi-${stat.label}`} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                  <Text style={styles.statDetail}>{stat.detail}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StateMessage text="No tracked win-percentage multi recommendations match this history filter range." />
+          )}
+
           <Text style={styles.historyCount}>
             {predictions.multiBetHistory.length} of {predictions.totalMultiBetHistoryCount} multi recommendations
           </Text>
@@ -502,7 +539,7 @@ export function PredictionsScreen() {
 
                 <View style={styles.historyReturnRow}>
                   <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
-                  <Text style={styles.historyReturnText}>Avg cash {recommendation.averageCashScore}</Text>
+                  <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
                   <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
                 </View>
 
@@ -538,6 +575,79 @@ export function PredictionsScreen() {
                 <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
               </View>
             )) : <StateMessage text="No tracked multi bet recommendation history matches these filters." />}
+          </View>
+
+          <Text style={styles.historyCount}>
+            {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} win percentage multi recommendations
+          </Text>
+
+          <View key={`${activeModelKey}-${filterKey}-win-percentage-multi`}>
+            {predictions.winPercentageMultiBetHistory.length ? predictions.winPercentageMultiBetHistory.map((recommendation) => (
+              <View key={recommendation.id} style={styles.historyRow}>
+                <View style={styles.historyHeader}>
+                  <View style={styles.historyTitleWrap}>
+                    <Text style={styles.historyRace}>{recommendation.recommendationLabel}</Text>
+                    <Text style={styles.historyMeta}>
+                      {recommendation.sourceDateLabel} · {recommendation.summaryLabel}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.outcomeBadge,
+                      recommendation.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
+                      recommendation.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.outcomeBadgeText,
+                        recommendation.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
+                        recommendation.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
+                      ]}
+                    >
+                      {recommendation.outcomeLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.historyReturnRow}>
+                  <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
+                  <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
+                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
+                </View>
+
+                <View style={styles.multiHistoryLegList}>
+                  {recommendation.legs.map((leg) => (
+                    <View key={leg.id} style={styles.multiHistoryLeg}>
+                      <View style={styles.multiHistoryLegText}>
+                        <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
+                        <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.outcomeBadge,
+                          leg.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
+                          leg.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.outcomeBadgeText,
+                            leg.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
+                            leg.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
+                          ]}
+                        >
+                          {leg.outcomeLabel}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
+              </View>
+            )) : <StateMessage text="No tracked win-percentage multi recommendation history matches these filters." />}
           </View>
 
           <Text style={styles.historyCount}>

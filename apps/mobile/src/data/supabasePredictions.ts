@@ -5,6 +5,7 @@ type NullableNumber = number | string | null;
 const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_PREDICTION_HISTORY_ROW_LIMIT = 50;
 export const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
+export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export type PredictionModelKey =
@@ -253,11 +254,13 @@ export type MultiBetRecommendationLegItem = {
   outcomeLabel: string;
   outcomeTone: "default" | "good" | "warning";
   runnerLabel: string;
+  scoreLabel: string;
   title: string;
 };
 
 export type MultiBetRecommendationHistoryItem = {
   averageCashScore: string;
+  averageScoreLabel: string;
   combinedFixedWinPrice: string;
   id: string;
   legs: MultiBetRecommendationLegItem[];
@@ -302,6 +305,10 @@ export type PredictionsData = {
   summaryStats: FavouriteStat[];
   totalMultiBetHistoryCount: number;
   totalHistoryCount: number;
+  totalWinPercentageMultiBetHistoryCount: number;
+  winPercentageMultiBetHistory: MultiBetRecommendationHistoryItem[];
+  winPercentageMultiBetPerformanceStats: FavouriteStat[];
+  winPercentageMultiBetSummaryStats: FavouriteStat[];
 };
 
 const PREDICTION_AGGREGATE_SELECT = [
@@ -470,6 +477,9 @@ export async function fetchPredictionStats(
     multiBetPerformanceSummary,
     multiBetSummary,
     multiBetHistoryResult,
+    winPercentageMultiBetPerformanceSummary,
+    winPercentageMultiBetSummary,
+    winPercentageMultiBetHistoryResult,
   ] = await Promise.all([
     supabaseSelect<PredictionAggregateRow>("prediction_aggregates", {
       order: "scope_type.asc,race_code.asc",
@@ -482,6 +492,9 @@ export async function fetchPredictionStats(
     fetchMultiBetRecommendationPerformanceSummary(predictionModel),
     fetchMultiBetRecommendationSummary(filters, predictionModel),
     fetchMultiBetRecommendationEntries(filters, predictionModel),
+    fetchMultiBetRecommendationPerformanceSummary(WIN_PERCENTAGE_MULTI_MODEL_KEY),
+    fetchMultiBetRecommendationSummary(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY),
+    fetchMultiBetRecommendationEntries(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY),
   ]);
   const disciplineRows = rows.filter((row) => row.scope_type === "race_code");
 
@@ -506,6 +519,14 @@ export async function fetchPredictionStats(
       : [],
     totalMultiBetHistoryCount: multiBetHistoryResult.totalCount,
     totalHistoryCount: historyResult.totalCount,
+    totalWinPercentageMultiBetHistoryCount: winPercentageMultiBetHistoryResult.totalCount,
+    winPercentageMultiBetHistory: winPercentageMultiBetHistoryResult.history,
+    winPercentageMultiBetPerformanceStats: winPercentageMultiBetPerformanceSummary && winPercentageMultiBetPerformanceSummary.prediction_count > 0
+      ? mapMultiBetSummaryStats(winPercentageMultiBetPerformanceSummary, "Win percentage multis")
+      : [],
+    winPercentageMultiBetSummaryStats: winPercentageMultiBetSummary && winPercentageMultiBetSummary.prediction_count > 0
+      ? mapMultiBetSummaryStats(winPercentageMultiBetSummary, "Win percentage multis")
+      : [],
   };
 }
 
@@ -556,7 +577,7 @@ async function fetchPredictionHistorySummary(
  */
 async function fetchMultiBetRecommendationSummary(
   filters: PredictionHistoryFilters,
-  predictionModel: PredictionModelKey,
+  predictionModel: string,
 ) {
   try {
     const rows = await supabaseRpc<MultiBetRecommendationSummaryRow[]>(
@@ -586,7 +607,7 @@ async function fetchMultiBetRecommendationSummary(
  * Reads all-time tracked multi-bet recommendation performance for the selected model.
  */
 async function fetchMultiBetRecommendationPerformanceSummary(
-  predictionModel: PredictionModelKey,
+  predictionModel: string,
 ) {
   return fetchMultiBetRecommendationSummary({
     country: "all",
@@ -666,7 +687,7 @@ async function fetchPredictionHistoryEntries(
  */
 async function fetchMultiBetRecommendationEntries(
   filters: PredictionHistoryFilters,
-  predictionModel: PredictionModelKey,
+  predictionModel: string,
 ) {
   try {
     const rows = await supabaseRpc<MultiBetRecommendationHistoryRow[]>(
@@ -981,11 +1002,14 @@ function mapPlacingSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] 
   ];
 }
 
-function mapMultiBetSummaryStats(row: MultiBetRecommendationSummaryRow): FavouriteStat[] {
+function mapMultiBetSummaryStats(
+  row: MultiBetRecommendationSummaryRow,
+  predictionLabel = "Multi-bet predictions",
+): FavouriteStat[] {
   return [
     {
       detail: `${row.settled_count} settled · ${row.pending_count} pending`,
-      label: "Multi-bet predictions",
+      label: predictionLabel,
       value: String(row.prediction_count),
     },
     {
@@ -1062,12 +1086,14 @@ function mapMultiBetRecommendationHistoryItem(
   const legs = Array.isArray(row.legs) ? row.legs : [];
   const winningLegs = legs.filter((leg) => leg.outcomeStatus === "settled" && leg.outcomeResultPosition === 1).length;
   const settledLegs = row.outcome_settled_leg_count || legs.filter((leg) => leg.outcomeStatus === "settled").length;
+  const isWinPercentageMulti = row.prediction_model === WIN_PERCENTAGE_MULTI_MODEL_KEY;
 
   return {
-    averageCashScore: formatCurrency(numeric(row.average_cash_score)),
+    averageCashScore: formatMultiBetScore(row.average_cash_score, row.prediction_model),
+    averageScoreLabel: isWinPercentageMulti ? "Avg win score" : "Avg cash",
     combinedFixedWinPrice: formatCombinedFixedWinPrice(row.combined_fixed_win_price),
     id: row.id,
-    legs: legs.map(mapMultiBetRecommendationLegItem),
+    legs: legs.map((leg) => mapMultiBetRecommendationLegItem(leg, row.prediction_model)),
     outcomeLabel: describeMultiBetOutcome(row),
     outcomeTone: getMultiBetOutcomeTone(row),
     predictedAtLabel: `Predicted ${formatDateTime(row.predicted_at)}`,
@@ -1083,14 +1109,19 @@ function mapMultiBetRecommendationHistoryItem(
  */
 function mapMultiBetRecommendationLegItem(
   leg: MultiBetRecommendationLegRow,
+  predictionModel: string | null,
 ): MultiBetRecommendationLegItem {
+  const scoreLabel = formatMultiBetScore(leg.cashAverageScore, predictionModel);
+
   return {
     id: `${leg.sourceRaceCardId}-${leg.legIndex ?? 0}`,
     metaLabel: [
       leg.advertisedStart ? formatDateTime(leg.advertisedStart) : null,
       leg.country ?? null,
       formatPrice(leg.predictedFixedWinPrice),
-      `${formatCurrency(numeric(leg.cashAverageScore))} cash avg`,
+      predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+        ? `${scoreLabel} win score`
+        : `${scoreLabel} cash avg`,
     ].filter(Boolean).join(" · "),
     outcomeLabel: describeMultiBetLegOutcome(leg),
     outcomeTone: getMultiBetLegOutcomeTone(leg),
@@ -1098,6 +1129,7 @@ function mapMultiBetRecommendationLegItem(
       leg.predictedRunnerNumber ? `#${leg.predictedRunnerNumber}` : null,
       leg.predictedRunnerName ?? "Unknown runner",
     ].filter(Boolean).join(" "),
+    scoreLabel,
     title: [
       leg.courseName ?? "Unknown track",
       leg.raceNumber ? `R${leg.raceNumber}` : null,
@@ -1323,6 +1355,14 @@ function formatCombinedFixedWinPrice(value: NullableNumber) {
   const number = numeric(value);
 
   return number ? `$${number.toFixed(2)}` : "Unavailable";
+}
+
+function formatMultiBetScore(value: NullableNumber, predictionModel: string | null) {
+  const number = numeric(value);
+
+  return predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+    ? formatPercentage(number)
+    : formatCurrency(number);
 }
 
 function formatPercentage(value: number) {

@@ -10,7 +10,8 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-07-07 for cash-only favourite place-return
+Note: the YAML was updated on 2026-07-09 for the dedicated win-percentage
+multi-bet model, on 2026-07-07 for cash-only favourite place-return
 discipline metrics in Insights, on 2026-07-04 for tracked cash-only multi bet
 recommendation outcomes, on 2026-07-03 for the Predictions history date-range
 breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
@@ -482,14 +483,18 @@ the app may temporarily read the latest `current_promotion_snapshots` payload
 for candidate display and show a clear transition message. This fallback should
 disappear from normal operation once the prediction snapshot table is deployed
 and populated.
-The prediction refresh also stores one cash-only tracked multi bet
-recommendation per model/source date when enough eligible legs exist. It
-prefers a Positive multi when at least three priced Positive signals exist;
-otherwise it stores a Neutral multi when at least three priced
-Positive-or-Neutral signals exist. The recommendation keeps three to five legs,
-tracks leg-level outcomes, and settles as a cash win only when every leg wins.
-No bonus-bet value, stake sizing, bankroll guidance, or automated wagering is
-stored or displayed for tracked multis.
+The prediction refresh also stores one tracked multi bet recommendation per
+model/source date when enough eligible legs exist. Cash-score multis are keyed
+to the selected single-runner prediction models. The dedicated
+`multi_win_percentage_blend_v1` model is tracked separately and scores current
+favourites from historical win percentages using 65% favourite price-bucket win
+rate and 35% starter-count win rate. All tracked multis prefer a Positive multi
+when at least three priced Positive signals exist; otherwise they store a
+Neutral multi when at least three priced Positive-or-Neutral signals exist. The
+recommendation keeps three to five legs, tracks leg-level outcomes, and settles
+as a cash win only when every leg wins. No bonus-bet value, stake sizing,
+bankroll guidance, or automated wagering is stored or displayed for tracked
+multis.
 The first model remains `global_bucket_blend_v1`, which ranks current
 favourites from all-country historical price-bucket and starter-count cash
 averages using the same 65/35 price/starter weighting as the earlier bucket
@@ -571,13 +576,16 @@ repo-root public Supabase env values before Metro bundles the app.
   `promotion_predictions` rows for itemised race history. It also reads
   tracked multi bet recommendations and their legs from
   `multi_bet_recommendations` / `multi_bet_recommendation_legs` through
-  cash-only summary and history RPCs. The screen presents prediction variations
-  as tabs, tags tabs that have tracked multi-bet prediction rows for the current
-  Auckland source date, and shows a concise model-method explanation at the top
-  of each variation. The selected model is shared across the page, but current
-  Bet candidates are presented as a separate section from Stored model
-  performance so current snapshot recommendations are not confused with
-  historical outcomes.
+  cash-only summary and history RPCs. The screen also reads the dedicated
+  `multi_win_percentage_blend_v1` rows as a separate Multi-bet win percentage
+  performance section, independent of the selected single-runner prediction
+  variation. The screen presents prediction variations as tabs, tags tabs that
+  have tracked multi-bet prediction rows for the current Auckland source date,
+  and shows a concise model-method explanation at the top of each variation.
+  The selected model is shared across the single-runner page sections, but
+  current Bet candidates are presented separately from Stored model performance
+  so current snapshot recommendations are not confused with historical
+  outcomes.
   The history filters query Supabase by date range, country,
   discipline, and racecourse, defaulting and resetting the date range to
   yesterday in `Pacific/Auckland` time. Multi history filters match

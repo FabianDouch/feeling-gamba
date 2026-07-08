@@ -66,9 +66,11 @@ export function BetCandidatesSection({
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const placingCandidatePool = betCandidateScan?.placingCandidates ?? betCandidates;
+  const winPercentageMultiCandidatePool = betCandidateScan?.winPercentageMultiCandidates ?? [];
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
+  const winPercentageMultiRecommendation = buildWinPercentageMultiBetRecommendation(winPercentageMultiCandidatePool);
   const activeCandidateGroup = candidateGroups.find((group) => group.code === selectedDisciplineCode)
     ?? candidateGroups[0]
     ?? null;
@@ -348,6 +350,8 @@ export function BetCandidatesSection({
             recommendation={multiBetRecommendation}
           />
 
+          <WinPercentageMultiRecommendationPanel recommendation={winPercentageMultiRecommendation} />
+
           <PlacingRecommendationsPanel recommendations={placingRecommendations} />
 
           <View style={styles.disciplineTabs}>
@@ -489,6 +493,10 @@ type PlacingRecommendationsPanelProps = {
   recommendations: BetCandidate[];
 };
 
+type WinPercentageMultiRecommendationPanelProps = {
+  recommendation: MultiBetRecommendation | null;
+};
+
 /**
  * Shows the strongest current favourite place signals as a separate prediction family.
  */
@@ -541,6 +549,87 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
       ) : (
         <Text style={styles.multiFooter}>
           No positive or neutral place signals are available in the current snapshot yet.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Shows the dedicated multi-only model that scores legs from historical win percentages.
+ */
+function WinPercentageMultiRecommendationPanel({
+  recommendation,
+}: WinPercentageMultiRecommendationPanelProps) {
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>Win percentage multi recommendation</Text>
+          <Text style={styles.multiContext}>
+            {recommendation
+              ? `${recommendation.legs.length} ${recommendation.tone} win-rate legs from price and starter buckets`
+              : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better win-rate legs`}
+          </Text>
+        </View>
+        {recommendation ? (
+          <View style={[styles.signalBadge, styles[`signal_${recommendation.tone}`]]}>
+            <Text style={styles.signalText}>
+              {recommendation.tone === "positive" ? "Positive multi" : "Neutral multi"}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {recommendation ? (
+        <>
+          <View style={styles.multiMetricRow}>
+            <Metric
+              label="Combined fixed win"
+              value={formatCombinedFixedWinPrice(recommendation.combinedFixedWinPrice)}
+            />
+            <Metric
+              label="Avg win score"
+              value={formatPercentage(getAverageWinPercentageScore(recommendation.legs))}
+            />
+          </View>
+          <View style={styles.multiLegList}>
+            {recommendation.legs.map((race, index) => {
+              const signal = race.winPercentageMultiCandidate;
+
+              return (
+                <View key={`win-multi-${race.raceCardId}`} style={styles.multiLeg}>
+                  <View style={styles.multiLegIndex}>
+                    <Text style={styles.multiLegIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.multiLegTextBlock}>
+                    <Text style={styles.multiLegTitle}>
+                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                    </Text>
+                    <Text style={styles.multiLegMeta}>
+                      {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
+                      {formatCurrency(race.favourite?.fixedWinPrice ?? null)} ·{" "}
+                      {formatPercentage(signal?.winScore ?? null)} win score
+                    </Text>
+                    <Text style={styles.multiLegMeta}>
+                      Price {formatBucketWithWinPercentage(signal?.priceBucketLabel, signal?.priceBucketWinPercentage)} · starter{" "}
+                      {formatBucketWithWinPercentage(signal?.starterBucketLabel, signal?.starterBucketWinPercentage)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.multiLegSignal, styles[`signalText_${signal?.tone ?? "neutral"}`]]}>
+                    {formatWinPercentageSignalLabel(signal?.tone)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          <Text style={styles.multiFooter}>
+            This multi-only model uses historical win percentages, not cash-return averages. No stake size or automated wagering action is provided.
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.multiFooter}>
+          Positive and neutral win-rate signals will appear here once the current snapshot has enough eligible priced legs.
         </Text>
       )}
     </View>
@@ -673,6 +762,73 @@ function buildMultiBetRecommendation(
     }),
     "neutral",
   );
+}
+
+/**
+ * Builds one dedicated win-percentage multi suggestion from the current snapshot.
+ */
+function buildWinPercentageMultiBetRecommendation(
+  candidates: BetCandidate[],
+): MultiBetRecommendation | null {
+  const eligibleCandidates = getUniquePricedWinPercentageCandidates(candidates);
+  const positiveLegs = eligibleCandidates.filter((candidate) =>
+    candidate.winPercentageMultiCandidate?.tone === "positive");
+  const positiveRecommendation = createMultiBetRecommendation(positiveLegs, "positive");
+
+  if (positiveRecommendation) {
+    return positiveRecommendation;
+  }
+
+  return createMultiBetRecommendation(
+    eligibleCandidates.filter((candidate) => {
+      const tone = candidate.winPercentageMultiCandidate?.tone;
+
+      return tone === "neutral" || tone === "positive";
+    }),
+    "neutral",
+  );
+}
+
+/**
+ * Dedupes win-percentage candidates by source race and keeps the strongest leg.
+ */
+function getUniquePricedWinPercentageCandidates(candidates: BetCandidate[]) {
+  const bestByRace = new Map<string, BetCandidate>();
+
+  for (const candidate of candidates) {
+    const signal = candidate.winPercentageMultiCandidate;
+
+    if (
+      !candidate.favourite?.fixedWinPrice
+      || !signal
+      || !["neutral", "positive"].includes(signal.tone)
+    ) {
+      continue;
+    }
+
+    const existing = bestByRace.get(candidate.raceCardId);
+
+    if (!existing || compareWinPercentageCandidates(candidate, existing) < 0) {
+      bestByRace.set(candidate.raceCardId, candidate);
+    }
+  }
+
+  return Array.from(bestByRace.values()).sort(compareWinPercentageCandidates);
+}
+
+/**
+ * Orders win-percentage multi legs by score, then by earliest advertised start.
+ */
+function compareWinPercentageCandidates(left: BetCandidate, right: BetCandidate) {
+  const rightScore = right.winPercentageMultiCandidate?.winScore ?? -Infinity;
+  const leftScore = left.winPercentageMultiCandidate?.winScore ?? -Infinity;
+
+  if (rightScore !== leftScore) {
+    return rightScore - leftScore;
+  }
+
+  return new Date(left.advertisedStart).valueOf()
+    - new Date(right.advertisedStart).valueOf();
 }
 
 /**
@@ -1085,6 +1241,15 @@ function formatBucketWithCashAverage(label: string | null | undefined, cashAvera
 }
 
 /**
+ * Formats a win-percentage multi bucket label with its historical win rate.
+ */
+function formatBucketWithWinPercentage(label: string | null | undefined, winPercentage: number | null | undefined) {
+  const bucketLabel = label || "-";
+
+  return `${bucketLabel} (${formatPercentage(winPercentage ?? null)})`;
+}
+
+/**
  * Formats the displayed combined decimal price for the selected multi legs.
  */
 function formatCombinedFixedWinPrice(value: number | null) {
@@ -1119,6 +1284,39 @@ function getAverageCandidateScore(candidates: BetCandidate[], modelKey: string) 
   }
 
   return scores.reduce((total, score) => total + score, 0) / scores.length;
+}
+
+/**
+ * Averages available win-percentage model scores across a displayed multi.
+ */
+function getAverageWinPercentageScore(candidates: BetCandidate[]) {
+  const scores = candidates
+    .map((candidate) => candidate.winPercentageMultiCandidate?.winScore)
+    .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
+
+  if (!scores.length) {
+    return null;
+  }
+
+  return scores.reduce((total, score) => total + score, 0) / scores.length;
+}
+
+function formatWinPercentageSignalLabel(
+  tone: NonNullable<BetCandidate["winPercentageMultiCandidate"]>["tone"] | undefined,
+) {
+  if (tone === "positive") {
+    return "positive";
+  }
+
+  if (tone === "neutral") {
+    return "neutral";
+  }
+
+  if (tone === "caution") {
+    return "weak";
+  }
+
+  return "win-rate";
 }
 
 function formatOtherStartersPriceShape(race: BetCandidate) {

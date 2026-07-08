@@ -129,6 +129,18 @@ export type BetCandidate = RecommendationRace & {
   predictionModels?: Record<string, BetCandidate["candidate"]>;
   rank: number;
   sourceTrack: string;
+  winPercentageMultiCandidate?: {
+    cashAverageScore?: number | null;
+    detail: string;
+    label: string;
+    priceBucketLabel?: string | null;
+    priceBucketWinPercentage?: number | null;
+    sampleSize: number;
+    starterBucketLabel?: string | null;
+    starterBucketWinPercentage?: number | null;
+    tone: "caution" | "muted" | "neutral" | "positive";
+    winScore: number | null;
+  };
 };
 
 export type BetCandidateModelRun = {
@@ -151,6 +163,7 @@ export type RecommendationPayload = {
     scannedMeetings: number;
     scannedRaceCount: number;
     source: string;
+    winPercentageMultiCandidates?: BetCandidate[];
   } | null;
   generatedAt: string;
   generatedAtNz?: string;

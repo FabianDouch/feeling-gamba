@@ -6,6 +6,7 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
 const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const MULTI_BET_MAX_LEGS = 5;
 const MULTI_BET_MIN_LEGS = 3;
+const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -450,9 +451,12 @@ function createMultiBetRecommendationRowsFromPayload(output) {
         key: DEFAULT_PREDICTION_MODEL_KEY,
       }];
 
-  return modelRuns
+  const modelRows = modelRuns
     .map((model) => createMultiBetRecommendationRow(output, model))
     .filter(Boolean);
+  const winPercentageRow = createWinPercentageMultiBetRecommendationRow(output);
+
+  return winPercentageRow ? [...modelRows, winPercentageRow] : modelRows;
 }
 
 /**
@@ -473,6 +477,23 @@ function createMultiBetRecommendationRow(output, model) {
     candidates.filter((candidate) => ["neutral", "positive"].includes(candidate.candidate?.tone)),
     "neutral",
   );
+}
+
+/**
+ * Creates a tracked multi recommendation from win-rate bucket signals.
+ */
+function createWinPercentageMultiBetRecommendationRow(output) {
+  const candidates = (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
+    .filter((candidate) => candidate.winPercentageMultiCandidate)
+    .map((candidate) => ({
+      ...candidate,
+      candidate: candidate.winPercentageMultiCandidate,
+    }));
+
+  return createMultiBetRecommendationRow(output, {
+    candidates,
+    key: WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  });
 }
 
 /**
@@ -867,10 +888,12 @@ export async function upsertMultiBetRecommendationsToSupabase({ output, supabase
  * Lists model keys represented in the current prediction payload.
  */
 function getPredictionPayloadModelKeys(output) {
-  return (output.betBackCandidates?.models?.length
+  const modelKeys = (output.betBackCandidates?.models?.length
     ? output.betBackCandidates.models
     : [{ key: DEFAULT_PREDICTION_MODEL_KEY }])
     .map((model) => model.key ?? DEFAULT_PREDICTION_MODEL_KEY);
+
+  return [...modelKeys, WIN_PERCENTAGE_MULTI_MODEL_KEY];
 }
 
 /**
@@ -2121,6 +2144,46 @@ function createPlaceSignal(score, sampleSize, placePayoutDepth, scopeLabel) {
   };
 }
 
+function createWinPercentageMultiSignal(score, sampleSize, scopeLabel) {
+  if (score === null) {
+    return {
+      detail: `Matching historical win-rate data is limited. Scope: ${scopeLabel}.`,
+      label: "Limited win-rate history",
+      tone: "neutral",
+    };
+  }
+
+  if (sampleSize < 10) {
+    return {
+      detail: `Historical win-rate data is available, but the sample size is small. Scope: ${scopeLabel}.`,
+      label: "Small win-rate sample",
+      tone: "neutral",
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      detail: `Historical win rate is at least 50% for the matching favourite price and starter buckets. Scope: ${scopeLabel}.`,
+      label: "Positive win-rate signal",
+      tone: "positive",
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      detail: `Historical win rate is at least 40% for the matching favourite price and starter buckets. Scope: ${scopeLabel}.`,
+      label: "Neutral win-rate signal",
+      tone: "neutral",
+    };
+  }
+
+  return {
+    detail: `Historical win rate is below 40% for the matching favourite price and starter buckets. Scope: ${scopeLabel}.`,
+    label: "Weak win-rate signal",
+    tone: "caution",
+  };
+}
+
 function createPlacingPrediction(candidate, priceWeight = 0.65, starterWeight = 0.35) {
   const priceBucket = candidate.historical.priceBucket;
   const starterBucket = candidate.historical.starterBucket;
@@ -2177,6 +2240,52 @@ function createPlacingPrediction(candidate, priceWeight = 0.65, starterWeight = 
       : null,
     starterBucketLabel: starterBucket?.label ?? (candidate.starters ? `${candidate.starters} starters` : null),
     tone: signal.tone,
+  };
+}
+
+/**
+ * Scores candidates for a dedicated multi model using historical win percentages.
+ */
+function createWinPercentageMultiCandidate(candidate, priceWeight = 0.65, starterWeight = 0.35) {
+  const priceBucket = candidate.historical.priceBucket;
+  const starterBucket = candidate.historical.starterBucket;
+  const score = weightedAverage([
+    {
+      value: Number(priceBucket?.favouriteSelections ?? 0) > 0
+        ? priceBucket?.winPercentage
+        : undefined,
+      weight: priceWeight,
+    },
+    {
+      value: Number(starterBucket?.favouriteSelections ?? 0) > 0
+        ? starterBucket?.winPercentage
+        : undefined,
+      weight: starterWeight,
+    },
+  ]);
+  const sampleSize = (priceWeight > 0 ? priceBucket?.favouriteSelections ?? 0 : 0)
+    + (starterWeight > 0 ? starterBucket?.favouriteSelections ?? 0 : 0);
+  const signal = createWinPercentageMultiSignal(
+    score,
+    sampleSize,
+    "all countries and all disciplines",
+  );
+
+  return {
+    cashAverageScore: score,
+    detail: signal.detail,
+    label: signal.label,
+    priceBucketLabel: priceBucket?.label ?? candidate.favourite?.priceBucket ?? null,
+    priceBucketWinPercentage: Number(priceBucket?.favouriteSelections ?? 0) > 0
+      ? priceBucket?.winPercentage
+      : null,
+    sampleSize,
+    starterBucketLabel: starterBucket?.label ?? (candidate.starters ? `${candidate.starters} starters` : null),
+    starterBucketWinPercentage: Number(starterBucket?.favouriteSelections ?? 0) > 0
+      ? starterBucket?.winPercentage
+      : null,
+    tone: signal.tone,
+    winScore: score,
   };
 }
 
@@ -2518,6 +2627,7 @@ function deriveBetBackCandidate(raceCard, context, historicalStats) {
     placingCandidate: createPlacingPrediction(recommendation),
     predictionModels,
     sourceTrack: context.track,
+    winPercentageMultiCandidate: createWinPercentageMultiCandidate(recommendation),
   };
 }
 
@@ -2622,6 +2732,29 @@ function rankPlacingCandidatesByCountryAndDiscipline(candidates) {
   );
 }
 
+/**
+ * Orders the dedicated win-percentage multi candidate list across all current races.
+ */
+function rankWinPercentageMultiCandidates(candidates) {
+  return candidates
+    .filter((candidate) =>
+      candidate.winPercentageMultiCandidate
+      && Number.isFinite(candidate.winPercentageMultiCandidate.winScore)
+      && ["neutral", "positive"].includes(candidate.winPercentageMultiCandidate.tone)
+      && candidate.favourite?.fixedWinPrice)
+    .sort((left, right) => {
+      const rightScore = right.winPercentageMultiCandidate?.winScore ?? -Infinity;
+      const leftScore = left.winPercentageMultiCandidate?.winScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    });
+}
+
 async function fetchBetBackCandidates(source, historicalStats, date) {
   const response = await graphql(source, "RacingHomeMeetingsDesktopScreen", RACING_DAY_QUERY, {
     categories: ["HORSE", "HARNESS", "GREYHOUND"],
@@ -2692,6 +2825,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
   const rankedCandidates = models.find((model) => model.key === DEFAULT_PREDICTION_MODEL_KEY)?.candidates
     ?? rankBetBackCandidatesByCountryAndDiscipline(candidates);
   const placingCandidates = rankPlacingCandidatesByCountryAndDiscipline(candidates);
+  const winPercentageMultiCandidates = rankWinPercentageMultiCandidates(candidates);
 
   return {
     candidates: rankedCandidates,
@@ -2700,11 +2834,12 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
     placingCandidates,
-    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. The win-percentage multi model is tracked separately from single-runner prediction models and ranks current favourites by historical price-bucket and starter-count win percentages. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
     scannedRaceCount,
     source: source.source,
+    winPercentageMultiCandidates,
   };
 }
 

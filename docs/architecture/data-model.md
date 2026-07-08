@@ -594,9 +594,10 @@ Rules:
 
 ### `multi_bet_recommendations`
 
-Stores one tracked multi bet recommendation per prediction model/source date
-when the pre-race candidate snapshot has enough eligible legs. This is a
-cash-only statistical tracking record, not a staking recommendation.
+Stores one tracked multi bet recommendation per model/source date when the
+pre-race candidate snapshot has enough eligible legs. Most rows are keyed to a
+single-runner prediction model; dedicated multi-only models may also use this
+table. This is a statistical tracking record, not a staking recommendation.
 
 Key fields:
 
@@ -627,8 +628,14 @@ Rules:
 - Prefer a `positive` multi when at least three Positive priced legs exist for
   the model; otherwise store a `neutral` multi from Positive-or-Neutral priced
   legs.
-- Store three to five legs, ordered by the model-specific cash score and then
+- Store three to five legs, ordered by the model-specific score and then
   advertised start.
+- `multi_win_percentage_blend_v1` is a multi-only model that scores favourites
+  from historical win percentages using 65% favourite price-bucket win rate and
+  35% starter-count win rate. It keeps the same Positive-first then
+  Neutral-or-better minimum-three-leg rule as cash-score multis, but its stored
+  `average_cash_score`/leg `cash_average_score` values represent win-rate
+  percentages for display as an average win score.
 - Settle as a cash win only when every leg wins; otherwise a fully resulted
   multi settles as a cash loss.
 - Do not store or display bonus-bet value for multi recommendations.

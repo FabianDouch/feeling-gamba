@@ -17,8 +17,9 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-07 for the Insights Win/Place tab split
-and cash-only favourite place-return discipline metrics, on 2026-07-04 for
+Note: the YAML was updated on 2026-07-09 for a dedicated win-percentage
+multi-bet model and separate performance/history sections, on 2026-07-07 for
+the Insights Win/Place tab split and cash-only favourite place-return discipline metrics, on 2026-07-04 for
 tracked cash-only multi bet recommendation history, on 2026-07-03 for the
 Predictions history date-range breakdown, on 2026-07-02 for the Predictions
 multi bet recommendation panel, and on 2026-07-01 for HK domestic-region
@@ -322,6 +323,9 @@ Main content:
   and 7+ for top 3. Smaller fields with no place market are excluded. Current
   placing recommendation cards should show place score, place cash average
   score, favourite price bucket, and starter-count bucket context.
+- Win percentage multi recommendation panel derived from the current candidate
+  snapshot, using 65% favourite price-bucket win rate and 35% starter-count win
+  rate, separate from the active model's cash-score multi.
 - Bet candidate disciplines should be shown as tabs for horse, harness, and
   greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
@@ -399,11 +403,17 @@ Main content:
   for the selected prediction model across all tracked dates, using cash-only
   multi-bet prediction count, settled/pending count, win rate, cash average, cash net,
   and open-issue metrics.
+- Multi-bet win percentage performance in Stored model performance, independent
+  of the selected prediction model, using tracked multi count, settled/pending
+  count, win rate, cash average, cash net, and open-issue metrics.
 - Placing prediction performance in Stored model performance for the selected
   model, using place-eligible settled rows and country-aware starter-count place
   rules instead of raw 1st/2nd/3rd totals.
 - Multi bet date-range breakdown for the selected prediction model using the
   same cash-only metrics and the active Prediction history filters.
+- Win percentage multi date-range breakdown and history using the active
+  Prediction history filters, with average win score labels instead of average
+  cash score labels.
 - Multi bet recommendation history rows showing recommendation type, leg count,
   combined fixed-win price, average cash score, cash return, and leg-level
   Won/Lost/Pending/Missing outcomes.
