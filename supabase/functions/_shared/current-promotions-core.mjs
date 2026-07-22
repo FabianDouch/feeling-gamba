@@ -556,6 +556,7 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
     course_name: candidate.canonicalTrack ?? candidate.sourceTrack ?? null,
     course_slug: candidate.canonicalTrack ? toSlug(candidate.canonicalTrack) : null,
     leg_index: index + 1,
+    prediction_rank: candidate.winPercentageMultiRank ?? candidate.rank ?? index + 1,
     predicted_fixed_win_price: candidate.favourite?.fixedWinPrice ?? null,
     predicted_runner_name: candidate.favourite?.name ?? null,
     predicted_runner_number: candidate.favourite?.number ?? null,
@@ -603,6 +604,7 @@ function createMultiBetRecommendationSignature({ combinedFixedWinPrice, legs, re
     legs: legs.map((leg) => ({
       cashAverageScore: leg.cash_average_score ?? null,
       fixedWinPrice: leg.predicted_fixed_win_price ?? null,
+      predictionRank: leg.prediction_rank ?? null,
       runnerName: leg.predicted_runner_name ?? null,
       runnerNumber: leg.predicted_runner_number ?? null,
       signalLabel: leg.signal_label ?? null,
@@ -2752,7 +2754,11 @@ function rankWinPercentageMultiCandidates(candidates) {
 
       return new Date(left.advertisedStart).valueOf()
         - new Date(right.advertisedStart).valueOf();
-    });
+    })
+    .map((candidate, index) => ({
+      ...candidate,
+      winPercentageMultiRank: index + 1,
+    }));
 }
 
 async function fetchBetBackCandidates(source, historicalStats, date) {

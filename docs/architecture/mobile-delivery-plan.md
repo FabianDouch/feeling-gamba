@@ -245,6 +245,9 @@ Notes:
   build crashed on iPhone with `Cannot find native module 'ExpoCrypto'` because
   OAuth/AuthSession imported the module at startup but the native module was not
   included as an explicit app dependency.
+- `expo-font` is a direct mobile dependency because `@expo/vector-icons` imports
+  it when loading icon fonts. Web bundling cannot resolve the race discipline
+  recommendation icons unless the app declares the package explicitly.
 
 ## Operational Rules
 

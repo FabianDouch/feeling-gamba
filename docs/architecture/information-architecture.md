@@ -17,10 +17,12 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-09 for a dedicated win-percentage
-multi-bet model and separate performance/history sections, on 2026-07-07 for
-the Insights Win/Place tab split and cash-only favourite place-return discipline metrics, on 2026-07-04 for
-tracked cash-only multi bet recommendation history, on 2026-07-03 for the
+Note: the YAML was updated on 2026-07-17 for signed-in win-percentage multi
+recommendation locks and rank-filtered win-percentage multi-bet performance,
+on 2026-07-09 for a dedicated win-percentage multi-bet model and separate
+performance/history sections, on 2026-07-07 for the Insights Win/Place tab
+split and cash-only favourite place-return discipline metrics, on 2026-07-04
+for tracked cash-only multi bet recommendation history, on 2026-07-03 for the
 Predictions history date-range breakdown, on 2026-07-02 for the Predictions
 multi bet recommendation panel, and on 2026-07-01 for HK domestic-region
 prediction and race-day coverage. It was previously updated on 2026-06-25 for the two
@@ -312,6 +314,8 @@ Main content:
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, other-starters average fixed-win price, MarketMover, and manual track
   action.
+- Race recommendation rows should show a compact horse, harness, or greyhound
+  discipline icon beside the race title/runner line.
 - Multi bet recommendation panel derived from the current candidate snapshot:
   if at least three active-model Positive signals exist, show a Positive multi;
   otherwise show a Neutral multi from active-model Positive and Neutral signals
@@ -325,7 +329,9 @@ Main content:
   score, favourite price bucket, and starter-count bucket context.
 - Win percentage multi recommendation panel derived from the current candidate
   snapshot, using 65% favourite price-bucket win rate and 35% starter-count win
-  rate, separate from the active model's cash-score multi.
+  rate, separate from the active model's cash-score multi. If a cached snapshot
+  predates the backend `winPercentageMultiCandidates` field, the app may derive
+  the same signal from each candidate's stored historical buckets.
 - Bet candidate disciplines should be shown as tabs for horse, harness, and
   greyhound so users can scan one ranked discipline list at a time on mobile.
 - Candidate status pills should include the active model's cash metric basis,
@@ -357,6 +363,10 @@ Main content:
 - Prediction variation tabs should show a small `Multi` tag when that model has
   at least one tracked multi-bet prediction row for the current Auckland source
   date.
+- Signed-in users should be able to lock the current win-percentage multi
+  recommendation before 10:00am NZ time. Once locked, the panel should display
+  that user-owned snapshot for the current source date instead of later live
+  recommendation changes.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -406,6 +416,11 @@ Main content:
 - Multi-bet win percentage performance in Stored model performance, independent
   of the selected prediction model, using tracked multi count, settled/pending
   count, win rate, cash average, cash net, and open-issue metrics.
+- Multi-bet win percentage performance should include a local rank filter just
+  above that performance section with all ranks, top 3, and top 4 options. Top
+  3 and top 4 should simulate the outcome of taking only the first 3 or 4
+  ranked win-percentage multi legs from each stored recommendation, instead of
+  reusing the full stored multi result.
 - Placing prediction performance in Stored model performance for the selected
   model, using place-eligible settled rows and country-aware starter-count place
   rules instead of raw 1st/2nd/3rd totals.
@@ -673,6 +688,8 @@ flowchart LR
   not instructions to bet, and should use all NZ/AUS/HK domestic-region race
   cards returned by the source. They should be grouped by country and
   discipline with a maximum of five candidates per country/discipline group.
+- Predictions win-percentage multi locking should remain a user-owned snapshot
+  control only, with no stake size, bankroll advice, or automated wagering.
 - Return metrics should show the outcome of a notional `$1` stake on each
   favourite, including total staked, total returned, net return, average return,
   ROI, and missing price counts.

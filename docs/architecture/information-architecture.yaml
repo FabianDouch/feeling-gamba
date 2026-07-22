@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-06-23"
+last_updated: "2026-07-17"
 
 purpose:
   summary: >
@@ -237,13 +237,15 @@ navigation:
           - Filter Stored model performance by all, horse, harness, or greyhound; all ranks, top 1, top 2, or top 3; and all signals, positive only, or neutral or better.
           - Treat neutral or better as Positive candidate or Neutral candidate only, excluding Small sample and Limited history.
           - Show horse, harness, and greyhound bet candidates in discipline tabs so the mobile page does not become a long stacked list.
+          - Show compact horse, harness, or greyhound discipline icons beside race title and runner lines in race recommendation rows.
           - Show candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
           - Show a compact signal guide above candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
           - Label candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
           - Show a Multi bet recommendation panel derived from the active model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
           - Show a separate Placing recommendations panel derived from stored place-rate insight aggregates; exclude fields with no place market.
           - Show current placing recommendation cash-average score plus favourite price bucket and starter-count bucket context.
-          - Show a separate win-percentage multi recommendation panel derived from 65% favourite price-bucket win rate and 35% starter-count win rate.
+          - Show a separate win-percentage multi recommendation panel derived from 65% favourite price-bucket win rate and 35% starter-count win rate, falling back to per-candidate historical buckets when a cached snapshot predates the backend winPercentageMultiCandidates field.
+          - Let signed-in users lock the current win-percentage multi recommendation before 10:00am NZ time; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
           - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - Track the dedicated multi_win_percentage_blend_v1 multi-only model separately from single-runner prediction models.
@@ -271,6 +273,7 @@ navigation:
           - Include place cash average, place cash net, and missing place-dividend counts in Placing prediction performance.
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet win percentage performance separately from selected-model multi performance.
+          - Add a local rank filter immediately above Multi-bet win percentage performance with all ranks, top 3, and top 4 options; top 3 and top 4 simulate using only the first ranked win-percentage multi legs from each stored recommendation.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show Win percentage multi date-range breakdown and history with average win score labels and leg-level Won/Lost/Pending/Missing outcomes.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, combined fixed-win price, average cash score, cash return, and per-leg Won/Lost/Pending/Missing outcomes.
@@ -285,6 +288,7 @@ navigation:
           - bet_candidate_other_starters_average_fixed_win_metric
           - multi_bet_recommendation_panel
           - win_percentage_multi_recommendation_panel
+          - win_percentage_multi_lock_control
           - stored_model_performance_heading
           - stored_model_performance_filters
           - prediction_summary_stats
@@ -483,6 +487,9 @@ content_rules:
     model's current candidate payload. The server stores the same pre-race
     recommendation for cash-only history and leg-level settlement, without
     bonus-bet value.
+  - Predictions should let signed-in users lock one win-percentage multi
+    recommendation for the current source date before 10:00am NZ time and keep
+    showing the locked snapshot after later same-morning refreshes.
   - The active prediction model tab must drive every model-scoped Predictions
     section, including Stored model performance, current candidates, current
     multi, history metadata, history summaries, history rows, multi

@@ -10,12 +10,14 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-07-09 for the dedicated win-percentage
-multi-bet model, on 2026-07-07 for cash-only favourite place-return
-discipline metrics in Insights, on 2026-07-04 for tracked cash-only multi bet
-recommendation outcomes, on 2026-07-03 for the Predictions history date-range
-breakdown, on 2026-07-02 for the Predictions multi bet recommendation panel,
-and on 2026-07-01 for HK domestic-region prediction and race-day coverage. It
+Note: the YAML was updated on 2026-07-17 for signed-in win-percentage multi
+recommendation locks and rank-filtered win-percentage multi-bet performance,
+on 2026-07-09 for the dedicated win-percentage multi-bet model, on 2026-07-07
+for cash-only favourite place-return discipline metrics in Insights, on
+2026-07-04 for tracked cash-only multi bet recommendation outcomes, on
+2026-07-03 for the Predictions history date-range breakdown, on 2026-07-02 for
+the Predictions multi bet recommendation panel, and on 2026-07-01 for HK
+domestic-region prediction and race-day coverage. It
 was previously updated on 2026-06-25 for the
 `global_bucket_cash_price_only_v1` and
 `global_bucket_cash_starter_only_v1` prediction variations. Rendered
@@ -570,6 +572,11 @@ repo-root public Supabase env values before Metro bundles the app.
   deposits and withdrawals, add manual balance updates, and view the resulting
   balance history line graph. The balance ledger must remain manual tracking
   only and must not feed stake sizing, bankroll guidance, or automated wagering.
+- Predictions reads `user_locked_multi_recommendations` through owner-only RLS
+  for signed-in users. Before 10:00am NZ time, a user can lock the current
+  win-percentage multi recommendation for the current source date; after that,
+  the screen displays the locked snapshot even if the live prediction snapshot
+  refreshes to a different recommendation.
 - Predictions reads current bet candidates from the latest
   `current_prediction_snapshots` payload, stored model-filtered rows from
   `prediction_aggregates` for performance metrics, and recent model-filtered
@@ -579,7 +586,9 @@ repo-root public Supabase env values before Metro bundles the app.
   cash-only summary and history RPCs. The screen also reads the dedicated
   `multi_win_percentage_blend_v1` rows as a separate Multi-bet win percentage
   performance section, independent of the selected single-runner prediction
-  variation. The screen presents prediction variations as tabs, tags tabs that
+  variation. That section can apply all-ranks, top-3, or top-4 rank filters
+  against the stored win-percentage leg ranks so historical performance can
+  show hypothetical shorter multis. The screen presents prediction variations as tabs, tags tabs that
   have tracked multi-bet prediction rows for the current Auckland source date,
   and shows a concise model-method explanation at the top of each variation.
   The selected model is shared across the single-runner page sections, but

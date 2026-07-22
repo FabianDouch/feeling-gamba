@@ -14,6 +14,9 @@ user-owned tables are implemented in
 `supabase/migrations/202606210001_user_profiles_and_favourite_tracks.sql` and
 `supabase/migrations/202606210003_user_race_bets.sql`, with bookmaker-specific
 tracking added by `supabase/migrations/202606210004_user_race_bet_bookmaker.sql`.
+As of `2026-07-17`, signed-in users can lock one current win-percentage multi
+recommendation per source date/model before 10:00am NZ time, implemented in
+`supabase/migrations/202607170004_user_locked_multi_recommendations.sql`.
 
 The design should support:
 
@@ -207,6 +210,49 @@ Rules:
   `balance_delta`, so corrections are visible on the graph.
 - Events are not linked to predictions, recommendations, or tracked promo bets
   for stake sizing.
+
+### `user_locked_multi_recommendations`
+
+Implemented owner-secured lock table for the signed-in user's morning
+win-percentage multi recommendation. This preserves the exact current
+recommendation the user chose before the recommendation cache can refresh again.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `source text`
+- `source_date date`
+- `source_time_zone text`
+- `prediction_model text`
+- `recommendation_type text` - `neutral` or `positive`
+- `locked_at timestamptz`
+- `generated_at timestamptz`
+- `generated_at_nz text`
+- `leg_count int`
+- `combined_fixed_win_price numeric`
+- `average_score numeric`
+- `legs jsonb`
+- `raw jsonb`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Unique key:
+
+- `(user_id, source, source_date, prediction_model)`
+
+Rules:
+
+- A user can read, insert, and delete only their own locked multi rows through
+  RLS.
+- The app and insert RLS policy allow creating a lock only before 10:00am in
+  `Pacific/Auckland`.
+- The first lock for a user/source/source-date/model wins; later app refreshes
+  should display the locked snapshot instead of replacing it with a newer live
+  recommendation.
+- The stored legs are a user-visible snapshot only. They do not settle
+  historical multi performance, do not store real stake size, and do not enable
+  automated wagering.
 
 ### `meetings`
 
@@ -663,6 +709,8 @@ Key fields:
 - `predicted_runner_number int`
 - `predicted_runner_name text`
 - `predicted_fixed_win_price numeric`
+- `prediction_rank int` - rank from the model-specific candidate list, used by
+  rank-filtered win-percentage multi performance.
 - `cash_average_score numeric`
 - `signal_label text`
 - `signal_tone text`
@@ -681,6 +729,9 @@ Rules:
   single-runner predictions.
 - Prediction history should show leg-level Won/Lost/Pending/Missing labels so a
   multi loss can be inspected without recalculating from raw rows in the app.
+- The dedicated `multi_win_percentage_blend_v1` leg snapshot must preserve the
+  original win-percentage candidate rank so historical performance can be
+  re-aggregated as hypothetical top-3 or top-4 multis after settlement.
 
 ### `promotion_recommendations`
 
@@ -981,7 +1032,9 @@ Rules:
   `total_place_stake`, `total_place_return`, `place_net_return`,
   `place_average_return_per_dollar`, `place_roi_percentage`, and
   `missing_place_return_count`. These are derived from the matched
-  `race_results` place dividend rather than bonus-bet credit.
+  `race_results` place dividend rather than bonus-bet credit, with a fallback
+  to `race_day_entries.favourite_place_return` when the prediction runner is
+  the stored favourite and runner-level place dividends are empty.
 
 ### `get_prediction_history_summary(...)`
 
@@ -1049,6 +1102,8 @@ Parameters:
 - `p_course_slug text default null`
 - `p_recommendation_type text default null` - `neutral`, `positive`, or null
   for all tracked multi types.
+- `p_max_leg_rank int default null` - optional rank cap for models that persist
+  ranked legs, initially used by `multi_win_percentage_blend_v1`.
 
 Rules:
 
@@ -1060,6 +1115,11 @@ Rules:
 - Do not include bonus-bet value in multi recommendation summaries.
 - Country, discipline, and racecourse filters match recommendations that
   include at least one matching leg because a multi can contain mixed legs.
+- When `p_max_leg_rank` is set, aggregate from each matching recommendation's
+  ranked top-N leg subset rather than the stored parent outcome: include only
+  recommendations with at least `p_max_leg_rank` ranked legs, settle the subset
+  from leg outcomes, and calculate the hypothetical combined cash return from
+  the subset's stored predicted fixed-win prices.
 
 ### `get_multi_bet_recommendation_entries(...)`
 
@@ -1075,6 +1135,7 @@ Parameters:
 - `p_race_code text default null`
 - `p_course_slug text default null`
 - `p_recommendation_type text default null`
+- `p_max_leg_rank int default null`
 - `p_limit int default 50`
 - `p_offset int default 0`
 
@@ -1086,6 +1147,8 @@ Rules:
 - Apply ordering before pagination: cash-winning multis first, then settled
   losses, then pending rows, then missing/open issue rows.
 - Keep the RPC model-scoped so prediction variation tabs do not mix rows.
+- When `p_max_leg_rank` is set, return only the matching ranked leg subset and
+  label the parent metrics as the hypothetical top-N outcome for display.
 
 ### Legacy Named Insight Views
 

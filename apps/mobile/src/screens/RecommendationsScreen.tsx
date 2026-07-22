@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import { useAuth } from "../data/authSession";
 import {
   fetchLatestPromotionSnapshot,
@@ -489,9 +490,12 @@ export function RecommendationsScreen({ refreshSignal }: RecommendationsScreenPr
             <View key={`${promotion.id}-${race.raceCardId}`} style={styles.racePanel}>
               <View style={styles.raceHeader}>
                 <View>
-                  <Text style={styles.raceTitle}>
-                    R{race.raceNumber} {race.track}
-                  </Text>
+                  <View style={styles.raceTitleRow}>
+                    <RaceDisciplineIcon code={race.code} />
+                    <Text style={styles.raceTitle}>
+                      R{race.raceNumber} {race.track}
+                    </Text>
+                  </View>
                   <Text style={styles.raceMeta}>
                     {formatDateTime(race.advertisedStart)} · {race.starters} starters ·{" "}
                     {race.code}
@@ -944,8 +948,14 @@ const styles = StyleSheet.create({
   },
   raceTitle: {
     color: "#18202f",
+    flex: 1,
     fontSize: 14,
     fontWeight: "900",
+  },
+  raceTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   section: {
     backgroundColor: "#ffffff",

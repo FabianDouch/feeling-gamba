@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
@@ -18,6 +19,11 @@ import {
   hasSupabasePredictionCacheConfig,
   requestPredictionRefresh,
 } from "../data/supabasePromotions";
+import {
+  fetchLockedWinPercentageMulti,
+  saveLockedWinPercentageMulti,
+  type LockedWinPercentageMultiRecommendation,
+} from "../data/userLockedMultiRecommendations";
 import {
   fetchUserRaceBets,
   formatBookmaker,
@@ -50,7 +56,7 @@ const MULTI_BET_MIN_LEGS = 3;
 export function BetCandidatesSection({
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
 }: BetCandidatesSectionProps) {
-  const { user } = useAuth();
+  const { isSigningIn, signInWithGoogle, user } = useAuth();
   const [payload, setPayload] = useState<RecommendationPayload | null>(null);
   const [snapshotGeneratedAt, setSnapshotGeneratedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<BetCandidateStatus>("loading");
@@ -60,23 +66,32 @@ export function BetCandidatesSection({
   const [trackedBets, setTrackedBets] = useState<UserRaceBet[]>([]);
   const [trackedBetMessage, setTrackedBetMessage] = useState<string | null>(null);
   const [trackedBetError, setTrackedBetError] = useState<string | null>(null);
+  const [lockedWinPercentageMulti, setLockedWinPercentageMulti] =
+    useState<LockedWinPercentageMultiRecommendation | null>(null);
+  const [lockedMultiMessage, setLockedMultiMessage] = useState<string | null>(null);
+  const [lockedMultiError, setLockedMultiError] = useState<string | null>(null);
+  const [isLockingWinPercentageMulti, setIsLockingWinPercentageMulti] = useState(false);
   const [selectedDisciplineCode, setSelectedDisciplineCode] = useState<string | null>(null);
   const betCandidateScan = payload?.betBackCandidates ?? null;
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
   const selectedModelKey = selectedModelRun?.key ?? DEFAULT_PREDICTION_MODEL_KEY;
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const placingCandidatePool = betCandidateScan?.placingCandidates ?? betCandidates;
-  const winPercentageMultiCandidatePool = betCandidateScan?.winPercentageMultiCandidates ?? [];
+  const winPercentageMultiCandidatePool = getWinPercentageMultiCandidatePool(betCandidateScan, betCandidates);
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
   const winPercentageMultiRecommendation = buildWinPercentageMultiBetRecommendation(winPercentageMultiCandidatePool);
+  const displayedWinPercentageMultiRecommendation = lockedWinPercentageMulti
+    ? createRecommendationFromLockedWinPercentageMulti(lockedWinPercentageMulti)
+    : winPercentageMultiRecommendation;
   const activeCandidateGroup = candidateGroups.find((group) => group.code === selectedDisciplineCode)
     ?? candidateGroups[0]
     ?? null;
   const modelScoreLabel = "Cash avg score";
   const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
+  const sourceDate = payload?.sourceDate ?? null;
   const candidatesAreStale = Boolean(payload)
     && !predictionWindowClosedNow
     && isSnapshotStale(snapshotGeneratedAt);
@@ -205,6 +220,35 @@ export function BetCandidatesSection({
     };
   }, [user]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadLockedWinPercentageMulti() {
+      if (!user || !sourceDate) {
+        setLockedWinPercentageMulti(null);
+        return;
+      }
+
+      try {
+        const locked = await fetchLockedWinPercentageMulti(sourceDate);
+
+        if (isActive) {
+          setLockedWinPercentageMulti(locked);
+        }
+      } catch (error) {
+        if (isActive) {
+          setLockedMultiError(error instanceof Error ? error.message : "Locked win-percentage multi failed to load.");
+        }
+      }
+    }
+
+    loadLockedWinPercentageMulti();
+
+    return () => {
+      isActive = false;
+    };
+  }, [sourceDate, user]);
+
   async function refreshCandidates() {
     if (!hasSupabasePredictionCacheConfig) {
       setRefreshMessage("Supabase is not configured for bet candidates.");
@@ -276,6 +320,43 @@ export function BetCandidatesSection({
     }
   }
 
+  async function lockWinPercentageMulti() {
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+
+    if (!payload || !winPercentageMultiRecommendation) {
+      setLockedMultiError("No win-percentage multi is available to lock.");
+      return;
+    }
+
+    if (lockedWinPercentageMulti) {
+      setLockedMultiMessage(`Locked win-percentage multi from ${formatDateTime(lockedWinPercentageMulti.lockedAt)} is already active.`);
+      return;
+    }
+
+    if (!isBeforeAucklandLockCutoff()) {
+      setLockedMultiError("Win-percentage multi locking closes at 10:00am NZ time.");
+      return;
+    }
+
+    try {
+      setIsLockingWinPercentageMulti(true);
+      setLockedMultiError(null);
+      setLockedMultiMessage(null);
+      const locked = await saveLockedWinPercentageMulti(
+        createLockedWinPercentageMultiInput(payload, winPercentageMultiRecommendation),
+      );
+      setLockedWinPercentageMulti(locked);
+      setLockedMultiMessage(`Locked win-percentage multi from ${formatDateTime(locked.lockedAt)}.`);
+    } catch (error) {
+      setLockedMultiError(error instanceof Error ? error.message : "Could not lock win-percentage multi.");
+    } finally {
+      setIsLockingWinPercentageMulti(false);
+    }
+  }
+
   return (
     <View style={styles.panel}>
       <View style={styles.headerRow}>
@@ -338,6 +419,11 @@ export function BetCandidatesSection({
       ) : trackedBetMessage ? (
         <Text style={styles.contextText}>{trackedBetMessage}</Text>
       ) : null}
+      {lockedMultiError ? (
+        <Text style={styles.errorText}>{lockedMultiError}</Text>
+      ) : lockedMultiMessage ? (
+        <Text style={styles.contextText}>{lockedMultiMessage}</Text>
+      ) : null}
 
       <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
 
@@ -350,7 +436,18 @@ export function BetCandidatesSection({
             recommendation={multiBetRecommendation}
           />
 
-          <WinPercentageMultiRecommendationPanel recommendation={winPercentageMultiRecommendation} />
+          <WinPercentageMultiRecommendationPanel
+            disabledReason={getWinPercentageLockDisabledReason({
+              isLocked: Boolean(lockedWinPercentageMulti),
+              isSignedIn: Boolean(user),
+              recommendation: winPercentageMultiRecommendation,
+            })}
+            isLocked={Boolean(lockedWinPercentageMulti)}
+            isLocking={isLockingWinPercentageMulti || isSigningIn}
+            lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
+            onLock={lockWinPercentageMulti}
+            recommendation={displayedWinPercentageMultiRecommendation}
+          />
 
           <PlacingRecommendationsPanel recommendations={placingRecommendations} />
 
@@ -391,9 +488,12 @@ export function BetCandidatesSection({
                       <Text style={styles.rankText}>#{race.rank}</Text>
                     </View>
                     <View style={styles.candidateTitleBlock}>
-                      <Text style={styles.raceTitle}>
-                        R{race.raceNumber} {race.sourceTrack}
-                      </Text>
+                      <View style={styles.raceTitleRow}>
+                        <RaceDisciplineIcon code={race.code} />
+                        <Text style={styles.raceTitle}>
+                          R{race.raceNumber} {race.sourceTrack}
+                        </Text>
+                      </View>
                       <Text style={styles.raceMeta}>
                         {formatDateTime(race.advertisedStart)} · {race.starters} starters ·{" "}
                         {race.country ?? "Unknown"} · {race.code}
@@ -494,6 +594,11 @@ type PlacingRecommendationsPanelProps = {
 };
 
 type WinPercentageMultiRecommendationPanelProps = {
+  disabledReason: string | null;
+  isLocked: boolean;
+  isLocking: boolean;
+  lockedAt: string | null;
+  onLock: () => void;
   recommendation: MultiBetRecommendation | null;
 };
 
@@ -523,9 +628,12 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
                   <Text style={styles.multiLegIndexText}>{index + 1}</Text>
                 </View>
                 <View style={styles.multiLegTextBlock}>
-                  <Text style={styles.multiLegTitle}>
-                    R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
-                  </Text>
+                  <View style={styles.multiLegTitleRow}>
+                    <RaceDisciplineIcon code={race.code} size={16} />
+                    <Text style={styles.multiLegTitle}>
+                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                    </Text>
+                  </View>
                   <Text style={styles.multiLegMeta}>
                     {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
                     {race.starters} starters · pays top {placing?.placePayoutDepth ?? race.placePayoutDepth ?? "-"}
@@ -559,27 +667,60 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
  * Shows the dedicated multi-only model that scores legs from historical win percentages.
  */
 function WinPercentageMultiRecommendationPanel({
+  disabledReason,
+  isLocked,
+  isLocking,
+  lockedAt,
+  onLock,
   recommendation,
 }: WinPercentageMultiRecommendationPanelProps) {
+  const isLockDisabled = isLocked || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
+
   return (
     <View style={styles.multiPanel}>
       <View style={styles.multiHeader}>
         <View style={styles.headerText}>
-          <Text style={styles.multiTitle}>Win percentage multi recommendation</Text>
+          <Text style={styles.multiTitle}>
+            {isLocked ? "Locked win percentage multi" : "Win percentage multi recommendation"}
+          </Text>
           <Text style={styles.multiContext}>
-            {recommendation
+            {isLocked && lockedAt
+              ? `Locked ${formatDateTime(lockedAt)}. This snapshot will stay active even if the live recommendation changes.`
+              : recommendation
               ? `${recommendation.legs.length} ${recommendation.tone} win-rate legs from price and starter buckets`
               : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better win-rate legs`}
           </Text>
         </View>
-        {recommendation ? (
-          <View style={[styles.signalBadge, styles[`signal_${recommendation.tone}`]]}>
-            <Text style={styles.signalText}>
-              {recommendation.tone === "positive" ? "Positive multi" : "Neutral multi"}
+        <View style={styles.multiActions}>
+          {recommendation ? (
+            <View style={[styles.signalBadge, styles[`signal_${recommendation.tone}`]]}>
+              <Text style={styles.signalText}>
+                {recommendation.tone === "positive" ? "Positive multi" : "Neutral multi"}
+              </Text>
+            </View>
+          ) : null}
+          <Pressable
+            disabled={isLockDisabled}
+            onPress={onLock}
+            style={[
+              styles.lockButton,
+              isLocked ? styles.lockButtonLocked : null,
+              isLockDisabled ? styles.lockButtonDisabled : null,
+            ]}
+          >
+            <Text style={[
+              styles.lockButtonText,
+              isLocked ? styles.lockButtonTextLocked : null,
+            ]}
+            >
+              {isLocked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
             </Text>
-          </View>
-        ) : null}
+          </Pressable>
+        </View>
       </View>
+      {!isLocked && disabledReason && disabledReason !== "Sign in to lock" ? (
+        <Text style={styles.multiFooter}>{disabledReason}</Text>
+      ) : null}
 
       {recommendation ? (
         <>
@@ -603,9 +744,12 @@ function WinPercentageMultiRecommendationPanel({
                     <Text style={styles.multiLegIndexText}>{index + 1}</Text>
                   </View>
                   <View style={styles.multiLegTextBlock}>
-                    <Text style={styles.multiLegTitle}>
-                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
-                    </Text>
+                    <View style={styles.multiLegTitleRow}>
+                      <RaceDisciplineIcon code={race.code} size={16} />
+                      <Text style={styles.multiLegTitle}>
+                        R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                      </Text>
+                    </View>
                     <Text style={styles.multiLegMeta}>
                       {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
                       {formatCurrency(race.favourite?.fixedWinPrice ?? null)} ·{" "}
@@ -685,9 +829,12 @@ function MultiBetRecommendationPanel({
                     <Text style={styles.multiLegIndexText}>{index + 1}</Text>
                   </View>
                   <View style={styles.multiLegTextBlock}>
-                    <Text style={styles.multiLegTitle}>
-                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
-                    </Text>
+                    <View style={styles.multiLegTitleRow}>
+                      <RaceDisciplineIcon code={race.code} size={16} />
+                      <Text style={styles.multiLegTitle}>
+                        R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                      </Text>
+                    </View>
                     <Text style={styles.multiLegMeta}>
                       {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
                       {formatCurrency(race.favourite?.fixedWinPrice ?? null)} ·{" "}
@@ -790,6 +937,103 @@ function buildWinPercentageMultiBetRecommendation(
 }
 
 /**
+ * Uses backend win-percentage candidates when present, otherwise derives them from legacy snapshot buckets.
+ */
+function getWinPercentageMultiCandidatePool(
+  scan: RecommendationPayload["betBackCandidates"],
+  fallbackCandidates: BetCandidate[],
+) {
+  if (scan?.winPercentageMultiCandidates?.length) {
+    return scan.winPercentageMultiCandidates;
+  }
+
+  return fallbackCandidates.map(addWinPercentageMultiCandidateFallback);
+}
+
+/**
+ * Adds the multi-only win-rate signal to snapshots generated before the backend included it.
+ */
+function addWinPercentageMultiCandidateFallback(candidate: BetCandidate): BetCandidate {
+  if (candidate.winPercentageMultiCandidate) {
+    return candidate;
+  }
+
+  const priceBucket = candidate.historical.priceBucket;
+  const starterBucket = candidate.historical.starterBucket;
+  const winScore = weightedAverage([
+    {
+      value: priceBucket?.favouriteSelections ? priceBucket.winPercentage : undefined,
+      weight: 0.65,
+    },
+    {
+      value: starterBucket?.favouriteSelections ? starterBucket.winPercentage : undefined,
+      weight: 0.35,
+    },
+  ]);
+  const sampleSize = (priceBucket?.favouriteSelections ?? 0) + (starterBucket?.favouriteSelections ?? 0);
+  const signal = createWinPercentageMultiSignal(winScore, sampleSize);
+
+  return {
+    ...candidate,
+    winPercentageMultiCandidate: {
+      cashAverageScore: winScore,
+      detail: signal.detail,
+      label: signal.label,
+      priceBucketLabel: priceBucket?.label ?? candidate.favourite?.priceBucket ?? null,
+      priceBucketWinPercentage: priceBucket?.favouriteSelections ? priceBucket.winPercentage : null,
+      sampleSize,
+      starterBucketLabel: starterBucket?.label ?? (candidate.starters ? `${candidate.starters} starters` : null),
+      starterBucketWinPercentage: starterBucket?.favouriteSelections ? starterBucket.winPercentage : null,
+      tone: signal.tone,
+      winScore,
+    },
+  };
+}
+
+/**
+ * Classifies win-rate multi signals using the same thresholds as the backend model.
+ */
+function createWinPercentageMultiSignal(score: number | null, sampleSize: number) {
+  if (score === null) {
+    return {
+      detail: "Matching historical win-rate data is limited.",
+      label: "Limited win-rate history",
+      tone: "neutral" as const,
+    };
+  }
+
+  if (sampleSize < 10) {
+    return {
+      detail: "Historical win-rate data is available, but the sample size is small.",
+      label: "Small win-rate sample",
+      tone: "neutral" as const,
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      detail: "Historical win rate is at least 50% for the matching favourite price and starter buckets.",
+      label: "Positive win-rate signal",
+      tone: "positive" as const,
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      detail: "Historical win rate is at least 40% for the matching favourite price and starter buckets.",
+      label: "Neutral win-rate signal",
+      tone: "neutral" as const,
+    };
+  }
+
+  return {
+    detail: "Historical win rate is below 40% for the matching favourite price and starter buckets.",
+    label: "Weak win-rate signal",
+    tone: "caution" as const,
+  };
+}
+
+/**
  * Dedupes win-percentage candidates by source race and keeps the strongest leg.
  */
 function getUniquePricedWinPercentageCandidates(candidates: BetCandidate[]) {
@@ -883,6 +1127,19 @@ function createMultiBetRecommendation(
     combinedFixedWinPrice,
     legs,
     tone,
+  };
+}
+
+/**
+ * Rehydrates a user-locked snapshot into the same display shape as the live recommendation.
+ */
+function createRecommendationFromLockedWinPercentageMulti(
+  locked: LockedWinPercentageMultiRecommendation,
+): MultiBetRecommendation {
+  return {
+    combinedFixedWinPrice: locked.combinedFixedWinPrice,
+    legs: locked.legs,
+    tone: locked.tone,
   };
 }
 
@@ -1357,6 +1614,73 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
+function getWinPercentageLockDisabledReason({
+  isLocked,
+  isSignedIn,
+  recommendation,
+}: {
+  isLocked: boolean;
+  isSignedIn: boolean;
+  recommendation: MultiBetRecommendation | null;
+}) {
+  if (isLocked) {
+    return "Already locked";
+  }
+
+  if (!recommendation) {
+    return "No win-percentage multi to lock";
+  }
+
+  if (!isSignedIn) {
+    return "Sign in to lock";
+  }
+
+  if (!isBeforeAucklandLockCutoff()) {
+    return "Locking closes at 10:00am NZ time";
+  }
+
+  return null;
+}
+
+/**
+ * Keeps lock creation aligned to the user's morning pre-bet workflow.
+ */
+function isBeforeAucklandLockCutoff(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-NZ", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    timeZone: SOURCE_TIME_ZONE,
+  }).formatToParts(now);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const minutesSinceMidnight = (value("hour") * 60) + value("minute");
+
+  return minutesSinceMidnight < 10 * 60;
+}
+
+function createLockedWinPercentageMultiInput(
+  payload: RecommendationPayload,
+  recommendation: MultiBetRecommendation,
+) {
+  return {
+    averageScore: getAverageWinPercentageScore(recommendation.legs),
+    combinedFixedWinPrice: recommendation.combinedFixedWinPrice,
+    generatedAt: payload.generatedAt,
+    generatedAtNz: payload.generatedAtNz ?? null,
+    legs: recommendation.legs,
+    raw: {
+      generatedAt: payload.generatedAt,
+      recommendationType: recommendation.tone,
+      sourceDate: payload.sourceDate,
+      sourceTimeZone: payload.sourceTimeZone ?? SOURCE_TIME_ZONE,
+    },
+    recommendationType: recommendation.tone,
+    source: payload.betBackCandidates?.source ?? "betcha",
+    sourceDate: payload.sourceDate,
+    sourceTimeZone: payload.sourceTimeZone ?? SOURCE_TIME_ZONE,
+  };
+}
+
 function getTrackBetDisabledReason(isSignedIn: boolean, race: RecommendationRace) {
   if (!isSignedIn) {
     return "Sign in to track";
@@ -1644,6 +1968,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  lockButton: {
+    alignItems: "center",
+    backgroundColor: "#18202f",
+    borderRadius: 6,
+    justifyContent: "center",
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lockButtonDisabled: {
+    opacity: 0.55,
+  },
+  lockButtonLocked: {
+    backgroundColor: "#dcfce7",
+  },
+  lockButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  lockButtonTextLocked: {
+    color: "#166534",
+  },
+  multiActions: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
   multiContext: {
     color: "#667085",
     fontSize: 12,
@@ -1704,9 +2055,15 @@ const styles = StyleSheet.create({
   },
   multiLegTitle: {
     color: "#18202f",
+    flex: 1,
     fontSize: 12,
     fontWeight: "900",
     lineHeight: 17,
+  },
+  multiLegTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   multiMetricRow: {
     flexDirection: "row",
@@ -1750,8 +2107,14 @@ const styles = StyleSheet.create({
   },
   raceTitle: {
     color: "#18202f",
+    flex: 1,
     fontSize: 14,
     fontWeight: "900",
+  },
+  raceTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   rankBadge: {
     alignItems: "center",

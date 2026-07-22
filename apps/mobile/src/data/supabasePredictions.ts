@@ -21,6 +21,7 @@ export type PredictionModelKey =
 export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" | "greyhound";
 export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
 export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
+export type WinPercentageMultiRankFilter = "all" | "3" | "4";
 
 export type PredictionPerformanceFilters = {
   discipline: PredictionPerformanceDisciplineFilter;
@@ -203,6 +204,7 @@ type MultiBetRecommendationLegRow = {
   predictedFixedWinPrice: NullableNumber;
   predictedRunnerName: string | null;
   predictedRunnerNumber: number | null;
+  predictionRank: number | null;
   raceCode: string | null;
   raceName: string | null;
   raceNumber: number | null;
@@ -253,6 +255,7 @@ export type MultiBetRecommendationLegItem = {
   metaLabel: string;
   outcomeLabel: string;
   outcomeTone: "default" | "good" | "warning";
+  raceCode: string | null;
   runnerLabel: string;
   scoreLabel: string;
   title: string;
@@ -468,7 +471,11 @@ export async function fetchPredictionStats(
     rank: "all",
     signal: "all",
   },
+  winPercentageMultiRankFilter: WinPercentageMultiRankFilter = "all",
 ): Promise<PredictionsData> {
+  const winPercentageMaxLegRank = winPercentageMultiRankFilter === "all"
+    ? null
+    : Number(winPercentageMultiRankFilter);
   const [
     rows,
     performanceSummary,
@@ -492,9 +499,9 @@ export async function fetchPredictionStats(
     fetchMultiBetRecommendationPerformanceSummary(predictionModel),
     fetchMultiBetRecommendationSummary(filters, predictionModel),
     fetchMultiBetRecommendationEntries(filters, predictionModel),
-    fetchMultiBetRecommendationPerformanceSummary(WIN_PERCENTAGE_MULTI_MODEL_KEY),
-    fetchMultiBetRecommendationSummary(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY),
-    fetchMultiBetRecommendationEntries(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY),
+    fetchMultiBetRecommendationPerformanceSummary(WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
+    fetchMultiBetRecommendationSummary(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
+    fetchMultiBetRecommendationEntries(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
   ]);
   const disciplineRows = rows.filter((row) => row.scope_type === "race_code");
 
@@ -578,19 +585,26 @@ async function fetchPredictionHistorySummary(
 async function fetchMultiBetRecommendationSummary(
   filters: PredictionHistoryFilters,
   predictionModel: string,
+  maxLegRank: number | null = null,
 ) {
   try {
+    const body: Record<string, unknown> = {
+      p_country: filters.country === "all" ? null : filters.country,
+      p_course_slug: filters.course === "all" ? null : filters.course,
+      p_from_date: filters.fromDate || null,
+      p_prediction_model: predictionModel,
+      p_race_code: filters.discipline === "all" ? null : filters.discipline,
+      p_recommendation_type: null,
+      p_to_date: filters.toDate || null,
+    };
+
+    if (maxLegRank !== null) {
+      body.p_max_leg_rank = maxLegRank;
+    }
+
     const rows = await supabaseRpc<MultiBetRecommendationSummaryRow[]>(
       "get_multi_bet_recommendation_summary",
-      {
-        p_country: filters.country === "all" ? null : filters.country,
-        p_course_slug: filters.course === "all" ? null : filters.course,
-        p_from_date: filters.fromDate || null,
-        p_prediction_model: predictionModel,
-        p_race_code: filters.discipline === "all" ? null : filters.discipline,
-        p_recommendation_type: null,
-        p_to_date: filters.toDate || null,
-      },
+      body,
     );
 
     return rows[0] ?? null;
@@ -608,6 +622,7 @@ async function fetchMultiBetRecommendationSummary(
  */
 async function fetchMultiBetRecommendationPerformanceSummary(
   predictionModel: string,
+  maxLegRank: number | null = null,
 ) {
   return fetchMultiBetRecommendationSummary({
     country: "all",
@@ -615,7 +630,7 @@ async function fetchMultiBetRecommendationPerformanceSummary(
     discipline: "all",
     fromDate: "",
     toDate: "",
-  }, predictionModel);
+  }, predictionModel, maxLegRank);
 }
 
 /**
@@ -688,21 +703,28 @@ async function fetchPredictionHistoryEntries(
 async function fetchMultiBetRecommendationEntries(
   filters: PredictionHistoryFilters,
   predictionModel: string,
+  maxLegRank: number | null = null,
 ) {
   try {
+    const body: Record<string, unknown> = {
+      p_country: filters.country === "all" ? null : filters.country,
+      p_course_slug: filters.course === "all" ? null : filters.course,
+      p_from_date: filters.fromDate || null,
+      p_limit: DEFAULT_PREDICTION_HISTORY_ROW_LIMIT,
+      p_offset: 0,
+      p_prediction_model: predictionModel,
+      p_race_code: filters.discipline === "all" ? null : filters.discipline,
+      p_recommendation_type: null,
+      p_to_date: filters.toDate || null,
+    };
+
+    if (maxLegRank !== null) {
+      body.p_max_leg_rank = maxLegRank;
+    }
+
     const rows = await supabaseRpc<MultiBetRecommendationHistoryRow[]>(
       "get_multi_bet_recommendation_entries",
-      {
-        p_country: filters.country === "all" ? null : filters.country,
-        p_course_slug: filters.course === "all" ? null : filters.course,
-        p_from_date: filters.fromDate || null,
-        p_limit: DEFAULT_PREDICTION_HISTORY_ROW_LIMIT,
-        p_offset: 0,
-        p_prediction_model: predictionModel,
-        p_race_code: filters.discipline === "all" ? null : filters.discipline,
-        p_recommendation_type: null,
-        p_to_date: filters.toDate || null,
-      },
+      body,
     );
 
     return {
@@ -844,7 +866,17 @@ async function supabaseRpc<TResult>(name: string, body: Record<string, unknown>)
   });
 
   if (!response.ok) {
-    throw new Error(`Supabase prediction RPC ${name} failed with HTTP ${response.status}`);
+    const message = await response.text();
+    let detail = message.slice(0, 300);
+
+    try {
+      const payload = JSON.parse(message) as { message?: string; details?: string; hint?: string };
+      detail = [payload.message, payload.details, payload.hint].filter(Boolean).join(" ");
+    } catch {
+      // Keep the raw response text when Supabase does not return JSON.
+    }
+
+    throw new Error(`Supabase prediction RPC ${name} failed with HTTP ${response.status}: ${detail}`);
   }
 
   return await response.json() as TResult;
@@ -1117,6 +1149,9 @@ function mapMultiBetRecommendationLegItem(
     id: `${leg.sourceRaceCardId}-${leg.legIndex ?? 0}`,
     metaLabel: [
       leg.advertisedStart ? formatDateTime(leg.advertisedStart) : null,
+      predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY && leg.predictionRank
+        ? `Rank ${leg.predictionRank}`
+        : null,
       leg.country ?? null,
       formatPrice(leg.predictedFixedWinPrice),
       predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
@@ -1125,6 +1160,7 @@ function mapMultiBetRecommendationLegItem(
     ].filter(Boolean).join(" · "),
     outcomeLabel: describeMultiBetLegOutcome(leg),
     outcomeTone: getMultiBetLegOutcomeTone(leg),
+    raceCode: leg.raceCode,
     runnerLabel: [
       leg.predictedRunnerNumber ? `#${leg.predictedRunnerNumber}` : null,
       leg.predictedRunnerName ?? "Unknown runner",

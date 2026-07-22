@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import {
   createDefaultPredictionHistoryFilters,
   DEFAULT_PREDICTION_MODEL_KEY,
@@ -18,6 +19,7 @@ import {
   type PredictionHistoryMetadata,
   type PredictionModelKey,
   type PredictionsData,
+  type WinPercentageMultiRankFilter,
 } from "../data/supabasePredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 
@@ -54,6 +56,11 @@ const PERFORMANCE_SIGNAL_OPTIONS = [
   { label: "Positive only", value: "positive_only" },
   { label: "Neutral or better", value: "neutral_or_better" },
 ] satisfies { label: string; value: PredictionPerformanceSignalFilter }[];
+const WIN_PERCENTAGE_MULTI_RANK_OPTIONS = [
+  { label: "All legs", value: "all" },
+  { label: "Top 3", value: "3" },
+  { label: "Top 4", value: "4" },
+] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
 
 /**
  * Shows stored Betcha candidate prediction outcomes by racing discipline.
@@ -75,6 +82,8 @@ export function PredictionsScreen() {
     rank: "all",
     signal: "all",
   });
+  const [winPercentageMultiRankFilter, setWinPercentageMultiRankFilter] =
+    useState<WinPercentageMultiRankFilter>("all");
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -172,7 +181,12 @@ export function PredictionsScreen() {
       try {
         setIsLoadingPredictions(true);
         setErrorMessage(null);
-        const nextPredictions = await fetchPredictionStats(filters, activeModelKey, performanceFilters);
+        const nextPredictions = await fetchPredictionStats(
+          filters,
+          activeModelKey,
+          performanceFilters,
+          winPercentageMultiRankFilter,
+        );
 
         if (!cancelled) {
           setPredictions(nextPredictions);
@@ -194,7 +208,7 @@ export function PredictionsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [activeModelKey, filters, metadata, performanceFilters]);
+  }, [activeModelKey, filters, metadata, performanceFilters, winPercentageMultiRankFilter]);
 
   function updateFilter(key: keyof PredictionHistoryFilters, value: string) {
     setFilters((current) => ({
@@ -365,6 +379,12 @@ export function PredictionsScreen() {
             <StateMessage text="No multi-bet prediction performance is available for this model yet." />
           )}
 
+          <FilterGroup
+            label="Win percentage multi ranks"
+            options={WIN_PERCENTAGE_MULTI_RANK_OPTIONS}
+            selectedValue={winPercentageMultiRankFilter}
+            onChange={(value) => setWinPercentageMultiRankFilter(value as WinPercentageMultiRankFilter)}
+          />
           <Text style={styles.historyBreakdownHeading}>Multi-bet win percentage performance</Text>
           {predictions.winPercentageMultiBetPerformanceStats.length ? (
             <View style={styles.statsRow}>
@@ -547,7 +567,10 @@ export function PredictionsScreen() {
                   {recommendation.legs.map((leg) => (
                     <View key={leg.id} style={styles.multiHistoryLeg}>
                       <View style={styles.multiHistoryLegText}>
-                        <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        <View style={styles.multiHistoryLegTitleRow}>
+                          <RaceDisciplineIcon code={leg.raceCode} size={16} />
+                          <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        </View>
                         <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
                         <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
                       </View>
@@ -581,7 +604,7 @@ export function PredictionsScreen() {
             {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} win percentage multi recommendations
           </Text>
 
-          <View key={`${activeModelKey}-${filterKey}-win-percentage-multi`}>
+          <View key={`${activeModelKey}-${filterKey}-${winPercentageMultiRankFilter}-win-percentage-multi`}>
             {predictions.winPercentageMultiBetHistory.length ? predictions.winPercentageMultiBetHistory.map((recommendation) => (
               <View key={recommendation.id} style={styles.historyRow}>
                 <View style={styles.historyHeader}>
@@ -620,7 +643,10 @@ export function PredictionsScreen() {
                   {recommendation.legs.map((leg) => (
                     <View key={leg.id} style={styles.multiHistoryLeg}>
                       <View style={styles.multiHistoryLegText}>
-                        <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        <View style={styles.multiHistoryLegTitleRow}>
+                          <RaceDisciplineIcon code={leg.raceCode} size={16} />
+                          <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
+                        </View>
                         <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
                         <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
                       </View>
@@ -659,7 +685,10 @@ export function PredictionsScreen() {
               <View key={prediction.id} style={styles.historyRow}>
                 <View style={styles.historyHeader}>
                   <View style={styles.historyTitleWrap}>
-                    <Text style={styles.historyRace}>{prediction.raceLabel}</Text>
+                    <View style={styles.historyRaceRow}>
+                      <RaceDisciplineIcon code={prediction.discipline} size={16} />
+                      <Text style={styles.historyRace}>{prediction.raceLabel}</Text>
+                    </View>
                     <Text style={styles.historyMeta}>
                       {prediction.startLabel} · {prediction.discipline} · {prediction.historyDetail}
                     </Text>
@@ -1081,9 +1110,15 @@ const styles = StyleSheet.create({
   },
   historyRace: {
     color: "#18202f",
+    flex: 1,
     fontSize: 14,
     fontWeight: "900",
     lineHeight: 19,
+  },
+  historyRaceRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   historyReturnRow: {
     flexDirection: "row",
@@ -1141,9 +1176,15 @@ const styles = StyleSheet.create({
   },
   multiHistoryLegTitle: {
     color: "#18202f",
+    flex: 1,
     fontSize: 13,
     fontWeight: "900",
     lineHeight: 18,
+  },
+  multiHistoryLegTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   modelInfo: {
     backgroundColor: "#f8fafc",
