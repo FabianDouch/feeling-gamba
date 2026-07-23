@@ -6,6 +6,7 @@ const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_PREDICTION_HISTORY_ROW_LIMIT = 50;
 export const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
+export const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export type PredictionModelKey =
@@ -22,6 +23,9 @@ export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" 
 export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
 export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
 export type WinPercentageMultiRankFilter = "all" | "3" | "4";
+export type WinPercentageMultiModelKey =
+  | typeof WIN_PERCENTAGE_MULTI_MODEL_KEY
+  | typeof WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
 
 export type PredictionPerformanceFilters = {
   discipline: PredictionPerformanceDisciplineFilter;
@@ -33,6 +37,13 @@ export type PredictionModelVariant = {
   description: string;
   detail: string;
   key: PredictionModelKey;
+  label: string;
+};
+
+export type WinPercentageMultiModelVariant = {
+  description: string;
+  detail: string;
+  key: WinPercentageMultiModelKey;
   label: string;
 };
 
@@ -84,6 +95,21 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
     detail: "Score = 45% scoped price-bucket cash average, 25% scoped starter-count cash average, 20% scoped distance-band cash average, and 10% scoped track-condition cash average. Each bucket is shrunk toward matching broader cash history.",
     key: "country_code_distance_condition_v1",
     label: "Distance + condition blend",
+  },
+];
+
+export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant[] = [
+  {
+    description: "Builds a three-to-five leg multi from Positive win-rate signals first, otherwise Positive-or-Neutral win-rate signals.",
+    detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Positive starts at 50%, neutral starts at 40%.",
+    key: WIN_PERCENTAGE_MULTI_MODEL_KEY,
+    label: "Original win %",
+  },
+  {
+    description: "Builds a stricter multi from current favourites whose blended historical win score is at least 65%.",
+    detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Eligible legs need a 65%+ score and the recommendation can include up to 10 legs.",
+    key: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+    label: "65%+ win %",
   },
 ];
 
@@ -472,6 +498,7 @@ export async function fetchPredictionStats(
     signal: "all",
   },
   winPercentageMultiRankFilter: WinPercentageMultiRankFilter = "all",
+  winPercentageMultiModel: WinPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
 ): Promise<PredictionsData> {
   const winPercentageMaxLegRank = winPercentageMultiRankFilter === "all"
     ? null
@@ -499,9 +526,9 @@ export async function fetchPredictionStats(
     fetchMultiBetRecommendationPerformanceSummary(predictionModel),
     fetchMultiBetRecommendationSummary(filters, predictionModel),
     fetchMultiBetRecommendationEntries(filters, predictionModel),
-    fetchMultiBetRecommendationPerformanceSummary(WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
-    fetchMultiBetRecommendationSummary(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
-    fetchMultiBetRecommendationEntries(filters, WIN_PERCENTAGE_MULTI_MODEL_KEY, winPercentageMaxLegRank),
+    fetchMultiBetRecommendationPerformanceSummary(winPercentageMultiModel, winPercentageMaxLegRank),
+    fetchMultiBetRecommendationSummary(filters, winPercentageMultiModel, winPercentageMaxLegRank),
+    fetchMultiBetRecommendationEntries(filters, winPercentageMultiModel, winPercentageMaxLegRank),
   ]);
   const disciplineRows = rows.filter((row) => row.scope_type === "race_code");
 
@@ -529,10 +556,10 @@ export async function fetchPredictionStats(
     totalWinPercentageMultiBetHistoryCount: winPercentageMultiBetHistoryResult.totalCount,
     winPercentageMultiBetHistory: winPercentageMultiBetHistoryResult.history,
     winPercentageMultiBetPerformanceStats: winPercentageMultiBetPerformanceSummary && winPercentageMultiBetPerformanceSummary.prediction_count > 0
-      ? mapMultiBetSummaryStats(winPercentageMultiBetPerformanceSummary, "Win percentage multis")
+      ? mapMultiBetSummaryStats(winPercentageMultiBetPerformanceSummary, getWinPercentageMultiPredictionLabel(winPercentageMultiModel))
       : [],
     winPercentageMultiBetSummaryStats: winPercentageMultiBetSummary && winPercentageMultiBetSummary.prediction_count > 0
-      ? mapMultiBetSummaryStats(winPercentageMultiBetSummary, "Win percentage multis")
+      ? mapMultiBetSummaryStats(winPercentageMultiBetSummary, getWinPercentageMultiPredictionLabel(winPercentageMultiModel))
       : [],
   };
 }
@@ -1118,7 +1145,7 @@ function mapMultiBetRecommendationHistoryItem(
   const legs = Array.isArray(row.legs) ? row.legs : [];
   const winningLegs = legs.filter((leg) => leg.outcomeStatus === "settled" && leg.outcomeResultPosition === 1).length;
   const settledLegs = row.outcome_settled_leg_count || legs.filter((leg) => leg.outcomeStatus === "settled").length;
-  const isWinPercentageMulti = row.prediction_model === WIN_PERCENTAGE_MULTI_MODEL_KEY;
+  const isWinPercentageMulti = isWinPercentageMultiModel(row.prediction_model);
 
   return {
     averageCashScore: formatMultiBetScore(row.average_cash_score, row.prediction_model),
@@ -1149,12 +1176,12 @@ function mapMultiBetRecommendationLegItem(
     id: `${leg.sourceRaceCardId}-${leg.legIndex ?? 0}`,
     metaLabel: [
       leg.advertisedStart ? formatDateTime(leg.advertisedStart) : null,
-      predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY && leg.predictionRank
+      isWinPercentageMultiModel(predictionModel) && leg.predictionRank
         ? `Rank ${leg.predictionRank}`
         : null,
       leg.country ?? null,
       formatPrice(leg.predictedFixedWinPrice),
-      predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+      isWinPercentageMultiModel(predictionModel)
         ? `${scoreLabel} win score`
         : `${scoreLabel} cash avg`,
     ].filter(Boolean).join(" · "),
@@ -1396,9 +1423,20 @@ function formatCombinedFixedWinPrice(value: NullableNumber) {
 function formatMultiBetScore(value: NullableNumber, predictionModel: string | null) {
   const number = numeric(value);
 
-  return predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+  return isWinPercentageMultiModel(predictionModel)
     ? formatPercentage(number)
     : formatCurrency(number);
+}
+
+function isWinPercentageMultiModel(predictionModel: string | null) {
+  return predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+    || predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
+}
+
+function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMultiModelKey) {
+  return predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+    ? "65%+ win multis"
+    : "Win percentage multis";
 }
 
 function formatPercentage(value: number) {

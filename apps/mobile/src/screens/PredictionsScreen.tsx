@@ -1,109 +1,39 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import {
-  createDefaultPredictionHistoryFilters,
   DEFAULT_PREDICTION_MODEL_KEY,
-  fetchPredictionStats,
   fetchMultiBetRecommendationModelKeys,
-  fetchPredictionHistoryMetadata,
-  getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
   PREDICTION_MODEL_VARIANTS,
-  type PredictionPerformanceDisciplineFilter,
-  type PredictionPerformanceFilters,
-  type PredictionPerformanceRankFilter,
-  type PredictionPerformanceSignalFilter,
-  type PredictionHistoryFilters,
-  type PredictionHistoryMetadata,
+  WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   type PredictionModelKey,
-  type PredictionsData,
-  type WinPercentageMultiRankFilter,
+  type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
-
-const emptyPredictions: PredictionsData = {
-  disciplineReturns: [],
-  history: [],
-  historySummaryStats: [],
-  multiBetHistory: [],
-  multiBetPerformanceStats: [],
-  multiBetSummaryStats: [],
-  placingPerformanceStats: [],
-  summaryStats: [],
-  totalMultiBetHistoryCount: 0,
-  totalHistoryCount: 0,
-  totalWinPercentageMultiBetHistoryCount: 0,
-  winPercentageMultiBetHistory: [],
-  winPercentageMultiBetPerformanceStats: [],
-  winPercentageMultiBetSummaryStats: [],
-};
-const PERFORMANCE_DISCIPLINE_OPTIONS = [
-  { label: "All", value: "all" },
-  { label: "Horse", value: "horse" },
-  { label: "Harness", value: "harness" },
-  { label: "Greyhound", value: "greyhound" },
-] satisfies { label: string; value: PredictionPerformanceDisciplineFilter }[];
-const PERFORMANCE_RANK_OPTIONS = [
-  { label: "All ranks", value: "all" },
-  { label: "Top 1", value: "1" },
-  { label: "Top 2", value: "2" },
-  { label: "Top 3", value: "3" },
-] satisfies { label: string; value: PredictionPerformanceRankFilter }[];
-const PERFORMANCE_SIGNAL_OPTIONS = [
-  { label: "All signals", value: "all" },
-  { label: "Positive only", value: "positive_only" },
-  { label: "Neutral or better", value: "neutral_or_better" },
-] satisfies { label: string; value: PredictionPerformanceSignalFilter }[];
-const WIN_PERCENTAGE_MULTI_RANK_OPTIONS = [
-  { label: "All legs", value: "all" },
-  { label: "Top 3", value: "3" },
-  { label: "Top 4", value: "4" },
-] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
+import {
+  PredictionModelTabs,
+  PredictionTypeTabs,
+  WinPercentageMultiModelTabs,
+  type CurrentPredictionType,
+} from "./PredictionControls";
 
 /**
- * Shows stored Betcha candidate prediction outcomes by racing discipline.
+ * Shows current pre-race prediction signals without mixing in settled history.
  */
 export function PredictionsScreen() {
-  const [filters, setFilters] = useState<PredictionHistoryFilters>({
-    country: "all",
-    course: "all",
-    discipline: "all",
-    fromDate: "",
-    toDate: "",
-  });
-  const [metadata, setMetadata] = useState<PredictionHistoryMetadata | null>(null);
-  const [predictions, setPredictions] = useState<PredictionsData>(emptyPredictions);
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
+  const [activeWinPercentageMultiModelKey, setActiveWinPercentageMultiModelKey] =
+    useState<WinPercentageMultiModelKey>(WIN_PERCENTAGE_MULTI_MODEL_KEY);
   const [multiBetModelKeys, setMultiBetModelKeys] = useState<PredictionModelKey[]>([]);
-  const [performanceFilters, setPerformanceFilters] = useState<PredictionPerformanceFilters>({
-    discipline: "all",
-    rank: "all",
-    signal: "all",
-  });
-  const [winPercentageMultiRankFilter, setWinPercentageMultiRankFilter] =
-    useState<WinPercentageMultiRankFilter>("all");
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
-  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const courseOptions = useMemo(() => getPredictionHistoryCourseOptions(metadata, filters.country), [
-    filters.country,
-    metadata,
-  ]);
-  const filterKey = `${filters.fromDate}-${filters.toDate}-${filters.country}-${filters.discipline}-${filters.course}`;
   const activeModel = PREDICTION_MODEL_VARIANTS.find((model) => model.key === activeModelKey)
     ?? PREDICTION_MODEL_VARIANTS[0];
-  const hasPredictionRows = predictions.summaryStats.length > 0
-    || predictions.disciplineReturns.length > 0
-    || predictions.history.length > 0
-    || predictions.multiBetHistory.length > 0
-    || predictions.multiBetPerformanceStats.length > 0
-    || predictions.multiBetSummaryStats.length > 0
-    || predictions.placingPerformanceStats.length > 0
-    || predictions.winPercentageMultiBetHistory.length > 0
-    || predictions.winPercentageMultiBetPerformanceStats.length > 0
-    || predictions.winPercentageMultiBetSummaryStats.length > 0;
+  const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
+    model.key === activeWinPercentageMultiModelKey)
+    ?? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS[0];
+  const shouldShowCashModel = activePredictionType === "cash";
 
   useEffect(() => {
     let cancelled = false;
@@ -133,1309 +63,114 @@ export function PredictionsScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMetadata() {
-      if (!hasSupabasePredictionsConfig) {
-        setErrorMessage("Supabase is not configured for Predictions.");
-        setIsLoadingMetadata(false);
-        return;
-      }
-
-      try {
-        setIsLoadingMetadata(true);
-        setErrorMessage(null);
-        const nextMetadata = await fetchPredictionHistoryMetadata(activeModelKey);
-
-        if (!cancelled) {
-          setMetadata(nextMetadata);
-          setFilters(createDefaultPredictionHistoryFilters(nextMetadata));
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Prediction metadata failed to load.");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingMetadata(false);
-        }
-      }
-    }
-
-    loadMetadata();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeModelKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPredictions() {
-      if (!metadata || !filters.fromDate || !filters.toDate) {
-        return;
-      }
-
-      try {
-        setIsLoadingPredictions(true);
-        setErrorMessage(null);
-        const nextPredictions = await fetchPredictionStats(
-          filters,
-          activeModelKey,
-          performanceFilters,
-          winPercentageMultiRankFilter,
-        );
-
-        if (!cancelled) {
-          setPredictions(nextPredictions);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Prediction history failed to load.");
-          setPredictions(emptyPredictions);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingPredictions(false);
-        }
-      }
-    }
-
-    loadPredictions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeModelKey, filters, metadata, performanceFilters, winPercentageMultiRankFilter]);
-
-  function updateFilter(key: keyof PredictionHistoryFilters, value: string) {
-    setFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  /**
-   * Applies a country filter and clears course to keep the selected course valid.
-   */
-  function updateCountry(value: string) {
-    setFilters((current) => ({
-      ...current,
-      country: value,
-      course: "all",
-    }));
-  }
-
-  function updateDateBoundary(key: "fromDate" | "toDate", value: string) {
-    setFilters((current) => {
-      const next = {
-        ...current,
-        [key]: value,
-      };
-
-      if (next.fromDate > next.toDate) {
-        return key === "fromDate"
-          ? { ...next, toDate: value }
-          : { ...next, fromDate: value };
-      }
-
-      return next;
-    });
-  }
-
-  /**
-   * Applies one Stored model performance filter without changing history filters.
-   */
-  function updatePerformanceFilter<TKey extends keyof PredictionPerformanceFilters>(
-    key: TKey,
-    value: PredictionPerformanceFilters[TKey],
-  ) {
-    setPerformanceFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  function resetDateRange() {
-    if (!metadata) {
-      return;
-    }
-
-    setFilters((current) => ({
-      ...current,
-      fromDate: metadata.defaultDateRange.from,
-      toDate: metadata.defaultDateRange.to,
-    }));
-  }
-
   return (
     <View style={styles.section}>
       <Text style={styles.eyebrow}>Predictions</Text>
-      <Text style={styles.heading}>Prediction models</Text>
+      <Text style={styles.heading}>Current prediction signals</Text>
       <Text style={styles.note}>
-        Choose a model, then review current bet candidates separately from stored outcome performance.
+        Review today's current candidates by prediction type. Settled outcomes and history live in Prediction History.
       </Text>
 
-      <ModelTabs
-        activeModelKey={activeModelKey}
-        multiBetModelKeys={multiBetModelKeys}
-        onChange={setActiveModelKey}
+      <PredictionTypeTabs
+        activeType={activePredictionType}
+        onChange={setActivePredictionType}
       />
-      <View style={styles.modelInfo}>
-        <Text style={styles.modelInfoTitle}>{activeModel.label}</Text>
-        <Text style={styles.modelInfoText}>{activeModel.description}</Text>
-        <Text style={styles.modelInfoDetail}>{activeModel.detail}</Text>
-      </View>
 
-      <BetCandidatesSection predictionModelKey={activeModelKey} />
-
-      <View style={styles.sectionDivider} />
-      <Text style={styles.subheading}>Stored model performance</Text>
-      <Text style={styles.sectionIntro}>
-        Historical prediction outcomes for the selected model. These stats are stored results, not today's candidate list.
-      </Text>
-      <Text style={styles.historyBreakdownHeading}>Single prediction performance</Text>
-      <View style={styles.performanceFilters}>
-        <FilterGroup
-          label="Performance discipline"
-          options={PERFORMANCE_DISCIPLINE_OPTIONS}
-          selectedValue={performanceFilters.discipline}
-          onChange={(value) => updatePerformanceFilter(
-            "discipline",
-            value as PredictionPerformanceDisciplineFilter,
-          )}
-        />
-        <FilterGroup
-          label="Prediction rank"
-          options={PERFORMANCE_RANK_OPTIONS}
-          selectedValue={performanceFilters.rank}
-          onChange={(value) => updatePerformanceFilter(
-            "rank",
-            value as PredictionPerformanceRankFilter,
-          )}
-        />
-        <FilterGroup
-          label="Signal"
-          options={PERFORMANCE_SIGNAL_OPTIONS}
-          selectedValue={performanceFilters.signal}
-          onChange={(value) => updatePerformanceFilter(
-            "signal",
-            value as PredictionPerformanceSignalFilter,
-          )}
-        />
-        <Text style={styles.performanceFilterNote}>
-          Neutral or better includes Positive and Neutral only; Small sample and Limited history are excluded.
-        </Text>
-      </View>
-      {errorMessage ? (
-        <StateMessage tone="error" text={errorMessage} />
-      ) : isLoadingMetadata || isLoadingPredictions ? (
-        <StateMessage text="Loading stored predictions from Supabase." />
-      ) : predictions.summaryStats.length ? (
-        <View style={styles.statsRow}>
-          {predictions.summaryStats.map((stat) => (
-            <View key={stat.label} style={styles.stat}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-              <Text style={styles.statDetail}>{stat.detail}</Text>
-            </View>
-          ))}
-        </View>
+      {shouldShowCashModel ? (
+        <>
+          <PredictionModelTabs
+            activeModelKey={activeModelKey}
+            multiBetModelKeys={multiBetModelKeys}
+            onChange={setActiveModelKey}
+          />
+          <View style={styles.modelInfo}>
+            <Text style={styles.modelInfoTitle}>{activeModel.label}</Text>
+            <Text style={styles.modelInfoText}>{activeModel.description}</Text>
+            <Text style={styles.modelInfoDetail}>{activeModel.detail}</Text>
+          </View>
+        </>
+      ) : activePredictionType === "win_percentage" ? (
+        <>
+          <WinPercentageMultiModelTabs
+            activeModelKey={activeWinPercentageMultiModelKey}
+            onChange={setActiveWinPercentageMultiModelKey}
+          />
+          <View style={styles.modelInfo}>
+            <Text style={styles.modelInfoTitle}>{activeWinPercentageModel.label}</Text>
+            <Text style={styles.modelInfoText}>{activeWinPercentageModel.description}</Text>
+            <Text style={styles.modelInfoDetail}>{activeWinPercentageModel.detail}</Text>
+          </View>
+        </>
       ) : (
-        <StateMessage text="No stored prediction performance is available yet." />
+        <View style={styles.modelInfo}>
+          <Text style={styles.modelInfoTitle}>Placing predictions</Text>
+          <Text style={styles.modelInfoText}>
+            Shows current favourite place signals from stored place-return and place-rate history.
+          </Text>
+          <Text style={styles.modelInfoDetail}>
+            Place eligibility uses country-aware market depth: AU/NZ 5-7 starters top 2, 8+ top 3; HK 4-6 top 2, 7+ top 3.
+          </Text>
+        </View>
       )}
 
-      {!errorMessage && !isLoadingMetadata && !isLoadingPredictions ? (
-        <>
-          <Text style={styles.historyBreakdownHeading}>Placing prediction performance</Text>
-          {predictions.placingPerformanceStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.placingPerformanceStats.map((stat) => (
-                <View key={`placing-performance-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No place-eligible settled predictions are available for this model yet." />
-          )}
-
-          <Text style={styles.historyBreakdownHeading}>Multi-bet prediction performance</Text>
-          {predictions.multiBetPerformanceStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.multiBetPerformanceStats.map((stat) => (
-                <View key={`multi-performance-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No multi-bet prediction performance is available for this model yet." />
-          )}
-
-          <FilterGroup
-            label="Win percentage multi ranks"
-            options={WIN_PERCENTAGE_MULTI_RANK_OPTIONS}
-            selectedValue={winPercentageMultiRankFilter}
-            onChange={(value) => setWinPercentageMultiRankFilter(value as WinPercentageMultiRankFilter)}
-          />
-          <Text style={styles.historyBreakdownHeading}>Multi-bet win percentage performance</Text>
-          {predictions.winPercentageMultiBetPerformanceStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.winPercentageMultiBetPerformanceStats.map((stat) => (
-                <View key={`win-percentage-multi-performance-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No win-percentage multi-bet performance is available yet." />
-          )}
-        </>
-      ) : null}
-
-      {!errorMessage && !isLoadingMetadata && !isLoadingPredictions && hasPredictionRows ? (
-        <>
-          <Text style={styles.subheading}>Discipline prediction performance</Text>
-          {predictions.disciplineReturns.length ? predictions.disciplineReturns.map((row) => (
-            <View key={row.discipline} style={styles.returnCard}>
-              <View style={styles.returnHeader}>
-                <View>
-                  <Text style={styles.returnDiscipline}>{row.discipline}</Text>
-                  <Text style={styles.returnNote}>
-                    {row.totalStaked} staked · {row.totalReturned} cash ·{" "}
-                    {row.bonusCredit} bonus
-                  </Text>
-                </View>
-                <View style={styles.returnBadge}>
-                  <Text style={styles.returnBadgeText}>{row.promoRoi}</Text>
-                </View>
-              </View>
-
-              <View style={styles.returnGrid}>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.averageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash avg</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.netReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash net</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.bonusAverageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Bonus avg</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.promoAverageReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash+bonus avg</Text>
-                </View>
-                <View style={styles.returnMetric}>
-                  <Text style={styles.returnMetricValue}>{row.promoNetReturn}</Text>
-                  <Text style={styles.returnMetricLabel}>Cash+bonus net</Text>
-                </View>
-              </View>
-
-              <Text style={styles.missingText}>
-                Win rate {row.winRate}; cash ROI {row.roi}; cash+bonus ROI{" "}
-                {row.promoRoi}; cash+bonus value {row.totalPromoValue};
-                unresolved outcomes {row.missingPrices}.
-              </Text>
-            </View>
-          )) : <StateMessage text="No settled prediction outcomes by discipline yet." />}
-
-          <Text style={styles.subheading}>Prediction history</Text>
-          <DateRangeFilter
-            fromDate={filters.fromDate}
-            onChange={updateDateBoundary}
-            onReset={resetDateRange}
-            options={metadata?.dateOptions ?? []}
-            toDate={filters.toDate}
-            windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available prediction dates"}
-          />
-          <FilterGroup
-            label="Country"
-            options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
-            selectedValue={filters.country}
-            onChange={updateCountry}
-          />
-          <FilterGroup
-            label="Discipline"
-            options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
-            selectedValue={filters.discipline}
-            onChange={(value) => updateFilter("discipline", value)}
-          />
-          <FilterGroup
-            label="Racecourse"
-            options={[{ label: "All courses", value: "all" }, ...courseOptions]}
-            selectedValue={filters.course}
-            onChange={(value) => updateFilter("course", value)}
-          />
-
-          <Text style={styles.historyBreakdownHeading}>Date range breakdown</Text>
-          {predictions.historySummaryStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.historySummaryStats.map((stat) => (
-                <View key={`history-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No prediction outcomes match this history filter range." />
-          )}
-
-          <Text style={styles.historyBreakdownHeading}>Multi bet date range breakdown</Text>
-          {predictions.multiBetSummaryStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.multiBetSummaryStats.map((stat) => (
-                <View key={`multi-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No tracked multi bet recommendations match this history filter range." />
-          )}
-
-          <Text style={styles.historyBreakdownHeading}>Win percentage multi date range breakdown</Text>
-          {predictions.winPercentageMultiBetSummaryStats.length ? (
-            <View style={styles.statsRow}>
-              {predictions.winPercentageMultiBetSummaryStats.map((stat) => (
-                <View key={`win-percentage-multi-${stat.label}`} style={styles.stat}>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statDetail}>{stat.detail}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <StateMessage text="No tracked win-percentage multi recommendations match this history filter range." />
-          )}
-
-          <Text style={styles.historyCount}>
-            {predictions.multiBetHistory.length} of {predictions.totalMultiBetHistoryCount} multi recommendations
-          </Text>
-
-          <View key={`${activeModelKey}-${filterKey}-multi`}>
-            {predictions.multiBetHistory.length ? predictions.multiBetHistory.map((recommendation) => (
-              <View key={recommendation.id} style={styles.historyRow}>
-                <View style={styles.historyHeader}>
-                  <View style={styles.historyTitleWrap}>
-                    <Text style={styles.historyRace}>{recommendation.recommendationLabel}</Text>
-                    <Text style={styles.historyMeta}>
-                      {recommendation.sourceDateLabel} · {recommendation.summaryLabel}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.outcomeBadge,
-                      recommendation.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
-                      recommendation.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.outcomeBadgeText,
-                        recommendation.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
-                        recommendation.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
-                      ]}
-                    >
-                      {recommendation.outcomeLabel}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.historyReturnRow}>
-                  <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
-                  <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
-                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
-                </View>
-
-                <View style={styles.multiHistoryLegList}>
-                  {recommendation.legs.map((leg) => (
-                    <View key={leg.id} style={styles.multiHistoryLeg}>
-                      <View style={styles.multiHistoryLegText}>
-                        <View style={styles.multiHistoryLegTitleRow}>
-                          <RaceDisciplineIcon code={leg.raceCode} size={16} />
-                          <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
-                        </View>
-                        <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
-                        <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.outcomeBadge,
-                          leg.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
-                          leg.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.outcomeBadgeText,
-                            leg.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
-                            leg.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
-                          ]}
-                        >
-                          {leg.outcomeLabel}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-
-                <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
-              </View>
-            )) : <StateMessage text="No tracked multi bet recommendation history matches these filters." />}
-          </View>
-
-          <Text style={styles.historyCount}>
-            {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} win percentage multi recommendations
-          </Text>
-
-          <View key={`${activeModelKey}-${filterKey}-${winPercentageMultiRankFilter}-win-percentage-multi`}>
-            {predictions.winPercentageMultiBetHistory.length ? predictions.winPercentageMultiBetHistory.map((recommendation) => (
-              <View key={recommendation.id} style={styles.historyRow}>
-                <View style={styles.historyHeader}>
-                  <View style={styles.historyTitleWrap}>
-                    <Text style={styles.historyRace}>{recommendation.recommendationLabel}</Text>
-                    <Text style={styles.historyMeta}>
-                      {recommendation.sourceDateLabel} · {recommendation.summaryLabel}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.outcomeBadge,
-                      recommendation.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
-                      recommendation.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.outcomeBadgeText,
-                        recommendation.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
-                        recommendation.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
-                      ]}
-                    >
-                      {recommendation.outcomeLabel}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.historyReturnRow}>
-                  <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
-                  <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
-                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
-                </View>
-
-                <View style={styles.multiHistoryLegList}>
-                  {recommendation.legs.map((leg) => (
-                    <View key={leg.id} style={styles.multiHistoryLeg}>
-                      <View style={styles.multiHistoryLegText}>
-                        <View style={styles.multiHistoryLegTitleRow}>
-                          <RaceDisciplineIcon code={leg.raceCode} size={16} />
-                          <Text style={styles.multiHistoryLegTitle}>{leg.title}</Text>
-                        </View>
-                        <Text style={styles.historyRunner}>{leg.runnerLabel}</Text>
-                        <Text style={styles.historyMeta}>{leg.metaLabel}</Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.outcomeBadge,
-                          leg.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
-                          leg.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.outcomeBadgeText,
-                            leg.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
-                            leg.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
-                          ]}
-                        >
-                          {leg.outcomeLabel}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-
-                <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
-              </View>
-            )) : <StateMessage text="No tracked win-percentage multi recommendation history matches these filters." />}
-          </View>
-
-          <Text style={styles.historyCount}>
-            {predictions.history.length} of {predictions.totalHistoryCount} predictions
-          </Text>
-
-          <View key={`${activeModelKey}-${filterKey}`}>
-            {predictions.history.length ? predictions.history.map((prediction) => (
-              <View key={prediction.id} style={styles.historyRow}>
-                <View style={styles.historyHeader}>
-                  <View style={styles.historyTitleWrap}>
-                    <View style={styles.historyRaceRow}>
-                      <RaceDisciplineIcon code={prediction.discipline} size={16} />
-                      <Text style={styles.historyRace}>{prediction.raceLabel}</Text>
-                    </View>
-                    <Text style={styles.historyMeta}>
-                      {prediction.startLabel} · {prediction.discipline} · {prediction.historyDetail}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.outcomeBadge,
-                      prediction.outcomeTone === "bonus" ? styles.outcomeBadgeBonus : null,
-                      prediction.outcomeTone === "good" ? styles.outcomeBadgeGood : null,
-                      prediction.outcomeTone === "warning" ? styles.outcomeBadgeWarning : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.outcomeBadgeText,
-                        prediction.outcomeTone === "bonus" ? styles.outcomeBadgeTextBonus : null,
-                        prediction.outcomeTone === "good" ? styles.outcomeBadgeTextGood : null,
-                        prediction.outcomeTone === "warning" ? styles.outcomeBadgeTextWarning : null,
-                      ]}
-                    >
-                      {prediction.outcomeLabel}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.historyRunner}>{prediction.runnerLabel}</Text>
-                <Text style={styles.historyMeta}>
-                  {prediction.predictionMeta} · {prediction.signalLabel}
-                </Text>
-                <View style={styles.historyReturnRow}>
-                  <Text style={styles.historyReturnText}>Cash {prediction.cashReturn}</Text>
-                  <Text style={styles.historyReturnText}>Bonus {prediction.bonusCredit}</Text>
-                  <Text style={styles.historyReturnText}>Total {prediction.totalValue}</Text>
-                </View>
-                <Text style={styles.historyTimestamp}>{prediction.predictedAtLabel}</Text>
-              </View>
-            )) : <StateMessage text="No prediction history matches these filters." />}
-          </View>
-        </>
-      ) : null}
-    </View>
-  );
-}
-
-type ModelTabsProps = {
-  activeModelKey: PredictionModelKey;
-  multiBetModelKeys: PredictionModelKey[];
-  onChange: (value: PredictionModelKey) => void;
-};
-
-function ModelTabs({ activeModelKey, multiBetModelKeys, onChange }: ModelTabsProps) {
-  const multiBetModels = new Set(multiBetModelKeys);
-
-  return (
-    <View style={styles.modelTabs}>
-      {PREDICTION_MODEL_VARIANTS.map((model) => {
-        const isActive = model.key === activeModelKey;
-        const hasMultiBet = multiBetModels.has(model.key);
-
-        return (
-          <Pressable
-            key={model.key}
-            onPress={() => onChange(model.key)}
-            style={[styles.modelTab, isActive ? styles.modelTabActive : null]}
-          >
-            {hasMultiBet ? (
-              <View style={styles.modelTabMultiTag}>
-                <Text style={styles.modelTabMultiTagText}>Multi</Text>
-              </View>
-            ) : null}
-            <Text style={[styles.modelTabText, isActive ? styles.modelTabTextActive : null]}>
-              {model.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-type StateMessageProps = {
-  text: string;
-  tone?: "default" | "error";
-};
-
-function StateMessage({ text, tone = "default" }: StateMessageProps) {
-  const isError = tone === "error";
-
-  return (
-    <View style={[styles.emptyState, isError ? styles.errorState : null]}>
-      <Text style={[styles.emptyStateText, isError ? styles.errorStateText : null]}>
-        {text}
-      </Text>
-    </View>
-  );
-}
-
-type DateRangeFilterProps = {
-  fromDate: string;
-  onChange: (key: "fromDate" | "toDate", value: string) => void;
-  onReset: () => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  toDate: string;
-  windowLabel: string;
-};
-
-function DateRangeFilter({
-  fromDate,
-  onChange,
-  onReset,
-  options,
-  toDate,
-  windowLabel,
-}: DateRangeFilterProps) {
-  return (
-    <View style={styles.dateRangeGroup}>
-      <View style={styles.dateRangeHeader}>
-        <View>
-          <Text style={styles.filterLabel}>Date range</Text>
-          <Text style={styles.dateRangeNote}>{windowLabel}</Text>
-        </View>
-        <Pressable onPress={onReset} style={styles.resetButton}>
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </Pressable>
-      </View>
-      <View style={styles.dateRangeRow}>
-        <DateStepper
-          label="From"
-          onChange={(value) => onChange("fromDate", value)}
-          options={options}
-          value={fromDate}
-        />
-        <DateStepper
-          label="To"
-          onChange={(value) => onChange("toDate", value)}
-          options={options}
-          value={toDate}
-        />
-      </View>
-    </View>
-  );
-}
-
-type DateStepperProps = {
-  label: string;
-  onChange: (value: string) => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  value: string;
-};
-
-function DateStepper({ label, onChange, options, value }: DateStepperProps) {
-  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
-  const selectedOption = options[selectedIndex] ?? options[0];
-  const canMovePrevious = selectedIndex > 0;
-  const canMoveNext = selectedIndex >= 0 && selectedIndex < options.length - 1;
-
-  function move(direction: -1 | 1) {
-    if (selectedIndex < 0) {
-      return;
-    }
-
-    const nextOption = options[selectedIndex + direction];
-
-    if (nextOption) {
-      onChange(nextOption.value);
-    }
-  }
-
-  return (
-    <View style={styles.dateStepper}>
-      <Text style={styles.dateStepperLabel}>{label}</Text>
-      <View style={styles.dateStepperControls}>
-        <Pressable
-          disabled={!canMovePrevious || options.length === 0}
-          onPress={() => move(-1)}
-          style={[
-            styles.dateStepButton,
-            !canMovePrevious ? styles.dateStepButtonDisabled : null,
-          ]}
-        >
-          <Text
-            style={[
-              styles.dateStepButtonText,
-              !canMovePrevious ? styles.dateStepButtonTextDisabled : null,
-            ]}
-          >
-            {"<"}
-          </Text>
-        </Pressable>
-        <Text style={styles.dateStepperValue}>
-          {selectedOption?.label ?? "No dates"}
-        </Text>
-        <Pressable
-          disabled={!canMoveNext || options.length === 0}
-          onPress={() => move(1)}
-          style={[
-            styles.dateStepButton,
-            !canMoveNext ? styles.dateStepButtonDisabled : null,
-          ]}
-        >
-          <Text
-            style={[
-              styles.dateStepButtonText,
-              !canMoveNext ? styles.dateStepButtonTextDisabled : null,
-            ]}
-          >
-            {">"}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-type FilterGroupProps = {
-  label: string;
-  onChange: (value: string) => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  selectedValue: string;
-};
-
-function FilterGroup({ label, onChange, options, selectedValue }: FilterGroupProps) {
-  return (
-    <View style={styles.filterGroup}>
-      <Text style={styles.filterLabel}>{label}</Text>
-      <View style={styles.filterRow}>
-        {options.map((option) => {
-          const isActive = option.value === selectedValue;
-
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => onChange(option.value)}
-              style={[styles.filter, isActive ? styles.filterActive : null]}
-            >
-              <Text style={[styles.filterText, isActive ? styles.filterTextActive : null]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <BetCandidatesSection
+        predictionModelKey={activeModelKey}
+        predictionType={activePredictionType}
+        winPercentageMultiModelKey={activeWinPercentageMultiModelKey}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dateRangeGroup: {
-    marginTop: 12,
-  },
-  dateRangeHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  dateRangeNote: {
-    color: "#667085",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  dateRangeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  dateStepButton: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
-  },
-  dateStepButtonDisabled: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
-  },
-  dateStepButtonText: {
-    color: "#18202f",
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  dateStepButtonTextDisabled: {
-    color: "#98a2b3",
-  },
-  dateStepper: {
-    flex: 1,
-    minWidth: 210,
-  },
-  dateStepperControls: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  dateStepperLabel: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-  dateStepperValue: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    color: "#18202f",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-    minWidth: 104,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: "center",
-  },
-  emptyState: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 12,
-  },
-  emptyStateText: {
-    color: "#667085",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  errorState: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#fed7aa",
-  },
-  errorStateText: {
-    color: "#9a3412",
-  },
   eyebrow: {
-    color: "#667085",
+    color: "#0d9488",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "900",
     letterSpacing: 0,
     textTransform: "uppercase",
   },
   heading: {
-    color: "#18202f",
-    fontSize: 20,
-    fontWeight: "800",
+    color: "#101828",
+    fontSize: 24,
+    fontWeight: "900",
     letterSpacing: 0,
-    marginTop: 2,
-  },
-  filter: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  filterActive: {
-    backgroundColor: "#18202f",
-    borderColor: "#18202f",
-  },
-  filterGroup: {
-    marginTop: 12,
-  },
-  filterLabel: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterText: {
-    color: "#475467",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  filterTextActive: {
-    color: "#ffffff",
-    fontWeight: "700",
-  },
-  historyCount: {
-    color: "#667085",
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 12,
-  },
-  historyBreakdownHeading: {
-    color: "#18202f",
-    fontSize: 13,
-    fontWeight: "900",
-    marginTop: 14,
-  },
-  historyHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-  },
-  historyMeta: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 3,
-  },
-  historyRace: {
-    color: "#18202f",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "900",
-    lineHeight: 19,
-  },
-  historyRaceRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  historyReturnRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  historyReturnText: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  historyRow: {
-    borderTopColor: "#e4e7ec",
-    borderTopWidth: 1,
-    paddingVertical: 12,
-  },
-  historyRunner: {
-    color: "#18202f",
-    fontSize: 13,
-    fontWeight: "800",
-    marginTop: 8,
-  },
-  historyTimestamp: {
-    color: "#98a2b3",
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 6,
-  },
-  historyTitleWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  missingText: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 10,
-  },
-  multiHistoryLeg: {
-    alignItems: "flex-start",
-    borderTopColor: "#edf0f5",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  multiHistoryLegList: {
-    marginTop: 8,
-  },
-  multiHistoryLegText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  multiHistoryLegTitle: {
-    color: "#18202f",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "900",
-    lineHeight: 18,
-  },
-  multiHistoryLegTitleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
+    marginTop: 4,
   },
   modelInfo: {
     backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
+    borderColor: "#d7dce7",
     borderRadius: 8,
     borderWidth: 1,
-    marginTop: 10,
+    gap: 6,
     padding: 12,
   },
   modelInfoDetail: {
     color: "#667085",
     fontSize: 12,
-    lineHeight: 17,
-    marginTop: 6,
+    lineHeight: 18,
   },
   modelInfoText: {
-    color: "#344054",
+    color: "#475467",
     fontSize: 13,
-    lineHeight: 18,
-    marginTop: 5,
+    lineHeight: 19,
   },
   modelInfoTitle: {
-    color: "#18202f",
-    fontSize: 14,
+    color: "#101828",
+    fontSize: 15,
     fontWeight: "900",
-  },
-  modelTab: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    minHeight: 38,
-    paddingHorizontal: 10,
-    paddingBottom: 8,
-    paddingTop: 12,
-    position: "relative",
-  },
-  modelTabActive: {
-    backgroundColor: "#18202f",
-    borderColor: "#18202f",
-  },
-  modelTabMultiTag: {
-    backgroundColor: "#fef3c7",
-    borderColor: "#f59e0b",
-    borderRadius: 5,
-    borderWidth: 1,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    position: "absolute",
-    right: 4,
-    top: -7,
-  },
-  modelTabMultiTagText: {
-    color: "#92400e",
-    fontSize: 9,
-    fontWeight: "900",
-    lineHeight: 11,
-  },
-  modelTabText: {
-    color: "#475467",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  modelTabTextActive: {
-    color: "#ffffff",
-  },
-  modelTabs: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 16,
   },
   note: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 6,
-  },
-  outcomeBadge: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#d0d5dd",
-    borderRadius: 6,
-    borderWidth: 1,
-    maxWidth: 140,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  outcomeBadgeBonus: {
-    backgroundColor: "#fef9c3",
-    borderColor: "#fde047",
-  },
-  outcomeBadgeGood: {
-    backgroundColor: "#ecfdf3",
-    borderColor: "#abefc6",
-  },
-  outcomeBadgeText: {
     color: "#475467",
-    fontSize: 11,
-    fontWeight: "900",
-    lineHeight: 14,
-    textAlign: "right",
-  },
-  outcomeBadgeTextBonus: {
-    color: "#854d0e",
-  },
-  outcomeBadgeTextGood: {
-    color: "#067647",
-  },
-  outcomeBadgeTextWarning: {
-    color: "#9a3412",
-  },
-  outcomeBadgeWarning: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#fed7aa",
-  },
-  performanceFilterNote: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 8,
-  },
-  performanceFilters: {
-    marginTop: 2,
-  },
-  returnBadge: {
-    backgroundColor: "#e7f5f2",
-    borderColor: "#9ad0c9",
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  returnBadgeText: {
-    color: "#0f5f58",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  resetButton: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  resetButtonText: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  returnCard: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 10,
-    padding: 12,
-  },
-  returnDiscipline: {
-    color: "#18202f",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  returnGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
-  },
-  returnHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-  },
-  returnMetric: {
-    flex: 1,
-    minWidth: 92,
-  },
-  returnMetricLabel: {
-    color: "#667085",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  returnMetricValue: {
-    color: "#18202f",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  returnNote: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
+    fontSize: 14,
+    lineHeight: 20,
   },
   section: {
     backgroundColor: "#ffffff",
     borderColor: "#d7dce7",
     borderRadius: 8,
     borderWidth: 1,
+    gap: 14,
     padding: 16,
-  },
-  sectionDivider: {
-    borderTopColor: "#e4e7ec",
-    borderTopWidth: 1,
-    marginTop: 18,
-    paddingTop: 2,
-  },
-  sectionIntro: {
-    color: "#667085",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 6,
-  },
-  stat: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 1,
-    minWidth: 130,
-    padding: 12,
-  },
-  statDetail: {
-    color: "#667085",
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  statLabel: {
-    color: "#667085",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  statValue: {
-    color: "#18202f",
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 14,
-  },
-  subheading: {
-    color: "#18202f",
-    fontSize: 15,
-    fontWeight: "900",
-    marginTop: 18,
   },
 });

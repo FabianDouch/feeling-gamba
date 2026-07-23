@@ -5,8 +5,12 @@ import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
+  WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_MULTI_MODEL_KEY,
   type PredictionModelKey,
+  type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
+import type { CurrentPredictionType } from "./PredictionControls";
 import {
   type BetCandidate,
   type RecommendationPayload,
@@ -39,6 +43,8 @@ type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfig
 
 type BetCandidatesSectionProps = {
   predictionModelKey?: PredictionModelKey;
+  predictionType?: CurrentPredictionType;
+  winPercentageMultiModelKey?: WinPercentageMultiModelKey;
 };
 
 type MultiBetRecommendation = {
@@ -48,13 +54,16 @@ type MultiBetRecommendation = {
 };
 
 const MULTI_BET_MAX_LEGS = 5;
+const WIN_PERCENTAGE_65_PLUS_MAX_LEGS = 10;
 const MULTI_BET_MIN_LEGS = 3;
 
 /**
- * Shows current source-backed candidate races beside the stored prediction outcomes.
+ * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
+  predictionType = "cash",
+  winPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
 }: BetCandidatesSectionProps) {
   const { isSigningIn, signInWithGoogle, user } = useAuth();
   const [payload, setPayload] = useState<RecommendationPayload | null>(null);
@@ -81,7 +90,10 @@ export function BetCandidatesSection({
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
-  const winPercentageMultiRecommendation = buildWinPercentageMultiBetRecommendation(winPercentageMultiCandidatePool);
+  const winPercentageMultiRecommendation = buildWinPercentageMultiBetRecommendation(
+    winPercentageMultiCandidatePool,
+    winPercentageMultiModelKey,
+  );
   const displayedWinPercentageMultiRecommendation = lockedWinPercentageMulti
     ? createRecommendationFromLockedWinPercentageMulti(lockedWinPercentageMulti)
     : winPercentageMultiRecommendation;
@@ -104,6 +116,7 @@ export function BetCandidatesSection({
         : status === "empty"
           ? "No Supabase candidate snapshot available"
           : "Supabase candidate cache unavailable";
+  const sectionTitle = getPredictionTypeHeading(predictionType);
 
   useEffect(() => {
     let isActive = true;
@@ -230,7 +243,7 @@ export function BetCandidatesSection({
       }
 
       try {
-        const locked = await fetchLockedWinPercentageMulti(sourceDate);
+        const locked = await fetchLockedWinPercentageMulti(sourceDate, winPercentageMultiModelKey);
 
         if (isActive) {
           setLockedWinPercentageMulti(locked);
@@ -247,7 +260,7 @@ export function BetCandidatesSection({
     return () => {
       isActive = false;
     };
-  }, [sourceDate, user]);
+  }, [sourceDate, user, winPercentageMultiModelKey]);
 
   async function refreshCandidates() {
     if (!hasSupabasePredictionCacheConfig) {
@@ -347,6 +360,7 @@ export function BetCandidatesSection({
       setLockedMultiMessage(null);
       const locked = await saveLockedWinPercentageMulti(
         createLockedWinPercentageMultiInput(payload, winPercentageMultiRecommendation),
+        winPercentageMultiModelKey,
       );
       setLockedWinPercentageMulti(locked);
       setLockedMultiMessage(`Locked win-percentage multi from ${formatDateTime(locked.lockedAt)}.`);
@@ -361,15 +375,17 @@ export function BetCandidatesSection({
     <View style={styles.panel}>
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
-          <Text style={styles.subheading}>Bet candidates</Text>
+          <Text style={styles.subheading}>{sectionTitle}</Text>
           <Text style={styles.sectionNote}>
             {betCandidateScan?.scannedRaceCount ?? 0} current races scanned ·{" "}
             {betCandidateScan?.eligibleRaceCount ?? 0} priced candidates ·{" "}
             {betCandidateScan?.scannedMeetings ?? 0} meetings
           </Text>
-          <Text style={styles.sectionNote}>
-            Current model {selectedModelRun?.label ?? "Global bucket blend"}
-          </Text>
+          {predictionType === "cash" ? (
+            <Text style={styles.sectionNote}>
+              Current model {selectedModelRun?.label ?? "Global bucket blend"}
+            </Text>
+          ) : null}
           <Text style={styles.sectionNote}>{statusLabel}</Text>
           <Text style={styles.sectionNote}>
             Snapshot age {formatCacheAge(cacheAgeMs)}
@@ -425,31 +441,34 @@ export function BetCandidatesSection({
         <Text style={styles.contextText}>{lockedMultiMessage}</Text>
       ) : null}
 
-      <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
+      {predictionType === "cash" ? (
+        <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
+      ) : null}
 
       {!payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
+      ) : predictionType === "win_percentage" ? (
+        <WinPercentageMultiRecommendationPanel
+          disabledReason={getWinPercentageLockDisabledReason({
+            isLocked: Boolean(lockedWinPercentageMulti),
+            isSignedIn: Boolean(user),
+            recommendation: winPercentageMultiRecommendation,
+          })}
+          isLocked={Boolean(lockedWinPercentageMulti)}
+          isLocking={isLockingWinPercentageMulti || isSigningIn}
+          lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
+          modelKey={winPercentageMultiModelKey}
+          onLock={lockWinPercentageMulti}
+          recommendation={displayedWinPercentageMultiRecommendation}
+        />
+      ) : predictionType === "placing" ? (
+        <PlacingRecommendationsPanel recommendations={placingRecommendations} />
       ) : betCandidates.length ? (
         <>
           <MultiBetRecommendationPanel
             modelKey={selectedModelKey}
             recommendation={multiBetRecommendation}
           />
-
-          <WinPercentageMultiRecommendationPanel
-            disabledReason={getWinPercentageLockDisabledReason({
-              isLocked: Boolean(lockedWinPercentageMulti),
-              isSignedIn: Boolean(user),
-              recommendation: winPercentageMultiRecommendation,
-            })}
-            isLocked={Boolean(lockedWinPercentageMulti)}
-            isLocking={isLockingWinPercentageMulti || isSigningIn}
-            lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
-            onLock={lockWinPercentageMulti}
-            recommendation={displayedWinPercentageMultiRecommendation}
-          />
-
-          <PlacingRecommendationsPanel recommendations={placingRecommendations} />
 
           <View style={styles.disciplineTabs}>
             {candidateGroups.map((group) => {
@@ -584,6 +603,21 @@ export function BetCandidatesSection({
   );
 }
 
+/**
+ * Names the active current prediction family in the snapshot status panel.
+ */
+function getPredictionTypeHeading(predictionType: CurrentPredictionType) {
+  if (predictionType === "win_percentage") {
+    return "Win percentage predictions";
+  }
+
+  if (predictionType === "placing") {
+    return "Placing predictions";
+  }
+
+  return "Cash model predictions";
+}
+
 type MultiBetRecommendationPanelProps = {
   modelKey: string;
   recommendation: MultiBetRecommendation | null;
@@ -598,6 +632,7 @@ type WinPercentageMultiRecommendationPanelProps = {
   isLocked: boolean;
   isLocking: boolean;
   lockedAt: string | null;
+  modelKey: WinPercentageMultiModelKey;
   onLock: () => void;
   recommendation: MultiBetRecommendation | null;
 };
@@ -671,24 +706,34 @@ function WinPercentageMultiRecommendationPanel({
   isLocked,
   isLocking,
   lockedAt,
+  modelKey,
   onLock,
   recommendation,
 }: WinPercentageMultiRecommendationPanelProps) {
   const isLockDisabled = isLocked || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
+  const isThresholdModel = modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
 
   return (
     <View style={styles.multiPanel}>
       <View style={styles.multiHeader}>
         <View style={styles.headerText}>
           <Text style={styles.multiTitle}>
-            {isLocked ? "Locked win percentage multi" : "Win percentage multi recommendation"}
+            {isLocked
+              ? `Locked ${isThresholdModel ? "65%+ win percentage multi" : "win percentage multi"}`
+              : isThresholdModel
+                ? "65%+ win percentage multi recommendation"
+                : "Original win percentage multi recommendation"}
           </Text>
           <Text style={styles.multiContext}>
             {isLocked && lockedAt
               ? `Locked ${formatDateTime(lockedAt)}. This snapshot will stay active even if the live recommendation changes.`
               : recommendation
-              ? `${recommendation.legs.length} ${recommendation.tone} win-rate legs from price and starter buckets`
-              : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better win-rate legs`}
+                ? isThresholdModel
+                  ? `${recommendation.legs.length} legs with at least 65% blended historical win score`
+                  : `${recommendation.legs.length} ${recommendation.tone} win-rate legs from price and starter buckets`
+                : isThresholdModel
+                  ? `Needs at least ${MULTI_BET_MIN_LEGS} priced legs with 65%+ blended win score`
+                  : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better win-rate legs`}
           </Text>
         </View>
         <View style={styles.multiActions}>
@@ -768,12 +813,16 @@ function WinPercentageMultiRecommendationPanel({
             })}
           </View>
           <Text style={styles.multiFooter}>
-            This multi-only model uses historical win percentages, not cash-return averages. No stake size or automated wagering action is provided.
+            {isThresholdModel
+              ? "This model only includes favourites with a 65%+ blended historical win score and can list up to 10 legs. No stake size or automated wagering action is provided."
+              : "This multi-only model uses historical win percentages, not cash-return averages. No stake size or automated wagering action is provided."}
           </Text>
         </>
       ) : (
         <Text style={styles.multiFooter}>
-          Positive and neutral win-rate signals will appear here once the current snapshot has enough eligible priced legs.
+          {isThresholdModel
+            ? "65%+ win-rate legs will appear here once the current snapshot has enough eligible priced favourites."
+            : "Positive and neutral win-rate signals will appear here once the current snapshot has enough eligible priced legs."}
         </Text>
       )}
     </View>
@@ -916,8 +965,19 @@ function buildMultiBetRecommendation(
  */
 function buildWinPercentageMultiBetRecommendation(
   candidates: BetCandidate[],
+  modelKey: WinPercentageMultiModelKey,
 ): MultiBetRecommendation | null {
   const eligibleCandidates = getUniquePricedWinPercentageCandidates(candidates);
+
+  if (modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY) {
+    return createMultiBetRecommendation(
+      eligibleCandidates.filter((candidate) =>
+        Number(candidate.winPercentageMultiCandidate?.winScore ?? -Infinity) >= 65),
+      "positive",
+      WIN_PERCENTAGE_65_PLUS_MAX_LEGS,
+    );
+  }
+
   const positiveLegs = eligibleCandidates.filter((candidate) =>
     candidate.winPercentageMultiCandidate?.tone === "positive");
   const positiveRecommendation = createMultiBetRecommendation(positiveLegs, "positive");
@@ -1107,12 +1167,13 @@ function getUniquePricedCandidates(candidates: BetCandidate[], modelKey: string)
 function createMultiBetRecommendation(
   candidates: BetCandidate[],
   tone: MultiBetRecommendation["tone"],
+  maxLegs = MULTI_BET_MAX_LEGS,
 ): MultiBetRecommendation | null {
   if (candidates.length < MULTI_BET_MIN_LEGS) {
     return null;
   }
 
-  const legs = candidates.slice(0, MULTI_BET_MAX_LEGS);
+  const legs = candidates.slice(0, maxLegs);
   const combinedFixedWinPrice = legs.reduce<number | null>((total, race) => {
     const price = race.favourite?.fixedWinPrice;
 

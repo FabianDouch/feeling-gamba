@@ -7,11 +7,12 @@ import { hasSupabaseClientConfig } from "./config/env";
 import { AuthProvider, useAuth } from "./data/authSession";
 import { AccountScreen } from "./screens/AccountScreen";
 import { InsightsScreen } from "./screens/InsightsScreen";
+import { PredictionHistoryScreen } from "./screens/PredictionHistoryScreen";
 import { PredictionsScreen } from "./screens/PredictionsScreen";
 import { RaceDaysScreen } from "./screens/RaceDaysScreen";
 import { RecommendationsScreen } from "./screens/RecommendationsScreen";
 
-type AppPage = "account" | "insights" | "predictions" | "recommendations" | "raceDays";
+type AppPage = "account" | "insights" | "predictionHistory" | "predictions" | "recommendations" | "raceDays";
 
 export function App() {
   return (
@@ -84,6 +85,11 @@ function AppShell() {
               onPress={() => setActivePage("predictions")}
             />
             <PageNavButton
+              active={activePage === "predictionHistory"}
+              label="Prediction History"
+              onPress={() => setActivePage("predictionHistory")}
+            />
+            <PageNavButton
               active={activePage === "raceDays"}
               label="Race Days"
               onPress={() => setActivePage("raceDays")}
@@ -101,6 +107,8 @@ function AppShell() {
             <RecommendationsScreen refreshSignal={recommendationsRefreshSignal} />
           ) : activePage === "predictions" ? (
             <PredictionsScreen />
+          ) : activePage === "predictionHistory" ? (
+            <PredictionHistoryScreen />
           ) : activePage === "account" ? (
             <AccountScreen />
           ) : (
@@ -186,13 +194,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     padding: 6,
   },
   pageNavButton: {
     alignItems: "center",
     borderRadius: 6,
-    flex: 1,
+    flexBasis: 110,
+    flexGrow: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },

@@ -674,14 +674,17 @@ Rules:
 - Prefer a `positive` multi when at least three Positive priced legs exist for
   the model; otherwise store a `neutral` multi from Positive-or-Neutral priced
   legs.
-- Store three to five legs, ordered by the model-specific score and then
-  advertised start.
+- Store three to five legs for cash-score and original win-percentage multis,
+  ordered by the model-specific score and then advertised start.
 - `multi_win_percentage_blend_v1` is a multi-only model that scores favourites
   from historical win percentages using 65% favourite price-bucket win rate and
   35% starter-count win rate. It keeps the same Positive-first then
   Neutral-or-better minimum-three-leg rule as cash-score multis, but its stored
   `average_cash_score`/leg `cash_average_score` values represent win-rate
   percentages for display as an average win score.
+- `multi_win_percentage_65_plus_v1` is a stricter multi-only model using the
+  same blended win score. It stores only priced legs with a score of at least
+  65%, requires at least three eligible legs, and can store up to 10 legs.
 - Settle as a cash win only when every leg wins; otherwise a fully resulted
   multi settles as a cash loss.
 - Do not store or display bonus-bet value for multi recommendations.
@@ -729,9 +732,9 @@ Rules:
   single-runner predictions.
 - Prediction history should show leg-level Won/Lost/Pending/Missing labels so a
   multi loss can be inspected without recalculating from raw rows in the app.
-- The dedicated `multi_win_percentage_blend_v1` leg snapshot must preserve the
-  original win-percentage candidate rank so historical performance can be
-  re-aggregated as hypothetical top-3 or top-4 multis after settlement.
+- Dedicated win-percentage multi leg snapshots must preserve the original
+  win-percentage candidate rank so historical performance can be re-aggregated
+  as hypothetical top-3 or top-4 multis after settlement.
 
 ### `promotion_recommendations`
 
@@ -1103,7 +1106,7 @@ Parameters:
 - `p_recommendation_type text default null` - `neutral`, `positive`, or null
   for all tracked multi types.
 - `p_max_leg_rank int default null` - optional rank cap for models that persist
-  ranked legs, initially used by `multi_win_percentage_blend_v1`.
+  ranked legs, used by dedicated win-percentage multi models.
 
 Rules:
 

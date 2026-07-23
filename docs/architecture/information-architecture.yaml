@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-07-17"
+last_updated: "2026-07-23"
 
 purpose:
   summary: >
@@ -231,24 +231,24 @@ navigation:
         priority: required
         audience: app_user
         purpose:
-          - Show a shared prediction model selector and method summary before model-scoped content.
-          - Keep current Bet candidates visually separate from Stored model performance so today's snapshot is not confused with historical outcomes.
-          - Show current ranked Betcha-derived bet candidates from the latest prediction snapshot.
-          - Filter Stored model performance by all, horse, harness, or greyhound; all ranks, top 1, top 2, or top 3; and all signals, positive only, or neutral or better.
-          - Treat neutral or better as Positive candidate or Neutral candidate only, excluding Small sample and Limited history.
-          - Show horse, harness, and greyhound bet candidates in discipline tabs so the mobile page does not become a long stacked list.
-          - Show compact horse, harness, or greyhound discipline icons beside race title and runner lines in race recommendation rows.
-          - Show candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
-          - Show a compact signal guide above candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
-          - Label candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
-          - Show a Multi bet recommendation panel derived from the active model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
-          - Show a separate Placing recommendations panel derived from stored place-rate insight aggregates; exclude fields with no place market.
+          - Show current ranked Betcha-derived prediction signals from the latest prediction snapshot.
+          - Split current prediction types into Cash, Win %, and Placing tabs so different signal families are not mixed together.
+          - Keep current candidates separate from Prediction History so today's snapshot is not confused with settled outcomes.
+          - Show the cash prediction model selector and method summary only for cash-model candidates.
+          - Show horse, harness, and greyhound cash candidates in discipline tabs so the mobile page does not become a long stacked list.
+          - Show compact horse, harness, or greyhound discipline icons beside cash candidate race title and runner lines.
+          - Show cash candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
+          - Show a compact signal guide above cash candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
+          - Label cash candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
+          - Show a Multi bet recommendation panel derived from the active cash model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
+          - Show a Placing recommendations panel under the Placing type, derived from stored place-rate insight aggregates; exclude fields with no place market.
           - Show current placing recommendation cash-average score plus favourite price bucket and starter-count bucket context.
-          - Show a separate win-percentage multi recommendation panel derived from 65% favourite price-bucket win rate and 35% starter-count win rate, falling back to per-candidate historical buckets when a cached snapshot predates the backend winPercentageMultiCandidates field.
+          - Show a win-percentage multi recommendation panel under the Win % type, derived from 65% favourite price-bucket win rate and 35% starter-count win rate, falling back to per-candidate historical buckets when a cached snapshot predates the backend winPercentageMultiCandidates field.
+          - Show a Win % model selector with the original multi_win_percentage_blend_v1 three-to-five-leg model and the stricter multi_win_percentage_65_plus_v1 model that keeps only 65%+ win-score legs and can show up to 10 legs.
           - Let signed-in users lock the current win-percentage multi recommendation before 10:00am NZ time; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
           - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
-          - Track the dedicated multi_win_percentage_blend_v1 multi-only model separately from single-runner prediction models.
+          - Track dedicated win-percentage multi-only models separately from single-runner prediction models, starting with multi_win_percentage_blend_v1 and multi_win_percentage_65_plus_v1.
           - Track candidate predictions made by independent current prediction scans.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
@@ -262,6 +262,46 @@ navigation:
           - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
           - Exclude source races marked abandoned or cancelled from current Bet candidates and Multi bet recommendations.
           - Render an existing closed-window current prediction snapshot immediately instead of attempting a stale-cache refresh that cannot replace the locked pre-race snapshot.
+          - Keep prediction tracking statistical only, with no stake sizing or wagering action.
+        components:
+          - prediction_type_tabs
+          - cash_prediction_variation_tabs
+          - win_percentage_multi_model_tabs
+          - prediction_variation_method_summary
+          - current_bet_candidates_section
+          - current_bet_candidates
+          - bet_candidate_discipline_tabs
+          - bet_candidate_estimated_cash_return_per_dollar_metric
+          - bet_candidate_other_starters_average_fixed_win_metric
+          - multi_bet_recommendation_panel
+          - win_percentage_multi_recommendation_panel
+          - win_percentage_multi_lock_control
+          - placing_recommendations_panel
+          - bet_candidate_refresh_control
+          - bet_candidate_track_control
+        limits:
+          - no_stake_sizing
+          - no_bankroll_guidance
+          - no_automated_wagering
+        entry_points:
+          - main_navigation
+          - recommendations
+        links_to:
+          - prediction_history
+          - recommendations
+          - race_days
+
+      prediction_history:
+        label: Prediction History
+        priority: required
+        audience: app_user
+        purpose:
+          - Compare stored predictions with settled race outcomes after race-day refreshes.
+          - Show prediction performance using the same notional $1 cash-plus-bonus return metrics used by Insights.
+          - Let prediction variations run in parallel and compare performance without mixing model denominators.
+          - Keep itemised prediction history out of the current Predictions tab.
+          - Filter Stored model performance by all, horse, harness, or greyhound; all ranks, top 1, top 2, or top 3; and all signals, positive only, or neutral or better.
+          - Treat neutral or better as Positive candidate or Neutral candidate only, excluding Small sample and Limited history.
           - Show discipline prediction performance by racing code, including cash average, cash net, and cash-plus-bonus net, with average returns displayed as dollar value per $1 prediction.
           - Show recent stored prediction history with race, runner, price, status, cash returns, and bonus-bet credits.
           - Style settled Prediction history outcome badges so cash wins are positive and 2nd/3rd bonus-credit outcomes are yellow bonus-bet labels, not generic value labels.
@@ -273,27 +313,20 @@ navigation:
           - Include place cash average, place cash net, and missing place-dividend counts in Placing prediction performance.
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet win percentage performance separately from selected-model multi performance.
+          - Show win-percentage multi model tabs under the Win % multis history type so the original and 65%+ models can be reviewed independently.
           - Add a local rank filter immediately above Multi-bet win percentage performance with all ranks, top 3, and top 4 options; top 3 and top 4 simulate using only the first ranked win-percentage multi legs from each stored recommendation.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show Win percentage multi date-range breakdown and history with average win score labels and leg-level Won/Lost/Pending/Missing outcomes.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, combined fixed-win price, average cash score, cash return, and per-leg Won/Lost/Pending/Missing outcomes.
           - Keep prediction tracking statistical only, with no stake sizing or wagering action.
         components:
+          - prediction_history_type_tabs
           - prediction_variation_tabs
+          - win_percentage_multi_model_tabs
           - prediction_variation_method_summary
-          - current_bet_candidates_section
-          - current_bet_candidates
-          - bet_candidate_discipline_tabs
-          - bet_candidate_estimated_cash_return_per_dollar_metric
-          - bet_candidate_other_starters_average_fixed_win_metric
-          - multi_bet_recommendation_panel
-          - win_percentage_multi_recommendation_panel
-          - win_percentage_multi_lock_control
           - stored_model_performance_heading
           - stored_model_performance_filters
           - prediction_summary_stats
-          - bet_candidate_refresh_control
-          - bet_candidate_track_control
           - prediction_return_by_discipline
           - prediction_history_list
           - prediction_history_date_range_filter
@@ -311,8 +344,9 @@ navigation:
           - no_automated_wagering
         entry_points:
           - main_navigation
-          - recommendations
+          - predictions
         links_to:
+          - predictions
           - recommendations
           - race_days
 
@@ -426,8 +460,16 @@ screen_data_relationships:
   predictions:
     reads:
       - current_prediction_snapshots
+    core_tables:
+      - races
+      - runners
+
+  prediction_history:
+    reads:
       - prediction_aggregates
       - promotion_predictions
+      - multi_bet_recommendations
+      - multi_bet_recommendation_legs
     core_tables:
       - races
       - runners
@@ -479,10 +521,13 @@ content_rules:
     date and stale/missing states.
   - Recommendations must not include stake sizing, bankroll guidance, or
     automated wagering actions.
-  - Predictions must read current bet candidates from current_prediction_snapshots for the current Auckland source date,
-    model-filtered Supabase prediction aggregates for performance metrics, and
-    model-filtered promotion_predictions only for server-side filtered itemised
-    history display.
+  - Predictions must read current bet candidates from current_prediction_snapshots for the current Auckland source date.
+  - Prediction History must read model-filtered Supabase prediction aggregates
+    for performance metrics and model-filtered promotion_predictions only for
+    server-side filtered itemised history display.
+  - Predictions must separate current prediction types into Cash, Win %, and
+    Placing tabs so win-percentage signals are not mixed with cash-return model
+    signals.
   - Predictions shows the current Multi bet recommendation from the active
     model's current candidate payload. The server stores the same pre-race
     recommendation for cash-only history and leg-level settlement, without
@@ -490,10 +535,15 @@ content_rules:
   - Predictions should let signed-in users lock one win-percentage multi
     recommendation for the current source date before 10:00am NZ time and keep
     showing the locked snapshot after later same-morning refreshes.
-  - The active prediction model tab must drive every model-scoped Predictions
-    section, including Stored model performance, current candidates, current
-    multi, history metadata, history summaries, history rows, multi
-    performance, and multi history.
+  - The active prediction model tab must drive cash-model Predictions sections,
+    current candidates, and current active-model multi recommendations.
+  - The active prediction model tab must drive cash-model Prediction History
+    sections, including stored performance, history metadata, history
+    summaries, history rows, selected-model multi performance, and
+    selected-model multi history.
+  - Prediction History win-percentage multi sections must use the selected
+    dedicated win-percentage multi model independently of the selected cash
+    model.
   - Prediction history country, discipline, and racecourse filter options must
     be scoped to the selected prediction model so unavailable country/model
     combinations are not shown as selectable filters.
@@ -522,12 +572,14 @@ content_rules:
     bet, and should use all NZ/AUS/HK domestic-region race cards returned by
     the source. They should be grouped by country and discipline with a maximum
     of five candidates per country/discipline group.
-  - Predictions must show a concise method summary for the selected prediction
-    variation before its performance metrics.
+  - Predictions must show a concise method summary for the selected cash
+    prediction variation before cash-model candidates.
+  - Prediction History must show a concise method summary for the selected
+    prediction variation before model-scoped historical metrics.
   - Prediction outcomes must use the predicted runner and predicted fixed-win
     price, not the later final favourite if race-card facts change.
-  - Predictions must not include stake sizing, bankroll guidance, or automated
-    wagering actions.
+  - Predictions and Prediction History must not include stake sizing, bankroll
+    guidance, or automated wagering actions.
   - Return metrics should show the outcome of a notional $1 stake on each
     favourite, including total staked, total returned, net return, average
     return, ROI, and missing price counts.

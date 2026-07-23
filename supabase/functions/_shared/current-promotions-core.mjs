@@ -5,8 +5,10 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
 ];
 const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const MULTI_BET_MAX_LEGS = 5;
+const WIN_PERCENTAGE_65_PLUS_MULTI_MAX_LEGS = 10;
 const MULTI_BET_MIN_LEGS = 3;
 const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
+const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -454,9 +456,12 @@ function createMultiBetRecommendationRowsFromPayload(output) {
   const modelRows = modelRuns
     .map((model) => createMultiBetRecommendationRow(output, model))
     .filter(Boolean);
-  const winPercentageRow = createWinPercentageMultiBetRecommendationRow(output);
+  const winPercentageRows = [
+    createWinPercentageMultiBetRecommendationRow(output),
+    createWinPercentage65PlusMultiBetRecommendationRow(output),
+  ].filter(Boolean);
 
-  return winPercentageRow ? [...modelRows, winPercentageRow] : modelRows;
+  return [...modelRows, ...winPercentageRows];
 }
 
 /**
@@ -494,6 +499,35 @@ function createWinPercentageMultiBetRecommendationRow(output) {
     candidates,
     key: WIN_PERCENTAGE_MULTI_MODEL_KEY,
   });
+}
+
+/**
+ * Creates a stricter tracked win-percentage multi from candidates scoring at least 65%.
+ */
+function createWinPercentage65PlusMultiBetRecommendationRow(output) {
+  const candidates = (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
+    .filter((candidate) =>
+      candidate.winPercentageMultiCandidate
+      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= 65)
+    .map((candidate) => ({
+      ...candidate,
+      candidate: {
+        ...candidate.winPercentageMultiCandidate,
+        label: "65%+ win-rate signal",
+        tone: "positive",
+      },
+    }));
+
+  return createMultiBetRecommendationFromLegs(
+    output,
+    {
+      candidates,
+      key: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+      maxLegs: WIN_PERCENTAGE_65_PLUS_MULTI_MAX_LEGS,
+    },
+    getUniquePricedMultiCandidates(candidates),
+    "positive",
+  );
 }
 
 /**
@@ -544,7 +578,7 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
     return null;
   }
 
-  const legs = candidates.slice(0, MULTI_BET_MAX_LEGS);
+  const legs = candidates.slice(0, model.maxLegs ?? MULTI_BET_MAX_LEGS);
   const combinedFixedWinPrice = legs.reduce((total, candidate) =>
     total * Number(candidate.favourite?.fixedWinPrice ?? 0), 1);
   const averageCashScore = legs.reduce((total, candidate) =>
@@ -895,7 +929,11 @@ function getPredictionPayloadModelKeys(output) {
     : [{ key: DEFAULT_PREDICTION_MODEL_KEY }])
     .map((model) => model.key ?? DEFAULT_PREDICTION_MODEL_KEY);
 
-  return [...modelKeys, WIN_PERCENTAGE_MULTI_MODEL_KEY];
+  return [
+    ...modelKeys,
+    WIN_PERCENTAGE_MULTI_MODEL_KEY,
+    WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  ];
 }
 
 /**

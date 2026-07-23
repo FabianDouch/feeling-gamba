@@ -1,5 +1,8 @@
 import type { BetCandidate } from "./promotionPayload";
-import { WIN_PERCENTAGE_MULTI_MODEL_KEY } from "./supabasePredictions";
+import {
+  WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  type WinPercentageMultiModelKey,
+} from "./supabasePredictions";
 import { supabaseClient } from "./supabaseClient";
 
 type LockedMultiTone = "neutral" | "positive";
@@ -51,9 +54,12 @@ const LOCKED_MULTI_SELECT = [
 ].join(",");
 
 /**
- * Reads the user's locked win-percentage multi for one source date.
+ * Reads the user's locked win-percentage multi for one source date and model.
  */
-export async function fetchLockedWinPercentageMulti(sourceDate: string | null) {
+export async function fetchLockedWinPercentageMulti(
+  sourceDate: string | null,
+  predictionModel: WinPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
+) {
   if (!sourceDate) {
     return null;
   }
@@ -66,7 +72,7 @@ export async function fetchLockedWinPercentageMulti(sourceDate: string | null) {
     .from("user_locked_multi_recommendations")
     .select(LOCKED_MULTI_SELECT)
     .eq("source_date", sourceDate)
-    .eq("prediction_model", WIN_PERCENTAGE_MULTI_MODEL_KEY)
+    .eq("prediction_model", predictionModel)
     .order("locked_at", { ascending: false })
     .limit(1)
     .maybeSingle<LockedWinPercentageMultiRow>();
@@ -83,9 +89,12 @@ export async function fetchLockedWinPercentageMulti(sourceDate: string | null) {
 }
 
 /**
- * Stores the first win-percentage multi locked by the signed-in user for the source date.
+ * Stores the first win-percentage multi locked by the signed-in user for the source date and model.
  */
-export async function saveLockedWinPercentageMulti(input: LockedWinPercentageMultiInput) {
+export async function saveLockedWinPercentageMulti(
+  input: LockedWinPercentageMultiInput,
+  predictionModel: WinPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
+) {
   if (!supabaseClient) {
     throw new Error("Supabase auth client is not configured.");
   }
@@ -96,7 +105,7 @@ export async function saveLockedWinPercentageMulti(input: LockedWinPercentageMul
     throw new Error(userError?.message ?? "Sign in to lock this multi.");
   }
 
-  const existing = await fetchLockedWinPercentageMulti(input.sourceDate);
+  const existing = await fetchLockedWinPercentageMulti(input.sourceDate, predictionModel);
 
   if (existing) {
     return existing;
@@ -111,7 +120,7 @@ export async function saveLockedWinPercentageMulti(input: LockedWinPercentageMul
       generated_at_nz: input.generatedAtNz,
       leg_count: input.legs.length,
       legs: input.legs,
-      prediction_model: WIN_PERCENTAGE_MULTI_MODEL_KEY,
+      prediction_model: predictionModel,
       raw: input.raw,
       recommendation_type: input.recommendationType,
       source: input.source,
@@ -130,7 +139,7 @@ export async function saveLockedWinPercentageMulti(input: LockedWinPercentageMul
     }
 
     if (error.code === "23505") {
-      const locked = await fetchLockedWinPercentageMulti(input.sourceDate);
+      const locked = await fetchLockedWinPercentageMulti(input.sourceDate, predictionModel);
 
       if (locked) {
         return locked;

@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Application Architecture
-last_updated: "2026-07-17"
+last_updated: "2026-07-23"
 
 purpose:
   summary: >
@@ -519,7 +519,7 @@ data_model:
       purpose: Latest stored Betcha bet-back candidate prediction per source race card, with reconciled outcome fields for itemised Predictions history.
       key: source, source_race_card_id
     multi_bet_recommendations:
-      purpose: Tracked multi bet recommendation per model/source date, including cash-score prediction-model multis and dedicated multi-only models such as multi_win_percentage_blend_v1, with settled parent outcome.
+      purpose: Tracked multi bet recommendation per model/source date, including cash-score prediction-model multis and dedicated multi-only models such as multi_win_percentage_blend_v1 and multi_win_percentage_65_plus_v1, with settled parent outcome.
       key: prediction_model, source, source_date, recommendation_type
     multi_bet_recommendation_legs:
       purpose: Leg snapshots and leg-level outcomes for tracked multi bet recommendations.
@@ -628,6 +628,7 @@ flows:
       - keep median_other_fixed_win_price as the next field-shape signal candidate because average can still be distorted by long-priced outsiders.
       - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
       - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
+      - build tracked multi recommendations for cash-score models, the original multi_win_percentage_blend_v1 win-percentage model, and the stricter multi_win_percentage_65_plus_v1 model that keeps only 65%+ win-score legs and can store up to 10 legs.
       - determine the earliest advertised start among eligible all-domestic NZ/AUS/HK prediction races.
       - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
       - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
@@ -671,22 +672,23 @@ flows:
       - Promos lets signed-in users record visible promo race signals into bookmaker-scoped user_race_bets without storing stake size.
       - Account reads user_favourite_tracks, user_race_bets, user_balance_accounts, and user_balance_events through owner-only RLS, supports removals where available, calculates bookmaker-scoped personal settled-row unit-return stats, and shows a manual balance ledger graph.
       - Account balance events are manual tracking only and must not feed stake sizing, bankroll guidance, account scraping, or automated wagering.
-      - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, model-filtered prediction_aggregates from Supabase for metrics, recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history, and tracked multi bet recommendations from multi_bet_recommendations plus multi_bet_recommendation_legs.
+      - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, split into Cash, Win %, and Placing prediction types.
+      - Prediction History reads model-filtered prediction_aggregates from Supabase for metrics, recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history, and tracked multi bet recommendations from multi_bet_recommendations plus multi_bet_recommendation_legs.
       - Predictions tags model tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
-      - Predictions presents current Bet candidates as a separate section from Stored model performance while keeping both scoped to the selected prediction model.
+      - Prediction History shows the history type first, then the relevant model selector under it: cash model tabs for singles, cash multis, and placing, and win-percentage model tabs for Win % multis.
       - Predictions excludes races marked abandoned or cancelled from current candidate snapshots and tracked multi-bet recommendation creation.
       - Predictions attaches current placing recommendations from stored place-rate insight aggregates, using AU/NZ 5-7 starters for top 2 and 8+ for top 3, and HK 4-6 starters for top 2 and 7+ for top 3.
-      - Predictions defaults and resets the history date range to yesterday in Pacific/Auckland time.
-      - Predictions calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
-      - Predictions calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
-      - Predictions calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
-      - Predictions calls the same tracked multi RPCs for multi_win_percentage_blend_v1 to show separate all-time and date-range win-percentage multi performance/history independent of the selected single-runner prediction model, with optional all-ranks, top-3, and top-4 rank filters calculated from persisted win-percentage leg ranks.
+      - Prediction History defaults and resets the history date range to yesterday in Pacific/Auckland time.
+      - Prediction History calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
+      - Prediction History calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
+      - Prediction History calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
+      - Prediction History calls the same tracked multi RPCs for the selected win-percentage multi-only model to show separate all-time and date-range win-percentage multi performance/history independent of the selected single-runner prediction model, with optional all-ranks, top-3, and top-4 rank filters calculated from persisted win-percentage leg ranks.
       - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current win-percentage multi recommendation before 10:00am NZ time; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because locked pre-race snapshots cannot be replaced after the first eligible race has started.
       - Predictions shows model variation tabs and a short method explanation for each variation.
       - Predictions shows the current Multi bet recommendation from the active model's current candidate payload, while the prediction refresh stores the same pre-race recommendation for cash-only history and leg-level settlement.
-      - Predictions shows a separate current Win percentage multi recommendation from historical favourite price-bucket and starter-count win rates.
+      - Predictions shows separate current Win percentage multi recommendations from historical favourite price-bucket and starter-count win rates, including the original and 65%+ models.
       - Supabase RLS allows read-only app access to app-facing read models.
       - Debug/admin views remain restricted.
 
