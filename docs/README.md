@@ -24,6 +24,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [Pilot tracks](./architecture/pilot-tracks.md)
 - [TAB API notes](./integrations/tab-api.md)
 - [Betcha API notes](./integrations/betcha-api.md)
+- [UFC data source validation](./integrations/ufc-data-sources.md)
 - [TAB Form Guide notes](./integrations/tab-form-guide.md)
 - [HRNZ notes](./integrations/hrnz.md)
 - [Race ID discovery notes](./integrations/race-id-discovery.md)

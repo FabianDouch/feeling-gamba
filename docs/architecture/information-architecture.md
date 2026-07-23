@@ -17,7 +17,10 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-24 to add the
+Note: the YAML was updated on 2026-07-24 to rename Race Days to Historical
+Data, add Racing/UFC sport toggles to Historical Data and Insights, and add the
+UFC favourite price, other fighter price, and price-difference insight
+breakdowns. It was also updated on 2026-07-24 to add the
 `multi_win_percentage_60_plus_v1` and `multi_place_percentage_v1` Win % multi
 models. It was previously updated on 2026-07-23 to split current Predictions
 from Prediction History, separate current cash, win-percentage, and placing
@@ -57,23 +60,28 @@ current.
 
 ## Primary Navigation
 
-### Race Days
+### Historical Data
 
-Secondary browsing screen for the MVP. Race Days is useful for historical
+Secondary browsing screen for the MVP. Historical Data is useful for historical
 inspection but should not be the default app landing page.
 
 Purpose:
 
+- Toggle between Racing and UFC historical rows.
 - Browse races by date.
 - Filter by collected date range, country, discipline, and racecourse.
 - Compare declared field size, final starter count, favourite, MarketMover,
   result, and payout/dividend data.
 - Load the latest 20 races across AUS/NZ/HK by default and query Supabase for
   filtered sets when the user changes date, country, discipline, or course.
+- Browse UFC fights by event-date range with fighter names, winner, favourite,
+  favourite price, other fighter price, price difference, source match status,
+  and `$1` favourite return state.
 
 Main content:
 
-- Date range picker bounded to collected race dates.
+- Sport selector: Racing or UFC.
+- Date range picker bounded to collected race/UFC event dates.
 - Default latest-20-race Supabase result set across AUS/NZ/HK.
 - Country filter: all countries, NZ, AUS, HK.
 - Discipline filter: horse, harness, greyhound.
@@ -83,6 +91,7 @@ Main content:
 - Favourite-track save/remove control when one country, discipline, and
   racecourse are selected.
 - Race list grouped by meeting/track.
+- UFC fight list grouped by returned event-date order.
 - Empty and partial-data states.
 
 Entry points:
@@ -162,6 +171,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
+- Toggle between Racing and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -180,9 +190,12 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
+- For UFC, show favourite price breakdown, other fighter price breakdown, and
+  price-difference breakdown from `ufc_insight_aggregates`.
 
 Main content:
 
+- Sport selector: Racing or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -214,6 +227,7 @@ Main content:
   `$7.00-$9.99`, and `$25.00+`. These buckets use the average fixed-win price
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
+- UFC favourite price, other fighter price, and price-difference breakdowns.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.

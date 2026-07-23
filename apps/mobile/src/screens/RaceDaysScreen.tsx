@@ -11,15 +11,28 @@ import {
   type RaceDayFilters,
   type RaceDayMetadata,
 } from "../data/supabaseRaceDays";
+import {
+  createDefaultUfcHistoricalFilters,
+  DEFAULT_UFC_ROW_LIMIT,
+  fetchUfcHistoricalEntries,
+  fetchUfcHistoricalMetadata,
+  hasSupabaseUfcConfig,
+  type UfcFightSummary,
+  type UfcHistoricalFilters,
+  type UfcHistoricalMetadata,
+} from "../data/supabaseUfc";
 import type { RaceSummary } from "../data/collectedRaceDay";
 import { FavouriteTrackControl } from "./FavouriteTrackControl";
 import { FavouriteTrackQuickFilter } from "./FavouriteTrackQuickFilter";
 import type { UserFavouriteTrack } from "../data/userFavouriteTracks";
 
+type HistoricalSport = "racing" | "ufc";
+
 /**
- * Lists Supabase race-day rows with server-side date, country, discipline, and course filters.
+ * Lists sport-specific historical rows with source-backed prices and results.
  */
 export function RaceDaysScreen() {
+  const [sport, setSport] = useState<HistoricalSport>("racing");
   const [filters, setFilters] = useState<RaceDayFilters>({
     country: "all",
     course: "all",
@@ -27,11 +40,20 @@ export function RaceDaysScreen() {
     fromDate: "",
     toDate: "",
   });
+  const [ufcFilters, setUfcFilters] = useState<UfcHistoricalFilters>({
+    fromDate: "",
+    toDate: "",
+  });
   const [metadata, setMetadata] = useState<RaceDayMetadata | null>(null);
+  const [ufcMetadata, setUfcMetadata] = useState<UfcHistoricalMetadata | null>(null);
   const [races, setRaces] = useState<RaceSummary[]>([]);
+  const [ufcFights, setUfcFights] = useState<UfcFightSummary[]>([]);
   const [totalRaceCount, setTotalRaceCount] = useState(0);
+  const [totalUfcFightCount, setTotalUfcFightCount] = useState(0);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
+  const [isLoadingUfcMetadata, setIsLoadingUfcMetadata] = useState(false);
   const [isLoadingRaces, setIsLoadingRaces] = useState(false);
+  const [isLoadingUfcFights, setIsLoadingUfcFights] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [favouritesReloadKey, setFavouritesReloadKey] = useState(0);
   const courseOptions = useMemo(() => getCourseOptions(metadata, filters.country), [
@@ -49,6 +71,7 @@ export function RaceDaysScreen() {
       }
     : null;
   const filterKey = `${filters.fromDate}-${filters.toDate}-${filters.country}-${filters.discipline}-${filters.course}`;
+  const ufcFilterKey = `${ufcFilters.fromDate}-${ufcFilters.toDate}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,8 +115,51 @@ export function RaceDaysScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadUfcMetadata() {
+      if (sport !== "ufc" || ufcMetadata) {
+        return;
+      }
+
+      if (!hasSupabaseUfcConfig) {
+        setErrorMessage("Supabase is not configured for UFC Historical Data.");
+        setIsLoadingUfcMetadata(false);
+        return;
+      }
+
+      try {
+        setIsLoadingUfcMetadata(true);
+        setErrorMessage(null);
+        const nextMetadata = await fetchUfcHistoricalMetadata();
+
+        if (cancelled) {
+          return;
+        }
+
+        setUfcMetadata(nextMetadata);
+        setUfcFilters(createDefaultUfcHistoricalFilters(nextMetadata));
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "UFC Historical Data metadata failed to load.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingUfcMetadata(false);
+        }
+      }
+    }
+
+    loadUfcMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport, ufcMetadata]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadRaces() {
-      if (!metadata || !filters.fromDate || !filters.toDate) {
+      if (sport !== "racing" || !metadata || !filters.fromDate || !filters.toDate) {
         return;
       }
 
@@ -128,13 +194,61 @@ export function RaceDaysScreen() {
     return () => {
       cancelled = true;
     };
-  }, [filters, metadata]);
+  }, [filters, metadata, sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUfcFights() {
+      if (sport !== "ufc" || !ufcMetadata || !ufcFilters.fromDate || !ufcFilters.toDate) {
+        return;
+      }
+
+      try {
+        setIsLoadingUfcFights(true);
+        setErrorMessage(null);
+        const result = await fetchUfcHistoricalEntries(ufcFilters, {
+          limit: isDefaultUfcView(ufcFilters, ufcMetadata) ? DEFAULT_UFC_ROW_LIMIT : undefined,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        setUfcFights(result.fights);
+        setTotalUfcFightCount(result.totalCount);
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "UFC Historical Data failed to load.");
+          setUfcFights([]);
+          setTotalUfcFightCount(0);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingUfcFights(false);
+        }
+      }
+    }
+
+    loadUfcFights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport, ufcFilters, ufcMetadata]);
 
   function updateFilter(key: keyof RaceDayFilters, value: string) {
     setFilters((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function updateSport(value: string) {
+    if (value === "racing" || value === "ufc") {
+      setSport(value);
+      setErrorMessage(null);
+    }
   }
 
   /**
@@ -177,6 +291,34 @@ export function RaceDaysScreen() {
     }));
   }
 
+  function updateUfcDateBoundary(key: "fromDate" | "toDate", value: string) {
+    setUfcFilters((current) => {
+      const next = {
+        ...current,
+        [key]: value,
+      };
+
+      if (next.fromDate > next.toDate) {
+        return key === "fromDate"
+          ? { ...next, toDate: value }
+          : { ...next, fromDate: value };
+      }
+
+      return next;
+    });
+  }
+
+  function resetUfcDateRange() {
+    if (!ufcMetadata) {
+      return;
+    }
+
+    setUfcFilters({
+      fromDate: ufcMetadata.defaultDateRange.from,
+      toDate: ufcMetadata.defaultDateRange.to,
+    });
+  }
+
   /**
    * Applies a saved track shortcut while preserving the selected Race Days date range.
    */
@@ -197,89 +339,159 @@ export function RaceDaysScreen() {
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.eyebrow}>Race days</Text>
-          <Text style={styles.heading}>Logged races</Text>
+          <Text style={styles.eyebrow}>Historical data</Text>
+          <Text style={styles.heading}>
+            {sport === "ufc" ? "Logged UFC fights" : "Logged races"}
+          </Text>
           <Text style={styles.countText}>
-            {isLoadingMetadata || isLoadingRaces
+            {sport === "ufc"
+              ? isLoadingUfcMetadata || isLoadingUfcFights
+                ? "Loading Supabase UFC fights"
+                : `${ufcFights.length} of ${totalUfcFightCount} fights`
+              : isLoadingMetadata || isLoadingRaces
               ? "Loading Supabase races"
               : `${races.length} of ${totalRaceCount} races`}
           </Text>
         </View>
         <Text style={styles.datePill}>
-          {metadata?.latestWindowLabel ?? "Supabase"}
+          {sport === "ufc"
+            ? ufcMetadata?.latestWindowLabel ?? "Supabase"
+            : metadata?.latestWindowLabel ?? "Supabase"}
         </Text>
       </View>
 
-      <DateRangeFilter
-        fromDate={filters.fromDate}
-        onChange={updateDateBoundary}
-        onReset={resetDateRange}
-        options={metadata?.dateOptions ?? []}
-        toDate={filters.toDate}
-        windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available race dates"}
-      />
-      <FavouriteTrackQuickFilter
-        activeTrack={favouriteTrack}
-        onSelect={applyFavouriteTrack}
-        reloadKey={favouritesReloadKey}
-      />
       <FilterGroup
-        label="Country"
-        options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
-        selectedValue={filters.country}
-        onChange={updateCountry}
-      />
-      <FilterGroup
-        label="Discipline"
-        options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
-        selectedValue={filters.discipline}
-        onChange={(value) => updateFilter("discipline", value)}
-      />
-      <FilterGroup
-        label="Racecourse"
-        options={[{ label: "All courses", value: "all" }, ...courseOptions]}
-        selectedValue={filters.course}
-        onChange={(value) => updateFilter("course", value)}
+        label="Sport"
+        options={[
+          { label: "Racing", value: "racing" },
+          { label: "UFC", value: "ufc" },
+        ]}
+        selectedValue={sport}
+        onChange={updateSport}
       />
 
-      <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
+      {sport === "ufc" ? (
+        <>
+          <DateRangeFilter
+            fromDate={ufcFilters.fromDate}
+            onChange={updateUfcDateBoundary}
+            onReset={resetUfcDateRange}
+            options={ufcMetadata?.dateOptions ?? []}
+            toDate={ufcFilters.toDate}
+            windowLabel={ufcMetadata?.latestWindowRangeLabel ?? "Loading available UFC dates"}
+          />
 
-      <View key={filterKey}>
-        {errorMessage ? (
-          <View style={styles.errorState}>
-            <Text style={styles.errorStateText}>{errorMessage}</Text>
+          <View key={ufcFilterKey}>
+            {errorMessage ? (
+              <View style={styles.errorState}>
+                <Text style={styles.errorStateText}>{errorMessage}</Text>
+              </View>
+            ) : isLoadingUfcMetadata || isLoadingUfcFights ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>Loading UFC fights from Supabase.</Text>
+              </View>
+            ) : ufcFights.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No UFC fights match this date range.</Text>
+              </View>
+            ) : ufcFights.map((fight) => (
+              <View key={fight.fightId} style={styles.raceRow}>
+                <View style={styles.raceNumber}>
+                  <Text style={styles.raceNumberText}>UFC</Text>
+                </View>
+                <View style={styles.raceContent}>
+                  <Text style={styles.raceTitle}>
+                    {fight.eventDateLabel} · {fight.fighters}
+                  </Text>
+                  <Text style={styles.raceMeta}>
+                    Winner: {fight.winner} · {fight.priceSource}
+                  </Text>
+                  <Text style={styles.raceMeta}>
+                    Fav: {fight.favourite} ({fight.favouritePrice}) · Other {fight.otherFighterPrice} · Diff {fight.priceDifference}
+                  </Text>
+                </View>
+                <View style={styles.resultBlock}>
+                  <Text style={styles.result}>{fight.result}</Text>
+                  <Text style={styles.payout}>{fight.payout}</Text>
+                </View>
+              </View>
+            ))}
           </View>
-        ) : isLoadingMetadata || isLoadingRaces ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Loading races from Supabase.</Text>
+        </>
+      ) : (
+        <>
+          <DateRangeFilter
+            fromDate={filters.fromDate}
+            onChange={updateDateBoundary}
+            onReset={resetDateRange}
+            options={metadata?.dateOptions ?? []}
+            toDate={filters.toDate}
+            windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available race dates"}
+          />
+          <FavouriteTrackQuickFilter
+            activeTrack={favouriteTrack}
+            onSelect={applyFavouriteTrack}
+            reloadKey={favouritesReloadKey}
+          />
+          <FilterGroup
+            label="Country"
+            options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
+            selectedValue={filters.country}
+            onChange={updateCountry}
+          />
+          <FilterGroup
+            label="Discipline"
+            options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
+            selectedValue={filters.discipline}
+            onChange={(value) => updateFilter("discipline", value)}
+          />
+          <FilterGroup
+            label="Racecourse"
+            options={[{ label: "All courses", value: "all" }, ...courseOptions]}
+            selectedValue={filters.course}
+            onChange={(value) => updateFilter("course", value)}
+          />
+
+          <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
+
+          <View key={filterKey}>
+            {errorMessage ? (
+              <View style={styles.errorState}>
+                <Text style={styles.errorStateText}>{errorMessage}</Text>
+              </View>
+            ) : isLoadingMetadata || isLoadingRaces ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>Loading races from Supabase.</Text>
+              </View>
+            ) : races.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No races match these filters.</Text>
+              </View>
+            ) : races.map((race) => (
+              <View key={race.raceId} style={styles.raceRow}>
+                <View style={styles.raceNumber}>
+                  <Text style={styles.raceNumberText}>R{race.number}</Text>
+                </View>
+                <View style={styles.raceContent}>
+                  <Text style={styles.raceTitle}>
+                    {race.dateLabel} · {race.track}
+                  </Text>
+                  <Text style={styles.raceMeta}>
+                    {race.raceName} · {race.starters} starters · {race.code} · {race.country}
+                  </Text>
+                  <Text style={styles.raceMeta}>
+                    Fav: {race.favourite} ({race.favouriteFinish})
+                  </Text>
+                </View>
+                <View style={styles.resultBlock}>
+                  <Text style={styles.result}>{race.result}</Text>
+                  <Text style={styles.payout}>{race.payout}</Text>
+                </View>
+              </View>
+            ))}
           </View>
-        ) : races.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No races match these filters.</Text>
-          </View>
-        ) : races.map((race) => (
-          <View key={race.raceId} style={styles.raceRow}>
-            <View style={styles.raceNumber}>
-              <Text style={styles.raceNumberText}>R{race.number}</Text>
-            </View>
-            <View style={styles.raceContent}>
-              <Text style={styles.raceTitle}>
-                {race.dateLabel} · {race.track}
-              </Text>
-              <Text style={styles.raceMeta}>
-                {race.raceName} · {race.starters} starters · {race.code} · {race.country}
-              </Text>
-              <Text style={styles.raceMeta}>
-                Fav: {race.favourite} ({race.favouriteFinish})
-              </Text>
-            </View>
-            <View style={styles.resultBlock}>
-              <Text style={styles.result}>{race.result}</Text>
-              <Text style={styles.payout}>{race.payout}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+        </>
+      )}
     </View>
   );
 }
@@ -292,6 +504,11 @@ function isDefaultRaceDayView(filters: RaceDayFilters, metadata: RaceDayMetadata
     && filters.course === "all"
     && filters.discipline === "all"
     && filters.fromDate === metadata.defaultDateRange.from
+    && filters.toDate === metadata.defaultDateRange.to;
+}
+
+function isDefaultUfcView(filters: UfcHistoricalFilters, metadata: UfcHistoricalMetadata) {
+  return filters.fromDate === metadata.defaultDateRange.from
     && filters.toDate === metadata.defaultDateRange.to;
 }
 

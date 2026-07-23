@@ -22,12 +22,21 @@ As of `2026-07-24`, `multi_win_percentage_60_plus_v1` and
 values for tracked percentage multis; they use the existing multi
 recommendation tables. `multi_place_percentage_v1` adds an RPC migration for
 place-hit rank filtering, but does not require a new table.
+As of `2026-07-24`, UFC historical support is implemented as a separate
+sport-specific read path in
+`supabase/migrations/202607240002_ufc_historical_data_and_insights.sql`. The
+first UFC importer combines the Vali Hameed UFC master Kaggle dataset with exact
+date+fighter-pair matches from the Jerzy Szocik daily odds dataset. UFC rows do
+not use racing `meetings`, `races`, `runners`, starter-count, country, track, or
+discipline fields.
 
 The design should support:
 
 - Google-authenticated app users.
 - Daily ingestion.
 - Multiple racing codes.
+- Multiple sports through sport-specific historical read models where the
+  source shape does not fit racing meetings/runners.
 - Multiple source IDs for the same race.
 - Odds snapshots over time.
 - Final results and dividends.
@@ -971,6 +980,95 @@ Rules:
   response can be capped before the full course list is returned.
 - Public RLS read access is allowed because this table contains app-facing
   aggregate facts only.
+
+### `ufc_fight_entries`
+
+Stored app-facing UFC Historical Data read model. It stores one settled
+two-fighter contest from the five-year Kaggle import and carries the source
+confidence needed to keep price-based Insights honest.
+
+Key fields:
+
+- `source_fight_key text unique`
+- `event_date date`
+- `location text`
+- `fight_url text`
+- `red_fighter_name text`
+- `blue_fighter_name text`
+- `winner_side text`
+- `winner_name text`
+- `result_status text`
+- `finish_type text`
+- `red_fixed_win_price numeric`
+- `blue_fixed_win_price numeric`
+- `price_source text`
+- `price_match_status text` - `master_priced`, `daily_exact`,
+  `review_candidate`, or `result_only`
+- `price_source_count int`
+- `price_sample_at timestamptz`
+- `favourite_name text`
+- `favourite_price numeric`
+- `other_fighter_name text`
+- `other_fighter_price numeric`
+- `price_difference numeric`
+- `favourite_won boolean`
+- `favourite_win_return numeric`
+- `missing_price boolean`
+- `match_review_required boolean`
+- `included_in_insights boolean`
+- `raw jsonb`
+
+Rules:
+
+- `master_priced` rows use Vali Hameed `RedOdds` / `BlueOdds` converted from
+  American moneyline to decimal fixed-win price.
+- `daily_exact` rows fill missing master prices only when the daily odds file
+  has an exact `event_date` plus unordered fighter-pair match.
+- Duplicate daily odds rows are reduced deterministically by taking the latest
+  row per `source + region`, then the median decimal price per fighter.
+- `result_only` rows may appear in Historical Data but must not feed favourite
+  price, other fighter price, price-difference, or `$1` return Insights.
+- Equal-price fights and non-standard results are stored, but excluded from
+  favourite-return denominators because there is no clear favourite or no
+  standard winner.
+
+### `ufc_insight_aggregates`
+
+Stored app-facing UFC aggregate read model. The app reads this table when the
+Insights sport toggle is set to UFC.
+
+Key fields:
+
+- `scope_key text unique`
+- `scope_type text` - `overall`, `favourite_price_bucket`,
+  `other_fighter_price_bucket`, `price_difference_bucket`, or
+  `price_match_status`
+- `date_from date`
+- `date_to date`
+- `price_bucket_start numeric`
+- `price_bucket_end numeric`
+- `price_bucket_label text`
+- `fight_count int`
+- `priced_fight_count int`
+- `result_only_count int`
+- `review_candidate_count int`
+- `favourite_selections int`
+- `favourite_wins int`
+- `favourite_win_percentage numeric`
+- `total_stake numeric`
+- `total_return numeric`
+- `net_return numeric`
+- `average_return_per_dollar numeric`
+- `roi_percentage numeric`
+- `missing_price_count int`
+
+Rules:
+
+- Aggregates use source-backed priced fights only.
+- Bucket scopes cover favourite price, other fighter price, and the decimal
+  difference between the two fixed-win prices.
+- Public RLS read access is allowed because these rows contain app-facing
+  historical statistics only.
 
 ### `prediction_aggregates`
 

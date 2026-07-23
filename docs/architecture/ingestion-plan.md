@@ -378,8 +378,8 @@ Expected writes:
 
 Runtime app rule:
 
-- The Race Days tab should request the latest 20 races across AUS/NZ/HK from
-  `race_day_entries` when opened.
+- The Historical Data tab should request the latest 20 racing rows across
+  AUS/NZ/HK from `race_day_entries` when opened with the Racing sport selected.
 - After the user applies filters, the app should query Supabase with those
   filter parameters instead of downloading all historical rows.
 
@@ -395,6 +395,56 @@ Six-month catch-up command:
   `npm --workspace @feeling-gamba/ingestion run backfill:race-fixtures -- --from=2025-12-15 --to=2026-06-19 --all-domestic --require-supabase`
 - Reconcile prediction outcomes after the backfill:
   `npm --workspace @feeling-gamba/ingestion run reconcile:predictions -- --require-supabase`
+
+### `backfill-ufc-kaggle`
+
+Purpose:
+
+- Import the first five-year UFC historical baseline.
+- Use the Vali Hameed UFC master Kaggle dataset as the result source.
+- Fill result-only prices from the Jerzy Szocik daily UFC betting odds dataset
+  when there is an exact event-date plus unordered fighter-pair match.
+- Rebuild UFC favourite price, other fighter price, and price-difference
+  aggregate buckets for the UFC Insights sport toggle.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run backfill:ufc-kaggle -- --master-csv=/path/to/ufc-master.csv --odds-csv=/path/to/UFC_betting_odds.csv --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run backfill:ufc-kaggle -- --master-csv=/path/to/ufc-master.csv --odds-csv=/path/to/UFC_betting_odds.csv --dry-run`
+- Default date window is `2021-07-24` through `2026-07-24`.
+- Operators can override the window with `--from=YYYY-MM-DD --to=YYYY-MM-DD`.
+
+Expected writes:
+
+- `ufc_fight_entries`
+- `ufc_insight_aggregates`
+
+Import rules:
+
+- Convert Vali `RedOdds` and `BlueOdds` from American moneyline to decimal
+  fixed-win prices.
+- Keep Vali-priced rows as `price_match_status = 'master_priced'`.
+- For rows missing one or both Vali odds, search daily odds by exact
+  `event_date` plus unordered normalized fighter pair.
+- Reduce duplicate daily odds rows by taking the latest row per `source +
+  region`, then the median decimal price for each fighter.
+- Store exact daily fills as `price_match_status = 'daily_exact'`.
+- Leave unmatched rows as `price_match_status = 'result_only'`.
+- Exclude result-only rows, equal-price fights, draws/no contests, and unknown
+  winners from UFC favourite-return denominators.
+- Do not use same-date word-order matches or +/- one-day date matches in
+  Insights until a review workflow explicitly approves them.
+
+Runtime app rule:
+
+- The Historical Data tab should show a Racing/UFC sport toggle.
+- The UFC view should read the latest 20 fights from `ufc_fight_entries` by
+  default and query Supabase by event-date range when the user changes dates.
+- The Insights tab should show a Racing/UFC sport toggle.
+- The UFC Insights view should read `ufc_insight_aggregates` and display
+  favourite price, other fighter price, and price-difference breakdowns.
 
 ### `fetch-current-promotions`
 

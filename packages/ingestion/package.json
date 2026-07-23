@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "backfill:race-fixtures": "node scripts/backfill-race-fixtures-to-supabase.mjs",
+    "backfill:ufc-kaggle": "node scripts/backfill-ufc-kaggle-to-supabase.mjs",
     "fetch:current-predictions": "node scripts/fetch-current-predictions.mjs",
     "fetch:current-promotions": "node scripts/fetch-current-promotions.mjs",
     "fetch:pilot-date": "node scripts/fetch-pilot-date.mjs",

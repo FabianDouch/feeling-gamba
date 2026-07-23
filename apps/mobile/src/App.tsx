@@ -91,7 +91,7 @@ function AppShell() {
             />
             <PageNavButton
               active={activePage === "raceDays"}
-              label="Race Days"
+              label="Historical Data"
               onPress={() => setActivePage("raceDays")}
             />
             <PageNavButton

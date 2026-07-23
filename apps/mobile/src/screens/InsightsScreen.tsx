@@ -11,6 +11,11 @@ import {
   type InsightMetadata,
 } from "../data/supabaseInsights";
 import {
+  fetchUfcInsights,
+  hasSupabaseUfcConfig,
+  type UfcInsightsData,
+} from "../data/supabaseUfc";
+import {
   hasTrackRaceOddsConfig,
   requestTrackRaceOdds,
   type TrackRaceOddsResult,
@@ -30,11 +35,20 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
+type InsightSport = "racing" | "ufc";
+
+const emptyUfcInsights: UfcInsightsData = {
+  favouritePriceBreakdown: [],
+  otherFighterPriceBreakdown: [],
+  priceDifferenceBreakdown: [],
+  summaryStats: [],
+};
 
 /**
- * Shows favourite-performance insights scoped by country and race track.
+ * Shows sport-specific favourite-performance insights.
  */
 export function InsightsScreen() {
+  const [sport, setSport] = useState<InsightSport>("racing");
   const [filters, setFilters] = useState<InsightFilters>({
     country: "all",
     course: "all",
@@ -42,11 +56,13 @@ export function InsightsScreen() {
   });
   const [metadata, setMetadata] = useState<InsightMetadata | null>(null);
   const [insights, setInsights] = useState<InsightsData>(emptyInsights);
+  const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
   const [insightMode, setInsightMode] = useState<InsightMode>("win");
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [favouritesReloadKey, setFavouritesReloadKey] = useState(0);
@@ -82,6 +98,10 @@ export function InsightsScreen() {
     || insights.starterBreakdown.length > 0
     || insights.priceBreakdown.length > 0
     || insights.otherStartersAveragePriceBreakdown.length > 0;
+  const hasUfcInsightRows = ufcInsights.summaryStats.length > 0
+    || ufcInsights.favouritePriceBreakdown.length > 0
+    || ufcInsights.otherFighterPriceBreakdown.length > 0
+    || ufcInsights.priceDifferenceBreakdown.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +143,7 @@ export function InsightsScreen() {
     let cancelled = false;
 
     async function loadInsights() {
-      if (!metadata) {
+      if (sport !== "racing" || !metadata) {
         return;
       }
 
@@ -152,7 +172,56 @@ export function InsightsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [filters, metadata]);
+  }, [filters, metadata, sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUfcInsights() {
+      if (sport !== "ufc") {
+        return;
+      }
+
+      if (!hasSupabaseUfcConfig) {
+        setErrorMessage("Supabase is not configured for UFC Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingUfcInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchUfcInsights();
+
+        if (!cancelled) {
+          setUfcInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "UFC Insights failed to load.");
+          setUfcInsights(emptyUfcInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingUfcInsights(false);
+        }
+      }
+    }
+
+    loadUfcInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  function updateSport(value: string) {
+    if (value === "racing" || value === "ufc") {
+      setSport(value);
+      setOddsResult(null);
+      setOddsErrorMessage(null);
+      setErrorMessage(null);
+    }
+  }
 
   /**
    * Applies a country scope and clears the track scope so filters stay compatible.
@@ -232,41 +301,57 @@ export function InsightsScreen() {
       <Text style={styles.eyebrow}>Insights</Text>
       <Text style={styles.heading}>Collected favourite performance</Text>
       <Text style={styles.trackNote}>
-        Showing {selectedCountryLabel} · {selectedTrackLabel} · {selectedDisciplineLabel}
+        {sport === "ufc"
+          ? "Showing UFC favourite price, other fighter price, and price-difference signals"
+          : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
       </Text>
 
-      <FavouriteTrackQuickFilter
-        activeTrack={favouriteTrack}
-        onSelect={applyFavouriteTrack}
-        reloadKey={favouritesReloadKey}
-      />
-
       <FilterGroup
-        label="Country"
-        onChange={updateCountry}
-        options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
-        selectedValue={filters.country}
+        label="Sport"
+        onChange={updateSport}
+        options={[
+          { label: "Racing", value: "racing" },
+          { label: "UFC", value: "ufc" },
+        ]}
+        selectedValue={sport}
       />
 
-      <FilterGroup
-        label="Track"
-        onChange={updateCourse}
-        options={trackOptions}
-        selectedValue={filters.course}
-      />
+      {sport === "racing" ? (
+        <>
+          <FavouriteTrackQuickFilter
+            activeTrack={favouriteTrack}
+            onSelect={applyFavouriteTrack}
+            reloadKey={favouritesReloadKey}
+          />
 
-      <FilterGroup
-        label="Discipline"
-        onChange={updateDiscipline}
-        options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
-        selectedValue={filters.discipline}
-      />
+          <FilterGroup
+            label="Country"
+            onChange={updateCountry}
+            options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
+            selectedValue={filters.country}
+          />
 
-      <InsightModeTabs selectedValue={insightMode} onChange={setInsightMode} />
+          <FilterGroup
+            label="Track"
+            onChange={updateCourse}
+            options={trackOptions}
+            selectedValue={filters.course}
+          />
 
-      <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
+          <FilterGroup
+            label="Discipline"
+            onChange={updateDiscipline}
+            options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
+            selectedValue={filters.discipline}
+          />
 
-      {filters.course !== "all" ? (
+          <InsightModeTabs selectedValue={insightMode} onChange={setInsightMode} />
+
+          <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
+        </>
+      ) : null}
+
+      {sport === "racing" && filters.course !== "all" ? (
         <TrackRaceOddsPanel
           canRequest={canRequestTrackOdds}
           errorMessage={oddsErrorMessage}
@@ -278,7 +363,17 @@ export function InsightsScreen() {
         />
       ) : null}
 
-      {errorMessage ? (
+      {sport === "ufc" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingUfcInsights ? (
+          <StateMessage text="Loading stored UFC insight aggregates from Supabase." />
+        ) : !hasUfcInsightRows ? (
+          <StateMessage text="No stored UFC insight aggregates are loaded yet." />
+        ) : (
+          <UfcInsightsPanel insights={ufcInsights} />
+        )
+      ) : errorMessage ? (
         <StateMessage tone="error" text={errorMessage} />
       ) : isLoadingMetadata || isLoadingInsights ? (
         <StateMessage text="Loading stored insight aggregates from Supabase." />
@@ -339,6 +434,33 @@ function InsightModeTabs({ onChange, selectedValue }: InsightModeTabsProps) {
 type InsightsPanelProps = {
   insights: InsightsData;
 };
+
+type UfcInsightsPanelProps = {
+  insights: UfcInsightsData;
+};
+
+/**
+ * Shows UFC win-return statistics and price-shape breakdowns.
+ */
+function UfcInsightsPanel({ insights }: UfcInsightsPanelProps) {
+  return (
+    <>
+      <View style={styles.statsRow}>
+        {insights.summaryStats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={styles.statDetail}>{stat.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <WinPriceBreakdown title="Favourite price breakdown" rows={insights.favouritePriceBreakdown} />
+      <WinPriceBreakdown title="Other fighter price breakdown" rows={insights.otherFighterPriceBreakdown} />
+      <WinPriceBreakdown title="Price difference breakdown" rows={insights.priceDifferenceBreakdown} />
+    </>
+  );
+}
 
 /**
  * Shows the existing win-focused Insights statistics.

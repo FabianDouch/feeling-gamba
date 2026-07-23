@@ -5,11 +5,11 @@ last_updated: "2026-07-24"
 purpose:
   summary: >
     Define the MVP app navigation, screen hierarchy, primary user flows, and
-    screen-to-data relationships for browsing logged racing favourite,
+    screen-to-data relationships for browsing logged racing and UFC favourite,
     MarketMover, result, field-size, dividend, favourite-performance
     statistics, and source-backed promotion signal data.
   primary_users:
-    - App user browsing historical race outcomes.
+    - App user browsing historical racing and UFC outcomes.
     - Developer/operator monitoring ingestion quality and source completeness.
 
 principles:
@@ -17,31 +17,35 @@ principles:
   - Make country, date, discipline, and racecourse the primary browsing controls.
   - Show missing market/result data explicitly rather than inventing values.
   - Keep source/debug information available without making it the main user flow.
-  - Treat Australian and Hong Kong coverage as visible comparison data in Race
-    Days, Insights, and bet-back candidate scans, with country labels available
-    in app filters.
+  - Treat Australian and Hong Kong coverage as visible comparison data in
+    Historical Data, Insights, and bet-back candidate scans, with country labels
+    available in app filters.
   - Use Supabase app-facing read models for runtime race and insight data; local
     fixtures are development/backfill inputs only.
-  - Populate Race Days and Insights course filters from Supabase rows produced
-    by all-domestic AUS/NZ/HK race-day ingestion, not from a hardcoded app
-    track list.
+  - Populate Historical Data and Insights course filters from Supabase rows
+    produced by all-domestic AUS/NZ/HK race-day ingestion, not from a hardcoded
+    app track list.
 
 navigation:
   app_root:
     entry: insights
     sections:
       race_days:
-        label: Race Days
+        label: Historical Data
         priority: secondary_required
         audience: app_user
         purpose:
+          - Toggle between Racing and UFC historical rows.
           - Browse races by date.
           - Filter by collected date range, country, discipline, and racecourse.
           - Compare field size, favourite, MarketMover, result, and payouts.
           - Load the latest 20 races across AUS/NZ/HK by default and query Supabase when filters change.
+          - Browse UFC fights by event-date range with fighter names, winner, favourite, favourite price, other fighter price, price difference, source match status, and $1 favourite return state.
         components:
+          - sport_selector
           - collected_date_range_picker
           - latest_20_race_supabase_result_set
+          - latest_20_ufc_fight_supabase_result_set
           - country_filter
           - discipline_filter
           - racecourse_filter
@@ -49,6 +53,7 @@ navigation:
           - favourite_track_save_remove_control
           - meeting_groups
           - race_list
+          - ufc_fight_list
           - empty_state
           - partial_data_state
         entry_points:
@@ -128,6 +133,7 @@ navigation:
         audience: app_user
         purpose:
           - Act as the default app landing page.
+          - Toggle between Racing and UFC insight views.
           - Summarise favourite and MarketMover outcomes.
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
@@ -140,9 +146,11 @@ navigation:
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
+          - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates.
           - Surface missing-data counts.
           - Link users back to filtered race lists and race details.
         components:
+          - sport_selector
           - date_range_filter
           - country_filter
           - discipline_filter
@@ -164,6 +172,9 @@ navigation:
           - favourite_price_bucket_breakdown
           - place_favourite_price_bucket_breakdown
           - other_starters_average_fixed_win_breakdown
+          - ufc_favourite_price_breakdown
+          - ufc_other_fighter_price_breakdown
+          - ufc_price_difference_breakdown
           - market_mover_outcomes
           - missing_data_counts
           - denominator_counts
@@ -429,6 +440,7 @@ screen_data_relationships:
   race_days:
     reads:
       - race_day_entries
+      - ufc_fight_entries
     core_tables:
       - meetings
       - races
@@ -436,6 +448,7 @@ screen_data_relationships:
       - odds_snapshots
       - race_results
       - race_dividends
+      - ufc_fight_entries
 
   race_detail:
     reads:
@@ -453,6 +466,7 @@ screen_data_relationships:
   insights:
     reads:
       - insight_aggregates
+      - ufc_insight_aggregates
       - race_day_entries
       - track_race_odds_requests
     core_tables:
@@ -461,6 +475,7 @@ screen_data_relationships:
       - odds_snapshots
       - race_results
       - runners
+      - ufc_fight_entries
 
   recommendations:
     reads:
@@ -504,10 +519,12 @@ screen_data_relationships:
 content_rules:
   - Race list rows should show missing favourite, MarketMover, result, or
     dividend data as explicit unavailable states.
-  - Race Days should remain a separate page from Insights and provide date,
-    country, discipline, and racecourse filters. It should load the latest 20
-    races across AUS/NZ/HK from Supabase by default, then query Supabase with
-    selected filters.
+  - Historical Data should remain a separate page from Insights and provide a
+    Racing/UFC sport selector. Racing should provide date, country, discipline,
+    and racecourse filters. It should load the latest 20 races across AUS/NZ/HK
+    from Supabase by default, then query Supabase with selected filters. UFC
+    should provide event-date filtering and load the latest 20 fights from
+    ufc_fight_entries by default.
   - Race Detail should show the snapshot timestamp used for favourite/MM when
     the data came from pre-race odds.
   - Result-page favourite rank and pre-race favourite are separate concepts.
@@ -528,6 +545,9 @@ content_rules:
     aggregate rows that carry country, course_name, and course_slug, so the
     controls remain available while older aggregate runs are missing direct
     country/course scope rows.
+  - UFC Insights should read ufc_insight_aggregates and show favourite price,
+    other fighter price, and price-difference breakdowns. Result-only UFC rows
+    must not feed price-based denominators.
   - Recommendations should show source-backed promotion details, current race
     facts, and historical statistical signals only.
   - Recommendations must read promotion snapshots from Supabase only at runtime;
