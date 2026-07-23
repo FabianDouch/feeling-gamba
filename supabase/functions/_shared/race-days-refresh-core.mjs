@@ -7,6 +7,7 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
 const SOURCE_NAME = "betcha_graphql";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 const DEFAULT_BATCH_SIZE = 300;
+const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const DEFAULT_COLLECTION_START = "2025-12-15";
 const DEFAULT_LOOKBACK_DAYS = 7;
 const DEFAULT_LOCK_TTL_MINUTES = 15;
@@ -1821,7 +1822,7 @@ export async function reconcilePromotionPredictionOutcomesFromSupabase({ batchSi
 /**
  * Resolves one tracked multi leg against the stored race result.
  */
-function createMultiBetLegOutcomePatch(leg, race, runner, result) {
+function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation) {
   if (!race) {
     if (shouldKeepPredictionPendingWithoutRace({ advertised_start: leg.advertised_start })) {
       return {
@@ -1854,7 +1855,14 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result) {
   }
 
   const resultPosition = Number(result.finish_position);
-  const winReturn = resultPosition === 1 ? Number(leg.predicted_fixed_win_price ?? 0) : 0;
+  const isPlacePercentageMulti = recommendation.prediction_model === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
+  const placePayoutDepth = getMultiBetLegPlacePayoutDepth(leg);
+  const isSuccessfulLeg = isPlacePercentageMulti
+    ? placePayoutDepth > 0 && resultPosition <= placePayoutDepth
+    : resultPosition === 1;
+  const winReturn = isSuccessfulLeg
+    ? isPlacePercentageMulti ? 1 : Number(leg.predicted_fixed_win_price ?? 0)
+    : 0;
 
   return {
     outcome_race_id: race.id,
@@ -1867,12 +1875,33 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result) {
 }
 
 /**
+ * Reads the stored place-market depth from a tracked multi leg snapshot.
+ */
+function getMultiBetLegPlacePayoutDepth(leg) {
+  const raw = leg.raw && typeof leg.raw === "object" ? leg.raw : {};
+  const candidates = [
+    raw.placingCandidate?.placePayoutDepth,
+    raw.placePayoutDepth,
+  ];
+
+  for (const candidate of candidates) {
+    const depth = Number(candidate);
+
+    if (Number.isFinite(depth) && depth > 0) {
+      return depth;
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Aggregates leg outcomes into a cash-only tracked multi result.
  */
 function createMultiBetRecommendationOutcomePatch(recommendation, legPatches) {
   const settledLegCount = legPatches.filter((patch) => patch.outcome_status === "settled").length;
   const winningLegCount = legPatches.filter((patch) =>
-    patch.outcome_status === "settled" && Number(patch.outcome_result_position) === 1).length;
+    patch.outcome_status === "settled" && Number(patch.outcome_win_return ?? 0) > 0).length;
   const missingRunnerCount = legPatches.filter((patch) => patch.outcome_status === "missing_runner").length;
   const missingResultCount = legPatches.filter((patch) =>
     ["missing_result", "race_not_found"].includes(patch.outcome_status)).length;
@@ -1885,8 +1914,9 @@ function createMultiBetRecommendationOutcomePatch(recommendation, legPatches) {
       : missingResultCount > 0
         ? "missing_result"
         : "settled";
+  const isPlacePercentageMulti = recommendation.prediction_model === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
   const winReturn = outcomeStatus === "settled" && winningLegCount === legCount
-    ? Number(recommendation.combined_fixed_win_price ?? 0)
+    ? isPlacePercentageMulti ? 1 : Number(recommendation.combined_fixed_win_price ?? 0)
     : 0;
 
   return {
@@ -1913,6 +1943,7 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
     "id",
     "combined_fixed_win_price",
     "leg_count",
+    "prediction_model",
   ].join(","));
 
   if (!recommendations.length) {
@@ -1932,6 +1963,7 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
     "source_race_card_id",
     "predicted_runner_number",
     "predicted_fixed_win_price",
+    "raw",
   ].join(","));
   const races = await selectRowsByIn(supabase, "races", "source_race_card_id", legs.map((row) => row.source_race_card_id), [
     "id",
@@ -1977,7 +2009,7 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
         ? runnerByRaceAndNumber.get(`${race.id}:${leg.predicted_runner_number}`) ?? null
         : null;
       const result = runner ? resultByRunnerId.get(runner.id) ?? null : null;
-      const patch = createMultiBetLegOutcomePatch(leg, race, runner, result);
+      const patch = createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation);
 
       await supabase.patch("multi_bet_recommendation_legs", leg.id, patch);
       legPatches.push(patch);

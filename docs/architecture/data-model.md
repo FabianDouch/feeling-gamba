@@ -17,6 +17,11 @@ tracking added by `supabase/migrations/202606210004_user_race_bet_bookmaker.sql`
 As of `2026-07-17`, signed-in users can lock one current win-percentage multi
 recommendation per source date/model before 10:00am NZ time, implemented in
 `supabase/migrations/202607170004_user_locked_multi_recommendations.sql`.
+As of `2026-07-24`, `multi_win_percentage_60_plus_v1` and
+`multi_place_percentage_v1` are additional multi-only `prediction_model`
+values for tracked percentage multis; they use the existing multi
+recommendation tables. `multi_place_percentage_v1` adds an RPC migration for
+place-hit rank filtering, but does not require a new table.
 
 The design should support:
 
@@ -214,7 +219,7 @@ Rules:
 ### `user_locked_multi_recommendations`
 
 Implemented owner-secured lock table for the signed-in user's morning
-win-percentage multi recommendation. This preserves the exact current
+percentage multi recommendation. This preserves the exact current
 recommendation the user chose before the recommendation cache can refresh again.
 
 Key fields:
@@ -682,11 +687,21 @@ Rules:
   Neutral-or-better minimum-three-leg rule as cash-score multis, but its stored
   `average_cash_score`/leg `cash_average_score` values represent win-rate
   percentages for display as an average win score.
-- `multi_win_percentage_65_plus_v1` is a stricter multi-only model using the
-  same blended win score. It stores only priced legs with a score of at least
-  65%, requires at least three eligible legs, and can store up to 10 legs.
-- Settle as a cash win only when every leg wins; otherwise a fully resulted
-  multi settles as a cash loss.
+- `multi_win_percentage_60_plus_v1` and
+  `multi_win_percentage_65_plus_v1` are stricter multi-only models using the
+  same blended win score. They store only priced legs with scores of at least
+  60% and 65% respectively, require at least three eligible legs, and can store
+  up to 10 legs.
+- `multi_place_percentage_v1` is a percentage-based placing multi model. It
+  scores favourites from historical place percentages using 65% favourite
+  price-bucket place rate and 35% starter-count place rate, stores only races
+  with an active place market, requires at least three eligible legs, and can
+  store up to eight legs.
+- Win-based multis settle as a cash win only when every leg wins; otherwise a
+  fully resulted multi settles as a cash loss.
+- `multi_place_percentage_v1` settles as a unit place hit only when every leg
+  finishes inside the stored `placePayoutDepth`; place-multi payout odds are
+  not stored or inferred.
 - Do not store or display bonus-bet value for multi recommendations.
 - Public RLS read access is allowed because rows contain app-facing prediction
   facts and outcomes only.
@@ -713,7 +728,7 @@ Key fields:
 - `predicted_runner_name text`
 - `predicted_fixed_win_price numeric`
 - `prediction_rank int` - rank from the model-specific candidate list, used by
-  rank-filtered win-percentage multi performance.
+  rank-filtered percentage multi performance.
 - `cash_average_score numeric`
 - `signal_label text`
 - `signal_tone text`
@@ -732,9 +747,11 @@ Rules:
   single-runner predictions.
 - Prediction history should show leg-level Won/Lost/Pending/Missing labels so a
   multi loss can be inspected without recalculating from raw rows in the app.
-- Dedicated win-percentage multi leg snapshots must preserve the original
-  win-percentage candidate rank so historical performance can be re-aggregated
-  as hypothetical top-3 or top-4 multis after settlement.
+- Dedicated percentage multi leg snapshots must preserve the original
+  percentage candidate rank so historical performance can be re-aggregated as
+  hypothetical top-3 or top-4 multis after settlement. The
+  `multi_place_percentage_v1` model also supports top-5 and top-6 filtered
+  history.
 
 ### `promotion_recommendations`
 
@@ -1106,15 +1123,19 @@ Parameters:
 - `p_recommendation_type text default null` - `neutral`, `positive`, or null
   for all tracked multi types.
 - `p_max_leg_rank int default null` - optional rank cap for models that persist
-  ranked legs, used by dedicated win-percentage multi models.
+  ranked legs, used by dedicated percentage multi models.
 
 Rules:
 
 - Aggregate directly from `multi_bet_recommendations`.
 - Use settled multi recommendations as the `$1` return denominator.
-- A settled multi wins only when every stored leg wins.
+- A settled win-based multi wins only when every stored leg wins.
+- `multi_place_percentage_v1` counts a hit only when every stored or simulated
+  leg finishes inside that leg's stored place payout depth.
 - Return cash-only metrics: count, settled, pending, win rate, cash average,
-  cash net, ROI, and open issues.
+  cash net, ROI, and open issues. For `multi_place_percentage_v1`, the same RPC
+  shape is reused but `wins`/`win_percentage` represent place-multi hits and
+  place-multi payout odds are not inferred.
 - Do not include bonus-bet value in multi recommendation summaries.
 - Country, discipline, and racecourse filters match recommendations that
   include at least one matching leg because a multi can contain mixed legs.
@@ -1122,7 +1143,9 @@ Rules:
   ranked top-N leg subset rather than the stored parent outcome: include only
   recommendations with at least `p_max_leg_rank` ranked legs, settle the subset
   from leg outcomes, and calculate the hypothetical combined cash return from
-  the subset's stored predicted fixed-win prices.
+  the subset's stored predicted fixed-win prices for win-based multis. For
+  `multi_place_percentage_v1`, settle the subset from stored place payout depth
+  and return only a unit hit indicator.
 
 ### `get_multi_bet_recommendation_entries(...)`
 

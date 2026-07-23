@@ -6,7 +6,9 @@ const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_PREDICTION_HISTORY_ROW_LIMIT = 50;
 export const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
+export const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 export const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+export const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export type PredictionModelKey =
@@ -22,10 +24,12 @@ export type PredictionModelKey =
 export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" | "greyhound";
 export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
 export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
-export type WinPercentageMultiRankFilter = "all" | "3" | "4";
+export type WinPercentageMultiRankFilter = "all" | "3" | "4" | "5" | "6";
 export type WinPercentageMultiModelKey =
   | typeof WIN_PERCENTAGE_MULTI_MODEL_KEY
-  | typeof WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
+  | typeof WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
+  | typeof WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+  | typeof PLACING_PERCENTAGE_MULTI_MODEL_KEY;
 
 export type PredictionPerformanceFilters = {
   discipline: PredictionPerformanceDisciplineFilter;
@@ -106,10 +110,22 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     label: "Original win %",
   },
   {
+    description: "Builds a stricter multi from current favourites whose blended historical win score is at least 60%.",
+    detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Eligible legs need a 60%+ score and the recommendation can include up to 10 legs.",
+    key: WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
+    label: "60%+ win %",
+  },
+  {
     description: "Builds a stricter multi from current favourites whose blended historical win score is at least 65%.",
     detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Eligible legs need a 65%+ score and the recommendation can include up to 10 legs.",
     key: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
     label: "65%+ win %",
+  },
+  {
+    description: "Builds a placing multi from current favourites with the strongest historical place-rate scores.",
+    detail: "Score = 65% favourite price-bucket place rate plus 35% starter-count place rate. Eligible legs need an active place market and the recommendation can include up to 8 legs.",
+    key: PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+    label: "Place % multi",
   },
 ];
 
@@ -227,6 +243,7 @@ type MultiBetRecommendationLegRow = {
   outcomeResultPosition: number | null;
   outcomeStatus: "pending" | "settled" | "race_not_found" | "missing_runner" | "missing_result";
   outcomeWinReturn: NullableNumber;
+  placePayoutDepth?: number | null;
   predictedFixedWinPrice: NullableNumber;
   predictedRunnerName: string | null;
   predictedRunnerNumber: number | null;
@@ -1065,6 +1082,26 @@ function mapMultiBetSummaryStats(
   row: MultiBetRecommendationSummaryRow,
   predictionLabel = "Multi-bet predictions",
 ): FavouriteStat[] {
+  if (isPlacingPercentageMultiModel(row.prediction_model)) {
+    return [
+      {
+        detail: `${row.settled_count} settled · ${row.pending_count} pending`,
+        label: predictionLabel,
+        value: String(row.prediction_count),
+      },
+      {
+        detail: `${row.wins} place multi hits from ${row.settled_count} settled`,
+        label: "Place hit rate",
+        value: formatPercentage(numeric(row.win_percentage)),
+      },
+      {
+        detail: `${row.missing_result_count} missing results · ${row.missing_runner_count} missing runners`,
+        label: "Open issues",
+        value: String(row.missing_result_count + row.missing_runner_count),
+      },
+    ];
+  }
+
   return [
     {
       detail: `${row.settled_count} settled · ${row.pending_count} pending`,
@@ -1143,13 +1180,14 @@ function mapMultiBetRecommendationHistoryItem(
   row: MultiBetRecommendationHistoryRow,
 ): MultiBetRecommendationHistoryItem {
   const legs = Array.isArray(row.legs) ? row.legs : [];
-  const winningLegs = legs.filter((leg) => leg.outcomeStatus === "settled" && leg.outcomeResultPosition === 1).length;
+  const isPlacingPercentageMulti = isPlacingPercentageMultiModel(row.prediction_model);
+  const winningLegs = legs.filter((leg) => isSuccessfulMultiBetLeg(leg, row.prediction_model)).length;
   const settledLegs = row.outcome_settled_leg_count || legs.filter((leg) => leg.outcomeStatus === "settled").length;
   const isWinPercentageMulti = isWinPercentageMultiModel(row.prediction_model);
 
   return {
     averageCashScore: formatMultiBetScore(row.average_cash_score, row.prediction_model),
-    averageScoreLabel: isWinPercentageMulti ? "Avg win score" : "Avg cash",
+    averageScoreLabel: isPlacingPercentageMulti ? "Avg place score" : isWinPercentageMulti ? "Avg win score" : "Avg cash",
     combinedFixedWinPrice: formatCombinedFixedWinPrice(row.combined_fixed_win_price),
     id: row.id,
     legs: legs.map((leg) => mapMultiBetRecommendationLegItem(leg, row.prediction_model)),
@@ -1157,9 +1195,9 @@ function mapMultiBetRecommendationHistoryItem(
     outcomeTone: getMultiBetOutcomeTone(row),
     predictedAtLabel: `Predicted ${formatDateTime(row.predicted_at)}`,
     recommendationLabel: row.recommendation_type === "positive" ? "Positive multi" : "Neutral multi",
-    returnLabel: formatCurrency(numeric(row.outcome_win_return)),
+    returnLabel: isPlacingPercentageMulti ? (numeric(row.outcome_win_return) > 0 ? "Hit" : "-") : formatCurrency(numeric(row.outcome_win_return)),
     sourceDateLabel: formatDateLabel(row.source_date),
-    summaryLabel: `${row.leg_count} legs · ${winningLegs}/${settledLegs || row.leg_count} legs won`,
+    summaryLabel: `${row.leg_count} legs · ${winningLegs}/${settledLegs || row.leg_count} legs ${isPlacingPercentageMulti ? "placed" : "won"}`,
   };
 }
 
@@ -1171,21 +1209,27 @@ function mapMultiBetRecommendationLegItem(
   predictionModel: string | null,
 ): MultiBetRecommendationLegItem {
   const scoreLabel = formatMultiBetScore(leg.cashAverageScore, predictionModel);
+  const isPlacingPercentageMulti = isPlacingPercentageMultiModel(predictionModel);
 
   return {
     id: `${leg.sourceRaceCardId}-${leg.legIndex ?? 0}`,
     metaLabel: [
       leg.advertisedStart ? formatDateTime(leg.advertisedStart) : null,
-      isWinPercentageMultiModel(predictionModel) && leg.predictionRank
+      isPercentageMultiModel(predictionModel) && leg.predictionRank
         ? `Rank ${leg.predictionRank}`
         : null,
       leg.country ?? null,
       formatPrice(leg.predictedFixedWinPrice),
-      isWinPercentageMultiModel(predictionModel)
-        ? `${scoreLabel} win score`
-        : `${scoreLabel} cash avg`,
+      isPlacingPercentageMulti
+        ? `${scoreLabel} place score`
+        : isWinPercentageMultiModel(predictionModel)
+          ? `${scoreLabel} win score`
+          : `${scoreLabel} cash avg`,
+      isPlacingPercentageMulti && leg.placePayoutDepth
+        ? `Pays top ${leg.placePayoutDepth}`
+        : null,
     ].filter(Boolean).join(" · "),
-    outcomeLabel: describeMultiBetLegOutcome(leg),
+    outcomeLabel: describeMultiBetLegOutcome(leg, predictionModel),
     outcomeTone: getMultiBetLegOutcomeTone(leg),
     raceCode: leg.raceCode,
     runnerLabel: [
@@ -1203,6 +1247,10 @@ function mapMultiBetRecommendationLegItem(
 
 function describeMultiBetOutcome(row: MultiBetRecommendationHistoryRow) {
   if (row.outcome_status === "settled") {
+    if (isPlacingPercentageMultiModel(row.prediction_model)) {
+      return numeric(row.outcome_win_return) > 0 ? "Placed" : "Missed";
+    }
+
     return numeric(row.outcome_win_return) > 0
       ? `Won · ${formatCurrency(numeric(row.outcome_win_return))} cash`
       : "Lost";
@@ -1231,8 +1279,20 @@ function getMultiBetOutcomeTone(row: MultiBetRecommendationHistoryRow): MultiBet
   return row.outcome_status === "pending" ? "warning" : "default";
 }
 
-function describeMultiBetLegOutcome(leg: MultiBetRecommendationLegRow) {
+function describeMultiBetLegOutcome(leg: MultiBetRecommendationLegRow, predictionModel: string | null) {
   if (leg.outcomeStatus === "settled") {
+    if (isPlacingPercentageMultiModel(predictionModel)) {
+      if (isSuccessfulMultiBetLeg(leg, predictionModel)) {
+        return `Placed${leg.outcomeResultPosition ? ` · ${ordinal(leg.outcomeResultPosition)}` : ""}`;
+      }
+
+      return `Missed${leg.outcomeResultPosition ? ` · ${ordinal(leg.outcomeResultPosition)}` : ""}`;
+    }
+
+    if (isSuccessfulMultiBetLeg(leg, predictionModel)) {
+      return "Won";
+    }
+
     return leg.outcomeResultPosition === 1
       ? "Won"
       : `Lost${leg.outcomeResultPosition ? ` · ${ordinal(leg.outcomeResultPosition)}` : ""}`;
@@ -1254,7 +1314,7 @@ function describeMultiBetLegOutcome(leg: MultiBetRecommendationLegRow) {
 }
 
 function getMultiBetLegOutcomeTone(leg: MultiBetRecommendationLegRow): MultiBetRecommendationLegItem["outcomeTone"] {
-  if (leg.outcomeStatus === "settled" && leg.outcomeResultPosition === 1) {
+  if (leg.outcomeStatus === "settled" && Number(leg.outcomeWinReturn ?? 0) > 0) {
     return "good";
   }
 
@@ -1423,20 +1483,53 @@ function formatCombinedFixedWinPrice(value: NullableNumber) {
 function formatMultiBetScore(value: NullableNumber, predictionModel: string | null) {
   const number = numeric(value);
 
-  return isWinPercentageMultiModel(predictionModel)
+  return isPercentageMultiModel(predictionModel)
     ? formatPercentage(number)
     : formatCurrency(number);
 }
 
 function isWinPercentageMultiModel(predictionModel: string | null) {
   return predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
+    || predictionModel === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
     || predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
 }
 
+function isPlacingPercentageMultiModel(predictionModel: string | null) {
+  return predictionModel === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
+}
+
+function isPercentageMultiModel(predictionModel: string | null) {
+  return isWinPercentageMultiModel(predictionModel)
+    || isPlacingPercentageMultiModel(predictionModel);
+}
+
+function isSuccessfulMultiBetLeg(leg: MultiBetRecommendationLegRow, predictionModel: string | null) {
+  if (leg.outcomeStatus !== "settled") {
+    return false;
+  }
+
+  if (isPlacingPercentageMultiModel(predictionModel)) {
+    return Number(leg.outcomeWinReturn ?? 0) > 0
+      || Boolean(leg.placePayoutDepth && leg.outcomeResultPosition && leg.outcomeResultPosition <= leg.placePayoutDepth);
+  }
+
+  return leg.outcomeResultPosition === 1;
+}
+
 function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMultiModelKey) {
-  return predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
-    ? "65%+ win multis"
-    : "Win percentage multis";
+  if (predictionModel === PLACING_PERCENTAGE_MULTI_MODEL_KEY) {
+    return "Place percentage multis";
+  }
+
+  if (predictionModel === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY) {
+    return "60%+ win multis";
+  }
+
+  if (predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY) {
+    return "65%+ win multis";
+  }
+
+  return "Win percentage multis";
 }
 
 function formatPercentage(value: number) {

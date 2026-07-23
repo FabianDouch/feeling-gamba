@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Application Architecture
-last_updated: "2026-07-23"
+last_updated: "2026-07-24"
 
 purpose:
   summary: >
@@ -108,7 +108,7 @@ systems:
         - Let signed-in users save or remove favourite tracks for one concrete country, discipline, and course.
         - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
         - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
-        - Let signed-in users lock one current win-percentage multi recommendation before 10:00am NZ time so later same-morning refreshes do not replace the chosen snapshot.
+        - Let signed-in users lock one current percentage multi recommendation before 10:00am NZ time so later same-morning refreshes do not replace the chosen snapshot.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -519,7 +519,12 @@ data_model:
       purpose: Latest stored Betcha bet-back candidate prediction per source race card, with reconciled outcome fields for itemised Predictions history.
       key: source, source_race_card_id
     multi_bet_recommendations:
-      purpose: Tracked multi bet recommendation per model/source date, including cash-score prediction-model multis and dedicated multi-only models such as multi_win_percentage_blend_v1 and multi_win_percentage_65_plus_v1, with settled parent outcome.
+      purpose: >
+        Tracked multi bet recommendation per model/source date, including
+        cash-score prediction-model multis and dedicated multi-only models such
+        as multi_win_percentage_blend_v1, multi_win_percentage_60_plus_v1,
+        multi_win_percentage_65_plus_v1, and multi_place_percentage_v1, with
+        settled parent outcome.
       key: prediction_model, source, source_date, recommendation_type
     multi_bet_recommendation_legs:
       purpose: Leg snapshots and leg-level outcomes for tracked multi bet recommendations.
@@ -628,7 +633,17 @@ flows:
       - keep median_other_fixed_win_price as the next field-shape signal candidate because average can still be distorted by long-priced outsiders.
       - rank country_code_bucket_blend_shrunk_v1 candidates from country+discipline price/starter buckets shrunk toward global buckets.
       - rank country_code_distance_condition_v1 candidates from country+discipline price, starter, distance-band, and track-condition buckets shrunk toward broader buckets.
-      - build tracked multi recommendations for cash-score models, the original multi_win_percentage_blend_v1 win-percentage model, and the stricter multi_win_percentage_65_plus_v1 model that keeps only 65%+ win-score legs and can store up to 10 legs.
+      - >
+        build tracked multi recommendations for cash-score models, the original
+        multi_win_percentage_blend_v1 win-percentage model, and stricter
+        threshold models multi_win_percentage_60_plus_v1 and
+        multi_win_percentage_65_plus_v1 that keep only 60%+ or 65%+ win-score
+        legs and can store up to 10 legs.
+      - >
+        build a multi_place_percentage_v1 tracked percentage multi from current
+        placing candidates with active place markets, ranked by blended
+        historical place score, requiring at least three legs and storing up to
+        eight legs.
       - determine the earliest advertised start among eligible all-domestic NZ/AUS/HK prediction races.
       - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
       - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
@@ -682,13 +697,13 @@ flows:
       - Prediction History calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
       - Prediction History calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
       - Prediction History calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
-      - Prediction History calls the same tracked multi RPCs for the selected win-percentage multi-only model to show separate all-time and date-range win-percentage multi performance/history independent of the selected single-runner prediction model, with optional all-ranks, top-3, and top-4 rank filters calculated from persisted win-percentage leg ranks.
-      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current win-percentage multi recommendation before 10:00am NZ time; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
+      - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with optional all-ranks, top-3, and top-4 rank filters calculated from persisted leg ranks; multi_place_percentage_v1 also supports top-5 and top-6 rank filters.
+      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before 10:00am NZ time; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because locked pre-race snapshots cannot be replaced after the first eligible race has started.
       - Predictions shows model variation tabs and a short method explanation for each variation.
       - Predictions shows the current Multi bet recommendation from the active model's current candidate payload, while the prediction refresh stores the same pre-race recommendation for cash-only history and leg-level settlement.
-      - Predictions shows separate current Win percentage multi recommendations from historical favourite price-bucket and starter-count win rates, including the original and 65%+ models.
+      - Predictions shows separate current Win percentage multi recommendations from historical favourite price-bucket and starter-count win rates, including the original, 60%+, 65%+, and place-percentage models.
       - Supabase RLS allows read-only app access to app-facing read models.
       - Debug/admin views remain restricted.
 
@@ -711,6 +726,23 @@ operational_rules:
     - Use RLS for client-facing reads.
     - Keep normalized source/raw tables and operational tables server-side.
     - Do not expose source API details or service credentials to the Expo client.
+
+future_improvements:
+  - key: supabase_region_migration
+    status: deferred
+    noted_on: "2026-07-23"
+    reason: >
+      The current primary Supabase project is hosted in Northeast Asia. If
+      NZ/AU app latency becomes material, a closer region may reduce database
+      and Edge Function round-trip time.
+    approach:
+      - Create a new Supabase project in a closer region such as Sydney or Singapore.
+      - Apply schema migrations and copy data; treat the region move as a
+        project migration rather than an in-place change.
+      - Recreate Supabase Auth/provider configuration, Edge Function secrets
+        and deployments, scheduled refresh jobs, and GitHub/app environment
+        variables.
+      - Plan a short write-freeze, final sync, validation, and app cutover window.
 
 future_skill:
   name: architecture-diagram-renderer

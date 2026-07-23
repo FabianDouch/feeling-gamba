@@ -115,7 +115,7 @@ type WinPercentageMultiModelTabsProps = {
 };
 
 /**
- * Switches between tracked win-percentage multi model variants.
+ * Switches between tracked percentage multi model variants.
  */
 export function WinPercentageMultiModelTabs({
   activeModelKey,

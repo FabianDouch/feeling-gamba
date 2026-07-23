@@ -17,11 +17,14 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-23 to split current Predictions from
-Prediction History, separate current cash, win-percentage, and placing
-prediction types, add the `multi_win_percentage_65_plus_v1` model, and move
-history model selectors beneath the history type selector. It was previously
-updated on 2026-07-17 for signed-in win-percentage multi
+Note: the YAML was updated on 2026-07-24 to add the
+`multi_win_percentage_60_plus_v1` and `multi_place_percentage_v1` Win % multi
+models. It was previously updated on 2026-07-23 to split current Predictions
+from Prediction History, separate current cash, win-percentage, and placing
+prediction types, add the
+`multi_win_percentage_65_plus_v1` model, and move history model selectors
+beneath the history type selector. It was previously updated on 2026-07-17 for
+signed-in win-percentage multi
 recommendation locks and rank-filtered win-percentage multi-bet performance,
 on 2026-07-09 for a dedicated win-percentage multi-bet model and separate
 performance/history sections, on 2026-07-07 for the Insights Win/Place tab
@@ -313,14 +316,16 @@ Main content:
   if at least three active-model Positive signals exist, show a Positive multi;
   otherwise show a Neutral multi from active-model Positive and Neutral signals
   when at least three priced legs are available.
-- Win percentage multi recommendation panel shown under the win-percentage type,
-  derived from the current candidate snapshot using 65% favourite price-bucket
-  win rate and 35% starter-count win rate. If a cached snapshot predates the
-  backend `winPercentageMultiCandidates` field, the app may derive the same
-  signal from each candidate's stored historical buckets.
+- Percentage multi recommendation panel shown under the win-percentage type.
+  Win-rate models use 65% favourite price-bucket win rate and 35%
+  starter-count win rate. The placing model uses 65% favourite price-bucket
+  place rate and 35% starter-count place rate, excludes races without an active
+  place market, and does not show place-multi payout odds.
 - Win percentage type selector with the original `multi_win_percentage_blend_v1`
-  three-to-five leg model and the stricter `multi_win_percentage_65_plus_v1`
-  model that keeps only 65%+ win-score legs and can show up to 10 legs.
+  three-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
+  `multi_win_percentage_65_plus_v1` models that keep only 60%+ or 65%+
+  win-score legs and can show up to 10 legs, plus `multi_place_percentage_v1`
+  with up to eight place-rate legs.
 - Placing recommendations panel shown under the placing type,
   using historical place percentages from stored insight aggregates. A place
   counts as top 2 in smaller place fields and top 3 in larger fields: AU/NZ
@@ -360,10 +365,10 @@ Main content:
 - Prediction variation tabs should show a small `Multi` tag when that model has
   at least one tracked multi-bet prediction row for the current Auckland source
   date.
-- Signed-in users should be able to lock the current win-percentage multi
+- Signed-in users should be able to lock the current percentage multi
   recommendation before 10:00am NZ time. Once locked, the panel should display
-  that user-owned snapshot for the current source date instead of later live
-  recommendation changes.
+  that user-owned snapshot for the current source date/model instead of later
+  live recommendation changes.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -415,8 +420,8 @@ Main content:
 - Prediction history type selector: singles, cash multis, win percentage
   multis, and placing.
 - Model selectors sit beneath the history type selector: cash prediction model
-  tabs for singles, cash multis, and placing; win-percentage multi model tabs
-  for win percentage multis.
+  tabs for singles, cash multis, and placing; percentage multi model tabs for
+  Win % multis.
 - Stored model performance section for historical outcomes, discipline
   performance, date-range breakdowns, and prediction history.
 - Overall prediction count, settled count, pending count, and missing-outcome
@@ -454,26 +459,27 @@ Main content:
   for the selected prediction model across all tracked dates, using cash-only
   multi-bet prediction count, settled/pending count, win rate, cash average, cash net,
   and open-issue metrics.
-- Multi-bet win percentage performance in Stored model performance, independent
-  of the selected cash prediction model, using the selected win-percentage
-  multi model, tracked multi count, settled/pending count, win rate, cash
-  average, cash net, and open-issue metrics.
-- Multi-bet win percentage performance should include a local rank filter just
-  above that performance section with all ranks, top 3, and top 4 options. Top
-  3 and top 4 should simulate the outcome of taking only the first 3 or 4
-  ranked win-percentage multi legs from each stored recommendation, instead of
-  reusing the full stored multi result.
+- Multi-bet percentage performance in Stored model performance, independent of
+  the selected cash prediction model, using the selected percentage multi model,
+  tracked multi count, settled/pending count, hit rate, relevant average score,
+  and open-issue metrics.
+- Multi-bet percentage performance should include a local rank filter just
+  above that performance section. Win-rate models show all ranks, top 3, and
+  top 4 options. `multi_place_percentage_v1` also shows top 5 and top 6
+  options. Filtered rows should re-aggregate the first ranked percentage multi
+  legs from each stored recommendation instead of reusing the full stored multi
+  result.
 - Placing prediction performance in Stored model performance for the selected
   model, using place-eligible settled rows and country-aware starter-count place
   rules instead of raw 1st/2nd/3rd totals.
 - Multi bet date-range breakdown for the selected prediction model using the
   same cash-only metrics and the active Prediction history filters.
-- Win percentage multi date-range breakdown and history using the active
-  Prediction history filters, with average win score labels instead of average
-  cash score labels.
+- Percentage multi date-range breakdown and history using the active Prediction
+  history filters, with average win score or place score labels instead of
+  average cash score labels.
 - Multi bet recommendation history rows showing recommendation type, leg count,
-  combined fixed-win price, average cash score, cash return, and leg-level
-  Won/Lost/Pending/Missing outcomes.
+  relevant average score, result label, and leg-level
+  Won/Placed/Lost/Missed/Pending/Missing outcomes.
 - Explicit empty/loading/error states when Supabase prediction aggregates are
   unavailable.
 
@@ -485,9 +491,10 @@ Rules:
   cash-model historical sections: stored performance, history metadata, history
   summaries, history rows, selected-model multi performance, and selected-model
   multi history must all be scoped to the active model key.
-- Win percentage multi history uses the selected dedicated multi-only model,
-  starting with `multi_win_percentage_blend_v1` and
-  `multi_win_percentage_65_plus_v1`, independent of the selected cash model.
+- Percentage multi history uses the selected dedicated multi-only model,
+  starting with `multi_win_percentage_blend_v1`,
+  `multi_win_percentage_60_plus_v1`, `multi_win_percentage_65_plus_v1`, and
+  `multi_place_percentage_v1`, independent of the selected cash model.
 - Do not calculate prediction performance from raw prediction rows in the app.
 - Use raw prediction rows only for server-side filtered itemised history
   display.
@@ -690,7 +697,7 @@ flowchart LR
 | Insights | App user | Required | Default app screen; favourite win/2nd/3rd rates over the collected date range, country/track-filtered unit-stake returns by discipline, starter-count breakdowns, price-bucket breakdowns, and other-starters average fixed-win breakdowns. |
 | Recommendations | App user | Required | Source-backed promotion signals using TAB/Betcha promotions, current race facts, and historical buckets; no staking advice. |
 | Predictions | App user | Required | Current prediction signals split by Cash, Win %, and Placing types; no settled history list. |
-| Prediction History | App user | Required | Stored single-prediction, multi-bet, win-percentage multi, and placing performance/history. |
+| Prediction History | App user | Required | Stored single-prediction, multi-bet, percentage multi, and placing performance/history. |
 | Race Days | App user | Required | Secondary historical browsing screen with date, country, discipline, and racecourse filters. |
 | Race Detail | App user | Required | Must make source and missing data clear. |
 | Source Status | Developer/operator | Required for MVP operations | Can start hidden or as a debug/admin view. |
@@ -736,7 +743,7 @@ flowchart LR
   not instructions to bet, and should use all NZ/AUS/HK domestic-region race
   cards returned by the source. They should be grouped by country and
   discipline with a maximum of five candidates per country/discipline group.
-- Predictions win-percentage multi locking should remain a user-owned snapshot
+- Predictions percentage multi locking should remain a user-owned snapshot
   control only, with no stake size, bankroll advice, or automated wagering.
 - Return metrics should show the outcome of a notional `$1` stake on each
   favourite, including total staked, total returned, net return, average return,

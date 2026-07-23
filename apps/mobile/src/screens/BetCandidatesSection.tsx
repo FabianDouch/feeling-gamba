@@ -5,6 +5,8 @@ import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
+  PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   type PredictionModelKey,
@@ -54,7 +56,8 @@ type MultiBetRecommendation = {
 };
 
 const MULTI_BET_MAX_LEGS = 5;
-const WIN_PERCENTAGE_65_PLUS_MAX_LEGS = 10;
+const WIN_PERCENTAGE_THRESHOLD_MAX_LEGS = 10;
+const PLACING_PERCENTAGE_MAX_LEGS = 8;
 const MULTI_BET_MIN_LEGS = 3;
 
 /**
@@ -90,8 +93,10 @@ export function BetCandidatesSection({
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
-  const winPercentageMultiRecommendation = buildWinPercentageMultiBetRecommendation(
-    winPercentageMultiCandidatePool,
+  const winPercentageMultiRecommendation = buildPercentageMultiBetRecommendation(
+    isPlacingPercentageMultiModel(winPercentageMultiModelKey)
+      ? placingCandidatePool
+      : winPercentageMultiCandidatePool,
     winPercentageMultiModelKey,
   );
   const displayedWinPercentageMultiRecommendation = lockedWinPercentageMulti
@@ -250,7 +255,7 @@ export function BetCandidatesSection({
         }
       } catch (error) {
         if (isActive) {
-          setLockedMultiError(error instanceof Error ? error.message : "Locked win-percentage multi failed to load.");
+          setLockedMultiError(error instanceof Error ? error.message : "Locked percentage multi failed to load.");
         }
       }
     }
@@ -340,17 +345,17 @@ export function BetCandidatesSection({
     }
 
     if (!payload || !winPercentageMultiRecommendation) {
-      setLockedMultiError("No win-percentage multi is available to lock.");
+      setLockedMultiError("No percentage multi is available to lock.");
       return;
     }
 
     if (lockedWinPercentageMulti) {
-      setLockedMultiMessage(`Locked win-percentage multi from ${formatDateTime(lockedWinPercentageMulti.lockedAt)} is already active.`);
+      setLockedMultiMessage(`Locked percentage multi from ${formatDateTime(lockedWinPercentageMulti.lockedAt)} is already active.`);
       return;
     }
 
     if (!isBeforeAucklandLockCutoff()) {
-      setLockedMultiError("Win-percentage multi locking closes at 10:00am NZ time.");
+      setLockedMultiError("Percentage multi locking closes at 10:00am NZ time.");
       return;
     }
 
@@ -359,13 +364,13 @@ export function BetCandidatesSection({
       setLockedMultiError(null);
       setLockedMultiMessage(null);
       const locked = await saveLockedWinPercentageMulti(
-        createLockedWinPercentageMultiInput(payload, winPercentageMultiRecommendation),
+        createLockedWinPercentageMultiInput(payload, winPercentageMultiRecommendation, winPercentageMultiModelKey),
         winPercentageMultiModelKey,
       );
       setLockedWinPercentageMulti(locked);
-      setLockedMultiMessage(`Locked win-percentage multi from ${formatDateTime(locked.lockedAt)}.`);
+      setLockedMultiMessage(`Locked percentage multi from ${formatDateTime(locked.lockedAt)}.`);
     } catch (error) {
-      setLockedMultiError(error instanceof Error ? error.message : "Could not lock win-percentage multi.");
+      setLockedMultiError(error instanceof Error ? error.message : "Could not lock percentage multi.");
     } finally {
       setIsLockingWinPercentageMulti(false);
     }
@@ -711,7 +716,10 @@ function WinPercentageMultiRecommendationPanel({
   recommendation,
 }: WinPercentageMultiRecommendationPanelProps) {
   const isLockDisabled = isLocked || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
-  const isThresholdModel = modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
+  const threshold = getWinPercentageMultiThreshold(modelKey);
+  const isThresholdModel = threshold !== null;
+  const isPlacePercentageModel = isPlacingPercentageMultiModel(modelKey);
+  const modelLabel = getPercentageMultiDisplayLabel(modelKey);
 
   return (
     <View style={styles.multiPanel}>
@@ -719,20 +727,26 @@ function WinPercentageMultiRecommendationPanel({
         <View style={styles.headerText}>
           <Text style={styles.multiTitle}>
             {isLocked
-              ? `Locked ${isThresholdModel ? "65%+ win percentage multi" : "win percentage multi"}`
-              : isThresholdModel
-                ? "65%+ win percentage multi recommendation"
+              ? `Locked ${modelLabel}`
+              : isPlacePercentageModel
+                ? "Place percentage multi recommendation"
+                : isThresholdModel
+                ? `${threshold}%+ win percentage multi recommendation`
                 : "Original win percentage multi recommendation"}
           </Text>
           <Text style={styles.multiContext}>
             {isLocked && lockedAt
               ? `Locked ${formatDateTime(lockedAt)}. This snapshot will stay active even if the live recommendation changes.`
               : recommendation
-                ? isThresholdModel
-                  ? `${recommendation.legs.length} legs with at least 65% blended historical win score`
+                ? isPlacePercentageModel
+                  ? `${recommendation.legs.length} place-rate legs from active place markets`
+                  : isThresholdModel
+                  ? `${recommendation.legs.length} legs with at least ${threshold}% blended historical win score`
                   : `${recommendation.legs.length} ${recommendation.tone} win-rate legs from price and starter buckets`
-                : isThresholdModel
-                  ? `Needs at least ${MULTI_BET_MIN_LEGS} priced legs with 65%+ blended win score`
+                : isPlacePercentageModel
+                  ? `Needs at least ${MULTI_BET_MIN_LEGS} priced favourites with active place markets`
+                  : isThresholdModel
+                  ? `Needs at least ${MULTI_BET_MIN_LEGS} priced legs with ${threshold}%+ blended win score`
                   : `Needs at least ${MULTI_BET_MIN_LEGS} neutral-or-better win-rate legs`}
           </Text>
         </View>
@@ -771,17 +785,19 @@ function WinPercentageMultiRecommendationPanel({
         <>
           <View style={styles.multiMetricRow}>
             <Metric
-              label="Combined fixed win"
-              value={formatCombinedFixedWinPrice(recommendation.combinedFixedWinPrice)}
+              label={isPlacePercentageModel ? "Max legs" : "Combined fixed win"}
+              value={isPlacePercentageModel ? String(PLACING_PERCENTAGE_MAX_LEGS) : formatCombinedFixedWinPrice(recommendation.combinedFixedWinPrice)}
             />
             <Metric
-              label="Avg win score"
-              value={formatPercentage(getAverageWinPercentageScore(recommendation.legs))}
+              label={isPlacePercentageModel ? "Avg place score" : "Avg win score"}
+              value={formatPercentage(getAveragePercentageMultiScore(recommendation.legs, modelKey))}
             />
           </View>
           <View style={styles.multiLegList}>
             {recommendation.legs.map((race, index) => {
-              const signal = race.winPercentageMultiCandidate;
+              const winSignal = race.winPercentageMultiCandidate;
+              const placeSignal = race.placingCandidate;
+              const tone = isPlacePercentageModel ? placeSignal?.tone : winSignal?.tone;
 
               return (
                 <View key={`win-multi-${race.raceCardId}`} style={styles.multiLeg}>
@@ -798,30 +814,39 @@ function WinPercentageMultiRecommendationPanel({
                     <Text style={styles.multiLegMeta}>
                       {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
                       {formatCurrency(race.favourite?.fixedWinPrice ?? null)} ·{" "}
-                      {formatPercentage(signal?.winScore ?? null)} win score
+                      {isPlacePercentageModel
+                        ? `${formatPercentage(placeSignal?.placeScore ?? null)} place score · pays top ${placeSignal?.placePayoutDepth ?? "-"}`
+                        : `${formatPercentage(winSignal?.winScore ?? null)} win score`}
                     </Text>
                     <Text style={styles.multiLegMeta}>
-                      Price {formatBucketWithWinPercentage(signal?.priceBucketLabel, signal?.priceBucketWinPercentage)} · starter{" "}
-                      {formatBucketWithWinPercentage(signal?.starterBucketLabel, signal?.starterBucketWinPercentage)}
+                      {isPlacePercentageModel
+                        ? `Price ${formatBucketWithCashAverage(placeSignal?.priceBucketLabel, placeSignal?.priceBucketCashAverage)} · starter ${formatBucketWithCashAverage(placeSignal?.starterBucketLabel, placeSignal?.starterBucketCashAverage)}`
+                        : `Price ${formatBucketWithWinPercentage(winSignal?.priceBucketLabel, winSignal?.priceBucketWinPercentage)} · starter ${formatBucketWithWinPercentage(winSignal?.starterBucketLabel, winSignal?.starterBucketWinPercentage)}`}
                     </Text>
                   </View>
-                  <Text style={[styles.multiLegSignal, styles[`signalText_${signal?.tone ?? "neutral"}`]]}>
-                    {formatWinPercentageSignalLabel(signal?.tone)}
+                  <Text style={[styles.multiLegSignal, styles[`signalText_${tone ?? "neutral"}`]]}>
+                    {isPlacePercentageModel
+                      ? formatPlacingSignalLabel(tone as NonNullable<BetCandidate["placingCandidate"]>["tone"] | undefined)
+                      : formatWinPercentageSignalLabel(tone as NonNullable<BetCandidate["winPercentageMultiCandidate"]>["tone"] | undefined)}
                   </Text>
                 </View>
               );
             })}
           </View>
           <Text style={styles.multiFooter}>
-            {isThresholdModel
-              ? "This model only includes favourites with a 65%+ blended historical win score and can list up to 10 legs. No stake size or automated wagering action is provided."
+            {isPlacePercentageModel
+              ? "This model ranks favourites by historical place percentages for active place markets and can list up to 8 legs. No place odds, stake size, or automated wagering action is provided."
+              : isThresholdModel
+              ? `This model only includes favourites with a ${threshold}%+ blended historical win score and can list up to 10 legs. No stake size or automated wagering action is provided.`
               : "This multi-only model uses historical win percentages, not cash-return averages. No stake size or automated wagering action is provided."}
           </Text>
         </>
       ) : (
         <Text style={styles.multiFooter}>
           {isThresholdModel
-            ? "65%+ win-rate legs will appear here once the current snapshot has enough eligible priced favourites."
+            ? `${threshold}%+ win-rate legs will appear here once the current snapshot has enough eligible priced favourites.`
+            : isPlacePercentageModel
+              ? "Place-rate legs will appear here once the current snapshot has enough eligible priced favourites with active place markets."
             : "Positive and neutral win-rate signals will appear here once the current snapshot has enough eligible priced legs."}
         </Text>
       )}
@@ -961,20 +986,25 @@ function buildMultiBetRecommendation(
 }
 
 /**
- * Builds one dedicated win-percentage multi suggestion from the current snapshot.
+ * Builds one dedicated percentage multi suggestion from the current snapshot.
  */
-function buildWinPercentageMultiBetRecommendation(
+function buildPercentageMultiBetRecommendation(
   candidates: BetCandidate[],
   modelKey: WinPercentageMultiModelKey,
 ): MultiBetRecommendation | null {
-  const eligibleCandidates = getUniquePricedWinPercentageCandidates(candidates);
+  if (isPlacingPercentageMultiModel(modelKey)) {
+    return buildPlacingPercentageMultiBetRecommendation(candidates);
+  }
 
-  if (modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY) {
+  const eligibleCandidates = getUniquePricedWinPercentageCandidates(candidates);
+  const threshold = getWinPercentageMultiThreshold(modelKey);
+
+  if (threshold !== null) {
     return createMultiBetRecommendation(
       eligibleCandidates.filter((candidate) =>
-        Number(candidate.winPercentageMultiCandidate?.winScore ?? -Infinity) >= 65),
+        Number(candidate.winPercentageMultiCandidate?.winScore ?? -Infinity) >= threshold),
       "positive",
-      WIN_PERCENTAGE_65_PLUS_MAX_LEGS,
+      WIN_PERCENTAGE_THRESHOLD_MAX_LEGS,
     );
   }
 
@@ -994,6 +1024,54 @@ function buildWinPercentageMultiBetRecommendation(
     }),
     "neutral",
   );
+}
+
+/**
+ * Builds a placing-percentage multi from the strongest current place-rate signals.
+ */
+function buildPlacingPercentageMultiBetRecommendation(candidates: BetCandidate[]): MultiBetRecommendation | null {
+  const eligibleCandidates = getUniquePricedPlacingPercentageCandidates(candidates);
+
+  return createMultiBetRecommendation(
+    eligibleCandidates,
+    "positive",
+    PLACING_PERCENTAGE_MAX_LEGS,
+  );
+}
+
+/**
+ * Returns the minimum blended win score for threshold-based win-percentage models.
+ */
+function getWinPercentageMultiThreshold(modelKey: WinPercentageMultiModelKey) {
+  if (modelKey === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY) {
+    return 60;
+  }
+
+  if (modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY) {
+    return 65;
+  }
+
+  return null;
+}
+
+/**
+ * Identifies the multi model that uses placing percentage instead of win percentage.
+ */
+function isPlacingPercentageMultiModel(modelKey: WinPercentageMultiModelKey) {
+  return modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
+}
+
+/**
+ * Names the active percentage multi in lock and status copy.
+ */
+function getPercentageMultiDisplayLabel(modelKey: WinPercentageMultiModelKey) {
+  if (modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY) {
+    return "place percentage multi";
+  }
+
+  const threshold = getWinPercentageMultiThreshold(modelKey);
+
+  return threshold ? `${threshold}%+ win percentage multi` : "win percentage multi";
 }
 
 /**
@@ -1121,11 +1199,55 @@ function getUniquePricedWinPercentageCandidates(candidates: BetCandidate[]) {
 }
 
 /**
+ * Dedupes placing candidates by source race and keeps the strongest place-rate leg.
+ */
+function getUniquePricedPlacingPercentageCandidates(candidates: BetCandidate[]) {
+  const bestByRace = new Map<string, BetCandidate>();
+
+  for (const candidate of candidates) {
+    const signal = candidate.placingCandidate;
+
+    if (
+      !candidate.favourite?.fixedWinPrice
+      || !signal
+      || signal.placePayoutDepth <= 0
+      || !Number.isFinite(signal.placeScore)
+      || !["neutral", "positive"].includes(signal.tone)
+    ) {
+      continue;
+    }
+
+    const existing = bestByRace.get(candidate.raceCardId);
+
+    if (!existing || comparePlacingPercentageCandidates(candidate, existing) < 0) {
+      bestByRace.set(candidate.raceCardId, candidate);
+    }
+  }
+
+  return Array.from(bestByRace.values()).sort(comparePlacingPercentageCandidates);
+}
+
+/**
  * Orders win-percentage multi legs by score, then by earliest advertised start.
  */
 function compareWinPercentageCandidates(left: BetCandidate, right: BetCandidate) {
   const rightScore = right.winPercentageMultiCandidate?.winScore ?? -Infinity;
   const leftScore = left.winPercentageMultiCandidate?.winScore ?? -Infinity;
+
+  if (rightScore !== leftScore) {
+    return rightScore - leftScore;
+  }
+
+  return new Date(left.advertisedStart).valueOf()
+    - new Date(right.advertisedStart).valueOf();
+}
+
+/**
+ * Orders placing multi legs by place score, then by earliest advertised start.
+ */
+function comparePlacingPercentageCandidates(left: BetCandidate, right: BetCandidate) {
+  const rightScore = right.placingCandidate?.placeScore ?? -Infinity;
+  const leftScore = left.placingCandidate?.placeScore ?? -Infinity;
 
   if (rightScore !== leftScore) {
     return rightScore - leftScore;
@@ -1605,11 +1727,13 @@ function getAverageCandidateScore(candidates: BetCandidate[], modelKey: string) 
 }
 
 /**
- * Averages available win-percentage model scores across a displayed multi.
+ * Averages available percentage scores across a displayed multi.
  */
-function getAverageWinPercentageScore(candidates: BetCandidate[]) {
+function getAveragePercentageMultiScore(candidates: BetCandidate[], modelKey: WinPercentageMultiModelKey) {
   const scores = candidates
-    .map((candidate) => candidate.winPercentageMultiCandidate?.winScore)
+    .map((candidate) => isPlacingPercentageMultiModel(modelKey)
+      ? candidate.placingCandidate?.placeScore
+      : candidate.winPercentageMultiCandidate?.winScore)
     .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
 
   if (!scores.length) {
@@ -1689,7 +1813,7 @@ function getWinPercentageLockDisabledReason({
   }
 
   if (!recommendation) {
-    return "No win-percentage multi to lock";
+    return "No percentage multi to lock";
   }
 
   if (!isSignedIn) {
@@ -1722,9 +1846,10 @@ function isBeforeAucklandLockCutoff(now = new Date()) {
 function createLockedWinPercentageMultiInput(
   payload: RecommendationPayload,
   recommendation: MultiBetRecommendation,
+  modelKey: WinPercentageMultiModelKey,
 ) {
   return {
-    averageScore: getAverageWinPercentageScore(recommendation.legs),
+    averageScore: getAveragePercentageMultiScore(recommendation.legs, modelKey),
     combinedFixedWinPrice: recommendation.combinedFixedWinPrice,
     generatedAt: payload.generatedAt,
     generatedAtNz: payload.generatedAtNz ?? null,

@@ -54,7 +54,7 @@ const LOCKED_MULTI_SELECT = [
 ].join(",");
 
 /**
- * Reads the user's locked win-percentage multi for one source date and model.
+ * Reads the user's locked percentage multi for one source date and model.
  */
 export async function fetchLockedWinPercentageMulti(
   sourceDate: string | null,
@@ -89,7 +89,7 @@ export async function fetchLockedWinPercentageMulti(
 }
 
 /**
- * Stores the first win-percentage multi locked by the signed-in user for the source date and model.
+ * Stores the first percentage multi locked by the signed-in user for the source date and model.
  */
 export async function saveLockedWinPercentageMulti(
   input: LockedWinPercentageMultiInput,

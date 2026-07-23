@@ -5,10 +5,13 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
 ];
 const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const MULTI_BET_MAX_LEGS = 5;
-const WIN_PERCENTAGE_65_PLUS_MULTI_MAX_LEGS = 10;
+const WIN_PERCENTAGE_THRESHOLD_MULTI_MAX_LEGS = 10;
+const PLACING_PERCENTAGE_MULTI_MAX_LEGS = 8;
 const MULTI_BET_MIN_LEGS = 3;
 const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
+const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -458,7 +461,17 @@ function createMultiBetRecommendationRowsFromPayload(output) {
     .filter(Boolean);
   const winPercentageRows = [
     createWinPercentageMultiBetRecommendationRow(output),
-    createWinPercentage65PlusMultiBetRecommendationRow(output),
+    createWinPercentageThresholdMultiBetRecommendationRow(output, {
+      label: "60%+ win-rate signal",
+      modelKey: WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
+      threshold: 60,
+    }),
+    createWinPercentageThresholdMultiBetRecommendationRow(output, {
+      label: "65%+ win-rate signal",
+      modelKey: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+      threshold: 65,
+    }),
+    createPlacingPercentageMultiBetRecommendationRow(output),
   ].filter(Boolean);
 
   return [...modelRows, ...winPercentageRows];
@@ -502,18 +515,18 @@ function createWinPercentageMultiBetRecommendationRow(output) {
 }
 
 /**
- * Creates a stricter tracked win-percentage multi from candidates scoring at least 65%.
+ * Creates a stricter tracked win-percentage multi from candidates above a score threshold.
  */
-function createWinPercentage65PlusMultiBetRecommendationRow(output) {
+function createWinPercentageThresholdMultiBetRecommendationRow(output, { label, modelKey, threshold }) {
   const candidates = (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
     .filter((candidate) =>
       candidate.winPercentageMultiCandidate
-      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= 65)
+      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= threshold)
     .map((candidate) => ({
       ...candidate,
       candidate: {
         ...candidate.winPercentageMultiCandidate,
-        label: "65%+ win-rate signal",
+        label,
         tone: "positive",
       },
     }));
@@ -522,8 +535,52 @@ function createWinPercentage65PlusMultiBetRecommendationRow(output) {
     output,
     {
       candidates,
-      key: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
-      maxLegs: WIN_PERCENTAGE_65_PLUS_MULTI_MAX_LEGS,
+      key: modelKey,
+      maxLegs: WIN_PERCENTAGE_THRESHOLD_MULTI_MAX_LEGS,
+    },
+    getUniquePricedMultiCandidates(candidates),
+    "positive",
+  );
+}
+
+/**
+ * Creates a tracked placing-percentage multi from current favourites with place markets.
+ */
+function createPlacingPercentageMultiBetRecommendationRow(output) {
+  const candidates = (output.betBackCandidates?.placingCandidates ?? [])
+    .filter((candidate) =>
+      candidate.placingCandidate
+      && candidate.placingCandidate.placePayoutDepth > 0
+      && Number.isFinite(candidate.placingCandidate.placeScore)
+      && ["neutral", "positive"].includes(candidate.placingCandidate.tone))
+    .sort((left, right) => {
+      const rightScore = right.placingCandidate?.placeScore ?? -Infinity;
+      const leftScore = left.placingCandidate?.placeScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .map((candidate, index) => ({
+      ...candidate,
+      candidate: {
+        ...candidate.placingCandidate,
+        cashAverageScore: candidate.placingCandidate.placeScore,
+        label: "Place percentage signal",
+        tone: "positive",
+      },
+      percentageMultiRank: index + 1,
+    }));
+
+  return createMultiBetRecommendationFromLegs(
+    output,
+    {
+      candidates,
+      key: PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+      maxLegs: PLACING_PERCENTAGE_MULTI_MAX_LEGS,
     },
     getUniquePricedMultiCandidates(candidates),
     "positive",
@@ -590,7 +647,7 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
     course_name: candidate.canonicalTrack ?? candidate.sourceTrack ?? null,
     course_slug: candidate.canonicalTrack ? toSlug(candidate.canonicalTrack) : null,
     leg_index: index + 1,
-    prediction_rank: candidate.winPercentageMultiRank ?? candidate.rank ?? index + 1,
+    prediction_rank: candidate.percentageMultiRank ?? candidate.winPercentageMultiRank ?? candidate.rank ?? index + 1,
     predicted_fixed_win_price: candidate.favourite?.fixedWinPrice ?? null,
     predicted_runner_name: candidate.favourite?.name ?? null,
     predicted_runner_number: candidate.favourite?.number ?? null,
@@ -932,7 +989,9 @@ function getPredictionPayloadModelKeys(output) {
   return [
     ...modelKeys,
     WIN_PERCENTAGE_MULTI_MODEL_KEY,
+    WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
     WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+    PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   ];
 }
 
@@ -2878,7 +2937,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     firstEligibleRaceStart: getEarliestIsoDate(eligibleRaceStarts),
     models,
     placingCandidates,
-    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. The win-percentage multi model is tracked separately from single-runner prediction models and ranks current favourites by historical price-bucket and starter-count win percentages. Scores are statistical signals only, not stake sizing or automated wagering advice.",
+    note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. Percentage multi models are tracked separately from single-runner prediction models and rank current favourites by historical price-bucket and starter-count win or place percentages. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
     scannedRaceCount,

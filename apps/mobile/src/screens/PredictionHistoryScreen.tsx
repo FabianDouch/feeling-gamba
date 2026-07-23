@@ -10,6 +10,7 @@ import {
   fetchPredictionHistoryMetadata,
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
+  PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   PREDICTION_MODEL_VARIANTS,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
@@ -67,6 +68,11 @@ const WIN_PERCENTAGE_MULTI_RANK_OPTIONS = [
   { label: "Top 3", value: "3" },
   { label: "Top 4", value: "4" },
 ] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
+const PLACING_PERCENTAGE_MULTI_RANK_OPTIONS = [
+  ...WIN_PERCENTAGE_MULTI_RANK_OPTIONS,
+  { label: "Top 5", value: "5" },
+  { label: "Top 6", value: "6" },
+] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
 type PredictionHistoryType = "cash_multis" | "placing" | "singles" | "win_percentage_multis";
 const HISTORY_TYPE_OPTIONS = [
   { label: "Singles", value: "singles" },
@@ -113,6 +119,10 @@ export function PredictionHistoryScreen() {
   const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
     model.key === activeWinPercentageMultiModelKey)
     ?? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS[0];
+  const isPlacePercentageMultiModel = activeWinPercentageMultiModelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
+  const winPercentageMultiRankOptions = activeWinPercentageMultiModelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY
+    ? PLACING_PERCENTAGE_MULTI_RANK_OPTIONS
+    : WIN_PERCENTAGE_MULTI_RANK_OPTIONS;
   const usesCashModel = activeHistoryType !== "win_percentage_multis";
   const hasPredictionRows = predictions.summaryStats.length > 0
     || predictions.disciplineReturns.length > 0
@@ -237,6 +247,15 @@ export function PredictionHistoryScreen() {
     performanceFilters,
     winPercentageMultiRankFilter,
   ]);
+
+  useEffect(() => {
+    if (
+      activeWinPercentageMultiModelKey !== PLACING_PERCENTAGE_MULTI_MODEL_KEY
+      && ["5", "6"].includes(winPercentageMultiRankFilter)
+    ) {
+      setWinPercentageMultiRankFilter("all");
+    }
+  }, [activeWinPercentageMultiModelKey, winPercentageMultiRankFilter]);
 
   function updateFilter(key: keyof PredictionHistoryFilters, value: string) {
     setFilters((current) => ({
@@ -445,12 +464,14 @@ export function PredictionHistoryScreen() {
           {activeHistoryType === "win_percentage_multis" ? (
             <>
               <FilterGroup
-                label="Win percentage multi ranks"
-                options={WIN_PERCENTAGE_MULTI_RANK_OPTIONS}
+                label={isPlacePercentageMultiModel ? "Place percentage multi ranks" : "Win percentage multi ranks"}
+                options={winPercentageMultiRankOptions}
                 selectedValue={winPercentageMultiRankFilter}
                 onChange={(value) => setWinPercentageMultiRankFilter(value as WinPercentageMultiRankFilter)}
               />
-              <Text style={styles.historyBreakdownHeading}>Multi-bet win percentage performance</Text>
+              <Text style={styles.historyBreakdownHeading}>
+                {isPlacePercentageMultiModel ? "Multi-bet place percentage performance" : "Multi-bet win percentage performance"}
+              </Text>
               {predictions.winPercentageMultiBetPerformanceStats.length ? (
                 <View style={styles.statsRow}>
                   {predictions.winPercentageMultiBetPerformanceStats.map((stat) => (
@@ -462,7 +483,10 @@ export function PredictionHistoryScreen() {
                   ))}
                 </View>
               ) : (
-                <StateMessage text="No win-percentage multi-bet performance is available yet." />
+                <StateMessage text={isPlacePercentageMultiModel
+                  ? "No place-percentage multi-bet performance is available yet."
+                  : "No win-percentage multi-bet performance is available yet."}
+                />
               )}
             </>
           ) : null}
@@ -596,7 +620,9 @@ export function PredictionHistoryScreen() {
 
           {activeHistoryType === "win_percentage_multis" ? (
             <>
-              <Text style={styles.historyBreakdownHeading}>Win percentage multi date range breakdown</Text>
+              <Text style={styles.historyBreakdownHeading}>
+                {isPlacePercentageMultiModel ? "Place percentage multi date range breakdown" : "Win percentage multi date range breakdown"}
+              </Text>
               {predictions.winPercentageMultiBetSummaryStats.length ? (
                 <View style={styles.statsRow}>
                   {predictions.winPercentageMultiBetSummaryStats.map((stat) => (
@@ -608,7 +634,10 @@ export function PredictionHistoryScreen() {
                   ))}
                 </View>
               ) : (
-                <StateMessage text="No tracked win-percentage multi recommendations match this history filter range." />
+                <StateMessage text={isPlacePercentageMultiModel
+                  ? "No tracked place-percentage multi recommendations match this history filter range."
+                  : "No tracked win-percentage multi recommendations match this history filter range."}
+                />
               )}
             </>
           ) : null}
@@ -696,7 +725,7 @@ export function PredictionHistoryScreen() {
           {activeHistoryType === "win_percentage_multis" ? (
             <>
               <Text style={styles.historyCount}>
-                {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} win percentage multi recommendations
+                {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} {isPlacePercentageMultiModel ? "place percentage" : "win percentage"} multi recommendations
               </Text>
 
               <View key={`${activeWinPercentageMultiModelKey}-${filterKey}-${winPercentageMultiRankFilter}-win-percentage-multi`}>
@@ -729,9 +758,11 @@ export function PredictionHistoryScreen() {
                 </View>
 
                 <View style={styles.historyReturnRow}>
-                  <Text style={styles.historyReturnText}>Combined {recommendation.combinedFixedWinPrice}</Text>
+                  <Text style={styles.historyReturnText}>
+                    {isPlacePercentageMultiModel ? "Place odds not stored" : `Combined ${recommendation.combinedFixedWinPrice}`}
+                  </Text>
                   <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
-                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
+                  <Text style={styles.historyReturnText}>{isPlacePercentageMultiModel ? "Result" : "Cash return"} {recommendation.returnLabel}</Text>
                 </View>
 
                 <View style={styles.multiHistoryLegList}>
@@ -768,7 +799,10 @@ export function PredictionHistoryScreen() {
 
                 <Text style={styles.historyTimestamp}>{recommendation.predictedAtLabel}</Text>
               </View>
-                )) : <StateMessage text="No tracked win-percentage multi recommendation history matches these filters." />}
+                )) : <StateMessage text={isPlacePercentageMultiModel
+                  ? "No tracked place-percentage multi recommendation history matches these filters."
+                  : "No tracked win-percentage multi recommendation history matches these filters."}
+                />}
               </View>
             </>
           ) : null}
@@ -848,7 +882,7 @@ function getHistoryListHeading(historyType: PredictionHistoryType) {
   }
 
   if (historyType === "win_percentage_multis") {
-    return "Win percentage multi history";
+    return "Percentage multi history";
   }
 
   return "Prediction history";
