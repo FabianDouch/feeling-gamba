@@ -185,12 +185,15 @@ export async function requestPromotionRefresh<TPayload>() {
 /**
  * Requests a server-side prediction refresh without exposing service-role secrets to Expo.
  */
-export async function requestPredictionRefresh<TPayload>() {
+export async function requestPredictionRefresh<TPayload>(options: {
+  sport?: "racing" | "ufc";
+} = {}) {
   if (!publicEnv.predictionRefreshUrl) {
     throw new Error("Prediction refresh endpoint is not configured.");
   }
 
   const response = await fetch(publicEnv.predictionRefreshUrl, {
+    body: JSON.stringify(options),
     headers: {
       "content-type": "application/json",
     },

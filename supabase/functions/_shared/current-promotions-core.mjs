@@ -3,6 +3,11 @@ const FIXED_WIN_PRICE_ID_PATTERNS = [
   `:${FIXED_WIN_PRODUCT_TYPE_ID}:`,
   ":1f48974a-7307-4408-8f06-8a16907d1309:18ba60da-abd2-463c-a34a-dc6368377ac8",
 ];
+const FIXED_PLACE_PRODUCT_TYPE_ID = "e0a6d9b2-de5b-46ef-9bea-a4064f6bbc4a";
+const FIXED_PLACE_PRICE_ID_PATTERNS = [
+  `:${FIXED_PLACE_PRODUCT_TYPE_ID}:`,
+  ":a95f59f0-9605-472a-9578-a61677705b75:18ba60da-abd2-463c-a34a-dc6368377ac8",
+];
 const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const MULTI_BET_MAX_LEGS = 5;
 const WIN_PERCENTAGE_THRESHOLD_MULTI_MAX_LEGS = 10;
@@ -12,6 +17,12 @@ const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
 const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
+const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
+const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
+const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
+const UFC_MULTI_MIN_LEGS = 3;
+const UFC_MULTI_MAX_LEGS = 8;
+const UFC_LOCK_CUTOFF_BUFFER_MINUTES = 15;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -243,7 +254,7 @@ const RACING_DAY_QUERY = `
 `;
 
 const RACE_CARD_QUERY = `
-  query RaceCardLite($id: ID!) {
+  query RacingRaceCardSnapshot($id: ID!) {
     raceCard: node(id: $id) {
       __typename
       ... on RacingRaceCard {
@@ -267,6 +278,105 @@ const RACE_CARD_QUERY = `
                 decimal
                 numerator
                 denominator
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const UFC_CATEGORY_QUERY = `
+  query SportingCategoryScreen(
+    $category: SportingCategory!
+    $statuses: [SportingMarketStatus!] = [OPEN]
+    $upcomingEventsCount: Int
+    $upcomingEventsGroupBy: SportingEventsGroup = LEAGUE
+  ) {
+    category: sportingCategory(category: $category) {
+      id
+      name
+      category
+      slug
+      url
+    }
+    upcomingEvents: sportingEvents(
+      first: $upcomingEventsCount
+      category: $category
+      eventTypes: [MATCH]
+      statuses: $statuses
+      groupBy: $upcomingEventsGroupBy
+    ) {
+      leagues {
+        nodes {
+          id
+          name
+          url
+        }
+      }
+    }
+  }
+`;
+
+const UFC_COMPETITION_QUERY = `
+  query SportingCompetitionScreen(
+    $category: SportingCategory!
+    $competitionSlug: String!
+    $upcomingEventsCount: Int
+  ) {
+    league: sportingCompetitionBySlug(
+      category: $category
+      competitionSlug: $competitionSlug
+      statuses: [OPEN]
+    ) {
+      id
+      name
+      url
+    }
+    upcomingEvents: sportingEvents(
+      first: $upcomingEventsCount
+      category: $category
+      competitionSlug: $competitionSlug
+      eventTypes: [MATCH]
+      statuses: [OPEN]
+      groupBy: UNSPECIFIED
+    ) {
+      events {
+        nodes {
+          id
+          name
+          url
+          advertisedStart
+          bettingStatus
+          status
+          markets: marketsConnection(
+            first: 1
+            status: [OPEN]
+            primaryOnly: true
+            excludeSuspended: true
+          ) {
+            nodes {
+              id
+              name
+              marketTypeId
+              status
+              entrantCount
+              entrants: entrantsConnection(first: 4, matchCard: true) {
+                nodes {
+                  id
+                  name
+                  handicap
+                  isSuspended
+                  role
+                  price {
+                    id
+                    odds {
+                      numerator
+                      denominator
+                    }
+                  }
+                }
               }
             }
           }
@@ -347,6 +457,14 @@ export async function upsertPredictionSnapshotToSupabase({ output, supabaseKey, 
   if (!supabaseUrl || !supabaseKey) {
     return {
       ok: false,
+      skipped: true,
+    };
+  }
+
+  if (hasRacingPredictionSourceFailure(output)) {
+    return {
+      ok: true,
+      reason: "Skipped because every scanned racing race-card detail request failed.",
       skipped: true,
     };
   }
@@ -552,6 +670,7 @@ function createPlacingPercentageMultiBetRecommendationRow(output) {
       candidate.placingCandidate
       && candidate.placingCandidate.placePayoutDepth > 0
       && Number.isFinite(candidate.placingCandidate.placeScore)
+      && Number.isFinite(candidate.favourite?.fixedPlacePrice)
       && ["neutral", "positive"].includes(candidate.placingCandidate.tone))
     .sort((left, right) => {
       const rightScore = right.placingCandidate?.placeScore ?? -Infinity;
@@ -636,8 +755,12 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
   }
 
   const legs = candidates.slice(0, model.maxLegs ?? MULTI_BET_MAX_LEGS);
+  const isPlacePercentageMulti = model.key === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
   const combinedFixedWinPrice = legs.reduce((total, candidate) =>
     total * Number(candidate.favourite?.fixedWinPrice ?? 0), 1);
+  const combinedFixedPlacePrice = isPlacePercentageMulti
+    ? legs.reduce((total, candidate) => total * Number(candidate.favourite?.fixedPlacePrice ?? 0), 1)
+    : null;
   const averageCashScore = legs.reduce((total, candidate) =>
     total + Number(candidate.candidate?.cashAverageScore ?? 0), 0) / legs.length;
   const legRows = legs.map((candidate, index) => ({
@@ -648,6 +771,7 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
     course_slug: candidate.canonicalTrack ? toSlug(candidate.canonicalTrack) : null,
     leg_index: index + 1,
     prediction_rank: candidate.percentageMultiRank ?? candidate.winPercentageMultiRank ?? candidate.rank ?? index + 1,
+    predicted_fixed_place_price: candidate.favourite?.fixedPlacePrice ?? null,
     predicted_fixed_win_price: candidate.favourite?.fixedWinPrice ?? null,
     predicted_runner_name: candidate.favourite?.name ?? null,
     predicted_runner_number: candidate.favourite?.number ?? null,
@@ -663,12 +787,21 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
 
   return {
     average_cash_score: Number.isFinite(averageCashScore) ? Number(averageCashScore.toFixed(4)) : null,
+    combined_fixed_place_price: Number.isFinite(combinedFixedPlacePrice) ? Number(combinedFixedPlacePrice.toFixed(2)) : null,
     combined_fixed_win_price: Number.isFinite(combinedFixedWinPrice) ? Number(combinedFixedWinPrice.toFixed(2)) : null,
     leg_count: legs.length,
     legs: legRows,
+    outcome_missing_result_count: 0,
+    outcome_missing_runner_count: 0,
+    outcome_settled_leg_count: 0,
+    outcome_status: "pending",
+    outcome_updated_at: null,
+    outcome_win_return: 0,
+    outcome_winning_leg_count: 0,
     prediction_model: model.key ?? DEFAULT_PREDICTION_MODEL_KEY,
     predicted_at: output.generatedAt,
     prediction_signature: createMultiBetRecommendationSignature({
+      combinedFixedPlacePrice,
       combinedFixedWinPrice,
       legs: legRows,
       recommendationType,
@@ -687,13 +820,17 @@ function createMultiBetRecommendationFromLegs(output, model, candidates, recomme
 /**
  * Captures the fields that materially change a tracked multi recommendation.
  */
-function createMultiBetRecommendationSignature({ combinedFixedWinPrice, legs, recommendationType }) {
+function createMultiBetRecommendationSignature({ combinedFixedPlacePrice = null, combinedFixedWinPrice, legs, recommendationType }) {
   return JSON.stringify({
+    combinedFixedPlacePrice: Number.isFinite(combinedFixedPlacePrice)
+      ? Number(combinedFixedPlacePrice.toFixed(2))
+      : null,
     combinedFixedWinPrice: Number.isFinite(combinedFixedWinPrice)
       ? Number(combinedFixedWinPrice.toFixed(2))
       : null,
     legs: legs.map((leg) => ({
       cashAverageScore: leg.cash_average_score ?? null,
+      fixedPlacePrice: leg.predicted_fixed_place_price ?? null,
       fixedWinPrice: leg.predicted_fixed_win_price ?? null,
       predictionRank: leg.prediction_rank ?? null,
       runnerName: leg.predicted_runner_name ?? null,
@@ -786,6 +923,16 @@ export async function upsertPromotionPredictionsToSupabase({ output, supabaseKey
     };
   }
 
+  if (hasRacingPredictionSourceFailure(output)) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Skipped because every scanned racing race-card detail request failed.",
+      skipped: true,
+      total: 0,
+    };
+  }
+
   if (isPredictionWindowClosed(output)) {
     return {
       changed: 0,
@@ -856,6 +1003,16 @@ export async function upsertMultiBetRecommendationsToSupabase({ output, supabase
     return {
       changed: 0,
       ok: false,
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  if (hasRacingPredictionSourceFailure(output)) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Skipped because every scanned racing race-card detail request failed.",
       skipped: true,
       total: 0,
     };
@@ -1096,6 +1253,296 @@ async function insertMultiBetRecommendationLegs({ rows, supabaseKey, supabaseUrl
   }
 }
 
+function createUfcMultiRecommendationRowsFromPayload(output) {
+  return (output.ufcWinPercentageMultis?.models ?? []).flatMap((model) =>
+    (model.recommendations ?? []).map((recommendation) => {
+      const legs = recommendation.legs.map((leg, index) => ({
+        advertised_start: leg.advertisedStart,
+        bucket_label: leg.modelSignal?.bucketLabel ?? null,
+        bucket_sample_size: leg.modelSignal?.bucketSampleSize ?? null,
+        bucket_win_percentage: leg.modelSignal?.bucketWinPercentage ?? null,
+        leg_index: index + 1,
+        other_entrant_id: leg.otherFighter?.entrantId ?? null,
+        other_fighter_fixed_win_price: leg.otherFighter?.fixedWinPrice ?? null,
+        other_fighter_name: leg.otherFighter?.name ?? null,
+        predicted_entrant_id: leg.predictedFighter?.entrantId ?? null,
+        predicted_fighter_name: leg.predictedFighter?.name ?? null,
+        predicted_fixed_win_price: leg.predictedFighter?.fixedWinPrice ?? null,
+        prediction_rank: leg.predictionRank ?? index + 1,
+        price_difference: leg.priceDifference ?? null,
+        raw: leg,
+        signal_label: leg.modelSignal?.label ?? null,
+        signal_tone: leg.modelSignal?.tone ?? null,
+        source_event_id: leg.eventId,
+        source_market_id: leg.marketId ?? null,
+        win_score: leg.modelSignal?.winScore ?? null,
+      }));
+
+      return {
+        average_win_score: recommendation.averageWinScore,
+        combined_fixed_win_price: recommendation.combinedFixedWinPrice,
+        first_fight_start: recommendation.firstFightStart,
+        leg_count: recommendation.legCount,
+        legs,
+        lock_cutoff_at: recommendation.lockCutoffAt,
+        prediction_model: recommendation.modelKey,
+        predicted_at: recommendation.predictedAt,
+        prediction_signature: recommendation.predictionSignature,
+        raw: recommendation,
+        recommendation_type: recommendation.recommendationType,
+        scope_type: recommendation.scopeType,
+        source: recommendation.source ?? output.ufcWinPercentageMultis?.source ?? "betcha",
+        source_card_id: recommendation.cardId,
+        source_card_name: recommendation.cardName,
+        source_card_slug: recommendation.cardSlug ?? null,
+        source_date: recommendation.sourceDate ?? output.sourceDate,
+        source_time_zone: recommendation.sourceTimeZone ?? output.sourceTimeZone ?? SOURCE_TIME_ZONE,
+      };
+    }),
+  );
+}
+
+async function fetchExistingUfcMultiRecommendations({ source, sourceDate, supabaseKey, supabaseUrl }) {
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const url = new URL("/rest/v1/ufc_multi_recommendations", normalizedUrl);
+  url.searchParams.set("select", "id,prediction_model,source,source_date,source_card_id,recommendation_type,prediction_signature");
+  url.searchParams.set("source", `eq.${source}`);
+  url.searchParams.set("source_date", `eq.${sourceDate}`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_multi_recommendations read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const existingRows = await response.json();
+
+  return {
+    byKey: new Map(existingRows.map((row) => [
+      `${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`,
+      {
+        id: row.id,
+        signature: row.prediction_signature,
+      },
+    ])),
+    rows: existingRows,
+  };
+}
+
+function getUfcPredictionPayloadModelKeys(output) {
+  return (output.ufcWinPercentageMultis?.models ?? []).map((model) => model.key);
+}
+
+async function deleteStaleUfcMultiRecommendations({
+  currentKeys,
+  existingRows,
+  modelKeys,
+  source,
+  sourceDate,
+  supabaseKey,
+  supabaseUrl,
+}) {
+  const existing = existingRows ?? (await fetchExistingUfcMultiRecommendations({
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  })).rows;
+  const staleIds = existing
+    .filter((row) => modelKeys.includes(row.prediction_model))
+    .filter((row) => !currentKeys.has(`${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`))
+    .map((row) => row.id);
+
+  if (!staleIds.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const ids = staleIds.map((id) => `"${escapePostgrestInValue(id)}"`).join(",");
+  const url = new URL("/rest/v1/ufc_multi_recommendations", normalizedUrl);
+  url.searchParams.set("id", `in.(${ids})`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      prefer: "return=minimal",
+    },
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_multi_recommendations stale delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+async function deleteUfcMultiRecommendationLegs({ recommendationIds, supabaseKey, supabaseUrl }) {
+  if (!recommendationIds.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const ids = recommendationIds.map((id) => `"${escapePostgrestInValue(id)}"`).join(",");
+  const url = new URL("/rest/v1/ufc_multi_recommendation_legs", normalizedUrl);
+  url.searchParams.set("recommendation_id", `in.(${ids})`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      prefer: "return=minimal",
+    },
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_multi_recommendation_legs delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+async function insertUfcMultiRecommendationLegs({ rows, supabaseKey, supabaseUrl }) {
+  if (!rows.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const response = await fetch(`${normalizedUrl}/rest/v1/ufc_multi_recommendation_legs`, {
+    body: JSON.stringify(rows),
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_multi_recommendation_legs insert failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+/**
+ * Stores current UFC multi recommendations so Prediction History can track each model separately.
+ */
+export async function upsertUfcMultiRecommendationsToSupabase({ output, supabaseKey, supabaseUrl }) {
+  if (!supabaseUrl || !supabaseKey) {
+    return {
+      changed: 0,
+      ok: false,
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  const rows = createUfcMultiRecommendationRowsFromPayload(output);
+  const source = output.ufcWinPercentageMultis?.source ?? "betcha";
+  const sourceDate = output.sourceDate;
+  const modelKeys = getUfcPredictionPayloadModelKeys(output);
+
+  if (!modelKeys.length || !rows.length) {
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: 0,
+    };
+  }
+
+  const existing = await fetchExistingUfcMultiRecommendations({
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+  const currentKeys = new Set(rows.map((row) =>
+    `${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`));
+
+  await deleteStaleUfcMultiRecommendations({
+    currentKeys,
+    existingRows: existing.rows,
+    modelKeys,
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+
+  const changedRows = rows.filter((row) => {
+    const existingRow = existing.byKey.get(`${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`);
+
+    return existingRow?.signature !== row.prediction_signature;
+  });
+
+  if (!changedRows.length) {
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: rows.length,
+    };
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const recommendationRows = changedRows.map(({ legs, ...row }) => row);
+  const response = await fetch(
+    `${normalizedUrl}/rest/v1/ufc_multi_recommendations?on_conflict=prediction_model,source,source_date,source_card_id,recommendation_type`,
+    {
+      body: JSON.stringify(recommendationRows),
+      headers: {
+        apikey: supabaseKey,
+        authorization: `Bearer ${supabaseKey}`,
+        "content-type": "application/json",
+        prefer: "resolution=merge-duplicates,return=representation",
+      },
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_multi_recommendations upsert failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const storedRows = await response.json();
+  const idByKey = new Map(storedRows.map((row) => [
+    `${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`,
+    row.id,
+  ]));
+  const legRows = changedRows.flatMap((row) => {
+    const id = idByKey.get(`${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.recommendation_type}`);
+
+    return id ? row.legs.map((leg) => ({ ...leg, recommendation_id: id })) : [];
+  });
+
+  await deleteUfcMultiRecommendationLegs({
+    recommendationIds: [...new Set(legRows.map((row) => row.recommendation_id))],
+    supabaseKey,
+    supabaseUrl,
+  });
+  await insertUfcMultiRecommendationLegs({
+    rows: legRows,
+    supabaseKey,
+    supabaseUrl,
+  });
+
+  return {
+    changed: changedRows.length,
+    ok: true,
+    skipped: false,
+    total: rows.length,
+  };
+}
+
 /**
  * Reads the current racing date in Auckland so local previews do not drift on UTC.
  */
@@ -1158,6 +1605,27 @@ export function isPredictionWindowClosed(output) {
     firstRaceStart: output.betBackCandidates?.firstEligibleRaceStart ?? null,
     generatedAt: output.generatedAt,
   }).isClosed;
+}
+
+/**
+ * Detects source-wide racing detail failures so bad scans do not replace a usable current snapshot.
+ */
+function hasRacingPredictionSourceFailure(output) {
+  const betBackCandidates = output?.betBackCandidates;
+
+  if (!betBackCandidates) {
+    return false;
+  }
+
+  const scannedRaceCount = Number(betBackCandidates.scannedRaceCount ?? 0);
+  const eligibleRaceCount = Number(betBackCandidates.eligibleRaceCount ?? 0);
+  const errorCount = Array.isArray(betBackCandidates.errors)
+    ? betBackCandidates.errors.length
+    : 0;
+
+  return scannedRaceCount > 0
+    && eligibleRaceCount === 0
+    && errorCount >= scannedRaceCount;
 }
 
 /**
@@ -1382,6 +1850,10 @@ function createPriceBucketLabel(start) {
 
 function getPriceBucketStart(price) {
   return 1 + Math.floor(Math.max(0, price - 1) / 0.5) * 0.5;
+}
+
+function getUfcPriceDifferenceBucketStart(priceDifference) {
+  return Math.floor(Math.max(0, priceDifference) / 0.5) * 0.5;
 }
 
 function createOtherStartersAveragePriceBucketLabel(start) {
@@ -1722,7 +2194,13 @@ async function graphql(source, operationName, query, variables) {
     throw new Error(`${source.label} ${operationName} failed with HTTP ${response.status}`);
   }
 
-  const payload = await response.json();
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(`${source.label} ${operationName} returned an empty response body`);
+  }
+
+  const payload = JSON.parse(text);
 
   if (payload.errors?.length) {
     const messages = payload.errors.map((error) => error.message).join("; ");
@@ -1946,6 +2424,47 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
 }
 
 /**
+ * Adapts UFC aggregate rows into bucket maps used by the current UFC prediction models.
+ */
+export function createUfcHistoricalStatsFromInsightAggregates(rows) {
+  const stats = {
+    basisLabel: `${rows?.length ?? 0} stored UFC insight aggregate rows`,
+    byFavouritePriceBucket: {},
+    byOtherFighterPriceBucket: {},
+    byPriceDifferenceBucket: {},
+    rowCount: rows?.length ?? 0,
+  };
+
+  for (const row of rows ?? []) {
+    const bucket = {
+      averageReturnPerDollar: Number(row.average_return_per_dollar ?? 0),
+      favouriteSelections: Number(row.favourite_selections ?? 0),
+      favouriteWinPercentage: Number(row.favourite_win_percentage ?? 0),
+      favouriteWins: Number(row.favourite_wins ?? 0),
+      fightCount: Number(row.fight_count ?? 0),
+      label: String(row.price_bucket_label ?? "Unknown"),
+      netReturn: Number(row.net_return ?? 0),
+      pricedFightCount: Number(row.priced_fight_count ?? 0),
+      roiPercentage: Number(row.roi_percentage ?? 0),
+      scopeKey: row.scope_key,
+      scopeType: row.scope_type,
+      totalReturn: Number(row.total_return ?? 0),
+      totalStake: Number(row.total_stake ?? 0),
+    };
+
+    if (row.scope_type === "favourite_price_bucket" && row.price_bucket_label) {
+      stats.byFavouritePriceBucket[row.price_bucket_label] = bucket;
+    } else if (row.scope_type === "other_fighter_price_bucket" && row.price_bucket_label) {
+      stats.byOtherFighterPriceBucket[row.price_bucket_label] = bucket;
+    } else if (row.scope_type === "price_difference_bucket" && row.price_bucket_label) {
+      stats.byPriceDifferenceBucket[row.price_bucket_label] = bucket;
+    }
+  }
+
+  return stats;
+}
+
+/**
  * Selects the source-backed fixed-win price row across NZ/AUS and HK product IDs.
  */
 function getFixedWinPrice(runner) {
@@ -1955,6 +2474,18 @@ function getFixedWinPrice(runner) {
   const decimal = Number(price?.odds?.decimal);
 
   return Number.isFinite(decimal) ? decimal : null;
+}
+
+/**
+ * Selects the source-observed fixed-place price row used for placing multi payout snapshots.
+ */
+function getFixedPlacePrice(runner) {
+  const price = runner.prices?.find((candidate) =>
+    FIXED_PLACE_PRICE_ID_PATTERNS.some((pattern) => String(candidate.id).includes(pattern)),
+  );
+  const decimal = Number(price?.odds?.decimal);
+
+  return Number.isFinite(decimal) && decimal > 0 ? decimal : null;
 }
 
 /**
@@ -2060,6 +2591,7 @@ function deriveRaceCardRecommendation(raceCard, context, historicalStats) {
     distanceBand: getDistanceBand(raceCard.distance),
     favourite: favourite
       ? {
+          fixedPlacePrice: getFixedPlacePrice(favourite),
           fixedWinPrice: favourite.fixedWinPrice,
           impliedWinPercentage,
           name: favourite.name,
@@ -2858,6 +3390,368 @@ function rankWinPercentageMultiCandidates(candidates) {
     }));
 }
 
+function decimalFromFractionalOdds(odds) {
+  const numerator = Number(odds?.numerator);
+  const denominator = Number(odds?.denominator);
+
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+    return null;
+  }
+
+  return Number((1 + (numerator / denominator)).toFixed(2));
+}
+
+function extractSlugFromUrl(url) {
+  return String(url ?? "").split("/").filter(Boolean).at(-1) ?? "";
+}
+
+function isUfcCompetition(league) {
+  const name = normalizeName(league?.name);
+  const slug = normalizeName(extractSlugFromUrl(league?.url));
+
+  return name.startsWith("ufc ") || name.startsWith("ufc:") || slug.startsWith("ufc ");
+}
+
+function createUfcBucketLabel(start) {
+  return `$${start.toFixed(2)} - $${(start + 0.49).toFixed(2)}`;
+}
+
+function createUfcWinPercentageSignal(bucket, scopeLabel) {
+  const score = Number.isFinite(Number(bucket?.favouriteWinPercentage))
+    ? Number(bucket.favouriteWinPercentage)
+    : null;
+  const sampleSize = Number(bucket?.favouriteSelections ?? 0);
+
+  if (score === null) {
+    return {
+      detail: `Matching UFC win-rate data is limited. Scope: ${scopeLabel}.`,
+      label: "Limited UFC history",
+      tone: "neutral",
+    };
+  }
+
+  if (sampleSize < 10) {
+    return {
+      detail: `UFC win-rate data is available, but the sample size is small. Scope: ${scopeLabel}.`,
+      label: "Small UFC sample",
+      tone: "neutral",
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      detail: `Historical UFC favourite win rate is at least 50% for ${scopeLabel}.`,
+      label: "Positive UFC win-rate signal",
+      tone: "positive",
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      detail: `Historical UFC favourite win rate is at least 40% for ${scopeLabel}.`,
+      label: "Neutral UFC win-rate signal",
+      tone: "neutral",
+    };
+  }
+
+  return {
+    detail: `Historical UFC favourite win rate is below 40% for ${scopeLabel}.`,
+    label: "Weak UFC win-rate signal",
+    tone: "caution",
+  };
+}
+
+function createUfcCandidateSignals(candidate, ufcHistoricalStats) {
+  const favouritePriceBucket = candidate.predictedFighter?.priceBucket ?? null;
+  const otherFighterPriceBucket = candidate.otherFighter?.priceBucket ?? null;
+  const favouriteBucket = favouritePriceBucket
+    ? ufcHistoricalStats.byFavouritePriceBucket[favouritePriceBucket] ?? null
+    : null;
+  const otherBucket = otherFighterPriceBucket
+    ? ufcHistoricalStats.byOtherFighterPriceBucket[otherFighterPriceBucket] ?? null
+    : null;
+  const differenceBucket = ufcHistoricalStats.byPriceDifferenceBucket[candidate.priceDifferenceBucket] ?? null;
+
+  return {
+    [UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY]: createUfcModelSignal(
+      favouriteBucket,
+      favouritePriceBucket,
+      "favourite price bucket",
+    ),
+    [UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: createUfcModelSignal(
+      otherBucket,
+      otherFighterPriceBucket,
+      "other fighter price bucket",
+    ),
+    [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: createUfcModelSignal(
+      differenceBucket,
+      candidate.priceDifferenceBucket,
+      "price difference bucket",
+    ),
+  };
+}
+
+function createUfcModelSignal(bucket, bucketLabel, basisLabel) {
+  const signal = createUfcWinPercentageSignal(bucket, `${basisLabel} ${bucketLabel ?? "unknown"}`);
+
+  return {
+    bucketLabel: bucket?.label ?? bucketLabel ?? null,
+    bucketSampleSize: bucket?.favouriteSelections ?? 0,
+    bucketWinPercentage: bucket?.favouriteWinPercentage ?? null,
+    cashAverageScore: bucket?.favouriteWinPercentage ?? null,
+    detail: signal.detail,
+    label: signal.label,
+    sampleSize: bucket?.favouriteSelections ?? 0,
+    score: bucket?.favouriteWinPercentage ?? null,
+    tone: signal.tone,
+    winScore: bucket?.favouriteWinPercentage ?? null,
+  };
+}
+
+function mapUfcFightCandidate(event, card) {
+  const market = (event.markets?.nodes ?? []).find((candidate) =>
+    normalizeName(candidate.name) === "head to head");
+  const entrants = (market?.entrants?.nodes ?? [])
+    .filter((entrant) => !entrant.isSuspended)
+    .map((entrant) => ({
+      entrantId: entrant.id,
+      fixedWinPrice: decimalFromFractionalOdds(entrant.price?.odds),
+      name: entrant.name,
+      priceId: entrant.price?.id ?? null,
+      role: entrant.role ?? null,
+    }))
+    .filter((entrant) => Number.isFinite(entrant.fixedWinPrice));
+
+  if (!market || entrants.length !== 2) {
+    return null;
+  }
+
+  const [left, right] = entrants;
+  const favourite = left.fixedWinPrice <= right.fixedWinPrice ? left : right;
+  const otherFighter = favourite === left ? right : left;
+  const favouriteBucket = createUfcBucketLabel(getPriceBucketStart(favourite.fixedWinPrice));
+  const otherFighterBucket = createUfcBucketLabel(getPriceBucketStart(otherFighter.fixedWinPrice));
+  const priceDifference = Number((otherFighter.fixedWinPrice - favourite.fixedWinPrice).toFixed(2));
+  const priceDifferenceBucket = createUfcBucketLabel(getUfcPriceDifferenceBucketStart(priceDifference));
+
+  return {
+    advertisedStart: event.advertisedStart,
+    cardId: card.id,
+    cardName: card.name,
+    cardSlug: extractSlugFromUrl(card.url),
+    eventId: event.id,
+    fightName: event.name,
+    marketId: market.id,
+    otherFighter: {
+      ...otherFighter,
+      priceBucket: otherFighterBucket,
+    },
+    priceDifference,
+    priceDifferenceBucket,
+    predictedFighter: {
+      ...favourite,
+      impliedWinPercentage: Number(((1 / favourite.fixedWinPrice) * 100).toFixed(2)),
+      priceBucket: favouriteBucket,
+    },
+    status: event.bettingStatus ?? event.status ?? null,
+  };
+}
+
+function createUfcRecommendationSignature(recommendation) {
+  return JSON.stringify({
+    cardId: recommendation.cardId,
+    combinedFixedWinPrice: recommendation.combinedFixedWinPrice,
+    legs: recommendation.legs.map((leg) => ({
+      eventId: leg.eventId,
+      fixedWinPrice: leg.predictedFighter.fixedWinPrice,
+      predictionRank: leg.predictionRank,
+      predictedFighterName: leg.predictedFighter.name,
+      winScore: leg.modelSignal?.winScore ?? null,
+    })),
+    modelKey: recommendation.modelKey,
+    recommendationType: recommendation.recommendationType,
+  });
+}
+
+function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, generatedAt, sourceDate) {
+  const rankedCandidates = candidates
+    .map((candidate) => ({
+      ...candidate,
+      modelSignal: candidate.modelSignals?.[modelKey] ?? null,
+    }))
+    .filter((candidate) =>
+      Number.isFinite(candidate.modelSignal?.winScore)
+      && ["neutral", "positive"].includes(candidate.modelSignal?.tone)
+      && candidate.predictedFighter?.fixedWinPrice)
+    .sort((left, right) => {
+      const rightScore = right.modelSignal?.winScore ?? -Infinity;
+      const leftScore = left.modelSignal?.winScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .map((candidate, index) => ({
+      ...candidate,
+      predictionRank: index + 1,
+    }));
+
+  if (rankedCandidates.length < UFC_MULTI_MIN_LEGS) {
+    return null;
+  }
+
+  const legs = rankedCandidates.slice(0, UFC_MULTI_MAX_LEGS).map((leg) => ({
+    ...leg,
+    fightName: leg.fightName,
+    otherEntrantId: leg.otherFighter?.entrantId ?? null,
+    otherFighterName: leg.otherFighter?.name ?? null,
+    otherFixedWinPrice: leg.otherFighter?.fixedWinPrice ?? null,
+    predictedEntrantId: leg.predictedFighter?.entrantId ?? null,
+    predictedFighterName: leg.predictedFighter?.name ?? null,
+    predictedFixedWinPrice: leg.predictedFighter?.fixedWinPrice ?? null,
+    signal: leg.modelSignal,
+    sourceEventId: leg.eventId,
+    sourceMarketId: leg.marketId,
+  }));
+  const combinedFixedWinPrice = legs.reduce((total, leg) =>
+    total * Number(leg.predictedFighter.fixedWinPrice ?? 0), 1);
+  const averageWinScore = legs.reduce((total, leg) =>
+    total + Number(leg.modelSignal?.winScore ?? 0), 0) / legs.length;
+  const firstFightStart = getEarliestIsoDate(legs.map((leg) => leg.advertisedStart));
+  const lockCutoffAt = firstFightStart
+    ? new Date(new Date(firstFightStart).valueOf() - (UFC_LOCK_CUTOFF_BUFFER_MINUTES * 60 * 1000)).toISOString()
+    : null;
+  const recommendation = {
+    averageWinScore: Number.isFinite(averageWinScore) ? Number(averageWinScore.toFixed(4)) : null,
+    cardId: card.id,
+    cardName: card.name,
+    cardSlug: extractSlugFromUrl(card.url),
+    combinedFixedWinPrice: Number.isFinite(combinedFixedWinPrice) ? Number(combinedFixedWinPrice.toFixed(2)) : null,
+    firstFightStart,
+    generatedAt,
+    legCount: legs.length,
+    legs,
+    lockCutoffAt,
+    modelKey,
+    predictedAt: generatedAt,
+    recommendationType: "positive",
+    scopeType,
+    source: "betcha",
+    sourceCardId: card.id,
+    sourceCardName: card.name,
+    sourceCardSlug: extractSlugFromUrl(card.url),
+    sourceDate,
+    sourceTimeZone: SOURCE_TIME_ZONE,
+  };
+
+  return {
+    ...recommendation,
+    predictionSignature: createUfcRecommendationSignature(recommendation),
+  };
+}
+
+async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt, sourceDate) {
+  if (!ufcHistoricalStats) {
+    return null;
+  }
+
+  const discoveryResponse = await graphql(source, "SportingCategoryScreen", UFC_CATEGORY_QUERY, {
+    category: "MIXED_MARTIAL_ARTS",
+    statuses: ["OPEN"],
+    upcomingEventsCount: 50,
+    upcomingEventsGroupBy: "LEAGUE",
+  });
+  const leagues = discoveryResponse.data?.upcomingEvents?.leagues?.nodes ?? [];
+  const ufcLeagues = leagues.filter(isUfcCompetition);
+  const errors = [];
+  const cardResults = [];
+
+  for (const league of ufcLeagues) {
+    const competitionSlug = extractSlugFromUrl(league.url);
+
+    if (!competitionSlug) {
+      continue;
+    }
+
+    try {
+      const response = await graphql(source, "SportingCompetitionScreen", UFC_COMPETITION_QUERY, {
+        category: "MIXED_MARTIAL_ARTS",
+        competitionSlug,
+        upcomingEventsCount: 50,
+      });
+      const card = response.data?.league ?? league;
+      const events = response.data?.upcomingEvents?.events?.nodes ?? [];
+      const candidates = events
+        .map((event) => mapUfcFightCandidate(event, card))
+        .filter(Boolean)
+        .map((candidate) => ({
+          ...candidate,
+          modelSignals: createUfcCandidateSignals(candidate, ufcHistoricalStats),
+        }));
+
+      cardResults.push({
+        card,
+        candidates,
+        rawEventCount: events.length,
+      });
+    } catch (error) {
+      errors.push({
+        competitionSlug,
+        message: error.message,
+      });
+    }
+  }
+
+  const modelConfigs = [
+    {
+      key: UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+      label: "UFC favourite price",
+      scopeType: "favourite_price_bucket",
+    },
+    {
+      key: UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+      label: "UFC other fighter price",
+      scopeType: "other_fighter_price_bucket",
+    },
+    {
+      key: UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+      label: "UFC price difference",
+      scopeType: "price_difference_bucket",
+    },
+  ];
+  const models = modelConfigs.map((model) => ({
+    ...model,
+    recommendations: cardResults
+      .map(({ card, candidates }) => createUfcMultiRecommendation(
+        card,
+        candidates,
+        model.key,
+        model.scopeType,
+        generatedAt,
+        sourceDate,
+      ))
+      .filter(Boolean),
+  }));
+  const firstFightStart = getEarliestIsoDate(
+    models.flatMap((model) => model.recommendations.map((recommendation) => recommendation.firstFightStart)),
+  );
+
+  return {
+    errors,
+    firstFightStart,
+    modelCount: models.length,
+    models,
+    note: "UFC win percentage multis are built from current Betcha UFC Head to Head markets only. Each recommendation uses one Betcha UFC card, excludes non-UFC MMA competitions, and ranks favourite legs by the selected historical UFC bucket win rate.",
+    provider: source.label,
+    scannedCompetitionCount: leagues.length,
+    scannedUfcCardCount: ufcLeagues.length,
+    source: source.source,
+  };
+}
+
 async function fetchBetBackCandidates(source, historicalStats, date) {
   const response = await graphql(source, "RacingHomeMeetingsDesktopScreen", RACING_DAY_QUERY, {
     categories: ["HORSE", "HARNESS", "GREYHOUND"],
@@ -2885,7 +3779,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
           continue;
         }
 
-        const raceCard = (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, {
+        const raceCard = (await graphql(source, "RacingRaceCardSnapshot", RACE_CARD_QUERY, {
           id: toRaceCardId(race.id),
         })).data?.raceCard;
 
@@ -2991,7 +3885,7 @@ async function expandPromotionRaceCards(source, promotion, primaryRaceCard, raci
     const raceCardId = toRaceCardId(race.id);
     const raceCard = raceCardId === primaryRaceCard.id
       ? primaryRaceCard
-      : (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, { id: raceCardId })).data?.raceCard;
+      : (await graphql(source, "RacingRaceCardSnapshot", RACE_CARD_QUERY, { id: raceCardId })).data?.raceCard;
 
     if (!raceCard || isAbandonedRaceCard(raceCard)) {
       continue;
@@ -3033,7 +3927,7 @@ async function fetchSourceRecommendations(source, historicalStats) {
       continue;
     }
 
-    const primaryRaceCard = (await graphql(source, "RaceCardLite", RACE_CARD_QUERY, {
+    const primaryRaceCard = (await graphql(source, "RacingRaceCardSnapshot", RACE_CARD_QUERY, {
       id: `RacingRaceCard:${uuid}`,
     })).data?.raceCard;
 
@@ -3129,14 +4023,21 @@ export async function generateCurrentPredictionPayload({
   date = getTodayNzDate(),
   generatedAt = new Date(),
   historicalStats,
+  includeRacing = true,
+  includeUfc = true,
+  ufcHistoricalStats = null,
 } = {}) {
-  if (!historicalStats) {
+  if (includeRacing && !historicalStats) {
     throw new Error("Historical prediction signal stats are required.");
   }
 
   const betchaSource = SOURCES.find((source) => source.source === "betcha");
-  const betBackCandidates = betchaSource
+  const betBackCandidates = includeRacing && betchaSource
     ? await fetchBetBackCandidates(betchaSource, historicalStats, date)
+    : null;
+  const generatedAtIso = generatedAt.toISOString();
+  const ufcWinPercentageMultis = includeUfc && betchaSource && ufcHistoricalStats
+    ? await fetchUfcPredictionMultis(betchaSource, ufcHistoricalStats, generatedAtIso, date)
     : null;
   const predictionWindow = createPredictionWindowStatus({
     firstRaceStart: betBackCandidates?.firstEligibleRaceStart ?? null,
@@ -3145,19 +4046,23 @@ export async function generateCurrentPredictionPayload({
 
   return {
     betBackCandidates,
-    generatedAt: generatedAt.toISOString(),
+    generatedAt: generatedAtIso,
     generatedAtNz: formatNzDateTime(generatedAt),
-    note: "Current prediction candidates are generated from public Betcha race cards and stored historical aggregates. Signals are statistical comparisons only, not staking advice or automated wagering instructions.",
+    note: "Current prediction candidates are generated from public Betcha race cards, UFC fight cards, and stored historical aggregates. Signals are statistical comparisons only, not staking advice or automated wagering instructions.",
     sourceDate: date,
     sourceTimeZone: SOURCE_TIME_ZONE,
     sources: [],
     predictionWindow,
     statsBasis: {
-      basisLabel: historicalStats.basisLabel ?? `${historicalStats.fixtureCount} fixture days`,
-      fixtureCount: historicalStats.fixtureCount,
-      otherStartersAveragePriceBucketCount: Object.keys(historicalStats.byOtherStartersAveragePriceBucket ?? {}).length,
-      priceBucketCount: Object.keys(historicalStats.byPriceBucket).length,
-      starterBucketCount: Object.keys(historicalStats.byStarterCount).length,
+      basisLabel: historicalStats?.basisLabel ?? `${historicalStats?.fixtureCount ?? 0} fixture days`,
+      fixtureCount: historicalStats?.fixtureCount ?? 0,
+      otherStartersAveragePriceBucketCount: Object.keys(historicalStats?.byOtherStartersAveragePriceBucket ?? {}).length,
+      priceBucketCount: Object.keys(historicalStats?.byPriceBucket ?? {}).length,
+      starterBucketCount: Object.keys(historicalStats?.byStarterCount ?? {}).length,
+      ufcBasisLabel: ufcHistoricalStats?.basisLabel ?? null,
+      ufcFavouritePriceBucketCount: Object.keys(ufcHistoricalStats?.byFavouritePriceBucket ?? {}).length,
+      ufcOtherFighterPriceBucketCount: Object.keys(ufcHistoricalStats?.byOtherFighterPriceBucket ?? {}).length,
+      ufcPriceDifferenceBucketCount: Object.keys(ufcHistoricalStats?.byPriceDifferenceBucket ?? {}).length,
     },
     summary: {
       betBackCandidates: betBackCandidates?.candidates.length ?? 0,
@@ -3165,6 +4070,13 @@ export async function generateCurrentPredictionPayload({
       raceSpecificPromotions: 0,
       racingPromotions: 0,
       sources: 0,
+      ufcRecommendations: ufcWinPercentageMultis?.models.reduce(
+        (total, model) => total + model.recommendations.length,
+        0,
+      ) ?? 0,
     },
+    ufcGeneratedAt: ufcWinPercentageMultis ? generatedAtIso : null,
+    ufcGeneratedAtNz: ufcWinPercentageMultis ? formatNzDateTime(generatedAt) : null,
+    ufcWinPercentageMultis,
   };
 }

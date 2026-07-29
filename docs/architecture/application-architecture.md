@@ -505,9 +505,10 @@ and can keep up to 10 legs. The `multi_place_percentage_v1` model also appears
 under Win % multis, ranks favourites by blended historical place percentage,
 requires an active place market, requires at least three legs, and can keep up
 to eight legs. Win-based tracked multis settle as a cash win only when every
-leg wins. The place-percentage multi stores a unit hit only when every selected
-leg finishes inside the stored place payout depth; place-multi payout odds are
-not stored or inferred. No bonus-bet value, stake sizing, bankroll guidance, or
+leg wins. The place-percentage multi stores fixed-place leg odds and the
+combined fixed-place price, then settles as a cash return only when every
+selected leg finishes inside the stored place payout depth. No bonus-bet value,
+stake sizing, bankroll guidance, or
 automated wagering is stored or displayed for tracked multis.
 The first model remains `global_bucket_blend_v1`, which ranks current
 favourites from all-country historical price-bucket and starter-count cash
@@ -551,6 +552,14 @@ repo-root public Supabase env values before Metro bundles the app.
   racecourse filter.
 - Race Days filters should query Supabase for the selected date range, country,
   discipline, and course instead of filtering bundled all-data fixtures.
+- Historical Data includes a Model backtests view. For now it mirrors the
+  Prediction History control hierarchy with one History type (`Win % multis`),
+  sport-scoped model tabs, win percentage multi rank filters, and an all-time
+  aggregate Multi-bet win percentage performance panel. The app reads
+  `get_historical_multi_backtest_summary`, which recalculates each historical
+  multi from `historical_multi_backtest_legs` for the selected rank filter, so
+  historical "would have recommended" analysis remains separate from live
+  Prediction History.
 - Signed-in users can select saved favourite-track chips in Race Days; the chip
   applies the stored country, discipline, and course to the same Supabase
   `race_day_entries` query path.
@@ -589,23 +598,53 @@ repo-root public Supabase env values before Metro bundles the app.
   percentage multi recommendation model for the current source date; after
   that, the screen displays the locked snapshot even if the live prediction
   snapshot refreshes to a different recommendation.
-- Predictions reads current bet candidates from the latest
-  `current_prediction_snapshots` payload. Current prediction types are split
-  into Cash, Win %, and Placing. Cash shows the selected single-runner model and
-  active-model multi, Win % shows the selected percentage multi-only model,
-  and Placing shows current place-rate signals.
+- Predictions reads `user_locked_ufc_multi_recommendations` through owner-only
+  RLS for UFC percentage multi models. UFC locks are keyed by source date,
+  Betcha UFC card, and model, and close at the stored card-level cutoff just
+  before the first fight rather than the racing 10:00am cutoff.
+- Predictions reads current candidates from the latest
+  `current_prediction_snapshots` payload behind a sport selector. Racing shows
+  Cash, Win %, and Placing prediction types: Cash shows the selected
+  single-runner model and active-model multi, Win % shows the selected racing
+  percentage multi-only model, and Placing shows current place-rate signals.
+  UFC shows only UFC Win % multi models for now, reading current Betcha UFC Head
+  to Head fight-card payloads from the same snapshot and listing only
+  same-card multis.
+- The app can call `refresh-current-predictions` with a sport-scoped JSON body.
+  `{ "sport": "ufc" }` refreshes only UFC aggregates/current Betcha fight
+  cards, updates the UFC part of `current_prediction_snapshots`, and writes UFC
+  multi recommendation rows without touching racing prediction rows or racing
+  aggregates. UFC-scoped refreshes update UFC-specific freshness fields while
+  preserving the top-level racing snapshot freshness timestamp. `{ "sport":
+  "racing" }` refreshes only racing predictions and preserves the existing UFC
+  snapshot data. Refresh workers write normalized prediction rows, tracked
+  multi recommendation rows, and aggregate rebuilds before updating
+  `current_prediction_snapshots`; this keeps the current Predictions tab and
+  Prediction History on the same generated payload. If a past current snapshot
+  was written without matching tracked rows, operators can replay it with
+  `npm --workspace @feeling-gamba/ingestion run repair:prediction-snapshot -- --source-date=YYYY-MM-DD --require-supabase`.
+  If the racing scan touches source races but every race-card detail request
+  fails, the worker treats that as a source failure and skips racing snapshot,
+  prediction-row, and multi-row writes instead of replacing a usable current
+  snapshot with an empty candidate payload.
 - Prediction History reads stored model-filtered rows from
   `prediction_aggregates` for performance metrics and recent model-filtered
   `promotion_predictions` rows for itemised race history. It also reads tracked
   multi bet recommendations and their legs from `multi_bet_recommendations` /
-  `multi_bet_recommendation_legs` through cash-only summary and history RPCs.
-  History type is selected first, then the relevant model selector appears
-  below it: single-runner prediction models for singles, cash multis, and
-  placing; percentage multi-only models for Win % multis. Win % multi history
-  can apply all-ranks, top-3, or top-4 rank filters against stored leg ranks
-  for `multi_win_percentage_blend_v1`, `multi_win_percentage_60_plus_v1`, and
-  `multi_win_percentage_65_plus_v1`; `multi_place_percentage_v1` also supports
-  top-5 and top-6 rank filters.
+  `multi_bet_recommendation_legs` through cash-only summary and history RPCs,
+  including stored fixed-place odds for place-percentage multi returns.
+  UFC percentage multi models read `ufc_multi_recommendations` /
+  `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
+  Sport is selected first. Racing then shows the history type selector and the
+  relevant model selector below it: single-runner prediction models for
+  singles, cash multis, and placing; racing percentage multi-only models for
+  Win % multis. UFC history shows UFC Win % multis and UFC model selectors only.
+  Win % multi history can apply all-legs or top-N rank filters against stored
+  leg ranks. `multi_win_percentage_blend_v1` supports top 3-5,
+  `multi_win_percentage_60_plus_v1` and `multi_win_percentage_65_plus_v1`
+  support top 3-10, `multi_place_percentage_v1` supports top 3-8, and UFC
+  percentage multi models support top 3-8 while hiding racing-only country,
+  discipline, and racecourse filters.
   The screen presents prediction variations as tabs, tags tabs that have
   tracked multi-bet prediction rows for the current Auckland source date, and
   shows a concise model-method explanation at the top of each variation.
@@ -629,6 +668,16 @@ repo-root public Supabase env values before Metro bundles the app.
   `user_race_bets` and tracked multi bet recommendation legs by
   `source_race_card_id` and selected runner number after race results are
   refreshed, using separate final requests for each reconciliation family.
+- The same overnight refresh rebuilds `insight_aggregates` from stored
+  `race_day_entries` after the source slices finish. That hosted rebuild pages
+  historical race rows and accumulates aggregate buckets incrementally so it
+  does not retain the full collected race dataset in Edge Function memory.
+- The same reconciliation family also checks UFC multi recommendation legs
+  against stored `ufc_fight_entries` result rows by source-backed fighter pair
+  and event-date window. Settled UFC matches update leg winners and parent multi
+  `$1` returns; unmatched UFC legs more than four hours after advertised start
+  are marked `missing_result` so Prediction History shows an open issue rather
+  than an active pending event.
 - Normalized race/source tables and operational tables remain server-side behind
   RLS. Public client reads are limited to app-facing read models and public
   promotion snapshots.

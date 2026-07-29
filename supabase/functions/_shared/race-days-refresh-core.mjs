@@ -12,6 +12,8 @@ const DEFAULT_COLLECTION_START = "2025-12-15";
 const DEFAULT_LOOKBACK_DAYS = 7;
 const DEFAULT_LOCK_TTL_MINUTES = 15;
 const RACE_NOT_FOUND_GRACE_HOURS = 24;
+const UFC_MISSING_RESULT_GRACE_HOURS = 4;
+const UFC_RESULT_MATCH_WINDOW_DAYS = 2;
 const OTHER_STARTER_PRICE_OUTLIER_CUTOFF = 70;
 const COVERAGE_MODE_ALL_DOMESTIC = "all_domestic";
 const COVERAGE_MODE_PILOT = "pilot";
@@ -116,7 +118,7 @@ const DISCOVERY_QUERY = `
 `;
 
 const RACE_CARD_QUERY = `
-  query RaceCardLite($id: ID!) {
+  query RacingRaceCardSnapshot($id: ID!) {
     raceCard: node(id: $id) {
       __typename
       ... on RacingRaceCard {
@@ -553,7 +555,13 @@ async function graphql(operationName, query, variables) {
     throw new Error(`${operationName} failed with HTTP ${response.status}`);
   }
 
-  const payload = await response.json();
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(`${operationName} returned an empty response body`);
+  }
+
+  const payload = JSON.parse(text);
 
   if (payload.errors?.length) {
     throw new Error(`${operationName} returned GraphQL errors: ${payload.errors.map((error) => error.message).join("; ")}`);
@@ -584,7 +592,7 @@ async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countri
       const raceCardId = toRaceCardId(race.id);
 
       try {
-        const raceCardResponse = await graphql("RaceCardLite", RACE_CARD_QUERY, { id: raceCardId });
+        const raceCardResponse = await graphql("RacingRaceCardSnapshot", RACE_CARD_QUERY, { id: raceCardId });
         const raceCard = raceCardResponse.data?.raceCard;
         races.push({
           derived: raceCard ? deriveRaceInsights(raceCard, getMeetingCountry(entry.meeting)) : null,
@@ -638,7 +646,7 @@ async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countri
         discoveryOperation: "RacingHomeMeetingsDesktopScreen",
         endpoint: BETCHA_GRAPHQL_ENDPOINT,
         name: "betcha_graphql",
-        raceCardOperation: "RaceCardLite",
+        raceCardOperation: "RacingRaceCardSnapshot",
       },
       testDate: date,
     },
@@ -1176,7 +1184,7 @@ function createAggregateBucket(scope) {
     placeEligibleSelections: 0,
     placeHits: 0,
     missingPlaceReturnCount: 0,
-    raceKeys: new Set(),
+    raceCount: 0,
     seconds: 0,
     thirds: 0,
     totalBonusCredit: 0,
@@ -1399,7 +1407,7 @@ function getOtherStartersAveragePriceBucketScopes(race) {
 }
 
 function addRaceToAggregate(bucket, race) {
-  bucket.raceKeys.add(race.raceKey);
+  bucket.raceCount += 1;
   bucket.missingFavouriteCount += race.missingFavourite ? 1 : 0;
   bucket.missingPriceCount += race.missingPrice ? 1 : 0;
   bucket.missingResultCount += race.missingResult ? 1 : 0;
@@ -1458,66 +1466,78 @@ function quotePostgrestInValue(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`;
 }
 
-export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo) {
+/**
+ * Creates the mutable aggregate bucket collection used by incremental rebuilds.
+ */
+function createInsightAggregateBuckets() {
   const buckets = new Map();
 
-  function getBucket(scope) {
-    const bucket = buckets.get(scope.scopeKey) ?? createAggregateBucket(scope);
-    buckets.set(scope.scopeKey, bucket);
-    return bucket;
+  return {
+    buckets,
+    get(scope) {
+      const bucket = buckets.get(scope.scopeKey) ?? createAggregateBucket(scope);
+      buckets.set(scope.scopeKey, bucket);
+      return bucket;
+    },
+  };
+}
+
+/**
+ * Adds one race-day entry to the mutable insight buckets without retaining the raw row.
+ */
+function addRaceDayEntryToInsightBuckets(row, aggregateBuckets) {
+  const race = {
+    country: row.country,
+    courseName: row.course_name,
+    courseSlug: row.course_slug,
+    distanceBand: getDistanceBand(row.distance_m),
+    favouriteBonusCredit: Number(row.favourite_bonus_credit ?? 0),
+    favouritePlaceReturn: row.favourite_place_return === null ? null : Number(row.favourite_place_return),
+    favouritePrice: row.favourite_price === null ? null : Number(row.favourite_price),
+    favouriteResultPosition: row.favourite_result_position,
+    favouriteTotalValueWithBonusCredit: Number(row.favourite_total_value_with_bonus_credit ?? 0),
+    favouriteWinReturn: Number(row.favourite_win_return ?? 0),
+    missingFavourite: Boolean(row.missing_favourite),
+    missingPrice: Boolean(row.missing_price),
+    missingResult: Boolean(row.missing_result),
+    otherStartersAverageFixedWinPrice: row.other_starters_average_fixed_win_price === null
+      ? null
+      : Number(row.other_starters_average_fixed_win_price),
+    raceCode: row.race_code,
+    starterCount: row.starter_count,
+    trackConditionGroup: getTrackConditionGroup(row.track_condition),
+  };
+  const baseScopes = getAggregateScopes(race);
+
+  for (const scope of baseScopes) {
+    const bucket = aggregateBuckets.get(scope);
+    addRaceToAggregate(bucket, race);
+    addFavouriteToAggregate(bucket, race);
   }
 
-  for (const row of rows) {
-    const race = {
-      country: row.country,
-      courseName: row.course_name,
-      courseSlug: row.course_slug,
-      distanceBand: getDistanceBand(row.distance_m),
-      favouriteBonusCredit: Number(row.favourite_bonus_credit ?? 0),
-      favouritePlaceReturn: row.favourite_place_return === null ? null : Number(row.favourite_place_return),
-      favouritePrice: row.favourite_price === null ? null : Number(row.favourite_price),
-      favouriteResultPosition: row.favourite_result_position,
-      favouriteTotalValueWithBonusCredit: Number(row.favourite_total_value_with_bonus_credit ?? 0),
-      favouriteWinReturn: Number(row.favourite_win_return ?? 0),
-      missingFavourite: Boolean(row.missing_favourite),
-      missingPrice: Boolean(row.missing_price),
-      missingResult: Boolean(row.missing_result),
-      otherStartersAverageFixedWinPrice: row.other_starters_average_fixed_win_price === null
-        ? null
-        : Number(row.other_starters_average_fixed_win_price),
-      raceCode: row.race_code,
-      raceKey: row.race_id,
-      starterCount: row.starter_count,
-      trackConditionGroup: getTrackConditionGroup(row.track_condition),
-    };
-
-    for (const scope of getAggregateScopes(race)) {
-      addRaceToAggregate(getBucket(scope), race);
-    }
-
-    for (const scope of getAggregateScopes(race)) {
-      addFavouriteToAggregate(getBucket(scope), race);
-    }
-
-    for (const scope of getDistanceConditionScopes(race)) {
-      const bucket = getBucket(scope);
-      addRaceToAggregate(bucket, race);
-      addFavouriteToAggregate(bucket, race);
-    }
-
-    for (const scope of getFavouritePriceBucketScopes(race, race.favouritePrice)) {
-      const bucket = getBucket(scope);
-      addRaceToAggregate(bucket, race);
-      addFavouriteToAggregate(bucket, race);
-    }
-
-    for (const scope of getOtherStartersAveragePriceBucketScopes(race)) {
-      const bucket = getBucket(scope);
-      addRaceToAggregate(bucket, race);
-      addFavouriteToAggregate(bucket, race);
-    }
+  for (const scope of getDistanceConditionScopes(race)) {
+    const bucket = aggregateBuckets.get(scope);
+    addRaceToAggregate(bucket, race);
+    addFavouriteToAggregate(bucket, race);
   }
 
+  for (const scope of getFavouritePriceBucketScopes(race, race.favouritePrice)) {
+    const bucket = aggregateBuckets.get(scope);
+    addRaceToAggregate(bucket, race);
+    addFavouriteToAggregate(bucket, race);
+  }
+
+  for (const scope of getOtherStartersAveragePriceBucketScopes(race)) {
+    const bucket = aggregateBuckets.get(scope);
+    addRaceToAggregate(bucket, race);
+    addFavouriteToAggregate(bucket, race);
+  }
+}
+
+/**
+ * Converts accumulated insight buckets into the persisted aggregate row shape.
+ */
+function mapInsightAggregateBuckets(buckets, dateFrom, dateTo) {
   return Array.from(buckets.values()).map((bucket) => {
     const totalStake = roundMoney(bucket.totalStake);
     const totalReturn = roundMoney(bucket.totalReturn);
@@ -1556,7 +1576,7 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
       price_bucket_label: bucket.priceBucketLabel ?? null,
       price_bucket_start: bucket.priceBucketStart ?? null,
       race_code: bucket.raceCode ?? null,
-      race_count: bucket.raceKeys.size,
+      race_count: bucket.raceCount,
       roi_percentage: percentage(netReturn, totalStake),
       scope_key: bucket.scopeKey,
       scope_type: bucket.scopeType,
@@ -1578,40 +1598,72 @@ export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo)
   });
 }
 
+export function buildInsightAggregatesFromRaceDayEntries(rows, dateFrom, dateTo) {
+  const aggregateBuckets = createInsightAggregateBuckets();
+
+  for (const row of rows) {
+    addRaceDayEntryToInsightBuckets(row, aggregateBuckets);
+  }
+
+  return mapInsightAggregateBuckets(aggregateBuckets.buckets, dateFrom, dateTo);
+}
+
 export async function rebuildInsightAggregatesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, collectionStart = DEFAULT_COLLECTION_START, config, sourceMaxDate, triggeredBy = "edge" }) {
   const supabase = createSupabaseRestClient(config, batchSize);
-  const rows = await supabase.selectAll(
-    "race_day_entries",
-    {
-      meeting_date: `gte.${collectionStart}`,
-      order: "meeting_date.asc,advertised_start.asc",
-    },
-    [
-      "race_id",
-      "meeting_date",
-      "country",
-      "race_code",
-      "course_name",
-      "course_slug",
-      "distance_m",
-      "starter_count",
-      "track_condition",
-      "favourite_price",
-      "favourite_result_position",
-      "favourite_place_return",
-      "favourite_win_return",
-      "favourite_bonus_credit",
-      "favourite_total_value_with_bonus_credit",
-      "missing_favourite",
-      "missing_price",
-      "missing_result",
-      "other_starters_average_fixed_win_price",
-      "other_starters_price_count",
-      "other_starters_price_outlier_count",
-    ].join(","),
-  );
-  const dateTo = sourceMaxDate ?? rows.at(-1)?.meeting_date ?? collectionStart;
-  const aggregates = buildInsightAggregatesFromRaceDayEntries(rows, collectionStart, dateTo);
+  const aggregateBuckets = createInsightAggregateBuckets();
+  const select = [
+    "race_id",
+    "meeting_date",
+    "country",
+    "race_code",
+    "course_name",
+    "course_slug",
+    "distance_m",
+    "starter_count",
+    "track_condition",
+    "favourite_price",
+    "favourite_result_position",
+    "favourite_place_return",
+    "favourite_win_return",
+    "favourite_bonus_credit",
+    "favourite_total_value_with_bonus_credit",
+    "missing_favourite",
+    "missing_price",
+    "missing_result",
+    "other_starters_average_fixed_win_price",
+    "other_starters_price_count",
+    "other_starters_price_outlier_count",
+  ].join(",");
+  const pageSize = 1000;
+  let latestMeetingDate = null;
+  let offset = 0;
+  let rowCount = 0;
+
+  while (true) {
+    const page = await supabase.request("race_day_entries", {
+      headers: { range: `${offset}-${offset + pageSize - 1}` },
+      search: {
+        meeting_date: `gte.${collectionStart}`,
+        order: "meeting_date.asc,advertised_start.asc",
+        select,
+      },
+    });
+
+    for (const row of page ?? []) {
+      addRaceDayEntryToInsightBuckets(row, aggregateBuckets);
+      latestMeetingDate = row.meeting_date ?? latestMeetingDate;
+      rowCount += 1;
+    }
+
+    if (!Array.isArray(page) || page.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  const dateTo = sourceMaxDate ?? latestMeetingDate ?? collectionStart;
+  const aggregates = mapInsightAggregateBuckets(aggregateBuckets.buckets, collectionStart, dateTo);
   const [aggregateRun] = await supabase.insert("insight_aggregate_runs", [{
     finished_at: new Date().toISOString(),
     source: "edge_race_day_refresh",
@@ -1621,7 +1673,7 @@ export async function rebuildInsightAggregatesFromSupabase({ batchSize = DEFAULT
     success: true,
     summary: {
       aggregateRows: aggregates.length,
-      raceDayEntries: rows.length,
+      raceDayEntries: rowCount,
     },
     triggered_by: triggeredBy,
   }]);
@@ -1860,8 +1912,21 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
   const isSuccessfulLeg = isPlacePercentageMulti
     ? placePayoutDepth > 0 && resultPosition <= placePayoutDepth
     : resultPosition === 1;
+  const fixedPlacePrice = Number(leg.predicted_fixed_place_price ?? 0);
+  const hasFixedPlacePrice = Number.isFinite(fixedPlacePrice) && fixedPlacePrice > 0;
+
+  if (isPlacePercentageMulti && isSuccessfulLeg && !hasFixedPlacePrice) {
+    return {
+      outcome_race_id: race.id,
+      outcome_result_position: resultPosition,
+      outcome_runner_id: runner.id,
+      outcome_status: "missing_result",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
   const winReturn = isSuccessfulLeg
-    ? isPlacePercentageMulti ? 1 : Number(leg.predicted_fixed_win_price ?? 0)
+    ? isPlacePercentageMulti ? fixedPlacePrice : Number(leg.predicted_fixed_win_price ?? 0)
     : 0;
 
   return {
@@ -1915,8 +1980,10 @@ function createMultiBetRecommendationOutcomePatch(recommendation, legPatches) {
         ? "missing_result"
         : "settled";
   const isPlacePercentageMulti = recommendation.prediction_model === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
+  const combinedFixedPlacePrice = legPatches.reduce((total, patch) =>
+    total * Number(patch.outcome_win_return ?? 0), 1);
   const winReturn = outcomeStatus === "settled" && winningLegCount === legCount
-    ? isPlacePercentageMulti ? 1 : Number(recommendation.combined_fixed_win_price ?? 0)
+    ? isPlacePercentageMulti ? combinedFixedPlacePrice : Number(recommendation.combined_fixed_win_price ?? 0)
     : 0;
 
   return {
@@ -1962,6 +2029,7 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
     "recommendation_id",
     "source_race_card_id",
     "predicted_runner_number",
+    "predicted_fixed_place_price",
     "predicted_fixed_win_price",
     "raw",
   ].join(","));
@@ -2024,6 +2092,211 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
       summary.pending += 1;
     } else if (parentPatch.outcome_status === "missing_runner") {
       summary.missingRunners += 1;
+    } else {
+      summary.missingResults += 1;
+    }
+  }
+
+  return summary;
+}
+
+function getUfcLegEventDateCandidates(leg) {
+  if (!leg.advertised_start) {
+    return [];
+  }
+
+  const eventDate = new Date(leg.advertised_start);
+
+  if (Number.isNaN(eventDate.valueOf())) {
+    return [];
+  }
+
+  const baseDate = eventDate.toISOString().slice(0, 10);
+  const dates = [];
+
+  for (let offset = -UFC_RESULT_MATCH_WINDOW_DAYS; offset <= UFC_RESULT_MATCH_WINDOW_DAYS; offset += 1) {
+    dates.push(addDays(baseDate, offset));
+  }
+
+  return dates;
+}
+
+function getUfcFightPairKey(leftName, rightName) {
+  return [normalizeName(leftName), normalizeName(rightName)].sort().join("|");
+}
+
+function createUfcFightLookup(fights) {
+  const lookup = new Map();
+
+  for (const fight of fights) {
+    const pairKey = getUfcFightPairKey(fight.red_fighter_name, fight.blue_fighter_name);
+    const entries = lookup.get(pairKey) ?? [];
+
+    entries.push(fight);
+    lookup.set(pairKey, entries);
+  }
+
+  return lookup;
+}
+
+function findUfcFightForLeg(leg, fightLookup) {
+  const pairKey = getUfcFightPairKey(leg.predicted_fighter_name, leg.other_fighter_name);
+  const candidates = fightLookup.get(pairKey) ?? [];
+  const dateCandidates = new Set(getUfcLegEventDateCandidates(leg));
+
+  return candidates.find((fight) => dateCandidates.has(fight.event_date)) ?? null;
+}
+
+function shouldMarkUfcLegMissingResult(leg) {
+  if (!leg.advertised_start) {
+    return false;
+  }
+
+  const advertisedStart = new Date(leg.advertised_start);
+
+  if (Number.isNaN(advertisedStart.valueOf())) {
+    return false;
+  }
+
+  return Date.now() - advertisedStart.valueOf() >= UFC_MISSING_RESULT_GRACE_HOURS * 60 * 60 * 1000;
+}
+
+function createUfcMultiLegOutcomePatch(leg, fight) {
+  if (!fight) {
+    return {
+      outcome_status: shouldMarkUfcLegMissingResult(leg) ? "missing_result" : "pending",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  if (fight.result_status !== "settled" || !fight.winner_name) {
+    return {
+      outcome_fight_id: fight.id,
+      outcome_status: "missing_result",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  const predictedFighterWon = normalizeName(fight.winner_name) === normalizeName(leg.predicted_fighter_name);
+  const winReturn = predictedFighterWon ? Number(leg.predicted_fixed_win_price ?? 0) : 0;
+
+  return {
+    outcome_favourite_won: predictedFighterWon,
+    outcome_fight_id: fight.id,
+    outcome_status: "settled",
+    outcome_updated_at: new Date().toISOString(),
+    outcome_win_return: roundMoney(winReturn),
+    outcome_winner_name: fight.winner_name,
+  };
+}
+
+function createUfcMultiRecommendationOutcomePatch(recommendation, legPatches) {
+  const settledLegCount = legPatches.filter((patch) => patch.outcome_status === "settled").length;
+  const winningLegCount = legPatches.filter((patch) =>
+    patch.outcome_status === "settled" && Number(patch.outcome_win_return ?? 0) > 0).length;
+  const missingResultCount = legPatches.filter((patch) => patch.outcome_status === "missing_result").length;
+  const hasPendingLeg = legPatches.some((patch) => patch.outcome_status === "pending");
+  const legCount = Number(recommendation.leg_count ?? legPatches.length);
+  const outcomeStatus = hasPendingLeg
+    ? "pending"
+    : missingResultCount > 0
+      ? "missing_result"
+      : "settled";
+  const winReturn = outcomeStatus === "settled" && winningLegCount === legCount
+    ? Number(recommendation.combined_fixed_win_price ?? 0)
+    : 0;
+
+  return {
+    outcome_missing_result_count: missingResultCount,
+    outcome_settled_leg_count: settledLegCount,
+    outcome_status: outcomeStatus,
+    outcome_updated_at: new Date().toISOString(),
+    outcome_win_return: roundMoney(winReturn),
+    outcome_winning_leg_count: winningLegCount,
+  };
+}
+
+/**
+ * Matches stored UFC multi legs to source-backed UFC fight results and stores multi outcomes.
+ */
+export async function reconcileUfcMultiRecommendationOutcomesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, config }) {
+  const supabase = createSupabaseRestClient(config, batchSize);
+  const recommendations = await supabase.selectAll("ufc_multi_recommendations", {
+    order: "source_date.asc,predicted_at.asc",
+    outcome_status: "neq.settled",
+    source: "eq.betcha",
+  }, [
+    "id",
+    "combined_fixed_win_price",
+    "leg_count",
+    "prediction_model",
+  ].join(","));
+
+  if (!recommendations.length) {
+    return {
+      checked: 0,
+      missingResults: 0,
+      pending: 0,
+      settled: 0,
+    };
+  }
+
+  const legs = await selectRowsByIn(supabase, "ufc_multi_recommendation_legs", "recommendation_id", recommendations.map((row) => row.id), [
+    "id",
+    "advertised_start",
+    "recommendation_id",
+    "predicted_fighter_name",
+    "predicted_fixed_win_price",
+    "other_fighter_name",
+  ].join(","));
+  const eventDates = [...new Set(legs.flatMap(getUfcLegEventDateCandidates))].sort();
+  const fights = eventDates.length
+    ? await supabase.selectAll("ufc_fight_entries", {
+        event_date: `gte.${eventDates[0]}`,
+        and: `(event_date.gte.${eventDates[0]},event_date.lte.${eventDates.at(-1)})`,
+      }, [
+        "id",
+        "event_date",
+        "red_fighter_name",
+        "blue_fighter_name",
+        "result_status",
+        "winner_name",
+      ].join(","))
+    : [];
+  const fightLookup = createUfcFightLookup(fights);
+  const legsByRecommendationId = new Map();
+  const summary = {
+    checked: recommendations.length,
+    missingResults: 0,
+    pending: 0,
+    settled: 0,
+  };
+
+  for (const leg of legs) {
+    const matchingLegs = legsByRecommendationId.get(leg.recommendation_id) ?? [];
+    matchingLegs.push(leg);
+    legsByRecommendationId.set(leg.recommendation_id, matchingLegs);
+  }
+
+  for (const recommendation of recommendations) {
+    const recommendationLegs = legsByRecommendationId.get(recommendation.id) ?? [];
+    const legPatches = [];
+
+    for (const leg of recommendationLegs) {
+      const fight = findUfcFightForLeg(leg, fightLookup);
+      const patch = createUfcMultiLegOutcomePatch(leg, fight);
+
+      await supabase.patch("ufc_multi_recommendation_legs", leg.id, patch);
+      legPatches.push(patch);
+    }
+
+    const parentPatch = createUfcMultiRecommendationOutcomePatch(recommendation, legPatches);
+    await supabase.patch("ufc_multi_recommendations", recommendation.id, parentPatch);
+
+    if (parentPatch.outcome_status === "settled") {
+      summary.settled += 1;
+    } else if (parentPatch.outcome_status === "pending") {
+      summary.pending += 1;
     } else {
       summary.missingResults += 1;
     }
@@ -2362,6 +2635,7 @@ export async function runRaceDaysAndInsightsRefresh({
   reconcileMultiBetRecommendationOutcomes,
   reconcileOutcomes = true,
   reconcilePredictionOutcomes,
+  reconcileUfcMultiRecommendationOutcomes,
   reconcileUserRaceBetOutcomes,
   rebuildInsights = true,
   to,
@@ -2372,6 +2646,7 @@ export async function runRaceDaysAndInsightsRefresh({
   const countryFilter = normalizeCountryFilter(countries);
   const shouldReconcilePredictionOutcomes = reconcilePredictionOutcomes ?? reconcileOutcomes;
   const shouldReconcileMultiBetRecommendationOutcomes = reconcileMultiBetRecommendationOutcomes ?? reconcileOutcomes;
+  const shouldReconcileUfcMultiRecommendationOutcomes = reconcileUfcMultiRecommendationOutcomes ?? reconcileOutcomes;
   const shouldReconcileUserRaceBetOutcomes = reconcileUserRaceBetOutcomes ?? reconcileOutcomes;
   const shouldRebuildPredictionAggregates = rebuildPredictionAggregates ?? reconcileOutcomes;
 
@@ -2387,6 +2662,7 @@ export async function runRaceDaysAndInsightsRefresh({
       reconcileMultiBetRecommendationOutcomes: shouldReconcileMultiBetRecommendationOutcomes,
       reconcileOutcomes,
       reconcilePredictionOutcomes: shouldReconcilePredictionOutcomes,
+      reconcileUfcMultiRecommendationOutcomes: shouldReconcileUfcMultiRecommendationOutcomes,
       reconcileUserRaceBetOutcomes: shouldReconcileUserRaceBetOutcomes,
       rebuildInsights,
       sourceTimeZone: SOURCE_TIME_ZONE,
@@ -2437,6 +2713,12 @@ export async function runRaceDaysAndInsightsRefresh({
           config,
         })
       : null;
+    const ufcMultiRecommendationOutcomeWrite = shouldReconcileUfcMultiRecommendationOutcomes
+      ? await reconcileUfcMultiRecommendationOutcomesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
     const userRaceBetOutcomeWrite = shouldReconcileUserRaceBetOutcomes
       ? await reconcileUserRaceBetOutcomesFromSupabase({
           batchSize,
@@ -2467,6 +2749,7 @@ export async function runRaceDaysAndInsightsRefresh({
         meetings: fetched.fixtures.reduce((total, fixture) => total + (fixture.counts?.meetingsMatched ?? fixture.counts?.pilotMeetingsMatched ?? 0), 0),
         races: fetched.fixtures.reduce((total, fixture) => total + (fixture.counts?.racesMatched ?? fixture.counts?.pilotRacesMatched ?? 0), 0),
       },
+      ufcMultiRecommendationOutcomeWrite,
       userRaceBetOutcomeWrite,
       window,
     };

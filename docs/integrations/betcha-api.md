@@ -265,7 +265,7 @@ Tested race:
 Example query:
 
 ```graphql
-query RaceCardLite($id: ID!) {
+query RacingRaceCardSnapshot($id: ID!) {
   raceCard: node(id: $id) {
     __typename
     ... on RacingRaceCard {
@@ -322,6 +322,17 @@ query RaceCardLite($id: ID!) {
 }
 ```
 
+Point-in-time source check on 2026-07-28:
+
+- Betcha `racingDay` still returned the current domestic NZ/AUS/HK meeting and
+  race list.
+- `node(id: "RacingRaceCard:<uuid>")` still resolved and returned race-card
+  fields, runner rows, prices, and MarketMover flags.
+- The operation name `RaceCardLite` started returning HTTP 200 with an empty
+  response body for race-card detail queries.
+- Renaming the same query to `RacingRaceCardSnapshot` restored responses.
+- Treat empty HTTP 200 GraphQL bodies as source failures, not valid empty data.
+
 ## MarketMover And Favourite
 
 Pre-race Betcha race cards expose `isMarketMover` on runner rows and prices on
@@ -360,6 +371,15 @@ Parsing rules:
 - Starter count = runner rows where `scratchedTimestamp is null`.
 - Exclude `Vacant Box` rows from greyhound starter counts.
 - Favourite = shortest non-null decimal price for the fixed-win product.
+- Place-percentage multi payout odds use the separate source-observed
+  fixed-place price allow-list. As of 2026-07-28, settled fixture comparison
+  against Betcha win/place dividends supports treating
+  `e0a6d9b2-de5b-46ef-9bea-a4064f6bbc4a` as the NZ/AUS fixed-place product ID.
+  For Hong Kong, the previously observed lower compressed price group
+  `:a95f59f0-9605-472a-9578-a61677705b75:18ba60da-abd2-463c-a34a-dc6368377ac8`
+  is treated as place-like for forward snapshots. Betcha's public `Price` type
+  still does not expose product labels, so these mappings are inferred from
+  source-observed ID patterns and should be revalidated if prices drift.
 - MarketMover = runner row where `isMarketMover = true`.
 - Capture favourite and MarketMover before jump; do not assume these remain
   queryable after settlement.

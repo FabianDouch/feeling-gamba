@@ -6,13 +6,16 @@ import {
   rebuildPredictionAggregatesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
+  createUfcHistoricalStatsFromInsightAggregates,
   createHistoricalStatsFromFixtures,
   generateCurrentPredictionPayload,
   normalizeSupabaseProjectUrl,
   SOURCE_TIME_ZONE,
   isPredictionWindowClosed,
+  upsertMultiBetRecommendationsToSupabase,
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
+  upsertUfcMultiRecommendationsToSupabase,
 } from "../../../supabase/functions/_shared/current-promotions-core.mjs";
 
 const DEFAULT_OUTPUT_DIR = "data/raw/predictions";
@@ -125,6 +128,48 @@ function getSupabaseWriteConfig() {
 }
 
 /**
+ * Reads UFC insight aggregates for local refresh runs when Supabase is configured.
+ */
+async function fetchUfcInsightAggregateRows(config) {
+  const url = new URL("/rest/v1/ufc_insight_aggregates", config.url);
+  url.searchParams.set(
+    "select",
+    [
+      "scope_key",
+      "scope_type",
+      "price_bucket_label",
+      "price_bucket_start",
+      "price_bucket_end",
+      "fight_count",
+      "priced_fight_count",
+      "favourite_selections",
+      "favourite_wins",
+      "favourite_win_percentage",
+      "total_stake",
+      "total_return",
+      "net_return",
+      "average_return_per_dollar",
+      "roi_percentage",
+    ].join(","),
+  );
+  url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
+  url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: config.key,
+      authorization: `Bearer ${config.key}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase ufc_insight_aggregates read failed with HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Generates, writes, and optionally upserts today's independent prediction snapshot.
  */
 async function main() {
@@ -135,10 +180,27 @@ async function main() {
   const outputPath = options.output
     ?? path.join(REPO_ROOT, DEFAULT_OUTPUT_DIR, `current-racing-predictions-${today}.json`);
   const historicalStats = await loadHistoricalStatsFromFixtures();
+  const config = getSupabaseWriteConfig();
+  let ufcHistoricalStats = null;
+
+  if (config) {
+    try {
+      ufcHistoricalStats = createUfcHistoricalStatsFromInsightAggregates(await fetchUfcInsightAggregateRows(config));
+    } catch (error) {
+      if (options.requireSupabase) {
+        throw error;
+      }
+
+      console.warn(error instanceof Error
+        ? `Skipping UFC current multis: ${error.message}`
+        : "Skipping UFC current multis because UFC aggregates could not be loaded.");
+    }
+  }
   const output = await generateCurrentPredictionPayload({
     date: today,
     generatedAt: new Date(),
     historicalStats,
+    ufcHistoricalStats,
   });
 
   await mkdir(path.dirname(outputPath), { recursive: true });
@@ -172,6 +234,14 @@ async function main() {
   };
 
   if (isPredictionWindowClosed(output)) {
+    if (!options.skipSupabase && config) {
+      await upsertUfcMultiRecommendationsToSupabase({
+        output,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+    }
+
     predictionSnapshotWrite = {
       ok: true,
       skipped: true,
@@ -191,20 +261,29 @@ async function main() {
     };
   } else if (!options.skipSupabase) {
     try {
-      const config = getSupabaseWriteConfig();
       if (config) {
-        predictionSnapshotWrite = await upsertPredictionSnapshotToSupabase({
+        predictionWrite = await upsertPromotionPredictionsToSupabase({
           output,
           supabaseKey: config.key,
           supabaseUrl: config.url,
         });
-        predictionWrite = await upsertPromotionPredictionsToSupabase({
+        await upsertMultiBetRecommendationsToSupabase({
+          output,
+          supabaseKey: config.key,
+          supabaseUrl: config.url,
+        });
+        await upsertUfcMultiRecommendationsToSupabase({
           output,
           supabaseKey: config.key,
           supabaseUrl: config.url,
         });
         predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
           config,
+        });
+        predictionSnapshotWrite = await upsertPredictionSnapshotToSupabase({
+          output,
+          supabaseKey: config.key,
+          supabaseUrl: config.url,
         });
       } else {
         if (options.requireSupabase) {

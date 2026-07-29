@@ -6,6 +6,7 @@ import {
   fetchMultiBetRecommendationModelKeys,
   hasSupabasePredictionsConfig,
   PREDICTION_MODEL_VARIANTS,
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   type PredictionModelKey,
@@ -14,9 +15,11 @@ import {
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionModelTabs,
+  PredictionSportTabs,
   PredictionTypeTabs,
   WinPercentageMultiModelTabs,
   type CurrentPredictionType,
+  type PredictionSport,
 } from "./PredictionControls";
 
 /**
@@ -24,6 +27,7 @@ import {
  */
 export function PredictionsScreen() {
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
   const [activeWinPercentageMultiModelKey, setActiveWinPercentageMultiModelKey] =
     useState<WinPercentageMultiModelKey>(WIN_PERCENTAGE_MULTI_MODEL_KEY);
@@ -34,6 +38,18 @@ export function PredictionsScreen() {
     model.key === activeWinPercentageMultiModelKey)
     ?? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS[0];
   const shouldShowCashModel = activePredictionType === "cash";
+
+  function updateSport(value: PredictionSport) {
+    setActiveSport(value);
+
+    if (value === "ufc") {
+      setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      return;
+    }
+
+    setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -68,15 +84,22 @@ export function PredictionsScreen() {
       <Text style={styles.eyebrow}>Predictions</Text>
       <Text style={styles.heading}>Current prediction signals</Text>
       <Text style={styles.note}>
-        Review today's current candidates by prediction type. Settled outcomes and history live in Prediction History.
+        Review today's current candidates by sport and prediction type. Settled outcomes and history live in Prediction History.
       </Text>
 
-      <PredictionTypeTabs
-        activeType={activePredictionType}
-        onChange={setActivePredictionType}
+      <PredictionSportTabs
+        activeSport={activeSport}
+        onChange={updateSport}
       />
 
-      {shouldShowCashModel ? (
+      {activeSport === "racing" ? (
+        <PredictionTypeTabs
+          activeType={activePredictionType}
+          onChange={setActivePredictionType}
+        />
+      ) : null}
+
+      {activeSport === "racing" && shouldShowCashModel ? (
         <>
           <PredictionModelTabs
             activeModelKey={activeModelKey}
@@ -94,6 +117,7 @@ export function PredictionsScreen() {
           <WinPercentageMultiModelTabs
             activeModelKey={activeWinPercentageMultiModelKey}
             onChange={setActiveWinPercentageMultiModelKey}
+            sport={activeSport}
           />
           <View style={styles.modelInfo}>
             <Text style={styles.modelInfoTitle}>{activeWinPercentageModel.label}</Text>
@@ -115,6 +139,7 @@ export function PredictionsScreen() {
 
       <BetCandidatesSection
         predictionModelKey={activeModelKey}
+        predictionSport={activeSport}
         predictionType={activePredictionType}
         winPercentageMultiModelKey={activeWinPercentageMultiModelKey}
       />

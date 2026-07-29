@@ -3,6 +3,7 @@ import {
 } from "../_shared/race-days-refresh-core.mjs";
 import {
   createHistoricalStatsFromInsightAggregates,
+  createUfcHistoricalStatsFromInsightAggregates,
   generateCurrentPredictionPayload,
   getTodayNzDate,
   isPredictionWindowClosed,
@@ -11,6 +12,7 @@ import {
   upsertMultiBetRecommendationsToSupabase,
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
+  upsertUfcMultiRecommendationsToSupabase,
 } from "../_shared/current-promotions-core.mjs";
 
 const STALE_AFTER_MS = 15 * 60 * 1000;
@@ -35,6 +37,7 @@ type CurrentPredictionSnapshotRow = {
 
 type RefreshRequestBody = {
   force?: boolean;
+  sport?: "racing" | "ufc";
 };
 
 /**
@@ -180,6 +183,48 @@ async function fetchPredictionInsightAggregateRows(config: SupabaseConfig) {
 }
 
 /**
+ * Loads UFC price-bucket aggregate rows used by the current UFC multi models.
+ */
+async function fetchUfcInsightAggregateRows(config: SupabaseConfig) {
+  const url = new URL("/rest/v1/ufc_insight_aggregates", config.url);
+  url.searchParams.set(
+    "select",
+    [
+      "scope_key",
+      "scope_type",
+      "price_bucket_label",
+      "price_bucket_start",
+      "price_bucket_end",
+      "fight_count",
+      "priced_fight_count",
+      "favourite_selections",
+      "favourite_wins",
+      "favourite_win_percentage",
+      "total_stake",
+      "total_return",
+      "net_return",
+      "average_return_per_dollar",
+      "roi_percentage",
+    ].join(","),
+  );
+  url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
+  url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: config.key,
+      authorization: `Bearer ${config.key}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase ufc_insight_aggregates read failed with HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Checks whether the cached prediction payload is still inside the live-racing freshness window.
  */
 function isFreshSnapshot(row: CurrentPredictionSnapshotRow | null) {
@@ -215,6 +260,74 @@ async function readRefreshRequestBody(request: Request): Promise<RefreshRequestB
   return await request.json().catch(() => ({})) as RefreshRequestBody;
 }
 
+/**
+ * Merges a scoped sport refresh into the existing mixed prediction snapshot.
+ */
+function mergePredictionPayload(
+  existingPayload: unknown,
+  freshPayload: Record<string, unknown>,
+  sport: "racing" | "ufc",
+) {
+  const existing = existingPayload && typeof existingPayload === "object"
+    ? existingPayload as Record<string, unknown>
+    : {};
+  const existingStatsBasis = existing.statsBasis && typeof existing.statsBasis === "object"
+    ? existing.statsBasis as Record<string, unknown>
+    : {};
+  const freshStatsBasis = freshPayload.statsBasis && typeof freshPayload.statsBasis === "object"
+    ? freshPayload.statsBasis as Record<string, unknown>
+    : {};
+  const existingSummary = existing.summary && typeof existing.summary === "object"
+    ? existing.summary as Record<string, unknown>
+    : {};
+  const freshSummary = freshPayload.summary && typeof freshPayload.summary === "object"
+    ? freshPayload.summary as Record<string, unknown>
+    : {};
+
+  if (sport === "ufc") {
+    return {
+      ...existing,
+      generatedAt: existing.generatedAt ?? freshPayload.generatedAt,
+      generatedAtNz: existing.generatedAtNz ?? freshPayload.generatedAtNz,
+      note: freshPayload.note,
+      sourceDate: freshPayload.sourceDate,
+      sourceTimeZone: freshPayload.sourceTimeZone,
+      statsBasis: {
+        ...existingStatsBasis,
+        ufcBasisLabel: freshStatsBasis.ufcBasisLabel,
+        ufcFavouritePriceBucketCount: freshStatsBasis.ufcFavouritePriceBucketCount,
+        ufcOtherFighterPriceBucketCount: freshStatsBasis.ufcOtherFighterPriceBucketCount,
+        ufcPriceDifferenceBucketCount: freshStatsBasis.ufcPriceDifferenceBucketCount,
+      },
+      summary: {
+        ...existingSummary,
+        ufcRecommendations: freshSummary.ufcRecommendations,
+      },
+      ufcGeneratedAt: freshPayload.ufcGeneratedAt ?? freshPayload.generatedAt,
+      ufcGeneratedAtNz: freshPayload.ufcGeneratedAtNz ?? freshPayload.generatedAtNz,
+      ufcWinPercentageMultis: freshPayload.ufcWinPercentageMultis,
+    };
+  }
+
+  return {
+    ...freshPayload,
+    statsBasis: {
+      ...freshStatsBasis,
+      ufcBasisLabel: existingStatsBasis.ufcBasisLabel ?? null,
+      ufcFavouritePriceBucketCount: existingStatsBasis.ufcFavouritePriceBucketCount ?? 0,
+      ufcOtherFighterPriceBucketCount: existingStatsBasis.ufcOtherFighterPriceBucketCount ?? 0,
+      ufcPriceDifferenceBucketCount: existingStatsBasis.ufcPriceDifferenceBucketCount ?? 0,
+    },
+    summary: {
+      ...freshSummary,
+      ufcRecommendations: existingSummary.ufcRecommendations ?? 0,
+    },
+    ufcGeneratedAt: existing.ufcGeneratedAt ?? null,
+    ufcGeneratedAtNz: existing.ufcGeneratedAtNz ?? null,
+    ufcWinPercentageMultis: existing.ufcWinPercentageMultis ?? null,
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, {
@@ -233,7 +346,7 @@ Deno.serve(async (request) => {
     const sourceDate = getTodayNzDate();
     const latestSnapshot = await fetchLatestPredictionSnapshot(config, sourceDate);
 
-    if (isFreshSnapshot(latestSnapshot) && !canForceRefresh(request, body)) {
+    if (!body.sport && isFreshSnapshot(latestSnapshot) && !canForceRefresh(request, body)) {
       return jsonResponse({
         cached: true,
         generatedAt: latestSnapshot.generated_at,
@@ -243,15 +356,122 @@ Deno.serve(async (request) => {
       });
     }
 
-    const aggregateRows = await fetchPredictionInsightAggregateRows(config);
+    if (body.sport === "ufc") {
+      const ufcAggregateRows = await fetchUfcInsightAggregateRows(config);
+      const ufcHistoricalStats = createUfcHistoricalStatsFromInsightAggregates(ufcAggregateRows);
+      const freshPayload = await generateCurrentPredictionPayload({
+        date: sourceDate,
+        generatedAt: new Date(),
+        includeRacing: false,
+        includeUfc: true,
+        ufcHistoricalStats,
+      }) as Record<string, unknown>;
+      const payload = mergePredictionPayload(latestSnapshot?.payload ?? null, freshPayload, "ufc");
+
+      const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+      await upsertPredictionSnapshotToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+
+      return jsonResponse({
+        cached: false,
+        generatedAt: payload.generatedAt,
+        generatedAtNz: payload.generatedAtNz,
+        payload,
+        sourceDate: payload.sourceDate,
+        sourceTimeZone: SOURCE_TIME_ZONE,
+        sport: body.sport,
+        ufcMultiRecommendationWrite,
+      });
+    }
+
+    if (body.sport === "racing") {
+      const aggregateRows = await fetchPredictionInsightAggregateRows(config);
+      const historicalStats = createHistoricalStatsFromInsightAggregates(aggregateRows);
+      const freshPayload = await generateCurrentPredictionPayload({
+        date: sourceDate,
+        generatedAt: new Date(),
+        historicalStats,
+        includeRacing: true,
+        includeUfc: false,
+      }) as Record<string, unknown>;
+      const payload = mergePredictionPayload(latestSnapshot?.payload ?? null, freshPayload, "racing");
+
+      if (isPredictionWindowClosed(freshPayload)) {
+        return jsonResponse({
+          cached: Boolean(latestSnapshot),
+          generatedAt: latestSnapshot?.generated_at ?? null,
+          generatedAtNz: latestSnapshot?.generated_at_nz ?? null,
+          payload: latestSnapshot?.payload ?? null,
+          predictionWindow: freshPayload.predictionWindow,
+          predictionWindowClosed: true,
+          skipped: true,
+          skippedReason: (freshPayload.predictionWindow as { skippedReason?: string | null } | undefined)?.skippedReason ?? "first_race_started",
+          sourceDate: freshPayload.sourceDate,
+          sourceTimeZone: SOURCE_TIME_ZONE,
+          sport: body.sport,
+        });
+      }
+
+      const predictionWrite = await upsertPromotionPredictionsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+      const multiBetRecommendationWrite = await upsertMultiBetRecommendationsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+      const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
+        config,
+      });
+      await upsertPredictionSnapshotToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+
+      return jsonResponse({
+        cached: false,
+        generatedAt: payload.generatedAt,
+        generatedAtNz: payload.generatedAtNz,
+        payload,
+        multiBetRecommendationWrite,
+        predictionAggregateWrite,
+        predictionWrite,
+        sourceDate: payload.sourceDate,
+        sourceTimeZone: SOURCE_TIME_ZONE,
+        sport: body.sport,
+      });
+    }
+
+    const [aggregateRows, ufcAggregateRows] = await Promise.all([
+      fetchPredictionInsightAggregateRows(config),
+      fetchUfcInsightAggregateRows(config),
+    ]);
     const historicalStats = createHistoricalStatsFromInsightAggregates(aggregateRows);
+    const ufcHistoricalStats = createUfcHistoricalStatsFromInsightAggregates(ufcAggregateRows);
     const payload = await generateCurrentPredictionPayload({
       date: sourceDate,
       generatedAt: new Date(),
       historicalStats,
+      ufcHistoricalStats,
     });
 
     if (isPredictionWindowClosed(payload)) {
+      const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+
       return jsonResponse({
         cached: Boolean(latestSnapshot),
         generatedAt: latestSnapshot?.generated_at ?? null,
@@ -263,14 +483,10 @@ Deno.serve(async (request) => {
         skippedReason: payload.predictionWindow?.skippedReason ?? "first_race_started",
         sourceDate: payload.sourceDate,
         sourceTimeZone: SOURCE_TIME_ZONE,
+        ufcMultiRecommendationWrite,
       });
     }
 
-    await upsertPredictionSnapshotToSupabase({
-      output: payload,
-      supabaseKey: config.key,
-      supabaseUrl: config.url,
-    });
     const predictionWrite = await upsertPromotionPredictionsToSupabase({
       output: payload,
       supabaseKey: config.key,
@@ -281,8 +497,18 @@ Deno.serve(async (request) => {
       supabaseKey: config.key,
       supabaseUrl: config.url,
     });
+    const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+      output: payload,
+      supabaseKey: config.key,
+      supabaseUrl: config.url,
+    });
     const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
       config,
+    });
+    await upsertPredictionSnapshotToSupabase({
+      output: payload,
+      supabaseKey: config.key,
+      supabaseUrl: config.url,
     });
 
     return jsonResponse({
@@ -295,6 +521,7 @@ Deno.serve(async (request) => {
       predictionWrite,
       sourceDate: payload.sourceDate,
       sourceTimeZone: SOURCE_TIME_ZONE,
+      ufcMultiRecommendationWrite,
     });
   } catch (error) {
     return jsonResponse({

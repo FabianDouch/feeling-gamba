@@ -7,7 +7,22 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
+export type PredictionSport = "racing" | "ufc";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
+
+const PREDICTION_SPORT_OPTIONS = [
+  {
+    label: "Racing",
+    value: "racing",
+  },
+  {
+    label: "UFC",
+    value: "ufc",
+  },
+] satisfies {
+  label: string;
+  value: PredictionSport;
+}[];
 
 const PREDICTION_TYPE_OPTIONS = [
   {
@@ -36,6 +51,38 @@ type PredictionModelTabsProps = {
   multiBetModelKeys?: PredictionModelKey[];
   onChange: (value: PredictionModelKey) => void;
 };
+
+type PredictionSportTabsProps = {
+  activeSport: PredictionSport;
+  onChange: (value: PredictionSport) => void;
+};
+
+/**
+ * Switches prediction screens between sport-specific current and historical models.
+ */
+export function PredictionSportTabs({ activeSport, onChange }: PredictionSportTabsProps) {
+  return (
+    <View style={styles.typeTabs}>
+      {PREDICTION_SPORT_OPTIONS.map((option) => {
+        const isActive = option.value === activeSport;
+
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            onPress={() => onChange(option.value)}
+            style={[styles.sportTab, isActive ? styles.typeTabActive : null]}
+          >
+            <Text style={[styles.typeTabText, isActive ? styles.typeTabTextActive : null]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 /**
  * Renders the supported cash prediction model tabs with tracked-multi markers.
@@ -111,7 +158,9 @@ export function PredictionTypeTabs({ activeType, onChange }: PredictionTypeTabsP
 
 type WinPercentageMultiModelTabsProps = {
   activeModelKey: WinPercentageMultiModelKey;
+  excludeModelKeys?: WinPercentageMultiModelKey[];
   onChange: (value: WinPercentageMultiModelKey) => void;
+  sport?: PredictionSport;
 };
 
 /**
@@ -119,11 +168,19 @@ type WinPercentageMultiModelTabsProps = {
  */
 export function WinPercentageMultiModelTabs({
   activeModelKey,
+  excludeModelKeys = [],
   onChange,
+  sport,
 }: WinPercentageMultiModelTabsProps) {
+  const excludedModelKeys = new Set(excludeModelKeys);
+  const models = sport
+    ? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.filter((model) => model.sport === sport)
+    : WIN_PERCENTAGE_MULTI_MODEL_VARIANTS;
+  const visibleModels = models.filter((model) => !excludedModelKeys.has(model.key));
+
   return (
     <View style={styles.typeTabs}>
-      {WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.map((model) => {
+      {visibleModels.map((model) => {
         const isActive = model.key === activeModelKey;
 
         return (
@@ -167,6 +224,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 4,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sportTab: {
+    backgroundColor: "#ffffff",
+    borderColor: "#d7dce7",
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
   tabActive: {

@@ -10,6 +10,9 @@ import {
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
   normalizeSupabaseProjectUrl,
+  upsertMultiBetRecommendationsToSupabase,
+  upsertPromotionPredictionsToSupabase,
+  upsertUfcMultiRecommendationsToSupabase,
 } from "../../../supabase/functions/_shared/current-promotions-core.mjs";
 
 const DEFAULT_BATCH_SIZE = 300;
@@ -18,20 +21,30 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DOT_ENV_FILES = [".env.local", ".env"];
 
 /**
- * Parses local reconciliation flags for manual prediction settlement runs.
+ * Parses the small replay CLI used to repair tracked rows from a stored snapshot.
  */
 function parseArgs(argv) {
   const options = {
     batchSize: DEFAULT_BATCH_SIZE,
     requireSupabase: false,
+    skipReconcile: false,
+    sourceDate: null,
   };
 
   for (const arg of argv) {
     if (arg === "--require-supabase") {
       options.requireSupabase = true;
+    } else if (arg === "--skip-reconcile") {
+      options.skipReconcile = true;
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
+    } else if (arg.startsWith("--source-date=")) {
+      options.sourceDate = arg.slice("--source-date=".length);
     }
+  }
+
+  if (!options.sourceDate || !/^\d{4}-\d{2}-\d{2}$/.test(options.sourceDate)) {
+    throw new Error("--source-date=YYYY-MM-DD is required.");
   }
 
   if (!Number.isInteger(options.batchSize) || options.batchSize < 1) {
@@ -87,7 +100,39 @@ function getSupabaseWriteConfig() {
 }
 
 /**
- * Settles pending promotion predictions against stored race results and refreshes aggregates.
+ * Reads the stored current prediction snapshot for one source date.
+ */
+async function fetchPredictionSnapshot({ config, sourceDate }) {
+  const url = new URL("/rest/v1/current_prediction_snapshots", config.url);
+  url.searchParams.set("select", "payload,generated_at,source_date");
+  url.searchParams.set("source_date", `eq.${sourceDate}`);
+  url.searchParams.set("order", "generated_at.desc");
+  url.searchParams.set("limit", "1");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: config.key,
+      authorization: `Bearer ${config.key}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase current_prediction_snapshots read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const rows = await response.json();
+  const row = rows[0] ?? null;
+
+  if (!row?.payload) {
+    throw new Error(`No current prediction snapshot found for ${sourceDate}.`);
+  }
+
+  return row;
+}
+
+/**
+ * Replays one stored snapshot into normalized prediction tracking rows.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -107,19 +152,45 @@ async function main() {
     return;
   }
 
-  const predictionOutcomeWrite = await reconcilePromotionPredictionOutcomesFromSupabase({
-    batchSize: options.batchSize,
+  const snapshot = await fetchPredictionSnapshot({
     config,
+    sourceDate: options.sourceDate,
   });
+  const output = snapshot.payload;
+  const predictionWrite = await upsertPromotionPredictionsToSupabase({
+    output,
+    supabaseKey: config.key,
+    supabaseUrl: config.url,
+  });
+  const multiBetRecommendationWrite = await upsertMultiBetRecommendationsToSupabase({
+    output,
+    supabaseKey: config.key,
+    supabaseUrl: config.url,
+  });
+  const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+    output,
+    supabaseKey: config.key,
+    supabaseUrl: config.url,
+  });
+  const predictionOutcomeWrite = options.skipReconcile
+    ? { skipped: true }
+    : await reconcilePromotionPredictionOutcomesFromSupabase({
+        batchSize: options.batchSize,
+        config,
+      });
+  const multiBetRecommendationOutcomeWrite = options.skipReconcile
+    ? { skipped: true }
+    : await reconcileMultiBetRecommendationOutcomesFromSupabase({
+        batchSize: options.batchSize,
+        config,
+      });
+  const ufcMultiRecommendationOutcomeWrite = options.skipReconcile
+    ? { skipped: true }
+    : await reconcileUfcMultiRecommendationOutcomesFromSupabase({
+        batchSize: options.batchSize,
+        config,
+      });
   const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
-    batchSize: options.batchSize,
-    config,
-  });
-  const multiBetRecommendationOutcomeWrite = await reconcileMultiBetRecommendationOutcomesFromSupabase({
-    batchSize: options.batchSize,
-    config,
-  });
-  const ufcMultiRecommendationOutcomeWrite = await reconcileUfcMultiRecommendationOutcomesFromSupabase({
     batchSize: options.batchSize,
     config,
   });
@@ -127,9 +198,14 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     multiBetRecommendationOutcomeWrite,
+    multiBetRecommendationWrite,
     predictionAggregateWrite,
     predictionOutcomeWrite,
+    predictionWrite,
+    replayedGeneratedAt: snapshot.generated_at,
+    sourceDate: snapshot.source_date,
     ufcMultiRecommendationOutcomeWrite,
+    ufcMultiRecommendationWrite,
   }, null, 2));
 }
 

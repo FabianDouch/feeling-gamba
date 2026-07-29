@@ -442,6 +442,13 @@ Runtime app rule:
 - The Historical Data tab should show a Racing/UFC sport toggle.
 - The UFC view should read the latest 20 fights from `ufc_fight_entries` by
   default and query Supabase by event-date range when the user changes dates.
+- Historical Data should also show a Model backtests view backed by
+  `historical_multi_backtest_recommendations` and
+  `historical_multi_backtest_legs`; the app displays all-time aggregate
+  performance through `get_historical_multi_backtest_summary` rather than an
+  individual multi history/date browser. Rebuild it with:
+  `npm --workspace @feeling-gamba/ingestion run backfill:historical-multi-backtests -- --sport=all --require-supabase`.
+  The rebuild must score each source date from rows strictly before that date.
 - The Insights tab should show a Racing/UFC sport toggle.
 - The UFC Insights view should read `ufc_insight_aggregates` and display
   favourite price, other fighter price, and price-difference breakdowns.
@@ -538,10 +545,20 @@ Initial mode:
   determines the first eligible advertised start in the all-domestic NZ/AUS/HK
   prediction coverage, and upserts `current_prediction_snapshots` only when the
   request was generated before that first race started.
+- The same endpoint accepts a sport-scoped JSON body for app-triggered refreshes.
+  `{ "sport": "racing" }` refreshes only racing current predictions and keeps
+  any existing UFC snapshot payload, while `{ "sport": "ufc" }` refreshes only
+  UFC insight aggregates/current Betcha fight-card markets, updates UFC multis
+  in `current_prediction_snapshots`, and writes UFC multi recommendation rows
+  without rebuilding racing prediction aggregates.
 - After the first eligible race has started, `refresh-current-predictions`
   returns the same-day cached pre-race snapshot when one exists. It must not
   write a new snapshot, upsert `promotion_predictions`, or rebuild
   `prediction_aggregates`.
+- If Betcha returns a racing meeting list but every race-card detail request
+  fails, treat the run as a source failure and skip racing snapshot,
+  prediction-row, and multi-row writes. This prevents an empty candidate payload
+  from replacing the current usable prediction snapshot.
 - The prediction refresh stores Betcha bet-back candidate predictions in
   `promotion_predictions`. The unique key is
   `(prediction_model, source, source_race_card_id)` so model variations can run
@@ -727,7 +744,7 @@ Proposed recurring jobs:
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
 | `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
-| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha prediction snapshot without waiting for an app open, writes all model variants including the global cash blends, and refuses to write late-day refreshes after the first eligible race has started. |
+| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -745,12 +762,24 @@ use `refreshRaceData: true`, `rebuildInsights: false`, and
 `reconcileOutcomes: false`. After all source slices finish, the workflow runs
 separate hosted requests for insight rebuild, promotion-prediction outcome
 reconciliation, multi-bet recommendation reconciliation, user race-bet
-reconciliation, and prediction aggregate rebuild. The split is required because
-the combined final aggregate/reconcile request started hitting Supabase's 150
-second request idle timeout as the stored data set grew. Manual workflow
-dispatch can use a larger lookback, up to 14 completed Auckland dates, for
-catch-up runs such as recovering data after the app only shows race days
+reconciliation, UFC multi recommendation reconciliation, and prediction
+aggregate rebuild. UFC multi reconciliation reads stored `ufc_fight_entries`
+results when available and marks old unmatched UFC legs as `missing_result`
+open issues. The split is required because the combined final
+aggregate/reconcile request started hitting Supabase's 150 second request idle
+timeout as the stored data set grew. The insight rebuild itself pages through
+stored `race_day_entries` and accumulates aggregate buckets incrementally so it
+does not retain the full historical race dataset in Edge Function memory. Manual
+workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
+for catch-up runs such as recovering data after the app only shows race days
 through `2026-06-21`.
+
+If a current prediction snapshot exists but its tracked prediction rows were not
+written, replay the saved payload with
+`npm --workspace @feeling-gamba/ingestion run repair:prediction-snapshot -- --source-date=YYYY-MM-DD --require-supabase`.
+The replay rewrites `promotion_predictions`, `multi_bet_recommendations`,
+`ufc_multi_recommendations`, reconciles outcomes unless `--skip-reconcile` is
+passed, and rebuilds `prediction_aggregates`.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,
@@ -788,11 +817,13 @@ Troubleshooting:
   match the Supabase Edge Function secret of the same name.
 - Set or rotate the Supabase-side value with
   `npx supabase secrets set RACE_DAY_REFRESH_ADMIN_TOKEN=<same-token> --project-ref <project-ref>`.
-- If the workflow returns `504` with `IDLE_TIMEOUT`, reduce the manual
-  `lookback_days` and confirm the latest `refresh-race-days-and-insights` Edge
-  Function has been deployed. The workflow chunks by date, country, source
-  category, and final reconciliation task, but a single very large source or
-  reconciliation slice can still exceed Supabase's request idle timeout.
+- If the workflow returns `504` with `IDLE_TIMEOUT` or `546` with
+  `WORKER_RESOURCE_LIMIT`, reduce the manual `lookback_days` and confirm the
+  latest `refresh-race-days-and-insights` Edge Function has been deployed. The
+  workflow chunks by date, country, source category, and final reconciliation
+  task, while the insight rebuild pages stored race-day rows; a single very
+  large source or reconciliation slice can still exceed Supabase's hosted
+  function limits.
 - The workflow must fail on non-2xx HTTP responses. Each `curl` call writes the
   response to a file before `jq` formats it so pipe handling cannot hide HTTP
   failures.

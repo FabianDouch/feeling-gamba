@@ -29,6 +29,10 @@ first UFC importer combines the Vali Hameed UFC master Kaggle dataset with exact
 date+fighter-pair matches from the Jerzy Szocik daily odds dataset. UFC rows do
 not use racing `meetings`, `races`, `runners`, starter-count, country, track, or
 discipline fields.
+As of `2026-07-24`, current UFC percentage multi predictions use separate UFC
+recommendation and lock tables in
+`supabase/migrations/202607240003_ufc_prediction_multis.sql`, because the
+racing multi tables depend on race-card fields and a 10:00am racing lock rule.
 
 The design should support:
 
@@ -549,6 +553,9 @@ Rules:
   fixed-win prices can change during the day.
 - Restrict writes to `fetch-current-predictions` /
   `refresh-current-predictions` using the Supabase secret/service role key.
+- Do not replace the current row when the racing source scan returns race IDs
+  but every race-card detail request fails; preserve the previous usable
+  snapshot instead.
 
 ### `promotion_predictions`
 
@@ -685,6 +692,9 @@ Rules:
   recommendation_type)`, while the refresh worker removes stale same-day
   recommendation types for the same model when a later pre-race refresh changes
   the active recommendation.
+- When a changed same-day recommendation replaces the stored leg snapshot, reset
+  the parent outcome fields to `pending` before reconciliation so stale results
+  from the previous leg set do not leak into Prediction History.
 - Prefer a `positive` multi when at least three Positive priced legs exist for
   the model; otherwise store a `neutral` multi from Positive-or-Neutral priced
   legs.
@@ -708,9 +718,11 @@ Rules:
   store up to eight legs.
 - Win-based multis settle as a cash win only when every leg wins; otherwise a
   fully resulted multi settles as a cash loss.
-- `multi_place_percentage_v1` settles as a unit place hit only when every leg
-  finishes inside the stored `placePayoutDepth`; place-multi payout odds are
-  not stored or inferred.
+- `multi_place_percentage_v1` stores source-observed fixed-place odds on each
+  leg and the combined fixed-place price on the parent recommendation. It
+  settles as a place multi cash return only when every leg finishes inside the
+  stored `placePayoutDepth`; the cash return is the product of the stored
+  fixed-place leg prices.
 - Do not store or display bonus-bet value for multi recommendations.
 - Public RLS read access is allowed because rows contain app-facing prediction
   facts and outcomes only.
@@ -758,9 +770,91 @@ Rules:
   multi loss can be inspected without recalculating from raw rows in the app.
 - Dedicated percentage multi leg snapshots must preserve the original
   percentage candidate rank so historical performance can be re-aggregated as
-  hypothetical top-3 or top-4 multis after settlement. The
-  `multi_place_percentage_v1` model also supports top-5 and top-6 filtered
-  history.
+  hypothetical top-N multis after settlement. The original win-percentage model
+  supports top 3-5, the 60%+/65%+ win-percentage models support top 3-10,
+  `multi_place_percentage_v1` supports top 3-8, and UFC percentage multi
+  models support top 3-8.
+
+### `ufc_multi_recommendations`
+
+Stores one current UFC same-card percentage multi recommendation per model,
+source date, and Betcha UFC card. These rows are separate from racing multis
+because they use fight-card IDs, fighter entrants, and card-start lock cutoffs
+instead of race cards and morning racing locks.
+
+Key fields:
+
+- `prediction_model text` - one of
+  `ufc_multi_favourite_price_win_percentage_v1`,
+  `ufc_multi_other_fighter_price_win_percentage_v1`, or
+  `ufc_multi_price_difference_win_percentage_v1`.
+- `source_date date`, `source_card_id text`, `source_card_name text`
+- `prediction_signature text`
+- `leg_count int`
+- `first_fight_start timestamptz`
+- `lock_cutoff_at timestamptz`
+- `combined_fixed_win_price numeric`
+- `average_win_score numeric`
+- `scope_type text` - favourite price bucket, other fighter price bucket, or
+  price-difference bucket.
+- outcome fields for pending, settled, and missing-result states.
+
+Rules:
+
+- Only current Betcha competitions whose name/slug clearly identifies a UFC
+  card can create UFC recommendations; non-UFC MMA competitions such as PFL are
+  filtered out.
+- Every leg in a UFC multi must come from the same Betcha UFC card and an open
+  Head to Head market with two priced fighters.
+- Each model requires at least three eligible fights and can store up to eight
+  legs, ordered by model-specific historical favourite win percentage and then
+  advertised start.
+- UFC locks close from the stored `lock_cutoff_at`, currently 15 minutes before
+  the first fight on the card, not at the racing 10:00am cutoff.
+- UFC reconciliation matches leg fighter pairs to stored `ufc_fight_entries`
+  result rows within a small event-date window. Matched settled fights store the
+  winner and `$1` leg return; unmatched legs more than four hours after
+  advertised start become `missing_result` open issues instead of remaining
+  pending indefinitely.
+
+### `ufc_multi_recommendation_legs`
+
+Stores fight-level leg snapshots for each UFC multi recommendation.
+
+Key fields:
+
+- `recommendation_id uuid references ufc_multi_recommendations(id)`
+- `leg_index int`
+- `source_event_id text`, `source_market_id text`
+- `advertised_start timestamptz`
+- predicted fighter name, entrant ID, and fixed-win price.
+- other fighter name, entrant ID, and fixed-win price.
+- `price_difference numeric`
+- `prediction_rank int`
+- `win_score numeric`
+- bucket label, bucket win percentage, and bucket sample size.
+- pending/settled/missing result outcome fields.
+
+Rules:
+
+- Leg snapshots preserve original model ranks so Prediction History can
+  re-aggregate all legs, top 3, or top 4 views for each UFC model.
+- Public read access is allowed because rows contain app-facing market snapshots
+  and derived outcomes only.
+
+### `user_locked_ufc_multi_recommendations`
+
+Stores a signed-in user's locked UFC multi snapshot for a source date, UFC card,
+and UFC percentage model.
+
+Rules:
+
+- A user can lock one row per `(user_id, source, source_date, source_card_id,
+  prediction_model)`.
+- Owner-only RLS applies to reads/deletes; inserts require `auth.uid()` and
+  `now() < lock_cutoff_at`.
+- Locked UFC snapshots are informational only. They do not store stake size,
+  bankroll state, or automated wagering instructions.
 
 ### `promotion_recommendations`
 
@@ -882,6 +976,75 @@ Rules:
 - Missing favourite, price, and result states must be explicit.
 - Public RLS read access is allowed because this table contains app-facing race
   facts only.
+
+### `historical_multi_backtest_recommendations`
+
+Generated read model for Historical Data model backtests. These rows answer what
+the win-percentage multi models would have recommended on historical dates using
+only rows before each `source_date`. They are intentionally separate from live
+`multi_bet_recommendations` and `ufc_multi_recommendations`.
+
+Key fields:
+
+- `sport text` - `racing` or `ufc`.
+- `prediction_model text`
+- `source_date date`
+- `group_key text`, `group_name text` - all eligible racing rows for racing,
+  or one UFC card/event group for UFC.
+- `model_data_cutoff_date date` - normally the day before `source_date`.
+- `recommendation_type text` - positive or neutral.
+- `leg_count int`
+- `combined_fixed_win_price numeric`
+- `average_win_score numeric`
+- outcome fields for `$1` notional multi return and settled/missing-result leg
+  counts.
+- `raw jsonb`
+
+Rules:
+
+- Rebuilds must use prior-date-only training rows to avoid leaking future
+  results into historical recommendations.
+- Racing backtests currently cover
+  `multi_win_percentage_blend_v1`, `multi_win_percentage_60_plus_v1`, and
+  `multi_win_percentage_65_plus_v1`.
+- UFC backtests currently cover the UFC favourite price, other fighter price,
+  and price-difference win-percentage multi models.
+- A winning backtest multi returns the multiplied fixed-win prices for a
+  notional `$1`; if any leg loses, return is `$0`.
+- Historical Data reads aggregate backtest performance through
+  `get_historical_multi_backtest_summary(p_sport, p_prediction_model,
+  p_max_leg_rank)`. The RPC rebuilds each multi from eligible legs for the
+  selected rank filter before calculating settled count, hit rate, `$1` returns,
+  cash average, net return, ROI, and missing-result counts.
+- These rows are informational historical analysis only and must not be mixed
+  into live Prediction History.
+
+### `historical_multi_backtest_legs`
+
+Generated leg snapshots for historical multi backtests.
+
+Key fields:
+
+- `recommendation_id uuid references historical_multi_backtest_recommendations(id)`
+- `leg_index int`
+- `source_entry_id text`
+- `title text`
+- `participant_name text`
+- `fixed_win_price numeric`
+- optional opponent/other participant price fields for UFC.
+- `prediction_rank int`
+- `win_score numeric`
+- bucket label, bucket win percentage, and bucket sample size from the
+  prior-date-only training set.
+- settled/missing-result outcome fields.
+
+Rules:
+
+- Preserve `prediction_rank` so later Historical Data views can compare all
+  legs, top 3, top 4, or other model-specific slices without regenerating the
+  whole backtest.
+- Public read access is allowed because rows are generated app-facing historical
+  analysis.
 
 ### `insight_aggregate_runs`
 
@@ -1233,7 +1396,7 @@ Rules:
 - Return cash-only metrics: count, settled, pending, win rate, cash average,
   cash net, ROI, and open issues. For `multi_place_percentage_v1`, the same RPC
   shape is reused but `wins`/`win_percentage` represent place-multi hits and
-  place-multi payout odds are not inferred.
+  cash return metrics use stored fixed-place odds where available.
 - Do not include bonus-bet value in multi recommendation summaries.
 - Country, discipline, and racecourse filters match recommendations that
   include at least one matching leg because a multi can contain mixed legs.
@@ -1243,7 +1406,8 @@ Rules:
   from leg outcomes, and calculate the hypothetical combined cash return from
   the subset's stored predicted fixed-win prices for win-based multis. For
   `multi_place_percentage_v1`, settle the subset from stored place payout depth
-  and return only a unit hit indicator.
+  and calculate the hypothetical combined cash return from the subset's stored
+  predicted fixed-place prices.
 
 ### `get_multi_bet_recommendation_entries(...)`
 

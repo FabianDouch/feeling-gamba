@@ -117,9 +117,10 @@ source-of-truth docs in the same change.
   which left recent prediction outcomes pending. A daily overnight GitHub
   Actions workflow now invokes `refresh-race-days-and-insights` with a
   four-day completed-date lookback, chunked into one request per source date,
-  country, and source category, followed by one aggregate/reconcile-only
-  request, so race-day data, insight aggregates, prediction outcomes, and
-  prediction aggregates refresh without waiting for the older weekly job.
+  country, and source category, followed by separate final aggregate and
+  reconciliation requests. The final insight rebuild pages historical
+  `race_day_entries` while accumulating aggregate buckets so the hosted Edge
+  Function does not retain the full collected dataset in memory.
 
 ## Phase 1: Project Scaffold
 

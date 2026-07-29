@@ -8,10 +8,15 @@ import {
   fetchPredictionStats,
   fetchMultiBetRecommendationModelKeys,
   fetchPredictionHistoryMetadata,
+  fetchUfcPredictionHistoryMetadata,
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
+  isUfcPercentageMultiModel,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   PREDICTION_MODEL_VARIANTS,
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   type PredictionPerformanceDisciplineFilter,
@@ -27,7 +32,9 @@ import {
 } from "../data/supabasePredictions";
 import {
   PredictionModelTabs,
+  PredictionSportTabs,
   WinPercentageMultiModelTabs,
+  type PredictionSport,
 } from "./PredictionControls";
 
 const emptyPredictions: PredictionsData = {
@@ -63,16 +70,7 @@ const PERFORMANCE_SIGNAL_OPTIONS = [
   { label: "Positive only", value: "positive_only" },
   { label: "Neutral or better", value: "neutral_or_better" },
 ] satisfies { label: string; value: PredictionPerformanceSignalFilter }[];
-const WIN_PERCENTAGE_MULTI_RANK_OPTIONS = [
-  { label: "All legs", value: "all" },
-  { label: "Top 3", value: "3" },
-  { label: "Top 4", value: "4" },
-] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
-const PLACING_PERCENTAGE_MULTI_RANK_OPTIONS = [
-  ...WIN_PERCENTAGE_MULTI_RANK_OPTIONS,
-  { label: "Top 5", value: "5" },
-  { label: "Top 6", value: "6" },
-] satisfies { label: string; value: WinPercentageMultiRankFilter }[];
+const MIN_PERCENTAGE_MULTI_RANK = 3;
 type PredictionHistoryType = "cash_multis" | "placing" | "singles" | "win_percentage_multis";
 const HISTORY_TYPE_OPTIONS = [
   { label: "Singles", value: "singles" },
@@ -95,6 +93,7 @@ export function PredictionHistoryScreen() {
   const [metadata, setMetadata] = useState<PredictionHistoryMetadata | null>(null);
   const [predictions, setPredictions] = useState<PredictionsData>(emptyPredictions);
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [multiBetModelKeys, setMultiBetModelKeys] = useState<PredictionModelKey[]>([]);
   const [performanceFilters, setPerformanceFilters] = useState<PredictionPerformanceFilters>({
     discipline: "all",
@@ -120,10 +119,13 @@ export function PredictionHistoryScreen() {
     model.key === activeWinPercentageMultiModelKey)
     ?? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS[0];
   const isPlacePercentageMultiModel = activeWinPercentageMultiModelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
-  const winPercentageMultiRankOptions = activeWinPercentageMultiModelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY
-    ? PLACING_PERCENTAGE_MULTI_RANK_OPTIONS
-    : WIN_PERCENTAGE_MULTI_RANK_OPTIONS;
-  const usesCashModel = activeHistoryType !== "win_percentage_multis";
+  const isUfcWinPercentageMultiModel = isUfcPercentageMultiModel(activeWinPercentageMultiModelKey);
+  const historyTypeOptions = activeSport === "ufc"
+    ? [{ label: "Win % multis", value: "win_percentage_multis" } satisfies { label: string; value: PredictionHistoryType }]
+    : HISTORY_TYPE_OPTIONS;
+  const winPercentageMultiRankOptions = useMemo(() =>
+    buildPercentageMultiRankOptions(activeWinPercentageMultiModelKey), [activeWinPercentageMultiModelKey]);
+  const usesCashModel = activeSport === "racing" && activeHistoryType !== "win_percentage_multis";
   const hasPredictionRows = predictions.summaryStats.length > 0
     || predictions.disciplineReturns.length > 0
     || predictions.history.length > 0
@@ -176,7 +178,9 @@ export function PredictionHistoryScreen() {
       try {
         setIsLoadingMetadata(true);
         setErrorMessage(null);
-        const nextMetadata = await fetchPredictionHistoryMetadata(activeModelKey);
+        const nextMetadata = activeSport === "ufc"
+          ? await fetchUfcPredictionHistoryMetadata(activeWinPercentageMultiModelKey)
+          : await fetchPredictionHistoryMetadata(activeModelKey);
 
         if (!cancelled) {
           setMetadata(nextMetadata);
@@ -198,7 +202,7 @@ export function PredictionHistoryScreen() {
     return () => {
       cancelled = true;
     };
-  }, [activeModelKey]);
+  }, [activeModelKey, activeSport, activeWinPercentageMultiModelKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +221,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
+          activeSport,
         );
 
         if (!cancelled) {
@@ -242,6 +247,7 @@ export function PredictionHistoryScreen() {
   }, [
     activeModelKey,
     activeWinPercentageMultiModelKey,
+    activeSport,
     filters,
     metadata,
     performanceFilters,
@@ -249,13 +255,24 @@ export function PredictionHistoryScreen() {
   ]);
 
   useEffect(() => {
-    if (
-      activeWinPercentageMultiModelKey !== PLACING_PERCENTAGE_MULTI_MODEL_KEY
-      && ["5", "6"].includes(winPercentageMultiRankFilter)
-    ) {
+    if (activeSport === "ufc") {
+      setActiveHistoryType("win_percentage_multis");
+
+      if (!isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
+        setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      }
+    } else if (isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
+      setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+    }
+  }, [activeSport, activeWinPercentageMultiModelKey]);
+
+  useEffect(() => {
+    const allowedRanks = new Set(winPercentageMultiRankOptions.map((option) => option.value));
+
+    if (!allowedRanks.has(winPercentageMultiRankFilter)) {
       setWinPercentageMultiRankFilter("all");
     }
-  }, [activeWinPercentageMultiModelKey, winPercentageMultiRankFilter]);
+  }, [winPercentageMultiRankFilter, winPercentageMultiRankOptions]);
 
   function updateFilter(key: keyof PredictionHistoryFilters, value: string) {
     setFilters((current) => ({
@@ -329,9 +346,13 @@ export function PredictionHistoryScreen() {
       <Text style={styles.sectionIntro}>
         Historical prediction outcomes split by type. These stats are stored results, not today's candidate list.
       </Text>
+      <PredictionSportTabs
+        activeSport={activeSport}
+        onChange={setActiveSport}
+      />
       <FilterGroup
         label="History type"
-        options={HISTORY_TYPE_OPTIONS}
+        options={historyTypeOptions}
         selectedValue={activeHistoryType}
         onChange={(value) => setActiveHistoryType(value as PredictionHistoryType)}
       />
@@ -354,6 +375,7 @@ export function PredictionHistoryScreen() {
           <WinPercentageMultiModelTabs
             activeModelKey={activeWinPercentageMultiModelKey}
             onChange={setActiveWinPercentageMultiModelKey}
+            sport={activeSport}
           />
           <View style={styles.modelInfo}>
             <Text style={styles.modelInfoTitle}>{activeWinPercentageModel.label}</Text>
@@ -470,7 +492,11 @@ export function PredictionHistoryScreen() {
                 onChange={(value) => setWinPercentageMultiRankFilter(value as WinPercentageMultiRankFilter)}
               />
               <Text style={styles.historyBreakdownHeading}>
-                {isPlacePercentageMultiModel ? "Multi-bet place percentage performance" : "Multi-bet win percentage performance"}
+                {isUfcWinPercentageMultiModel
+                  ? "UFC win percentage multi performance"
+                  : isPlacePercentageMultiModel
+                    ? "Multi-bet place percentage performance"
+                    : "Multi-bet win percentage performance"}
               </Text>
               {predictions.winPercentageMultiBetPerformanceStats.length ? (
                 <View style={styles.statsRow}>
@@ -483,9 +509,11 @@ export function PredictionHistoryScreen() {
                   ))}
                 </View>
               ) : (
-                <StateMessage text={isPlacePercentageMultiModel
-                  ? "No place-percentage multi-bet performance is available yet."
-                  : "No win-percentage multi-bet performance is available yet."}
+                <StateMessage text={isUfcWinPercentageMultiModel
+                  ? "No UFC win-percentage multi performance is available yet."
+                  : isPlacePercentageMultiModel
+                    ? "No place-percentage multi-bet performance is available yet."
+                    : "No win-percentage multi-bet performance is available yet."}
                 />
               )}
             </>
@@ -559,24 +587,28 @@ export function PredictionHistoryScreen() {
                 toDate={filters.toDate}
                 windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available prediction dates"}
               />
-              <FilterGroup
-                label="Country"
-                options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
-                selectedValue={filters.country}
-                onChange={updateCountry}
-              />
-              <FilterGroup
-                label="Discipline"
-                options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
-                selectedValue={filters.discipline}
-                onChange={(value) => updateFilter("discipline", value)}
-              />
-              <FilterGroup
-                label="Racecourse"
-                options={[{ label: "All courses", value: "all" }, ...courseOptions]}
-                selectedValue={filters.course}
-                onChange={(value) => updateFilter("course", value)}
-              />
+              {activeHistoryType === "win_percentage_multis" && isUfcWinPercentageMultiModel ? null : (
+                <>
+                  <FilterGroup
+                    label="Country"
+                    options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
+                    selectedValue={filters.country}
+                    onChange={updateCountry}
+                  />
+                  <FilterGroup
+                    label="Discipline"
+                    options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
+                    selectedValue={filters.discipline}
+                    onChange={(value) => updateFilter("discipline", value)}
+                  />
+                  <FilterGroup
+                    label="Racecourse"
+                    options={[{ label: "All courses", value: "all" }, ...courseOptions]}
+                    selectedValue={filters.course}
+                    onChange={(value) => updateFilter("course", value)}
+                  />
+                </>
+              )}
             </>
           ) : null}
 
@@ -621,7 +653,11 @@ export function PredictionHistoryScreen() {
           {activeHistoryType === "win_percentage_multis" ? (
             <>
               <Text style={styles.historyBreakdownHeading}>
-                {isPlacePercentageMultiModel ? "Place percentage multi date range breakdown" : "Win percentage multi date range breakdown"}
+                {isUfcWinPercentageMultiModel
+                  ? "UFC win percentage multi date range breakdown"
+                  : isPlacePercentageMultiModel
+                    ? "Place percentage multi date range breakdown"
+                    : "Win percentage multi date range breakdown"}
               </Text>
               {predictions.winPercentageMultiBetSummaryStats.length ? (
                 <View style={styles.statsRow}>
@@ -634,9 +670,11 @@ export function PredictionHistoryScreen() {
                   ))}
                 </View>
               ) : (
-                <StateMessage text={isPlacePercentageMultiModel
-                  ? "No tracked place-percentage multi recommendations match this history filter range."
-                  : "No tracked win-percentage multi recommendations match this history filter range."}
+                <StateMessage text={isUfcWinPercentageMultiModel
+                  ? "No tracked UFC multi recommendations match this history filter range."
+                  : isPlacePercentageMultiModel
+                    ? "No tracked place-percentage multi recommendations match this history filter range."
+                    : "No tracked win-percentage multi recommendations match this history filter range."}
                 />
               )}
             </>
@@ -725,7 +763,7 @@ export function PredictionHistoryScreen() {
           {activeHistoryType === "win_percentage_multis" ? (
             <>
               <Text style={styles.historyCount}>
-                {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} {isPlacePercentageMultiModel ? "place percentage" : "win percentage"} multi recommendations
+                {predictions.winPercentageMultiBetHistory.length} of {predictions.totalWinPercentageMultiBetHistoryCount} {isUfcWinPercentageMultiModel ? "UFC win percentage" : isPlacePercentageMultiModel ? "place percentage" : "win percentage"} multi recommendations
               </Text>
 
               <View key={`${activeWinPercentageMultiModelKey}-${filterKey}-${winPercentageMultiRankFilter}-win-percentage-multi`}>
@@ -759,10 +797,12 @@ export function PredictionHistoryScreen() {
 
                 <View style={styles.historyReturnRow}>
                   <Text style={styles.historyReturnText}>
-                    {isPlacePercentageMultiModel ? "Place odds not stored" : `Combined ${recommendation.combinedFixedWinPrice}`}
+                    {isPlacePercentageMultiModel
+                      ? `Combined place ${recommendation.combinedFixedPlacePrice}`
+                      : `Combined ${recommendation.combinedFixedWinPrice}`}
                   </Text>
                   <Text style={styles.historyReturnText}>{recommendation.averageScoreLabel} {recommendation.averageCashScore}</Text>
-                  <Text style={styles.historyReturnText}>{isPlacePercentageMultiModel ? "Result" : "Cash return"} {recommendation.returnLabel}</Text>
+                  <Text style={styles.historyReturnText}>Cash return {recommendation.returnLabel}</Text>
                 </View>
 
                 <View style={styles.multiHistoryLegList}>
@@ -886,6 +926,43 @@ function getHistoryListHeading(historyType: PredictionHistoryType) {
   }
 
   return "Prediction history";
+}
+
+/**
+ * Builds only the rank filters that can exist for the selected percentage multi model.
+ */
+function buildPercentageMultiRankOptions(modelKey: WinPercentageMultiModelKey) {
+  const maxRank = getPercentageMultiMaxLegs(modelKey);
+  const options: { label: string; value: WinPercentageMultiRankFilter }[] = [
+    { label: "All legs", value: "all" },
+  ];
+
+  for (let rank = MIN_PERCENTAGE_MULTI_RANK; rank <= maxRank; rank += 1) {
+    options.push({
+      label: `Top ${rank}`,
+      value: String(rank) as WinPercentageMultiRankFilter,
+    });
+  }
+
+  return options;
+}
+
+/**
+ * Mirrors the stored recommendation caps so history filters do not offer impossible ranks.
+ */
+function getPercentageMultiMaxLegs(modelKey: WinPercentageMultiModelKey) {
+  if (
+    modelKey === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
+    || modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+  ) {
+    return 10;
+  }
+
+  if (modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY || isUfcPercentageMultiModel(modelKey)) {
+    return 8;
+  }
+
+  return 5;
 }
 
 function StateMessage({ text, tone = "default" }: StateMessageProps) {

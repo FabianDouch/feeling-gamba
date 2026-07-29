@@ -44,7 +44,7 @@ const RACING_DAY_QUERY = `
 `;
 
 const RACE_CARD_QUERY = `
-  query RaceCardLite($id: ID!) {
+  query RacingRaceCardSnapshot($id: ID!) {
     raceCard: node(id: $id) {
       __typename
       ... on RacingRaceCard {
@@ -146,7 +146,13 @@ async function graphql(operationName, query, variables) {
     throw new Error(`${operationName} failed with HTTP ${response.status}`);
   }
 
-  const payload = await response.json();
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(`${operationName} returned an empty response body`);
+  }
+
+  const payload = JSON.parse(text);
 
   if (payload.errors?.length) {
     throw new Error(`${operationName} returned GraphQL errors: ${payload.errors.map((error) => error.message).join("; ")}`);
@@ -412,7 +418,7 @@ export async function fetchTrackRaceOdds(request, historicalStats = {
   const races = [];
 
   for (const race of sourceRaces) {
-    const response = await graphql("RaceCardLite", RACE_CARD_QUERY, {
+    const response = await graphql("RacingRaceCardSnapshot", RACE_CARD_QUERY, {
       id: toRaceCardId(race.id),
     });
     const raceCard = response.data?.raceCard;

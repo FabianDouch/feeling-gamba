@@ -6,18 +6,24 @@ import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  isUfcPercentageMultiModel,
   type PredictionModelKey,
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
-import type { CurrentPredictionType } from "./PredictionControls";
+import type { CurrentPredictionType, PredictionSport } from "./PredictionControls";
 import {
   type BetCandidate,
   type RecommendationPayload,
   type RecommendationRace,
   SOURCE_TIME_ZONE,
+  type UfcWinPercentageMultiModelRun,
+  type UfcMultiRecommendation,
 } from "../data/promotionPayload";
 import {
   fetchLatestPredictionSnapshot,
@@ -30,6 +36,12 @@ import {
   saveLockedWinPercentageMulti,
   type LockedWinPercentageMultiRecommendation,
 } from "../data/userLockedMultiRecommendations";
+import {
+  createLockedUfcMultiInput,
+  fetchLockedUfcMulti,
+  saveLockedUfcMulti,
+  type LockedUfcMultiRecommendation,
+} from "../data/userLockedUfcMultiRecommendations";
 import {
   fetchUserRaceBets,
   formatBookmaker,
@@ -45,6 +57,7 @@ type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfig
 
 type BetCandidatesSectionProps = {
   predictionModelKey?: PredictionModelKey;
+  predictionSport?: PredictionSport;
   predictionType?: CurrentPredictionType;
   winPercentageMultiModelKey?: WinPercentageMultiModelKey;
 };
@@ -59,12 +72,18 @@ const MULTI_BET_MAX_LEGS = 5;
 const WIN_PERCENTAGE_THRESHOLD_MAX_LEGS = 10;
 const PLACING_PERCENTAGE_MAX_LEGS = 8;
 const MULTI_BET_MIN_LEGS = 3;
+const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelKey, string>> = {
+  [UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "UFC favourite price multi",
+  [UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "UFC other fighter price multi",
+  [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: "UFC price difference multi",
+};
 
 /**
  * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
+  predictionSport = "racing",
   predictionType = "cash",
   winPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
 }: BetCandidatesSectionProps) {
@@ -80,9 +99,11 @@ export function BetCandidatesSection({
   const [trackedBetError, setTrackedBetError] = useState<string | null>(null);
   const [lockedWinPercentageMulti, setLockedWinPercentageMulti] =
     useState<LockedWinPercentageMultiRecommendation | null>(null);
+  const [lockedUfcMultis, setLockedUfcMultis] = useState<Record<string, LockedUfcMultiRecommendation>>({});
   const [lockedMultiMessage, setLockedMultiMessage] = useState<string | null>(null);
   const [lockedMultiError, setLockedMultiError] = useState<string | null>(null);
   const [isLockingWinPercentageMulti, setIsLockingWinPercentageMulti] = useState(false);
+  const [lockingUfcCardId, setLockingUfcCardId] = useState<string | null>(null);
   const [selectedDisciplineCode, setSelectedDisciplineCode] = useState<string | null>(null);
   const betCandidateScan = payload?.betBackCandidates ?? null;
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
@@ -90,15 +111,20 @@ export function BetCandidatesSection({
   const betCandidates = selectedModelRun?.candidates ?? betCandidateScan?.candidates ?? [];
   const placingCandidatePool = betCandidateScan?.placingCandidates ?? betCandidates;
   const winPercentageMultiCandidatePool = getWinPercentageMultiCandidatePool(betCandidateScan, betCandidates);
+  const isUfcWinPercentageMulti = isUfcPercentageMultiModel(winPercentageMultiModelKey);
+  const activeUfcModelRun = payload?.ufcWinPercentageMultis?.models?.find((model) =>
+    model.key === winPercentageMultiModelKey) ?? null;
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
-  const winPercentageMultiRecommendation = buildPercentageMultiBetRecommendation(
-    isPlacingPercentageMultiModel(winPercentageMultiModelKey)
-      ? placingCandidatePool
-      : winPercentageMultiCandidatePool,
-    winPercentageMultiModelKey,
-  );
+  const winPercentageMultiRecommendation = isUfcWinPercentageMulti
+    ? null
+    : buildPercentageMultiBetRecommendation(
+      isPlacingPercentageMultiModel(winPercentageMultiModelKey)
+        ? placingCandidatePool
+        : winPercentageMultiCandidatePool,
+      winPercentageMultiModelKey,
+    );
   const displayedWinPercentageMultiRecommendation = lockedWinPercentageMulti
     ? createRecommendationFromLockedWinPercentageMulti(lockedWinPercentageMulti)
     : winPercentageMultiRecommendation;
@@ -106,7 +132,10 @@ export function BetCandidatesSection({
     ?? candidateGroups[0]
     ?? null;
   const modelScoreLabel = "Cash avg score";
-  const cacheAgeMs = snapshotGeneratedAt ? Date.now() - new Date(snapshotGeneratedAt).valueOf() : null;
+  const activeSnapshotGeneratedAt = predictionSport === "ufc"
+    ? payload?.ufcGeneratedAt ?? snapshotGeneratedAt
+    : snapshotGeneratedAt;
+  const cacheAgeMs = activeSnapshotGeneratedAt ? Date.now() - new Date(activeSnapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
   const sourceDate = payload?.sourceDate ?? null;
   const candidatesAreStale = Boolean(payload)
@@ -242,7 +271,7 @@ export function BetCandidatesSection({
     let isActive = true;
 
     async function loadLockedWinPercentageMulti() {
-      if (!user || !sourceDate) {
+      if (!user || !sourceDate || isUfcWinPercentageMulti) {
         setLockedWinPercentageMulti(null);
         return;
       }
@@ -265,7 +294,41 @@ export function BetCandidatesSection({
     return () => {
       isActive = false;
     };
-  }, [sourceDate, user, winPercentageMultiModelKey]);
+  }, [isUfcWinPercentageMulti, sourceDate, user, winPercentageMultiModelKey]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadLockedUfcMultis() {
+      if (!user || !sourceDate || !isUfcWinPercentageMulti || !activeUfcModelRun?.recommendations.length) {
+        setLockedUfcMultis({});
+        return;
+      }
+
+      try {
+        const locks = await Promise.all(activeUfcModelRun.recommendations.map((recommendation) =>
+          fetchLockedUfcMulti(sourceDate, recommendation.sourceCardId, winPercentageMultiModelKey)));
+
+        if (!isActive) {
+          return;
+        }
+
+        setLockedUfcMultis(Object.fromEntries(locks
+          .filter((lock): lock is LockedUfcMultiRecommendation => Boolean(lock))
+          .map((lock) => [lock.sourceCardId, lock])));
+      } catch (error) {
+        if (isActive) {
+          setLockedMultiError(error instanceof Error ? error.message : "Locked UFC multis failed to load.");
+        }
+      }
+    }
+
+    loadLockedUfcMultis();
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeUfcModelRun, isUfcWinPercentageMulti, sourceDate, user, winPercentageMultiModelKey]);
 
   async function refreshCandidates() {
     if (!hasSupabasePredictionCacheConfig) {
@@ -275,14 +338,16 @@ export function BetCandidatesSection({
 
     try {
       setIsRequestingRefresh(true);
-      setRefreshMessage("Requesting fresh bet candidates.");
+      setRefreshMessage(predictionSport === "ufc" ? "Requesting fresh UFC multis." : "Requesting fresh bet candidates.");
       setLoadError(null);
       let refreshError: Error | null = null;
       let refreshedPayload: RecommendationPayload | null = null;
 
       if (hasPredictionRefreshEndpoint) {
         try {
-          refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
+          refreshedPayload = await requestPredictionRefresh<RecommendationPayload>({
+            sport: predictionSport,
+          });
         } catch (error) {
           refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
         }
@@ -316,7 +381,7 @@ export function BetCandidatesSection({
         : refreshError
           ? `Prediction refresh failed, but cached candidates loaded: ${refreshError.message}`
           : hasPredictionRefreshEndpoint
-            ? "Fresh bet candidates loaded."
+            ? predictionSport === "ufc" ? "Fresh UFC multis loaded." : "Fresh bet candidates loaded."
             : "Supabase cache rechecked. Configure EXPO_PUBLIC_PREDICTION_REFRESH_URL to generate new candidates from the app.");
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Could not refresh bet candidates.");
@@ -376,16 +441,69 @@ export function BetCandidatesSection({
     }
   }
 
+  async function lockUfcPercentageMulti(recommendation: UfcMultiRecommendation) {
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+
+    if (!payload) {
+      setLockedMultiError("No UFC percentage multi is available to lock.");
+      return;
+    }
+
+    if (lockedUfcMultis[recommendation.sourceCardId]) {
+      setLockedMultiMessage(`Locked UFC multi from ${formatDateTime(lockedUfcMultis[recommendation.sourceCardId].lockedAt)} is already active.`);
+      return;
+    }
+
+    if (!isBeforeLockCutoff(recommendation.lockCutoffAt)) {
+      setLockedMultiError("UFC multi locking has closed for this fight card.");
+      return;
+    }
+
+    try {
+      setLockingUfcCardId(recommendation.sourceCardId);
+      setLockedMultiError(null);
+      setLockedMultiMessage(null);
+      const locked = await saveLockedUfcMulti(
+        createLockedUfcMultiInput(
+          payload,
+          payload.ufcWinPercentageMultis?.source ?? "betcha",
+          recommendation,
+        ),
+        winPercentageMultiModelKey,
+      );
+      setLockedUfcMultis((current) => ({
+        ...current,
+        [locked.sourceCardId]: locked,
+      }));
+      setLockedMultiMessage(`Locked UFC multi from ${formatDateTime(locked.lockedAt)}.`);
+    } catch (error) {
+      setLockedMultiError(error instanceof Error ? error.message : "Could not lock UFC multi.");
+    } finally {
+      setLockingUfcCardId(null);
+    }
+  }
+
   return (
     <View style={styles.panel}>
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <Text style={styles.subheading}>{sectionTitle}</Text>
-          <Text style={styles.sectionNote}>
-            {betCandidateScan?.scannedRaceCount ?? 0} current races scanned ·{" "}
-            {betCandidateScan?.eligibleRaceCount ?? 0} priced candidates ·{" "}
-            {betCandidateScan?.scannedMeetings ?? 0} meetings
-          </Text>
+          {predictionSport === "ufc" ? (
+            <Text style={styles.sectionNote}>
+              {payload?.ufcWinPercentageMultis?.scannedUfcCardCount ?? 0} UFC cards scanned ·{" "}
+              {payload?.ufcWinPercentageMultis?.models.reduce((total, model) =>
+                total + model.recommendations.length, 0) ?? 0} card recommendations
+            </Text>
+          ) : (
+            <Text style={styles.sectionNote}>
+              {betCandidateScan?.scannedRaceCount ?? 0} current races scanned ·{" "}
+              {betCandidateScan?.eligibleRaceCount ?? 0} priced candidates ·{" "}
+              {betCandidateScan?.scannedMeetings ?? 0} meetings
+            </Text>
+          )}
           {predictionType === "cash" ? (
             <Text style={styles.sectionNote}>
               Current model {selectedModelRun?.label ?? "Global bucket blend"}
@@ -453,19 +571,31 @@ export function BetCandidatesSection({
       {!payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
       ) : predictionType === "win_percentage" ? (
-        <WinPercentageMultiRecommendationPanel
-          disabledReason={getWinPercentageLockDisabledReason({
-            isLocked: Boolean(lockedWinPercentageMulti),
-            isSignedIn: Boolean(user),
-            recommendation: winPercentageMultiRecommendation,
-          })}
-          isLocked={Boolean(lockedWinPercentageMulti)}
-          isLocking={isLockingWinPercentageMulti || isSigningIn}
-          lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
-          modelKey={winPercentageMultiModelKey}
-          onLock={lockWinPercentageMulti}
-          recommendation={displayedWinPercentageMultiRecommendation}
-        />
+        isUfcWinPercentageMulti ? (
+          <UfcWinPercentageMultiRecommendationsPanel
+            isSigningIn={isSigningIn}
+            lockedMultis={lockedUfcMultis}
+            lockingCardId={lockingUfcCardId}
+            modelKey={winPercentageMultiModelKey}
+            modelRun={activeUfcModelRun}
+            onLock={lockUfcPercentageMulti}
+            userIsSignedIn={Boolean(user)}
+          />
+        ) : (
+          <WinPercentageMultiRecommendationPanel
+            disabledReason={getWinPercentageLockDisabledReason({
+              isLocked: Boolean(lockedWinPercentageMulti),
+              isSignedIn: Boolean(user),
+              recommendation: winPercentageMultiRecommendation,
+            })}
+            isLocked={Boolean(lockedWinPercentageMulti)}
+            isLocking={isLockingWinPercentageMulti || isSigningIn}
+            lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
+            modelKey={winPercentageMultiModelKey}
+            onLock={lockWinPercentageMulti}
+            recommendation={displayedWinPercentageMultiRecommendation}
+          />
+        )
       ) : predictionType === "placing" ? (
         <PlacingRecommendationsPanel recommendations={placingRecommendations} />
       ) : betCandidates.length ? (
@@ -640,6 +770,16 @@ type WinPercentageMultiRecommendationPanelProps = {
   modelKey: WinPercentageMultiModelKey;
   onLock: () => void;
   recommendation: MultiBetRecommendation | null;
+};
+
+type UfcWinPercentageMultiRecommendationsPanelProps = {
+  isSigningIn: boolean;
+  lockedMultis: Record<string, LockedUfcMultiRecommendation>;
+  lockingCardId: string | null;
+  modelKey: WinPercentageMultiModelKey;
+  modelRun: UfcWinPercentageMultiModelRun | null;
+  onLock: (recommendation: UfcMultiRecommendation) => void;
+  userIsSignedIn: boolean;
 };
 
 /**
@@ -848,6 +988,124 @@ function WinPercentageMultiRecommendationPanel({
             : isPlacePercentageModel
               ? "Place-rate legs will appear here once the current snapshot has enough eligible priced favourites with active place markets."
             : "Positive and neutral win-rate signals will appear here once the current snapshot has enough eligible priced legs."}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Shows UFC same-card percentage multi recommendations from Betcha fight-card markets.
+ */
+function UfcWinPercentageMultiRecommendationsPanel({
+  isSigningIn,
+  lockedMultis,
+  lockingCardId,
+  modelKey,
+  modelRun,
+  onLock,
+  userIsSignedIn,
+}: UfcWinPercentageMultiRecommendationsPanelProps) {
+  const recommendations = modelRun?.recommendations ?? [];
+
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>{getPercentageMultiDisplayLabel(modelKey)} recommendation</Text>
+          <Text style={styles.multiContext}>
+            {recommendations.length
+              ? `${recommendations.length} UFC fight card${recommendations.length === 1 ? "" : "s"} with same-card H2H legs`
+              : "Needs at least 3 fully priced Head to Head fights on the same UFC card"}
+          </Text>
+        </View>
+      </View>
+
+      {recommendations.length ? recommendations.map((recommendation) => {
+        const locked = lockedMultis[recommendation.sourceCardId] ?? null;
+        const disabledReason = getUfcLockDisabledReason({
+          isLocked: Boolean(locked),
+          isSignedIn: userIsSignedIn,
+          recommendation,
+        });
+        const isLocking = lockingCardId === recommendation.sourceCardId || isSigningIn;
+        const isLockDisabled = Boolean(locked) || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
+
+        return (
+          <View key={recommendation.sourceCardId} style={styles.ufcCardBlock}>
+            <View style={styles.multiHeader}>
+              <View style={styles.headerText}>
+                <Text style={styles.multiTitle}>{recommendation.sourceCardName}</Text>
+                <Text style={styles.multiContext}>
+                  First fight {formatDateTime(recommendation.firstFightStart)} · locks before {formatDateTime(recommendation.lockCutoffAt)}
+                </Text>
+              </View>
+              <View style={styles.multiActions}>
+                <View style={[styles.signalBadge, styles[`signal_${recommendation.recommendationType}`]]}>
+                  <Text style={styles.signalText}>
+                    {recommendation.recommendationType === "positive" ? "Positive multi" : "Neutral multi"}
+                  </Text>
+                </View>
+                <Pressable
+                  disabled={isLockDisabled}
+                  onPress={() => onLock(recommendation)}
+                  style={[
+                    styles.lockButton,
+                    locked ? styles.lockButtonLocked : null,
+                    isLockDisabled ? styles.lockButtonDisabled : null,
+                  ]}
+                >
+                  <Text style={[
+                    styles.lockButtonText,
+                    locked ? styles.lockButtonTextLocked : null,
+                  ]}
+                  >
+                    {locked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+            {locked ? (
+              <Text style={styles.multiFooter}>Locked {formatDateTime(locked.lockedAt)}. This snapshot will stay active even if prices change.</Text>
+            ) : disabledReason && disabledReason !== "Sign in to lock" ? (
+              <Text style={styles.multiFooter}>{disabledReason}</Text>
+            ) : null}
+            <View style={styles.multiMetricRow}>
+              <Metric label="Combined fixed win" value={formatCombinedFixedWinPrice(recommendation.combinedFixedWinPrice)} />
+              <Metric label="Avg win score" value={formatPercentage(recommendation.averageWinScore)} />
+            </View>
+            <View style={styles.multiLegList}>
+              {recommendation.legs.map((leg, index) => (
+                <View key={leg.sourceEventId} style={styles.multiLeg}>
+                  <View style={styles.multiLegIndex}>
+                    <Text style={styles.multiLegIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.multiLegTextBlock}>
+                    <View style={styles.multiLegTitleRow}>
+                      <RaceDisciplineIcon code="ufc" size={16} />
+                      <Text style={styles.multiLegTitle}>
+                        {leg.predictedFighterName} vs {leg.otherFighterName}
+                      </Text>
+                    </View>
+                    <Text style={styles.multiLegMeta}>
+                      {formatDateTime(leg.advertisedStart)} · {formatCurrency(leg.predictedFixedWinPrice)} ·{" "}
+                      {formatPercentage(leg.signal.score)} win score
+                    </Text>
+                    <Text style={styles.multiLegMeta}>
+                      {leg.signal.bucketLabel ?? "Unknown bucket"} · {leg.signal.bucketSampleSize} samples · diff {formatCurrency(leg.priceDifference)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.multiLegSignal, styles[`signalText_${leg.signal.tone}`]]}>
+                    {formatWinPercentageSignalLabel(leg.signal.tone)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+      }) : (
+        <Text style={styles.multiFooter}>
+          UFC same-card multis will appear here once Betcha has an eligible upcoming UFC card with at least 3 fully priced H2H fights.
         </Text>
       )}
     </View>
@@ -1067,6 +1325,10 @@ function isPlacingPercentageMultiModel(modelKey: WinPercentageMultiModelKey) {
 function getPercentageMultiDisplayLabel(modelKey: WinPercentageMultiModelKey) {
   if (modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY) {
     return "place percentage multi";
+  }
+
+  if (isUfcPercentageMultiModel(modelKey)) {
+    return WIN_PERCENTAGE_MULTI_MODEL_LABELS[modelKey] ?? "UFC win percentage multi";
   }
 
   const threshold = getWinPercentageMultiThreshold(modelKey);
@@ -1827,6 +2089,34 @@ function getWinPercentageLockDisabledReason({
   return null;
 }
 
+function getUfcLockDisabledReason({
+  isLocked,
+  isSignedIn,
+  recommendation,
+}: {
+  isLocked: boolean;
+  isSignedIn: boolean;
+  recommendation: UfcMultiRecommendation;
+}) {
+  if (isLocked) {
+    return "Already locked";
+  }
+
+  if (!recommendation.legs.length) {
+    return "No UFC multi to lock";
+  }
+
+  if (!isSignedIn) {
+    return "Sign in to lock";
+  }
+
+  if (!isBeforeLockCutoff(recommendation.lockCutoffAt)) {
+    return "Locking closed for this fight card";
+  }
+
+  return null;
+}
+
 /**
  * Keeps lock creation aligned to the user's morning pre-bet workflow.
  */
@@ -1841,6 +2131,16 @@ function isBeforeAucklandLockCutoff(now = new Date()) {
   const minutesSinceMidnight = (value("hour") * 60) + value("minute");
 
   return minutesSinceMidnight < 10 * 60;
+}
+
+function isBeforeLockCutoff(value: string | null, now = new Date()) {
+  if (!value) {
+    return false;
+  }
+
+  const cutoff = new Date(value).valueOf();
+
+  return Number.isFinite(cutoff) && now.valueOf() < cutoff;
 }
 
 function createLockedWinPercentageMultiInput(
@@ -2466,5 +2766,12 @@ const styles = StyleSheet.create({
   },
   trackBetButtonTextLogged: {
     color: "#067647",
+  },
+  ufcCardBlock: {
+    borderColor: "#e4e7ec",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
   },
 });

@@ -68,6 +68,7 @@ inspection but should not be the default app landing page.
 Purpose:
 
 - Toggle between Racing and UFC historical rows.
+- Toggle between raw Historical rows and generated Model backtests.
 - Browse races by date.
 - Filter by collected date range, country, discipline, and racecourse.
 - Compare declared field size, final starter count, favourite, MarketMover,
@@ -77,11 +78,16 @@ Purpose:
 - Browse UFC fights by event-date range with fighter names, winner, favourite,
   favourite price, other fighter price, price difference, source match status,
   and `$1` favourite return state.
+- Compare aggregate historical win-percentage multi backtests generated from
+  prior-day-only data. These answer what the app would have recommended
+  historically and remain separate from live Prediction History.
 
 Main content:
 
 - Sport selector: Racing or UFC.
-- Date range picker bounded to collected race/UFC event dates.
+- View selector: Historical rows or Model backtests.
+- Date range picker bounded to collected race/UFC event dates for Historical
+  rows only.
 - Default latest-20-race Supabase result set across AUS/NZ/HK.
 - Country filter: all countries, NZ, AUS, HK.
 - Discipline filter: horse, harness, greyhound.
@@ -92,6 +98,10 @@ Main content:
   racecourse are selected.
 - Race list grouped by meeting/track.
 - UFC fight list grouped by returned event-date order.
+- Model backtests view showing one top-level History type (`Win % multis`),
+  sport-scoped model tabs, win percentage multi rank filters (`All legs`, `Top
+  3`, `Top 4`), and aggregate Multi-bet win percentage performance. It does not
+  show individual historical multi rows or a date selector for now.
 - Empty and partial-data states.
 
 Entry points:
@@ -335,11 +345,23 @@ Main content:
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Win percentage type selector with the original `multi_win_percentage_blend_v1`
+- Sport selector for current Predictions: Racing or UFC.
+- Racing prediction type selector: Cash, Win %, and Placing.
+- Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   three-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
   `multi_win_percentage_65_plus_v1` models that keep only 60%+ or 65%+
   win-score legs and can show up to 10 legs, plus `multi_place_percentage_v1`
   with up to eight place-rate legs.
+- UFC Win percentage model selector with same-card percentage multi models for
+  favourite price bucket, other fighter price bucket, and price-difference
+  bucket signals; each UFC model can show up to eight Head to Head favourite
+  legs from one Betcha UFC card.
+- The current Predictions refresh button refreshes only the active sport:
+  Racing refreshes racing race-card predictions; UFC refreshes UFC fight-card
+  multis without refreshing racing.
+- UFC percentage multis can be locked per signed-in user, source date, card,
+  and model until the stored card cutoff just before the first fight. They do
+  not use the racing 10:00am lock rule.
 - Placing recommendations panel shown under the placing type,
   using historical place percentages from stored insight aggregates. A place
   counts as top 2 in smaller place fields and top 3 in larger fields: AU/NZ
@@ -476,13 +498,21 @@ Main content:
 - Multi-bet percentage performance in Stored model performance, independent of
   the selected cash prediction model, using the selected percentage multi model,
   tracked multi count, settled/pending count, hit rate, relevant average score,
-  and open-issue metrics.
+  cash average, cash net, and open-issue metrics. For
+  `multi_place_percentage_v1`, cash return metrics use stored fixed-place odds
+  where available.
+- Prediction History sport selector: Racing or UFC.
+- Racing Prediction History keeps the history type selector: singles, cash
+  multis, win percentage multis, and placing. UFC Prediction History shows UFC
+  Win % multis under the UFC sport tab.
 - Multi-bet percentage performance should include a local rank filter just
-  above that performance section. Win-rate models show all ranks, top 3, and
-  top 4 options. `multi_place_percentage_v1` also shows top 5 and top 6
-  options. Filtered rows should re-aggregate the first ranked percentage multi
-  legs from each stored recommendation instead of reusing the full stored multi
-  result.
+  above that performance section. It always includes All legs, then exposes
+  top-N options up to the selected model's configured maximum: top 3-5 for the
+  original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage
+  models, top 3-8 for `multi_place_percentage_v1`, and top 3-8 for UFC
+  percentage multi models.
+  Filtered rows should re-aggregate the first ranked percentage multi legs from
+  each stored recommendation instead of reusing the full stored multi result.
 - Placing prediction performance in Stored model performance for the selected
   model, using place-eligible settled rows and country-aware starter-count place
   rules instead of raw 1st/2nd/3rd totals.
@@ -490,10 +520,11 @@ Main content:
   same cash-only metrics and the active Prediction history filters.
 - Percentage multi date-range breakdown and history using the active Prediction
   history filters, with average win score or place score labels instead of
-  average cash score labels.
+  average cash score labels. UFC percentage multi history uses date filters
+  only and hides racing-only country, discipline, and racecourse filters.
 - Multi bet recommendation history rows showing recommendation type, leg count,
-  relevant average score, result label, and leg-level
-  Won/Placed/Lost/Missed/Pending/Missing outcomes.
+  relevant average score, combined win/place odds, cash return, result label,
+  and leg-level Won/Placed/Lost/Missed/Pending/Missing outcomes.
 - Explicit empty/loading/error states when Supabase prediction aggregates are
   unavailable.
 
@@ -505,10 +536,13 @@ Rules:
   cash-model historical sections: stored performance, history metadata, history
   summaries, history rows, selected-model multi performance, and selected-model
   multi history must all be scoped to the active model key.
-- Percentage multi history uses the selected dedicated multi-only model,
+- Percentage multi history uses the selected sport's dedicated multi-only
+  model,
   starting with `multi_win_percentage_blend_v1`,
   `multi_win_percentage_60_plus_v1`, `multi_win_percentage_65_plus_v1`, and
-  `multi_place_percentage_v1`, independent of the selected cash model.
+  `multi_place_percentage_v1` for Racing, or the UFC favourite price, other
+  fighter price, and price-difference multi models for UFC, independent of the
+  selected cash model.
 - Do not calculate prediction performance from raw prediction rows in the app.
 - Use raw prediction rows only for server-side filtered itemised history
   display.

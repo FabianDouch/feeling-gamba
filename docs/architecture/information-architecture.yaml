@@ -343,7 +343,7 @@ navigation:
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
           - Show percentage multi model tabs under the Win % multis history type so the original, 60%+, 65%+, and place percentage models can be reviewed independently.
-          - Add a local rank filter immediately above Multi-bet percentage performance with all ranks, top 3, and top 4 options for win-rate models; multi_place_percentage_v1 also shows top 5 and top 6 options.
+          - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 3-5 for the original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show percentage multi date-range breakdown and history with average win score or place score labels and leg-level Won/Placed/Lost/Missed/Pending/Missing outcomes.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, relevant average score, result label, and per-leg Won/Placed/Lost/Missed/Pending/Missing outcomes.

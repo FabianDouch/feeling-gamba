@@ -12,6 +12,17 @@ import {
   type RaceDayMetadata,
 } from "../data/supabaseRaceDays";
 import {
+  fetchHistoricalMultiBacktestPerformance,
+  hasSupabaseHistoricalBacktestConfig,
+  type HistoricalBacktestRankFilter,
+} from "../data/supabaseHistoricalBacktests";
+import {
+  PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  type WinPercentageMultiModelKey,
+} from "../data/supabasePredictions";
+import {
   createDefaultUfcHistoricalFilters,
   DEFAULT_UFC_ROW_LIMIT,
   fetchUfcHistoricalEntries,
@@ -21,18 +32,31 @@ import {
   type UfcHistoricalFilters,
   type UfcHistoricalMetadata,
 } from "../data/supabaseUfc";
-import type { RaceSummary } from "../data/collectedRaceDay";
+import type { FavouriteStat, RaceSummary } from "../data/collectedRaceDay";
 import { FavouriteTrackControl } from "./FavouriteTrackControl";
 import { FavouriteTrackQuickFilter } from "./FavouriteTrackQuickFilter";
+import { WinPercentageMultiModelTabs } from "./PredictionControls";
 import type { UserFavouriteTrack } from "../data/userFavouriteTracks";
 
 type HistoricalSport = "racing" | "ufc";
+type HistoricalView = "backtests" | "rows";
+type HistoricalBacktestHistoryType = "win_percentage_multis";
+
+const HISTORICAL_BACKTEST_HISTORY_TYPE_OPTIONS = [
+  { label: "Win % multis", value: "win_percentage_multis" },
+] satisfies { label: string; value: HistoricalBacktestHistoryType }[];
+const HISTORICAL_BACKTEST_RANK_OPTIONS = [
+  { label: "All legs", value: "all" },
+  { label: "Top 3", value: "3" },
+  { label: "Top 4", value: "4" },
+] satisfies { label: string; value: HistoricalBacktestRankFilter }[];
 
 /**
  * Lists sport-specific historical rows with source-backed prices and results.
  */
 export function RaceDaysScreen() {
   const [sport, setSport] = useState<HistoricalSport>("racing");
+  const [view, setView] = useState<HistoricalView>("rows");
   const [filters, setFilters] = useState<RaceDayFilters>({
     country: "all",
     course: "all",
@@ -48,12 +72,20 @@ export function RaceDaysScreen() {
   const [ufcMetadata, setUfcMetadata] = useState<UfcHistoricalMetadata | null>(null);
   const [races, setRaces] = useState<RaceSummary[]>([]);
   const [ufcFights, setUfcFights] = useState<UfcFightSummary[]>([]);
+  const [backtestPerformanceStats, setBacktestPerformanceStats] = useState<FavouriteStat[]>([]);
+  const [backtestHistoryType, setBacktestHistoryType] =
+    useState<HistoricalBacktestHistoryType>("win_percentage_multis");
+  const [activeBacktestModelKey, setActiveBacktestModelKey] =
+    useState<WinPercentageMultiModelKey>(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  const [backtestRankFilter, setBacktestRankFilter] =
+    useState<HistoricalBacktestRankFilter>("all");
   const [totalRaceCount, setTotalRaceCount] = useState(0);
   const [totalUfcFightCount, setTotalUfcFightCount] = useState(0);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingUfcMetadata, setIsLoadingUfcMetadata] = useState(false);
   const [isLoadingRaces, setIsLoadingRaces] = useState(false);
   const [isLoadingUfcFights, setIsLoadingUfcFights] = useState(false);
+  const [isLoadingBacktestPerformance, setIsLoadingBacktestPerformance] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [favouritesReloadKey, setFavouritesReloadKey] = useState(0);
   const courseOptions = useMemo(() => getCourseOptions(metadata, filters.country), [
@@ -113,6 +145,13 @@ export function RaceDaysScreen() {
   }, []);
 
   useEffect(() => {
+    setActiveBacktestModelKey(sport === "ufc"
+      ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
+      : WIN_PERCENTAGE_MULTI_MODEL_KEY);
+    setBacktestRankFilter("all");
+  }, [sport]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadUfcMetadata() {
@@ -159,7 +198,7 @@ export function RaceDaysScreen() {
     let cancelled = false;
 
     async function loadRaces() {
-      if (sport !== "racing" || !metadata || !filters.fromDate || !filters.toDate) {
+      if (sport !== "racing" || view !== "rows" || !metadata || !filters.fromDate || !filters.toDate) {
         return;
       }
 
@@ -194,13 +233,13 @@ export function RaceDaysScreen() {
     return () => {
       cancelled = true;
     };
-  }, [filters, metadata, sport]);
+  }, [filters, metadata, sport, view]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadUfcFights() {
-      if (sport !== "ufc" || !ufcMetadata || !ufcFilters.fromDate || !ufcFilters.toDate) {
+      if (sport !== "ufc" || view !== "rows" || !ufcMetadata || !ufcFilters.fromDate || !ufcFilters.toDate) {
         return;
       }
 
@@ -235,7 +274,53 @@ export function RaceDaysScreen() {
     return () => {
       cancelled = true;
     };
-  }, [sport, ufcFilters, ufcMetadata]);
+  }, [sport, ufcFilters, ufcMetadata, view]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBacktestPerformance() {
+      if (view !== "backtests") {
+        return;
+      }
+
+      if (!hasSupabaseHistoricalBacktestConfig) {
+        setErrorMessage("Supabase is not configured for Historical backtests.");
+        return;
+      }
+
+      try {
+        setIsLoadingBacktestPerformance(true);
+        setErrorMessage(null);
+        const stats = await fetchHistoricalMultiBacktestPerformance(
+          sport,
+          activeBacktestModelKey,
+          backtestRankFilter,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setBacktestPerformanceStats(stats);
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Historical backtests failed to load.");
+          setBacktestPerformanceStats([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingBacktestPerformance(false);
+        }
+      }
+    }
+
+    loadBacktestPerformance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBacktestModelKey, backtestRankFilter, sport, view]);
 
   function updateFilter(key: keyof RaceDayFilters, value: string) {
     setFilters((current) => ({
@@ -341,10 +426,18 @@ export function RaceDaysScreen() {
         <View>
           <Text style={styles.eyebrow}>Historical data</Text>
           <Text style={styles.heading}>
-            {sport === "ufc" ? "Logged UFC fights" : "Logged races"}
+            {view === "backtests"
+              ? "Historical model backtests"
+              : sport === "ufc" ? "Logged UFC fights" : "Logged races"}
           </Text>
           <Text style={styles.countText}>
-            {sport === "ufc"
+            {view === "backtests"
+              ? isLoadingBacktestPerformance
+                ? "Loading historical model performance"
+                : backtestPerformanceStats.length
+                  ? "All-time model backtest performance"
+                  : "No historical model performance"
+              : sport === "ufc"
               ? isLoadingUfcMetadata || isLoadingUfcFights
                 ? "Loading Supabase UFC fights"
                 : `${ufcFights.length} of ${totalUfcFightCount} fights`
@@ -369,127 +462,170 @@ export function RaceDaysScreen() {
         selectedValue={sport}
         onChange={updateSport}
       />
+      <FilterGroup
+        label="View"
+        options={[
+          { label: "Historical rows", value: "rows" },
+          { label: "Model backtests", value: "backtests" },
+        ]}
+        selectedValue={view}
+        onChange={(value) => setView(value as HistoricalView)}
+      />
 
       {sport === "ufc" ? (
         <>
-          <DateRangeFilter
-            fromDate={ufcFilters.fromDate}
-            onChange={updateUfcDateBoundary}
-            onReset={resetUfcDateRange}
-            options={ufcMetadata?.dateOptions ?? []}
-            toDate={ufcFilters.toDate}
-            windowLabel={ufcMetadata?.latestWindowRangeLabel ?? "Loading available UFC dates"}
-          />
+          {view === "backtests" ? (
+            <HistoricalBacktestPerformancePanel
+              activeHistoryType={backtestHistoryType}
+              activeModelKey={activeBacktestModelKey}
+              errorMessage={errorMessage}
+              isLoading={isLoadingBacktestPerformance}
+              onChangeHistoryType={(value) => setBacktestHistoryType(value)}
+              onChangeModel={setActiveBacktestModelKey}
+              onChangeRank={(value) => setBacktestRankFilter(value)}
+              rankFilter={backtestRankFilter}
+              sport={sport}
+              stats={backtestPerformanceStats}
+            />
+          ) : (
+            <>
+              <DateRangeFilter
+                fromDate={ufcFilters.fromDate}
+                onChange={updateUfcDateBoundary}
+                onReset={resetUfcDateRange}
+                options={ufcMetadata?.dateOptions ?? []}
+                toDate={ufcFilters.toDate}
+                windowLabel={ufcMetadata?.latestWindowRangeLabel ?? "Loading available UFC dates"}
+              />
 
-          <View key={ufcFilterKey}>
-            {errorMessage ? (
-              <View style={styles.errorState}>
-                <Text style={styles.errorStateText}>{errorMessage}</Text>
+              <View key={ufcFilterKey}>
+                {errorMessage ? (
+                  <View style={styles.errorState}>
+                    <Text style={styles.errorStateText}>{errorMessage}</Text>
+                  </View>
+                ) : isLoadingUfcMetadata || isLoadingUfcFights ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>Loading UFC fights from Supabase.</Text>
+                  </View>
+                ) : ufcFights.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>No UFC fights match this date range.</Text>
+                  </View>
+                ) : ufcFights.map((fight) => (
+                  <View key={fight.fightId} style={styles.raceRow}>
+                    <View style={styles.raceNumber}>
+                      <Text style={styles.raceNumberText}>UFC</Text>
+                    </View>
+                    <View style={styles.raceContent}>
+                      <Text style={styles.raceTitle}>
+                        {fight.eventDateLabel} · {fight.fighters}
+                      </Text>
+                      <Text style={styles.raceMeta}>
+                        Winner: {fight.winner} · {fight.priceSource}
+                      </Text>
+                      <Text style={styles.raceMeta}>
+                        Fav: {fight.favourite} ({fight.favouritePrice}) · Other {fight.otherFighterPrice} · Diff {fight.priceDifference}
+                      </Text>
+                    </View>
+                    <View style={styles.resultBlock}>
+                      <Text style={styles.result}>{fight.result}</Text>
+                      <Text style={styles.payout}>{fight.payout}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ) : isLoadingUfcMetadata || isLoadingUfcFights ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>Loading UFC fights from Supabase.</Text>
-              </View>
-            ) : ufcFights.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No UFC fights match this date range.</Text>
-              </View>
-            ) : ufcFights.map((fight) => (
-              <View key={fight.fightId} style={styles.raceRow}>
-                <View style={styles.raceNumber}>
-                  <Text style={styles.raceNumberText}>UFC</Text>
-                </View>
-                <View style={styles.raceContent}>
-                  <Text style={styles.raceTitle}>
-                    {fight.eventDateLabel} · {fight.fighters}
-                  </Text>
-                  <Text style={styles.raceMeta}>
-                    Winner: {fight.winner} · {fight.priceSource}
-                  </Text>
-                  <Text style={styles.raceMeta}>
-                    Fav: {fight.favourite} ({fight.favouritePrice}) · Other {fight.otherFighterPrice} · Diff {fight.priceDifference}
-                  </Text>
-                </View>
-                <View style={styles.resultBlock}>
-                  <Text style={styles.result}>{fight.result}</Text>
-                  <Text style={styles.payout}>{fight.payout}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+            </>
+          )}
         </>
       ) : (
         <>
-          <DateRangeFilter
-            fromDate={filters.fromDate}
-            onChange={updateDateBoundary}
-            onReset={resetDateRange}
-            options={metadata?.dateOptions ?? []}
-            toDate={filters.toDate}
-            windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available race dates"}
-          />
-          <FavouriteTrackQuickFilter
-            activeTrack={favouriteTrack}
-            onSelect={applyFavouriteTrack}
-            reloadKey={favouritesReloadKey}
-          />
-          <FilterGroup
-            label="Country"
-            options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
-            selectedValue={filters.country}
-            onChange={updateCountry}
-          />
-          <FilterGroup
-            label="Discipline"
-            options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
-            selectedValue={filters.discipline}
-            onChange={(value) => updateFilter("discipline", value)}
-          />
-          <FilterGroup
-            label="Racecourse"
-            options={[{ label: "All courses", value: "all" }, ...courseOptions]}
-            selectedValue={filters.course}
-            onChange={(value) => updateFilter("course", value)}
-          />
+          {view === "backtests" ? (
+            <HistoricalBacktestPerformancePanel
+              activeHistoryType={backtestHistoryType}
+              activeModelKey={activeBacktestModelKey}
+              errorMessage={errorMessage}
+              isLoading={isLoadingBacktestPerformance}
+              onChangeHistoryType={(value) => setBacktestHistoryType(value)}
+              onChangeModel={setActiveBacktestModelKey}
+              onChangeRank={(value) => setBacktestRankFilter(value)}
+              rankFilter={backtestRankFilter}
+              sport={sport}
+              stats={backtestPerformanceStats}
+            />
+          ) : (
+            <>
+              <DateRangeFilter
+                fromDate={filters.fromDate}
+                onChange={updateDateBoundary}
+                onReset={resetDateRange}
+                options={metadata?.dateOptions ?? []}
+                toDate={filters.toDate}
+                windowLabel={metadata?.latestWindowRangeLabel ?? "Loading available race dates"}
+              />
+              <FavouriteTrackQuickFilter
+                activeTrack={favouriteTrack}
+                onSelect={applyFavouriteTrack}
+                reloadKey={favouritesReloadKey}
+              />
+              <FilterGroup
+                label="Country"
+                options={[{ label: "All countries", value: "all" }, ...(metadata?.countryOptions ?? [])]}
+                selectedValue={filters.country}
+                onChange={updateCountry}
+              />
+              <FilterGroup
+                label="Discipline"
+                options={[{ label: "All disciplines", value: "all" }, ...(metadata?.disciplineOptions ?? [])]}
+                selectedValue={filters.discipline}
+                onChange={(value) => updateFilter("discipline", value)}
+              />
+              <FilterGroup
+                label="Racecourse"
+                options={[{ label: "All courses", value: "all" }, ...courseOptions]}
+                selectedValue={filters.course}
+                onChange={(value) => updateFilter("course", value)}
+              />
 
-          <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
+              <FavouriteTrackControl onChange={refreshFavouriteFilters} track={favouriteTrack} />
 
-          <View key={filterKey}>
-            {errorMessage ? (
-              <View style={styles.errorState}>
-                <Text style={styles.errorStateText}>{errorMessage}</Text>
+              <View key={filterKey}>
+                {errorMessage ? (
+                  <View style={styles.errorState}>
+                    <Text style={styles.errorStateText}>{errorMessage}</Text>
+                  </View>
+                ) : isLoadingMetadata || isLoadingRaces ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>Loading races from Supabase.</Text>
+                  </View>
+                ) : races.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>No races match these filters.</Text>
+                  </View>
+                ) : races.map((race) => (
+                  <View key={race.raceId} style={styles.raceRow}>
+                    <View style={styles.raceNumber}>
+                      <Text style={styles.raceNumberText}>R{race.number}</Text>
+                    </View>
+                    <View style={styles.raceContent}>
+                      <Text style={styles.raceTitle}>
+                        {race.dateLabel} · {race.track}
+                      </Text>
+                      <Text style={styles.raceMeta}>
+                        {race.raceName} · {race.starters} starters · {race.code} · {race.country}
+                      </Text>
+                      <Text style={styles.raceMeta}>
+                        Fav: {race.favourite} ({race.favouriteFinish})
+                      </Text>
+                    </View>
+                    <View style={styles.resultBlock}>
+                      <Text style={styles.result}>{race.result}</Text>
+                      <Text style={styles.payout}>{race.payout}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ) : isLoadingMetadata || isLoadingRaces ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>Loading races from Supabase.</Text>
-              </View>
-            ) : races.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No races match these filters.</Text>
-              </View>
-            ) : races.map((race) => (
-              <View key={race.raceId} style={styles.raceRow}>
-                <View style={styles.raceNumber}>
-                  <Text style={styles.raceNumberText}>R{race.number}</Text>
-                </View>
-                <View style={styles.raceContent}>
-                  <Text style={styles.raceTitle}>
-                    {race.dateLabel} · {race.track}
-                  </Text>
-                  <Text style={styles.raceMeta}>
-                    {race.raceName} · {race.starters} starters · {race.code} · {race.country}
-                  </Text>
-                  <Text style={styles.raceMeta}>
-                    Fav: {race.favourite} ({race.favouriteFinish})
-                  </Text>
-                </View>
-                <View style={styles.resultBlock}>
-                  <Text style={styles.result}>{race.result}</Text>
-                  <Text style={styles.payout}>{race.payout}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+            </>
+          )}
         </>
       )}
     </View>
@@ -522,6 +658,82 @@ function isConcreteFavouriteTrack(
     && (filters.discipline === "horse"
       || filters.discipline === "harness"
       || filters.discipline === "greyhound");
+}
+
+type HistoricalBacktestPerformancePanelProps = {
+  activeHistoryType: HistoricalBacktestHistoryType;
+  activeModelKey: WinPercentageMultiModelKey;
+  errorMessage: string | null;
+  isLoading: boolean;
+  onChangeHistoryType: (value: HistoricalBacktestHistoryType) => void;
+  onChangeModel: (value: WinPercentageMultiModelKey) => void;
+  onChangeRank: (value: HistoricalBacktestRankFilter) => void;
+  rankFilter: HistoricalBacktestRankFilter;
+  sport: HistoricalSport;
+  stats: FavouriteStat[];
+};
+
+/**
+ * Displays historical model backtest performance without live recommendation history rows.
+ */
+function HistoricalBacktestPerformancePanel({
+  activeHistoryType,
+  activeModelKey,
+  errorMessage,
+  isLoading,
+  onChangeHistoryType,
+  onChangeModel,
+  onChangeRank,
+  rankFilter,
+  sport,
+  stats,
+}: HistoricalBacktestPerformancePanelProps) {
+  return (
+    <View>
+      <FilterGroup
+        label="History type"
+        options={HISTORICAL_BACKTEST_HISTORY_TYPE_OPTIONS}
+        selectedValue={activeHistoryType}
+        onChange={(value) => onChangeHistoryType(value as HistoricalBacktestHistoryType)}
+      />
+      <WinPercentageMultiModelTabs
+        activeModelKey={activeModelKey}
+        excludeModelKeys={[PLACING_PERCENTAGE_MULTI_MODEL_KEY]}
+        onChange={onChangeModel}
+        sport={sport}
+      />
+      <FilterGroup
+        label="Win % multi ranks"
+        options={HISTORICAL_BACKTEST_RANK_OPTIONS}
+        selectedValue={rankFilter}
+        onChange={(value) => onChangeRank(value as HistoricalBacktestRankFilter)}
+      />
+      <Text style={styles.historyBreakdownHeading}>Multi-bet win percentage performance</Text>
+      {errorMessage ? (
+        <View style={styles.errorState}>
+          <Text style={styles.errorStateText}>{errorMessage}</Text>
+        </View>
+      ) : isLoading ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>Loading historical model performance from Supabase.</Text>
+        </View>
+      ) : stats.length ? (
+        <View style={styles.statsRow}>
+          {stats.map((stat) => (
+            <View key={stat.label} style={styles.stat}>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              <Text style={styles.statDetail}>{stat.detail}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No historical model performance is available for this selection.</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 type DateRangeFilterProps = {
@@ -836,6 +1048,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 14,
   },
+  historyBreakdownHeading: {
+    color: "#18202f",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 14,
+  },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -917,5 +1135,37 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,
+  },
+  stat: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e4e7ec",
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 130,
+    padding: 12,
+  },
+  statDetail: {
+    color: "#667085",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  statLabel: {
+    color: "#667085",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  statValue: {
+    color: "#18202f",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  statsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 14,
   },
 });

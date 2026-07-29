@@ -150,6 +150,64 @@ export type BetCandidateModelRun = {
   label: string;
 };
 
+export type UfcMultiSignal = {
+  bucketLabel: string | null;
+  bucketSampleSize: number;
+  bucketWinPercentage: number | null;
+  detail: string;
+  label: string;
+  score: number | null;
+  tone: "caution" | "muted" | "neutral" | "positive";
+};
+
+export type UfcMultiLeg = {
+  advertisedStart: string;
+  fightName: string;
+  otherEntrantId: string;
+  otherFighterName: string;
+  otherFixedWinPrice: number;
+  predictedEntrantId: string;
+  predictedFighterName: string;
+  predictedFixedWinPrice: number;
+  priceDifference: number;
+  predictionRank: number;
+  signal: UfcMultiSignal;
+  sourceEventId: string;
+  sourceMarketId: string;
+};
+
+export type UfcMultiRecommendation = {
+  averageWinScore: number | null;
+  combinedFixedWinPrice: number | null;
+  firstFightStart: string;
+  legs: UfcMultiLeg[];
+  lockCutoffAt: string;
+  raw: Record<string, unknown>;
+  recommendationType: "neutral" | "positive";
+  sourceCardId: string;
+  sourceCardName: string;
+  sourceCardSlug: string | null;
+};
+
+export type UfcWinPercentageMultiModelRun = {
+  description: string;
+  key: string;
+  label: string;
+  recommendations: UfcMultiRecommendation[];
+};
+
+export type UfcWinPercentageMultis = {
+  errors?: { competitionSlug: string; message: string }[];
+  firstFightStart?: string | null;
+  modelCount?: number;
+  models: UfcWinPercentageMultiModelRun[];
+  note?: string;
+  provider: string;
+  scannedCompetitionCount?: number;
+  scannedUfcCardCount: number;
+  source: string;
+};
+
 export type RecommendationPayload = {
   betBackCandidates: {
     candidates: BetCandidate[];
@@ -185,6 +243,9 @@ export type RecommendationPayload = {
     otherStartersAveragePriceBucketCount?: number;
     priceBucketCount: number;
     starterBucketCount: number;
+    ufcFavouritePriceBucketCount?: number;
+    ufcOtherFighterPriceBucketCount?: number;
+    ufcPriceDifferenceBucketCount?: number;
   };
   summary: {
     betBackCandidates: number;
@@ -192,5 +253,9 @@ export type RecommendationPayload = {
     raceSpecificPromotions: number;
     racingPromotions: number;
     sources: number;
+    ufcRecommendations?: number;
   };
+  ufcGeneratedAt?: string | null;
+  ufcGeneratedAtNz?: string | null;
+  ufcWinPercentageMultis?: UfcWinPercentageMultis | null;
 };

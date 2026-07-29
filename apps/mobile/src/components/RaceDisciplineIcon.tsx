@@ -13,10 +13,11 @@ const ICON_BY_RACE_CODE: Record<string, MaterialCommunityIconName> = {
   greyhound: "dog-side",
   harness: "cart-variant",
   horse: "horse",
+  ufc: "boxing-glove",
 };
 
 /**
- * Renders a compact discipline icon for horse, harness, and greyhound race rows.
+ * Renders a compact sport/discipline icon for racing and UFC prediction rows.
  */
 export function RaceDisciplineIcon({ code, size = 18 }: RaceDisciplineIconProps) {
   const normalizedCode = String(code ?? "").toLowerCase();

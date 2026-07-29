@@ -172,23 +172,43 @@ The Betcha web bundle exposes public sports GraphQL operations including
 `SportingEventEntrantFormData`. These operations confirm Betcha can return
 current UFC/MMA market cards.
 
-Current proof:
+Current source-discovery proof:
 
 - Query: persisted `SportingCategoryScreen` with category
   `MIXED_MARTIAL_ARTS`, `statuses: ["OPEN"]`, and upcoming events included.
-- Response returned the `UFC / MMA` category, current MMA leagues, and 23
-  current/upcoming events.
-- The response included 23 `Head to Head` markets and 46 entrant prices.
-- Example current UFC event returned under
-  `UFC Fight Night: Ankalaev vs Guskov`:
-  - `Valter Walker vs Thomas Petersen`
-  - event ID `SportingEvent:1fb0e12b-57f7-48e7-bb79-1d6b360961ce`
-  - advertised start `2026-07-25T15:45:00.000Z`
+- Response returned the `UFC / MMA` category and three current MMA competitions:
+  `PFL`, `UFC Fight Night: Ankalaev vs Guskov`, and
+  `UFC 330: Makhachev vs Machado Garry`.
+- The response grouped event shells by `SportingCompetition:<uuid>`, which is
+  sufficient to enforce same-card UFC multis and to filter non-UFC MMA cards
+  out of UFC predictions.
+- The category response included current `Head to Head` market shells, but not
+  entrant prices in the grouped event list.
+
+Current priced-card proof:
+
+- Query: extracted the full `SportingCompetitionScreen` operation from the
+  Betcha web bundle and called the standard GraphQL endpoint with category
+  `MIXED_MARTIAL_ARTS`, competition slug
+  `ufc-fight-night-ankalaev-vs-guskov`, `statuses: ["OPEN"]`,
+  `includeUpcomingEvents: true`, and `upcomingEventsGroupBy: "UNSPECIFIED"`.
+- Response returned 14 current rows for
+  `UFC Fight Night: Ankalaev vs Guskov`; 13 were real `Head to Head` fights
+  with two priced entrants, and one row was an unpriced specials market.
+- Example current UFC event returned under that card:
+  - `Cody Gibson vs Abdul Hussein`
+  - event ID `SportingEvent:b4519c51-c7ab-4218-bb69-fe87bf3271db`
+  - advertised start `2026-07-25T13:00:00.000Z`
   - `Head to Head` market ID
-    `SportingMarket:5b102784-71e3-4ffe-9d70-fabbd34123dc`
+    `SportingMarket:998a4cc3-61f0-4701-9f90-3bbbb5d85224`
   - two `SportingEntrant` rows with fixed-win price IDs using product
     `940b8704-e497-4a76-b390-00918ff7d282`
-  - fractional odds `1/2` and `8/5`, equivalent to decimal `1.50` and `2.60`.
+  - fractional odds `4/1` and `9/50`, equivalent to decimal `5.00` and `1.18`.
+- Current competition scan also returned a priced `PFL` card and a one-fight
+  future UFC card. UFC prediction collection should include only competitions
+  whose Betcha competition name/slug clearly identifies a UFC card, and should
+  require at least three fully priced `Head to Head` fights on the same card
+  before creating a UFC multi recommendation.
 
 Historical proof attempt:
 
@@ -244,6 +264,9 @@ The practical MVP path is:
 3. Start forward UFC price capture from Betcha.
 4. Reconcile completed fights against a source-backed result feed after each
    event.
+   Current app reconciliation uses stored `ufc_fight_entries` rows when they
+   are available; unmatched forward-captured Betcha legs become `missing_result`
+   open issues four hours after advertised start rather than staying pending.
 5. Build UFC Historical Data and Insights from contests that have both a
    captured pre-fight price snapshot and a settled result.
 6. Keep the paid/licensed historical odds-source option open if the remaining

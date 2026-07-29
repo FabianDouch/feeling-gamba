@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "backfill:race-fixtures": "node scripts/backfill-race-fixtures-to-supabase.mjs",
+    "backfill:historical-multi-backtests": "node scripts/backfill-historical-multi-backtests.mjs",
     "backfill:ufc-kaggle": "node scripts/backfill-ufc-kaggle-to-supabase.mjs",
     "fetch:current-predictions": "node scripts/fetch-current-predictions.mjs",
     "fetch:current-promotions": "node scripts/fetch-current-promotions.mjs",
     "fetch:pilot-date": "node scripts/fetch-pilot-date.mjs",
     "reconcile:predictions": "node scripts/reconcile-prediction-outcomes.mjs",
+    "repair:prediction-snapshot": "node scripts/replay-current-prediction-snapshot.mjs",
     "refresh:race-days-and-insights": "node scripts/refresh-race-days-and-insights.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",

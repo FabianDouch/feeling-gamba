@@ -150,7 +150,7 @@ const DISCOVERY_QUERY = `
 `;
 
 const RACE_CARD_QUERY = `
-  query RaceCardLite($id: ID!) {
+  query RacingRaceCardSnapshot($id: ID!) {
     raceCard: node(id: $id) {
       __typename
       ... on RacingRaceCard {
@@ -454,7 +454,13 @@ async function graphql(operationName, query, variables) {
     throw new Error(`${operationName} failed with HTTP ${response.status}`);
   }
 
-  const payload = await response.json();
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(`${operationName} returned an empty response body`);
+  }
+
+  const payload = JSON.parse(text);
 
   if (payload.errors?.length) {
     const messages = payload.errors.map((error) => error.message).join("; ");
@@ -733,7 +739,7 @@ async function fetchDate({ coverageMode, date, outputPath, pilotTracks, trackFil
 
     for (const race of entry.meeting.races?.nodes ?? []) {
       const raceCardId = toRaceCardId(race.id);
-      const raceCardResponse = await graphql("RaceCardLite", RACE_CARD_QUERY, {
+      const raceCardResponse = await graphql("RacingRaceCardSnapshot", RACE_CARD_QUERY, {
         id: raceCardId,
       });
       const raceCard = raceCardResponse.data?.raceCard;
@@ -768,7 +774,7 @@ async function fetchDate({ coverageMode, date, outputPath, pilotTracks, trackFil
       name: "betcha_graphql",
       endpoint: BETCHA_GRAPHQL_ENDPOINT,
       discoveryOperation: "RacingHomeMeetingsDesktopScreen",
-      raceCardOperation: "RaceCardLite",
+      raceCardOperation: "RacingRaceCardSnapshot",
       note: "Betcha GraphQL is used for historical race-card discovery and detail fixtures.",
     },
     filters: {
