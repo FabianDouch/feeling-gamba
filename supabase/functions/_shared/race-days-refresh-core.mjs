@@ -1686,7 +1686,7 @@ export async function rebuildInsightAggregatesFromSupabase({ batchSize = DEFAULT
   return {
     aggregateRunId: aggregateRun.id,
     insightAggregates: aggregates.length,
-    raceDayEntries: rows.length,
+    raceDayEntries: rowCount,
   };
 }
 
