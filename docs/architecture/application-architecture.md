@@ -669,9 +669,10 @@ repo-root public Supabase env values before Metro bundles the app.
   `source_race_card_id` and selected runner number after race results are
   refreshed, using separate final requests for each reconciliation family.
 - The same overnight refresh rebuilds `insight_aggregates` from stored
-  `race_day_entries` after the source slices finish. That hosted rebuild pages
-  historical race rows and accumulates aggregate buckets incrementally so it
-  does not retain the full collected race dataset in Edge Function memory.
+  `race_day_entries` after the source slices finish. That rebuild runs locally
+  in the GitHub Actions runner, pages historical race rows, and accumulates
+  aggregate buckets incrementally so the all-history insight job is outside the
+  Supabase Edge worker CPU budget.
 - The same reconciliation family also checks UFC multi recommendation legs
   against stored `ufc_fight_entries` result rows by source-backed fighter pair
   and event-date window. Settled UFC matches update leg winners and parent multi

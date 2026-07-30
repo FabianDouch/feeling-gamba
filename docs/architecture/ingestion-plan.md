@@ -759,17 +759,20 @@ each completed source date and calls the hosted function with `from` and `to`
 set to that date. Each date is further sliced by country (`NZ`, `AUS`, `HK`)
 and source category (`HORSE`, `HARNESS`, `GREYHOUND`). These source-fetch chunks
 use `refreshRaceData: true`, `rebuildInsights: false`, and
-`reconcileOutcomes: false`. After all source slices finish, the workflow runs
-separate hosted requests for insight rebuild, promotion-prediction outcome
+`reconcileOutcomes: false`. After all source slices finish, the workflow
+rebuilds insights locally in the GitHub runner with
+`npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates`,
+then runs separate hosted requests for promotion-prediction outcome
 reconciliation, multi-bet recommendation reconciliation, user race-bet
 reconciliation, UFC multi recommendation reconciliation, and prediction
 aggregate rebuild. UFC multi reconciliation reads stored `ufc_fight_entries`
 results when available and marks old unmatched UFC legs as `missing_result`
 open issues. The split is required because the combined final
 aggregate/reconcile request started hitting Supabase's 150 second request idle
-timeout as the stored data set grew. The insight rebuild itself pages through
-stored `race_day_entries` and accumulates aggregate buckets incrementally so it
-does not retain the full historical race dataset in Edge Function memory. Manual
+timeout as the stored data set grew, and the all-history insight rebuild later
+hit Supabase Edge's CPU limit even after paging memory use. The local insight
+rebuild still pages through stored `race_day_entries` and accumulates aggregate
+buckets incrementally, but runs outside the Edge worker CPU budget. Manual
 workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
 for catch-up runs such as recovering data after the app only shows race days
 through `2026-06-21`.
@@ -806,6 +809,8 @@ Required GitHub repository secrets for the overnight workflow:
 
 - `SUPABASE_PROJECT_REF`
 - `RACE_DAY_REFRESH_ADMIN_TOKEN`
+- `FEELING_GAMBA_SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` for the
+  local GitHub Actions insight aggregate rebuild
 
 The same `RACE_DAY_REFRESH_ADMIN_TOKEN` value must also be configured as a
 Supabase Edge Function secret for `refresh-race-days-and-insights`.
@@ -819,11 +824,11 @@ Troubleshooting:
   `npx supabase secrets set RACE_DAY_REFRESH_ADMIN_TOKEN=<same-token> --project-ref <project-ref>`.
 - If the workflow returns `504` with `IDLE_TIMEOUT` or `546` with
   `WORKER_RESOURCE_LIMIT`, reduce the manual `lookback_days` and confirm the
-  latest `refresh-race-days-and-insights` Edge Function has been deployed. The
-  workflow chunks by date, country, source category, and final reconciliation
-  task, while the insight rebuild pages stored race-day rows; a single very
-  large source or reconciliation slice can still exceed Supabase's hosted
-  function limits.
+  latest `refresh-race-days-and-insights` Edge Function and
+  `.github/workflows/overnight-race-refresh.yml` have both been deployed from
+  the latest commit. The workflow chunks by date, country, source category, and
+  final reconciliation task, and the insight rebuild should run in GitHub
+  Actions rather than the hosted Edge Function.
 - The workflow must fail on non-2xx HTTP responses. Each `curl` call writes the
   response to a file before `jq` formats it so pipe handling cannot hide HTTP
   failures.

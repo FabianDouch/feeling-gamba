@@ -39,10 +39,21 @@ jobs:
       DRY_RUN: ${{ github.event.inputs.dry_run }}
       FORCE_REFRESH: ${{ github.event.inputs.force_refresh }}
       LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
       RACE_DAY_REFRESH_ADMIN_TOKEN: ${{ secrets.RACE_DAY_REFRESH_ADMIN_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Validate required inputs and secrets
         run: |
           test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
@@ -59,6 +70,14 @@ jobs:
 
           if [ "$lookback_days" -lt 1 ] || [ "$lookback_days" -gt 14 ]; then
             echo "lookback_days must be between 1 and 14"
+            exit 1
+          fi
+
+          dry_run="${DRY_RUN:-false}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for the local insight aggregate rebuild"
             exit 1
           fi
 
@@ -155,24 +174,15 @@ jobs:
 
           echo "Rebuilding insights through ${final_source_date}"
 
-          payload="$(
-            jq -nc \
-              --arg from "$final_source_date" \
-              --arg to "$final_source_date" \
-              --argjson dryRun "$dry_run" \
-              --argjson force "$force_refresh" \
-              '{
-                coverageMode: "all_domestic",
-                dryRun: $dryRun,
-                force: $force,
-                from: $from,
-                rebuildInsights: true,
-                reconcileOutcomes: false,
-                refreshRaceData: false,
-                to: $to
-              }'
-          )"
-          invoke_refresh "final insight rebuild" "$payload"
+          if [ "$dry_run" = "true" ]; then
+            npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates -- \
+              --to="${final_source_date}" \
+              --dry-run
+          else
+            npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates -- \
+              --to="${final_source_date}" \
+              --require-supabase
+          fi
 
           echo "Reconciling prediction outcomes through ${final_source_date}"
 

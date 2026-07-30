@@ -118,9 +118,10 @@ source-of-truth docs in the same change.
   Actions workflow now invokes `refresh-race-days-and-insights` with a
   four-day completed-date lookback, chunked into one request per source date,
   country, and source category, followed by separate final aggregate and
-  reconciliation requests. The final insight rebuild pages historical
-  `race_day_entries` while accumulating aggregate buckets so the hosted Edge
-  Function does not retain the full collected dataset in memory.
+  reconciliation requests. The final insight rebuild runs locally in the GitHub
+  Actions runner and pages historical `race_day_entries` while accumulating
+  aggregate buckets so the all-history insight job is outside Supabase Edge's
+  CPU limit.
 
 ## Phase 1: Project Scaffold
 
