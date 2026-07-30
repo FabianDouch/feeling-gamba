@@ -647,6 +647,8 @@ flows:
         eight legs.
       - determine the earliest advertised start among eligible all-domestic NZ/AUS/HK prediction races.
       - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
+      - invoke the hosted refresh-current-predictions function as separate sport-scoped racing and UFC requests so one source scan cannot consume the whole Edge request idle-timeout budget.
+      - fetch Betcha racing race-card details with bounded concurrency during the racing scan.
       - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
       - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes before that cutoff.
       - rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending rows before races settle.

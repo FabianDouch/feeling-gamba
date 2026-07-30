@@ -551,6 +551,13 @@ Initial mode:
   UFC insight aggregates/current Betcha fight-card markets, updates UFC multis
   in `current_prediction_snapshots`, and writes UFC multi recommendation rows
   without rebuilding racing prediction aggregates.
+- The scheduled GitHub Actions current-prediction workflow calls the endpoint
+  twice, first with `{ "sport": "racing" }` and then with `{ "sport": "ufc" }`,
+  so slow source scans for one sport do not make the combined request hit the
+  Supabase Edge request idle timeout.
+- Racing current-card detail fetches use bounded concurrency when scanning
+  domestic NZ/AUS/HK race cards so large mornings do not spend the whole Edge
+  request on sequential Betcha race-card calls.
 - After the first eligible race has started, `refresh-current-predictions`
   returns the same-day cached pre-race snapshot when one exists. It must not
   write a new snapshot, upsert `promotion_predictions`, or rebuild
@@ -744,7 +751,7 @@ Proposed recurring jobs:
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
 | `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
-| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
+| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -794,11 +801,13 @@ The daily prediction refresh is deployed as `refresh-current-predictions` and
 scheduled through `.github/workflows/current-prediction-refresh.yml`. The
 workflow calls the hosted Edge Function at `17:35` and `18:35` UTC, which is
 early morning in New Zealand, so current prediction snapshots are captured even
-when nobody opens the app. The second run is a backup and can replace the same
-Auckland source-date snapshot before the first eligible race if prices or fields
-changed. If both scheduled runs miss the pre-race window and no same-day cached
-snapshot exists, the workflow fails instead of silently creating late-day
-prediction data.
+when nobody opens the app. Each scheduled run invokes the function once for
+`sport: "racing"` and once for `sport: "ufc"` rather than sending one combined
+refresh request. The second run is a backup and can replace the same Auckland
+source-date racing snapshot before the first eligible race if prices or fields
+changed. If both scheduled racing runs miss the pre-race window and no same-day
+cached racing snapshot exists, the workflow fails instead of silently creating
+late-day prediction data.
 
 Supabase Edge Function limits are a practical constraint: request idle timeout
 is 150 seconds, with a 150 second Free plan / 400 second Paid plan worker

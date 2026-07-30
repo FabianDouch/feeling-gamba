@@ -476,6 +476,11 @@ but it must not upsert a replacement `current_prediction_snapshots` row, write
 `promotion_predictions`, or rebuild `prediction_aggregates`. This keeps model
 performance comparable because each source date is measured from a full-card
 pre-race decision point rather than a late-day subset of remaining races. The
+scheduled GitHub Actions workflow calls `refresh-current-predictions`
+separately for `sport: "racing"` and `sport: "ufc"` so a slow source scan for
+one sport does not consume the whole Edge request idle-timeout budget. The
+racing scan fetches Betcha race-card details with bounded concurrency instead
+of one card at a time.
 app reads current candidates from `current_prediction_snapshots` for the current
 Auckland source date and can call `EXPO_PUBLIC_PREDICTION_REFRESH_URL` to
 request the `refresh-current-predictions` Edge Function. If the stored snapshot's

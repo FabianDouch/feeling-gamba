@@ -48,41 +48,51 @@ jobs:
             exit 1
           fi
 
-          payload="$(
-            jq -nc \
-              --argjson force "$force_refresh" \
-              '{
-                force: $force
-              }'
-          )"
+          invoke_prediction_refresh() {
+            sport="$1"
+            payload="$(
+              jq -nc \
+                --arg sport "$sport" \
+                --argjson force "$force_refresh" \
+                '{
+                  force: $force,
+                  sport: $sport
+                }'
+            )"
 
-          response_file="$(mktemp)"
-          header_args=(
-            -H "content-type: application/json"
-          )
+            response_file="$(mktemp)"
+            header_args=(
+              -H "content-type: application/json"
+            )
 
-          if [ "$force_refresh" = "true" ]; then
-            header_args+=(-H "x-refresh-token: ${PREDICTION_REFRESH_ADMIN_TOKEN}")
-          fi
+            if [ "$force_refresh" = "true" ]; then
+              header_args+=(-H "x-refresh-token: ${PREDICTION_REFRESH_ADMIN_TOKEN}")
+            fi
 
-          http_status="$(
-            curl --max-time 300 -sS \
-              -o "$response_file" \
-              -w "%{http_code}" \
-              -X POST \
-              "${header_args[@]}" \
-              --data "$payload" \
-              "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-current-predictions"
-          )"
+            echo "Refreshing ${sport} current predictions"
 
-          jq . "$response_file" || cat "$response_file"
+            http_status="$(
+              curl --max-time 300 -sS \
+                -o "$response_file" \
+                -w "%{http_code}" \
+                -X POST \
+                "${header_args[@]}" \
+                --data "$payload" \
+                "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/refresh-current-predictions"
+            )"
 
-          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-            echo "refresh-current-predictions returned HTTP ${http_status}"
-            exit 1
-          fi
+            jq . "$response_file" || cat "$response_file"
 
-          if jq -e '.predictionWindowClosed == true and .payload == null' "$response_file" >/dev/null; then
-            echo "Prediction window closed before a same-day snapshot was captured"
-            exit 1
-          fi
+            if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+              echo "refresh-current-predictions returned HTTP ${http_status} for ${sport}"
+              exit 1
+            fi
+
+            if [ "$sport" = "racing" ] && jq -e '.predictionWindowClosed == true and .payload == null' "$response_file" >/dev/null; then
+              echo "Prediction window closed before a same-day racing snapshot was captured"
+              exit 1
+            fi
+          }
+
+          invoke_prediction_refresh "racing"
+          invoke_prediction_refresh "ufc"

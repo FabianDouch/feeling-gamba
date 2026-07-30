@@ -23,6 +23,7 @@ const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_per
 const UFC_MULTI_MIN_LEGS = 3;
 const UFC_MULTI_MAX_LEGS = 8;
 const UFC_LOCK_CUTOFF_BUFFER_MINUTES = 15;
+const RACING_RACE_CARD_FETCH_CONCURRENCY = 8;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
 const CASH_EVEN_PREDICTION_MODEL_KEY = "global_bucket_cash_even_blend_v1";
@@ -3752,6 +3753,31 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
   };
 }
 
+/**
+ * Maps source items with a fixed number of concurrent async workers.
+ */
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(Math.max(1, concurrency), items.length) },
+      () => worker(),
+    ),
+  );
+
+  return results;
+}
+
 async function fetchBetBackCandidates(source, historicalStats, date) {
   const response = await graphql(source, "RacingHomeMeetingsDesktopScreen", RACING_DAY_QUERY, {
     categories: ["HORSE", "HARNESS", "GREYHOUND"],
@@ -3765,35 +3791,37 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
       targetTrack: findTargetBetBackTrack(meeting),
     }))
     .filter(({ targetTrack }) => targetTrack !== null);
+  const raceTasks = targetMeetings.flatMap(({ meeting, targetTrack }) =>
+    (meeting.races?.nodes ?? []).map((race) => ({
+      meeting,
+      race,
+      targetTrack,
+    })));
   const candidates = [];
   const errors = [];
   const eligibleRaceStarts = [];
-  let scannedRaceCount = 0;
-
-  for (const { meeting, targetTrack } of targetMeetings) {
-    for (const race of meeting.races?.nodes ?? []) {
-      scannedRaceCount += 1;
+  const raceResults = await mapWithConcurrency(
+    raceTasks,
+    RACING_RACE_CARD_FETCH_CONCURRENCY,
+    async ({ meeting, race, targetTrack }) => {
+      if (isAbandonedRaceListing(race)) {
+        return null;
+      }
 
       try {
-        if (isAbandonedRaceListing(race)) {
-          continue;
-        }
-
         const raceCard = (await graphql(source, "RacingRaceCardSnapshot", RACE_CARD_QUERY, {
           id: toRaceCardId(race.id),
         })).data?.raceCard;
 
         if (!raceCard) {
-          continue;
+          return null;
         }
 
         if (isAbandonedRaceCard(raceCard)) {
-          continue;
+          return null;
         }
 
-        if (raceCard.advertisedStart ?? race.advertisedStart) {
-          eligibleRaceStarts.push(raceCard.advertisedStart ?? race.advertisedStart);
-        }
+        const eligibleRaceStart = raceCard.advertisedStart ?? race.advertisedStart ?? null;
 
         const candidate = deriveBetBackCandidate(raceCard, {
           canonicalTrack: targetTrack.canonicalName,
@@ -3803,15 +3831,36 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
           track: meeting.name,
         }, historicalStats);
 
-        if (candidate) {
-          candidates.push(candidate);
-        }
+        return {
+          candidate,
+          eligibleRaceStart,
+        };
       } catch (error) {
-        errors.push({
-          message: error.message,
-          raceId: race.id,
-        });
+        return {
+          error: {
+            message: error.message,
+            raceId: race.id,
+          },
+        };
       }
+    },
+  );
+
+  for (const result of raceResults) {
+    if (!result) {
+      continue;
+    }
+
+    if (result.error) {
+      errors.push(result.error);
+    }
+
+    if (result.eligibleRaceStart) {
+      eligibleRaceStarts.push(result.eligibleRaceStart);
+    }
+
+    if (result.candidate) {
+      candidates.push(result.candidate);
     }
   }
 
@@ -3834,7 +3883,7 @@ async function fetchBetBackCandidates(source, historicalStats, date) {
     note: "Betcha bet-back candidates scan current races across all NZ/AUS/HK domestic meetings returned by the source. Win-candidate ranking is grouped by country and discipline and keeps up to five candidates per country/discipline ordered by the active prediction model's cashAverageScore. Placing candidates are ranked separately from place-rate insight aggregates and exclude fields without a place market. Percentage multi models are tracked separately from single-runner prediction models and rank current favourites by historical price-bucket and starter-count win or place percentages. Scores are statistical signals only, not stake sizing or automated wagering advice.",
     provider: source.label,
     scannedMeetings: targetMeetings.length,
-    scannedRaceCount,
+    scannedRaceCount: raceTasks.length,
     source: source.source,
     winPercentageMultiCandidates,
   };
