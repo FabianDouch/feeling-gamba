@@ -15,8 +15,11 @@ user-owned tables are implemented in
 `supabase/migrations/202606210003_user_race_bets.sql`, with bookmaker-specific
 tracking added by `supabase/migrations/202606210004_user_race_bet_bookmaker.sql`.
 As of `2026-07-17`, signed-in users can lock one current win-percentage multi
-recommendation per source date/model before 10:00am NZ time, implemented in
+recommendation per source date/model, implemented in
 `supabase/migrations/202607170004_user_locked_multi_recommendations.sql`.
+As of `2026-08-05`, racing percentage multi locks close at the current
+prediction snapshot's first eligible race start instead of a fixed 10:00am NZ
+time cutoff.
 As of `2026-07-24`, `multi_win_percentage_60_plus_v1` and
 `multi_place_percentage_v1` are additional multi-only `prediction_model`
 values for tracked percentage multis; they use the existing multi
@@ -32,7 +35,8 @@ discipline fields.
 As of `2026-07-24`, current UFC percentage multi predictions use separate UFC
 recommendation and lock tables in
 `supabase/migrations/202607240003_ufc_prediction_multis.sql`, because the
-racing multi tables depend on race-card fields and a 10:00am racing lock rule.
+racing multi tables depend on race-card fields and a first-eligible-race
+prediction lock rule.
 
 The design should support:
 
@@ -231,7 +235,7 @@ Rules:
 
 ### `user_locked_multi_recommendations`
 
-Implemented owner-secured lock table for the signed-in user's morning
+Implemented owner-secured lock table for the signed-in user's current
 percentage multi recommendation. This preserves the exact current
 recommendation the user chose before the recommendation cache can refresh again.
 
@@ -245,6 +249,7 @@ Key fields:
 - `prediction_model text`
 - `recommendation_type text` - `neutral` or `positive`
 - `locked_at timestamptz`
+- `lock_cutoff_at timestamptz`
 - `generated_at timestamptz`
 - `generated_at_nz text`
 - `leg_count int`
@@ -263,8 +268,9 @@ Rules:
 
 - A user can read, insert, and delete only their own locked multi rows through
   RLS.
-- The app and insert RLS policy allow creating a lock only before 10:00am in
-  `Pacific/Auckland`.
+- The app and insert RLS policy allow creating a lock only before the stored
+  `lock_cutoff_at`, which is copied from the current racing prediction
+  snapshot's first eligible race start.
 - The first lock for a user/source/source-date/model wins; later app refreshes
   should display the locked snapshot instead of replacing it with a newer live
   recommendation.
@@ -780,7 +786,7 @@ Rules:
 Stores one current UFC same-card percentage multi recommendation per model,
 source date, and Betcha UFC card. These rows are separate from racing multis
 because they use fight-card IDs, fighter entrants, and card-start lock cutoffs
-instead of race cards and morning racing locks.
+instead of race cards and racing prediction-window locks.
 
 Key fields:
 
@@ -810,7 +816,7 @@ Rules:
   legs, ordered by model-specific historical favourite win percentage and then
   advertised start.
 - UFC locks close from the stored `lock_cutoff_at`, currently 15 minutes before
-  the first fight on the card, not at the racing 10:00am cutoff.
+  the first fight on the card, not at the racing first-eligible-race cutoff.
 - UFC reconciliation matches leg fighter pairs to stored `ufc_fight_entries`
   result rows within a small event-date window. Matched settled fights store the
   winner and `$1` leg return; unmatched legs more than four hours after
@@ -1366,6 +1372,10 @@ Rules:
 - Apply history ordering before pagination: wins first, then 2nd, then 3rd,
   then other settled losses, then pending rows, then missing/open issue rows.
 - Within each outcome group, show the latest advertised starts first.
+- Migration `202607310001_prediction_history_entries_rpc.sql` reasserts this
+  RPC and triggers a PostgREST schema reload because the app can otherwise show
+  fallback table-read history while logging `PGRST202` for a missing RPC
+  signature.
 - Keep the RPC model-scoped so prediction variation tabs do not mix rows.
 
 ### `get_multi_bet_recommendation_summary(...)`
@@ -1437,6 +1447,10 @@ Rules:
 - Keep the RPC model-scoped so prediction variation tabs do not mix rows.
 - When `p_max_leg_rank` is set, return only the matching ranked leg subset and
   label the parent metrics as the hypothetical top-N outcome for display.
+- Prediction History builds Racing percentage multi date/course/discipline
+  metadata from `multi_bet_recommendations` and its legs for the selected
+  multi-only model, so `multi_place_percentage_v1` does not depend on the
+  currently selected single-runner prediction model having matching rows.
 
 ### Legacy Named Insight Views
 

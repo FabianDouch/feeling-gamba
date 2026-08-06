@@ -8,6 +8,7 @@ import {
   fetchPredictionStats,
   fetchMultiBetRecommendationModelKeys,
   fetchPredictionHistoryMetadata,
+  fetchRacingMultiBetRecommendationHistoryMetadata,
   fetchUfcPredictionHistoryMetadata,
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
@@ -180,7 +181,9 @@ export function PredictionHistoryScreen() {
         setErrorMessage(null);
         const nextMetadata = activeSport === "ufc"
           ? await fetchUfcPredictionHistoryMetadata(activeWinPercentageMultiModelKey)
-          : await fetchPredictionHistoryMetadata(activeModelKey);
+          : activeHistoryType === "win_percentage_multis"
+            ? await fetchRacingMultiBetRecommendationHistoryMetadata(activeWinPercentageMultiModelKey)
+            : await fetchPredictionHistoryMetadata(activeModelKey);
 
         if (!cancelled) {
           setMetadata(nextMetadata);
@@ -202,7 +205,7 @@ export function PredictionHistoryScreen() {
     return () => {
       cancelled = true;
     };
-  }, [activeModelKey, activeSport, activeWinPercentageMultiModelKey]);
+  }, [activeHistoryType, activeModelKey, activeSport, activeWinPercentageMultiModelKey]);
 
   useEffect(() => {
     let cancelled = false;

@@ -315,6 +315,16 @@ type MultiBetRecommendationHistoryRow = {
   total_count: number | null;
 };
 
+type MultiBetRecommendationMetadataRow = {
+  multi_bet_recommendation_legs?: {
+    country: string | null;
+    course_name: string | null;
+    course_slug: string | null;
+    race_code: string | null;
+  }[] | null;
+  source_date: string;
+};
+
 type UfcMultiRecommendationLegRow = {
   advertisedStart: string | null;
   bucketLabel: string | null;
@@ -582,6 +592,94 @@ export async function fetchPredictionHistoryMetadata(
       ? `Default date range is yesterday in NZ time: ${formatDateLabel(yesterday)}. Available prediction dates span ${latestDates.length ? `${formatDateLabel(dates[0])} - ${formatDateLabel(dates.at(-1) ?? dates[0])}` : "none"}.`
       : "No prediction history loaded from Supabase.",
   };
+}
+
+/**
+ * Reads racing percentage multi metadata from tracked multi rows instead of single-prediction rows.
+ */
+export async function fetchRacingMultiBetRecommendationHistoryMetadata(
+  predictionModel: WinPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
+): Promise<PredictionHistoryMetadata> {
+  const yesterday = getYesterdaySourceDate();
+
+  try {
+    const dateRows = await supabaseSelect<{ source_date: string }>("multi_bet_recommendations", {
+      order: "source_date.desc",
+      prediction_model: `eq.${predictionModel}`,
+      select: "source_date",
+    });
+    let metadataRows: {
+      country: string | null;
+      course_name: string | null;
+      course_slug: string | null;
+      race_code: string | null;
+    }[] = [];
+
+    try {
+      const parentRows = await supabaseSelect<MultiBetRecommendationMetadataRow>("multi_bet_recommendations", {
+        order: "source_date.desc",
+        prediction_model: `eq.${predictionModel}`,
+        select: "source_date,multi_bet_recommendation_legs(country,course_name,course_slug,race_code)",
+      });
+      metadataRows = parentRows.flatMap((row) => row.multi_bet_recommendation_legs ?? []);
+    } catch (error) {
+      if (!isMissingTableError(error)) {
+        throw error;
+      }
+    }
+
+    const dates = unique([...dateRows.map((row) => row.source_date), yesterday]).sort();
+    const latestDates = dates.slice(-DEFAULT_DATE_WINDOW_SIZE);
+    const countryOptions = unique(metadataRows
+      .map((row) => row.country)
+      .filter((country): country is string => Boolean(country)))
+      .sort()
+      .map((country) => ({ label: country, value: country }));
+    const disciplineOptions = [
+      { label: "Horse", value: "horse" },
+      { label: "Harness", value: "harness" },
+      { label: "Greyhound", value: "greyhound" },
+    ].filter((option) => metadataRows.some((row) => row.race_code === option.value));
+    const courseOptionsByCountry = buildCourseOptionsByCountry(metadataRows);
+
+    return {
+      countryOptions,
+      courseOptionsByCountry,
+      dateOptions: dates.map((date) => ({
+        label: formatDateLabel(date),
+        value: date,
+      })),
+      defaultDateRange: {
+        from: yesterday,
+        to: yesterday,
+      },
+      disciplineOptions,
+      latestWindowLabel: dates.length
+        ? `${formatDateLabel(dates[0])} - ${formatDateLabel(dates.at(-1) ?? dates[0])}`
+        : "No racing multi dates",
+      latestWindowRangeLabel: `Default date range is yesterday in NZ time: ${formatDateLabel(yesterday)}. Available racing multi dates span ${latestDates.length ? `${formatDateLabel(dates[0])} - ${formatDateLabel(dates.at(-1) ?? dates[0])}` : "none"}.`,
+    };
+  } catch (error) {
+    if (!isMissingTableError(error)) {
+      throw error;
+    }
+
+    return {
+      countryOptions: [],
+      courseOptionsByCountry: new Map(),
+      dateOptions: [{
+        label: formatDateLabel(yesterday),
+        value: yesterday,
+      }],
+      defaultDateRange: {
+        from: yesterday,
+        to: yesterday,
+      },
+      disciplineOptions: [],
+      latestWindowLabel: "No racing multi dates",
+      latestWindowRangeLabel: "Racing multi prediction history is not deployed yet.",
+    };
+  }
 }
 
 /**

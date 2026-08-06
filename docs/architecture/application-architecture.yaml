@@ -108,7 +108,7 @@ systems:
         - Let signed-in users save or remove favourite tracks for one concrete country, discipline, and course.
         - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
         - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
-        - Let signed-in users lock one current percentage multi recommendation before 10:00am NZ time so later same-morning refreshes do not replace the chosen snapshot.
+        - Let signed-in users lock one current percentage multi recommendation before the first eligible racing prediction race starts so later pre-race refreshes do not replace the chosen snapshot.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -701,7 +701,7 @@ flows:
       - Prediction History calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
       - Prediction History calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
       - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with model-aware all-legs/top-N rank filters calculated from persisted leg ranks: top 3-5 for multi_win_percentage_blend_v1, top 3-10 for the 60%+/65%+ win models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models.
-      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before 10:00am NZ time; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
+      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before the first eligible racing prediction race starts; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
       - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because locked pre-race snapshots cannot be replaced after the first eligible race has started.
       - Predictions shows model variation tabs and a short method explanation for each variation.

@@ -270,7 +270,8 @@ navigation:
             multi_win_percentage_65_plus_v1 models that keep only 60%+ or 65%+
             win-score legs and can show up to 10 legs, plus
             multi_place_percentage_v1 with up to eight place-rate legs.
-          - Let signed-in users lock the current percentage multi recommendation before 10:00am NZ time; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date/model.
+          - Let signed-in users lock the current percentage multi recommendation before the first eligible racing prediction race starts; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date/model.
+          - Show the racing percentage multi lock cutoff timestamp under the Lock button.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
           - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - >
@@ -571,8 +572,9 @@ content_rules:
     recommendation for cash-only history and leg-level settlement, without
     bonus-bet value.
   - Predictions should let signed-in users lock one percentage multi
-    recommendation for the current source date before 10:00am NZ time and keep
-    showing the locked snapshot after later same-morning refreshes.
+    recommendation for the current source date before the first eligible racing
+    prediction race starts and keep showing the locked snapshot after later
+    pre-race refreshes.
   - The active prediction model tab must drive cash-model Predictions sections,
     current candidates, and current active-model multi recommendations.
   - The active prediction model tab must drive cash-model Prediction History

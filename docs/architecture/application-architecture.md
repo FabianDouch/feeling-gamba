@@ -10,7 +10,11 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-07-24 for the
+Note: the YAML was updated on 2026-08-05 to change racing percentage multi
+locking from a fixed 10:00am cutoff to the current prediction snapshot's first
+eligible race start. Rendered architecture outputs should be regenerated from
+the YAML before being treated as current. It was previously updated on
+2026-07-24 for the
 `multi_win_percentage_60_plus_v1` and `multi_place_percentage_v1` tracked
 models. It was previously updated on 2026-07-23 for the
 `multi_win_percentage_65_plus_v1` tracked model, Prediction History model
@@ -26,9 +30,8 @@ the Predictions multi bet recommendation panel, and on 2026-07-01 for HK
 domestic-region prediction and race-day coverage. It
 was previously updated on 2026-06-25 for the
 `global_bucket_cash_price_only_v1` and
-`global_bucket_cash_starter_only_v1` prediction variations. Rendered
-architecture outputs should be regenerated from the YAML before being treated
-as current. The source also describes the later track-wide Insights odds
+`global_bucket_cash_starter_only_v1` prediction variations. The source also
+describes the later track-wide Insights odds
 request contract, so the rendered outputs remain stale until regenerated. The
 2026-06-24 update added the daily overnight race-day refresh schedule that
 keeps prediction outcomes settling. The 2026-06-23 update added model-aware
@@ -599,14 +602,14 @@ repo-root public Supabase env values before Metro bundles the app.
   balance history line graph. The balance ledger must remain manual tracking
   only and must not feed stake sizing, bankroll guidance, or automated wagering.
 - Predictions reads `user_locked_multi_recommendations` through owner-only RLS
-  for signed-in users. Before 10:00am NZ time, a user can lock the selected
-  percentage multi recommendation model for the current source date; after
-  that, the screen displays the locked snapshot even if the live prediction
-  snapshot refreshes to a different recommendation.
+  for signed-in users. Before the first eligible racing prediction race starts,
+  a user can lock the selected percentage multi recommendation model for the
+  current source date; after that, the screen displays the locked snapshot even
+  if the live prediction snapshot refreshes to a different recommendation.
 - Predictions reads `user_locked_ufc_multi_recommendations` through owner-only
   RLS for UFC percentage multi models. UFC locks are keyed by source date,
   Betcha UFC card, and model, and close at the stored card-level cutoff just
-  before the first fight rather than the racing 10:00am cutoff.
+  before the first fight rather than the racing first-eligible-race cutoff.
 - Predictions reads current candidates from the latest
   `current_prediction_snapshots` payload behind a sport selector. Racing shows
   Cash, Win %, and Placing prediction types: Cash shows the selected

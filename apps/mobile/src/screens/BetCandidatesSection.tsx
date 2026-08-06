@@ -138,6 +138,7 @@ export function BetCandidatesSection({
   const cacheAgeMs = activeSnapshotGeneratedAt ? Date.now() - new Date(activeSnapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
   const sourceDate = payload?.sourceDate ?? null;
+  const racingLockCutoffAt = getRacingLockCutoffAt(payload);
   const candidatesAreStale = Boolean(payload)
     && !predictionWindowClosedNow
     && isSnapshotStale(snapshotGeneratedAt);
@@ -419,8 +420,8 @@ export function BetCandidatesSection({
       return;
     }
 
-    if (!isBeforeAucklandLockCutoff()) {
-      setLockedMultiError("Percentage multi locking closes at 10:00am NZ time.");
+    if (!isBeforeLockCutoff(racingLockCutoffAt)) {
+      setLockedMultiError("Percentage multi locking closes when the first eligible race starts.");
       return;
     }
 
@@ -586,10 +587,12 @@ export function BetCandidatesSection({
             disabledReason={getWinPercentageLockDisabledReason({
               isLocked: Boolean(lockedWinPercentageMulti),
               isSignedIn: Boolean(user),
+              lockCutoffAt: racingLockCutoffAt,
               recommendation: winPercentageMultiRecommendation,
             })}
             isLocked={Boolean(lockedWinPercentageMulti)}
             isLocking={isLockingWinPercentageMulti || isSigningIn}
+            lockCutoffAt={racingLockCutoffAt}
             lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
             modelKey={winPercentageMultiModelKey}
             onLock={lockWinPercentageMulti}
@@ -766,6 +769,7 @@ type WinPercentageMultiRecommendationPanelProps = {
   disabledReason: string | null;
   isLocked: boolean;
   isLocking: boolean;
+  lockCutoffAt: string | null;
   lockedAt: string | null;
   modelKey: WinPercentageMultiModelKey;
   onLock: () => void;
@@ -850,6 +854,7 @@ function WinPercentageMultiRecommendationPanel({
   disabledReason,
   isLocked,
   isLocking,
+  lockCutoffAt,
   lockedAt,
   modelKey,
   onLock,
@@ -915,6 +920,7 @@ function WinPercentageMultiRecommendationPanel({
               {isLocked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
             </Text>
           </Pressable>
+          <Text style={styles.lockCutoffText}>{formatLockCutoffLabel(lockCutoffAt)}</Text>
         </View>
       </View>
       {!isLocked && disabledReason && disabledReason !== "Sign in to lock" ? (
@@ -2064,10 +2070,12 @@ function formatDateTime(value: string) {
 function getWinPercentageLockDisabledReason({
   isLocked,
   isSignedIn,
+  lockCutoffAt,
   recommendation,
 }: {
   isLocked: boolean;
   isSignedIn: boolean;
+  lockCutoffAt: string | null;
   recommendation: MultiBetRecommendation | null;
 }) {
   if (isLocked) {
@@ -2082,8 +2090,12 @@ function getWinPercentageLockDisabledReason({
     return "Sign in to lock";
   }
 
-  if (!isBeforeAucklandLockCutoff()) {
-    return "Locking closes at 10:00am NZ time";
+  if (!lockCutoffAt) {
+    return "Locking requires a first eligible race start";
+  }
+
+  if (!isBeforeLockCutoff(lockCutoffAt)) {
+    return "Locking closed at the first eligible race";
   }
 
   return null;
@@ -2117,22 +2129,6 @@ function getUfcLockDisabledReason({
   return null;
 }
 
-/**
- * Keeps lock creation aligned to the user's morning pre-bet workflow.
- */
-function isBeforeAucklandLockCutoff(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-NZ", {
-    hour: "2-digit",
-    hourCycle: "h23",
-    minute: "2-digit",
-    timeZone: SOURCE_TIME_ZONE,
-  }).formatToParts(now);
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  const minutesSinceMidnight = (value("hour") * 60) + value("minute");
-
-  return minutesSinceMidnight < 10 * 60;
-}
-
 function isBeforeLockCutoff(value: string | null, now = new Date()) {
   if (!value) {
     return false;
@@ -2141,6 +2137,19 @@ function isBeforeLockCutoff(value: string | null, now = new Date()) {
   const cutoff = new Date(value).valueOf();
 
   return Number.isFinite(cutoff) && now.valueOf() < cutoff;
+}
+
+function formatLockCutoffLabel(value: string | null) {
+  return value ? `Locks before ${formatDateTime(value)}` : "Lock cutoff unavailable";
+}
+
+/**
+ * Uses the snapshot's racing prediction window as the manual lock cutoff.
+ */
+function getRacingLockCutoffAt(payload: RecommendationPayload | null) {
+  return payload?.predictionWindow?.firstRaceStart
+    ?? payload?.betBackCandidates?.firstEligibleRaceStart
+    ?? null;
 }
 
 function createLockedWinPercentageMultiInput(
@@ -2154,8 +2163,10 @@ function createLockedWinPercentageMultiInput(
     generatedAt: payload.generatedAt,
     generatedAtNz: payload.generatedAtNz ?? null,
     legs: recommendation.legs,
+    lockCutoffAt: getRacingLockCutoffAt(payload),
     raw: {
       generatedAt: payload.generatedAt,
+      lockCutoffAt: getRacingLockCutoffAt(payload),
       recommendationType: recommendation.tone,
       sourceDate: payload.sourceDate,
       sourceTimeZone: payload.sourceTimeZone ?? SOURCE_TIME_ZONE,
@@ -2477,9 +2488,15 @@ const styles = StyleSheet.create({
   lockButtonTextLocked: {
     color: "#166534",
   },
+  lockCutoffText: {
+    color: "#667085",
+    fontSize: 11,
+    lineHeight: 15,
+    textAlign: "right",
+  },
   multiActions: {
     alignItems: "flex-end",
-    gap: 8,
+    gap: 6,
   },
   multiContext: {
     color: "#667085",

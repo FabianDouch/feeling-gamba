@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-07-24 to rename Race Days to Historical
+Note: the YAML was updated on 2026-08-05 to change racing percentage multi
+locking from a fixed 10:00am cutoff to the current prediction snapshot's first
+eligible race start. Rendered IA outputs should be regenerated from the YAML
+before being treated as current. It was previously updated on 2026-07-24 to
+rename Race Days to Historical
 Data, add Racing/UFC sport toggles to Historical Data and Insights, and add the
 UFC favourite price, other fighter price, and price-difference insight
 breakdowns. It was also updated on 2026-07-24 to add the
@@ -361,7 +365,7 @@ Main content:
   multis without refreshing racing.
 - UFC percentage multis can be locked per signed-in user, source date, card,
   and model until the stored card cutoff just before the first fight. They do
-  not use the racing 10:00am lock rule.
+  not use the racing first-eligible-race lock rule.
 - Placing recommendations panel shown under the placing type,
   using historical place percentages from stored insight aggregates. A place
   counts as top 2 in smaller place fields and top 3 in larger fields: AU/NZ
@@ -402,9 +406,11 @@ Main content:
   at least one tracked multi-bet prediction row for the current Auckland source
   date.
 - Signed-in users should be able to lock the current percentage multi
-  recommendation before 10:00am NZ time. Once locked, the panel should display
-  that user-owned snapshot for the current source date/model instead of later
-  live recommendation changes.
+  recommendation before the first eligible racing prediction race starts. Once
+  locked, the panel should display that user-owned snapshot for the current
+  source date/model instead of later live recommendation changes.
+- The lock action should show the cutoff timestamp beneath the button so users
+  can see when the current recommendation stops being lockable.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
