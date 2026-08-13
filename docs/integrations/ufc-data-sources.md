@@ -49,6 +49,7 @@ return denominators unless a future requirement says otherwise.
 | Kaggle `UFC Master Dataset: Fights, Stats, and Odds` by Vali Hameed | Public Kaggle metadata says the dataset is MIT licensed, updated on 2026-07-17, has one `ufc-master.csv`, and combines UFCStats-derived fight data with historical American moneyline odds in `RedOdds` and `BlueOdds`. Local file inspection found 7,327 dated rows from 2010-03-21 through 2026-07-11, with `RedFighter`, `BlueFighter`, `Date`, `Winner`, `Finish`, `RedOdds`, and `BlueOdds`. For the five-year window `2021-07-24` through `2026-07-24`, the file has 2,534 fights; 1,497 have both red/blue odds and 1,037 are result-only. Odds are populated through 2024-12-07, while 2025 and 2026 rows have blank red/blue odds in the downloaded version. | Useful first import source for five-year UFC Historical Data and priced Insights through 2024-12-07. Result-only 2025/2026 rows should be stored with missing-price state or filled from the daily odds dataset/Betcha forward snapshots before they contribute to price-based Insights. |
 | The Odds API | Official MMA/UFC page lists `mma_mixed_martial_arts`, `h2h` fight-winner odds, decimal odds support, and historical MMA/UFC odds on paid plans. Current API docs list `/historical/odds` as Business-only, with standard markets including MMA and a documented archive start of 2026-05-13. This conflicts with the MMA page's broader "from June 2020" claim, so five-year availability must be checked with a Business key. | Best odds-only fallback if a Business key confirms coverage for the required five-year window and selected bookmakers. Likely still needs a result source or a separate settlement check. |
 | SportsDataIO MMA | Official data dictionary includes schedules/events, fight details, winner/result fields, fighter moneyline fields, event fight odds, and event fight odds line movement. It also provides stable event, fight, and fighter IDs. Documentation notes older betting odds move into a historical data warehouse, so access level must be confirmed. | Best all-in-one fallback if licensing includes five-year MMA pre-game lines plus final fight data. Higher confidence for identity matching than name-based odds/result joins. |
+| ESPN public UFC scoreboard | Checked on 2026-08-10. The public scoreboard endpoint `https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=YYYYMMDD&limit=100` returned completed UFC events, fight competitions, athlete IDs/names, event status, fight status, and winner flags. The 2026-08-01 and 2026-08-08 checks returned 26 completed fights. It does not return source-backed pre-fight prices. | Use only as a forward completed-result feed for settling Betcha-captured UFC multis. Store these rows as `result_only`, `price_source = missing`, `included_in_insights = false`. Do not use ESPN rows for UFC price-based Insights unless a separate source supplies prices. |
 | UFCStats / UFC.com | Official UFC result/stat pages expose completed events and fight outcomes, but not betting prices. There is no documented betting odds API. | Usable only as a result-audit or fallback result source. Not sufficient for the requested UFC Insights metrics. |
 | Existing TAB / Betcha web APIs | Current project notes show these are internal web APIs with no official public developer docs. Stored promotion fixtures confirm Betcha/TAB can surface current sports promotions, including UFC/MMA promotion URLs, but the proven app integration only resolves racing cards into participants, fixed prices, MarketMover state, results, and dividends. There is no evidence they expose five years of historical UFC fixed prices or settled UFC market/result rows through a stable public API. | Not suitable for the five-year UFC backfill. Could be revisited later for forward-only current NZ/AU bookmaker snapshots if usage rights are confirmed and a sports event GraphQL proof finds current fighter prices before events start. |
 
@@ -141,7 +142,24 @@ events inside the target five-year window:
 
 UFC ingestion should not run on the nightly racing schedule. After backfill, use
 an event-complete or weekly refresh that looks back over recently completed UFC
-events and reconciles final outcomes and closing prices.
+events and reconciles final outcomes and closing prices when a price source is
+available.
+
+Forward UFC result refresh now uses ESPN's public UFC scoreboard as a
+result-only settlement source:
+
+- command: `npm --workspace @feeling-gamba/ingestion run refresh:ufc-results -- --lookback-days=14 --require-supabase`;
+- scheduled workflow: `.github/workflows/ufc-result-refresh.yml`;
+- default lookback: 14 UTC scoreboard dates, ending today;
+- rows written: `ufc_fight_entries` with `price_match_status = result_only`,
+  `price_source = missing`, `missing_price = true`, and
+  `included_in_insights = false`;
+- follow-up reconciliation:
+  `npm --workspace @feeling-gamba/ingestion run reconcile:ufc-predictions -- --require-supabase`.
+
+The refresh can settle UFC Prediction History where the Betcha leg fighter pair
+matches a stored ESPN result row. It must not rebuild UFC price aggregates,
+because no ESPN price is source-backed.
 
 The app-facing model should be sport-neutral before UFC is added to the UI:
 `Race Days` should become `Historical Data`, and sport-specific historical rows

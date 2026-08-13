@@ -326,12 +326,24 @@ Point-in-time source check on 2026-07-28:
 
 - Betcha `racingDay` still returned the current domestic NZ/AUS/HK meeting and
   race list.
-- `node(id: "RacingRaceCard:<uuid>")` still resolved and returned race-card
-  fields, runner rows, prices, and MarketMover flags.
 - The operation name `RaceCardLite` started returning HTTP 200 with an empty
   response body for race-card detail queries.
 - Renaming the same query to `RacingRaceCardSnapshot` restored responses.
 - Treat empty HTTP 200 GraphQL bodies as source failures, not valid empty data.
+
+Update on 2026-08-14:
+
+- Betcha `racingDay` still returns domestic NZ/AUS/HK `RacingRace:<uuid>` rows.
+- The old `RacingRaceCardSnapshot` query against `node(id:
+  "RacingRaceCard:<uuid>")` now returns HTTP 200 with an empty body for racing
+  detail requests.
+- The current web-bundle operation `BlackbookRaceEntrantInfo` works against
+  `node(id: "RacingRace:<uuid>")`.
+- Runner rows, scratch state, MarketMover flags, prices, and entrant-level
+  result positions are available through `marketsConnection(types:
+  [FINAL_FIELD]) { nodes { entrantsConnection { nodes { ... } } } }`.
+- Store and match the compatible `RacingRaceCard:<uuid>` key internally even
+  though the live detail fetch uses `RacingRace:<uuid>`.
 
 ## MarketMover And Favourite
 

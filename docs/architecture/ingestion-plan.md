@@ -10,7 +10,7 @@ set at `2025-12-15` for the local backfill. Six months is only the starting
 point for the first dataset, not a rolling limit on storage, filtering, or
 statistics.
 
-The Ellerslie 2026-05-23 check confirmed the preferred route:
+The Ellerslie 2026-05-23 check confirmed the preferred TAB route:
 
 - Use TAB GraphQL `racingDay` to discover TAB `RacingRace` IDs for target meetings.
 - Convert `RacingRace:<uuid>` to `RacingRaceCard:<uuid>` for live race-card data.
@@ -18,6 +18,15 @@ The Ellerslie 2026-05-23 check confirmed the preferred route:
 - Read `finalField.runnerRows[].isMarketMover` for TAB MarketMover.
 - Use TAB Form Guide as a declared-field/form-data source when GraphQL is missing
   runner counts or when comparing declared runners against current starters.
+
+The Betcha racing detail route changed by 2026-08-14. Betcha `racingDay` still
+returns `RacingRace:<uuid>` rows, but the old `node(id:
+"RacingRaceCard:<uuid>")` / `RacingRaceCardSnapshot` detail query can return
+HTTP 200 with an empty body. Betcha racing ingestion now calls the web-bundle
+`BlackbookRaceEntrantInfo` operation against `RacingRace:<uuid>`, reads
+`marketsConnection(types: [FINAL_FIELD])`, and adapts entrant rows back to the
+internal race-card shape while preserving `RacingRaceCard:<uuid>` as the stored
+source race-card key.
 
 ## Recommendation
 
@@ -207,8 +216,9 @@ Selection rule:
 Source:
 
 - TAB GraphQL `node(id: "RacingRaceCard:<uuid>")`.
-- Betcha GraphQL `node(id: "RacingRaceCard:<uuid>")` when a matching Betcha
-  race-card ID is available.
+- Betcha GraphQL `BlackbookRaceEntrantInfo` with `node(id:
+  "RacingRace:<uuid>")` and `marketsConnection(types: [FINAL_FIELD])`; store
+  the compatible `RacingRaceCard:<uuid>` key for downstream matching.
 
 Parsing rules:
 
@@ -752,6 +762,7 @@ Proposed recurring jobs:
 | `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
+| `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -771,10 +782,10 @@ rebuilds insights locally in the GitHub runner with
 `npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates`,
 then runs separate hosted requests for promotion-prediction outcome
 reconciliation, multi-bet recommendation reconciliation, user race-bet
-reconciliation, UFC multi recommendation reconciliation, and prediction
-aggregate rebuild. UFC multi reconciliation reads stored `ufc_fight_entries`
-results when available and marks old unmatched UFC legs as `missing_result`
-open issues. The split is required because the combined final
+reconciliation, and prediction aggregate rebuild. UFC result loading and UFC
+multi recommendation reconciliation are handled by the separate
+`.github/workflows/ufc-result-refresh.yml` workflow so UFC source checks do not
+depend on the racing overnight schedule. The split is required because the combined final
 aggregate/reconcile request started hitting Supabase's 150 second request idle
 timeout as the stored data set grew, and the all-history insight rebuild later
 hit Supabase Edge's CPU limit even after paging memory use. The local insight
@@ -783,6 +794,16 @@ buckets incrementally, but runs outside the Edge worker CPU budget. Manual
 workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
 for catch-up runs such as recovering data after the app only shows race days
 through `2026-06-21`.
+
+The UFC result refresh is deployed as `.github/workflows/ufc-result-refresh.yml`.
+It runs daily at `21:30` UTC, scans the latest 14 UTC scoreboard dates using
+ESPN's public UFC scoreboard, upserts completed fights into
+`ufc_fight_entries`, and then runs
+`npm --workspace @feeling-gamba/ingestion run reconcile:ufc-predictions`.
+Imported ESPN rows are settlement-only: they set `price_match_status` to
+`result_only`, mark prices missing, and are excluded from UFC Insights. Manual
+dispatch can increase the lookback to 30 days for catch-up runs or run dry mode
+to verify source coverage without writing.
 
 If a current prediction snapshot exists but its tracked prediction rows were not
 written, replay the saved payload with

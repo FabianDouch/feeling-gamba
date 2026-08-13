@@ -1,0 +1,95 @@
+name: UFC Result Refresh
+
+on:
+  schedule:
+    # 09:30 NZST / 10:30 NZDT. GitHub cron uses UTC.
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: Completed UTC scoreboard dates to refresh, ending today
+        required: true
+        default: "14"
+        type: string
+      dry_run:
+        description: Fetch and summarize completed UFC results without writing
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ufc-result-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh UFC Results And Outcomes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          lookback_days="${LOOKBACK_DAYS:-14}"
+
+          case "$lookback_days" in
+            ''|*[!0-9]*)
+              echo "lookback_days must be a positive integer"
+              exit 1
+              ;;
+          esac
+
+          if [ "$lookback_days" -lt 1 ] || [ "$lookback_days" -gt 30 ]; then
+            echo "lookback_days must be between 1 and 30"
+            exit 1
+          fi
+
+          dry_run="${DRY_RUN:-false}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for UFC result writes"
+            exit 1
+          fi
+
+      - name: Refresh completed UFC result rows
+        run: |
+          lookback_days="${LOOKBACK_DAYS:-14}"
+          dry_run="${DRY_RUN:-false}"
+
+          if [ "$dry_run" = "true" ]; then
+            npm --workspace @feeling-gamba/ingestion run refresh:ufc-results -- \
+              --lookback-days="${lookback_days}" \
+              --dry-run
+          else
+            npm --workspace @feeling-gamba/ingestion run refresh:ufc-results -- \
+              --lookback-days="${lookback_days}" \
+              --require-supabase
+          fi
+
+      - name: Reconcile UFC prediction outcomes
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          npm --workspace @feeling-gamba/ingestion run reconcile:ufc-predictions -- \
+            --require-supabase

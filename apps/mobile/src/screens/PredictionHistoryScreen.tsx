@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { DateRangeFilter } from "../components/DateRangeFilter";
 import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import {
   createDefaultPredictionHistoryFilters,
@@ -583,6 +584,7 @@ export function PredictionHistoryScreen() {
                 {getHistoryListHeading(activeHistoryType)}
               </Text>
               <DateRangeFilter
+                availableLabel="available prediction dates"
                 fromDate={filters.fromDate}
                 onChange={updateDateBoundary}
                 onReset={resetDateRange}
@@ -980,129 +982,6 @@ function StateMessage({ text, tone = "default" }: StateMessageProps) {
   );
 }
 
-type DateRangeFilterProps = {
-  fromDate: string;
-  onChange: (key: "fromDate" | "toDate", value: string) => void;
-  onReset: () => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  toDate: string;
-  windowLabel: string;
-};
-
-function DateRangeFilter({
-  fromDate,
-  onChange,
-  onReset,
-  options,
-  toDate,
-  windowLabel,
-}: DateRangeFilterProps) {
-  return (
-    <View style={styles.dateRangeGroup}>
-      <View style={styles.dateRangeHeader}>
-        <View>
-          <Text style={styles.filterLabel}>Date range</Text>
-          <Text style={styles.dateRangeNote}>{windowLabel}</Text>
-        </View>
-        <Pressable onPress={onReset} style={styles.resetButton}>
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </Pressable>
-      </View>
-      <View style={styles.dateRangeRow}>
-        <DateStepper
-          label="From"
-          onChange={(value) => onChange("fromDate", value)}
-          options={options}
-          value={fromDate}
-        />
-        <DateStepper
-          label="To"
-          onChange={(value) => onChange("toDate", value)}
-          options={options}
-          value={toDate}
-        />
-      </View>
-    </View>
-  );
-}
-
-type DateStepperProps = {
-  label: string;
-  onChange: (value: string) => void;
-  options: {
-    label: string;
-    value: string;
-  }[];
-  value: string;
-};
-
-function DateStepper({ label, onChange, options, value }: DateStepperProps) {
-  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
-  const selectedOption = options[selectedIndex] ?? options[0];
-  const canMovePrevious = selectedIndex > 0;
-  const canMoveNext = selectedIndex >= 0 && selectedIndex < options.length - 1;
-
-  function move(direction: -1 | 1) {
-    if (selectedIndex < 0) {
-      return;
-    }
-
-    const nextOption = options[selectedIndex + direction];
-
-    if (nextOption) {
-      onChange(nextOption.value);
-    }
-  }
-
-  return (
-    <View style={styles.dateStepper}>
-      <Text style={styles.dateStepperLabel}>{label}</Text>
-      <View style={styles.dateStepperControls}>
-        <Pressable
-          disabled={!canMovePrevious || options.length === 0}
-          onPress={() => move(-1)}
-          style={[
-            styles.dateStepButton,
-            !canMovePrevious ? styles.dateStepButtonDisabled : null,
-          ]}
-        >
-          <Text
-            style={[
-              styles.dateStepButtonText,
-              !canMovePrevious ? styles.dateStepButtonTextDisabled : null,
-            ]}
-          >
-            {"<"}
-          </Text>
-        </Pressable>
-        <Text style={styles.dateStepperValue}>
-          {selectedOption?.label ?? "No dates"}
-        </Text>
-        <Pressable
-          disabled={!canMoveNext || options.length === 0}
-          onPress={() => move(1)}
-          style={[
-            styles.dateStepButton,
-            !canMoveNext ? styles.dateStepButtonDisabled : null,
-          ]}
-        >
-          <Text
-            style={[
-              styles.dateStepButtonText,
-              !canMoveNext ? styles.dateStepButtonTextDisabled : null,
-            ]}
-          >
-            {">"}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 type FilterGroupProps = {
   label: string;
   onChange: (value: string) => void;
@@ -1139,76 +1018,6 @@ function FilterGroup({ label, onChange, options, selectedValue }: FilterGroupPro
 }
 
 const styles = StyleSheet.create({
-  dateRangeGroup: {
-    marginTop: 12,
-  },
-  dateRangeHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  dateRangeNote: {
-    color: "#667085",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  dateRangeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  dateStepButton: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
-  },
-  dateStepButtonDisabled: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e4e7ec",
-  },
-  dateStepButtonText: {
-    color: "#18202f",
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  dateStepButtonTextDisabled: {
-    color: "#98a2b3",
-  },
-  dateStepper: {
-    flex: 1,
-    minWidth: 210,
-  },
-  dateStepperControls: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  dateStepperLabel: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-  dateStepperValue: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    color: "#18202f",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-    minWidth: 104,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: "center",
-  },
   emptyState: {
     backgroundColor: "#f8fafc",
     borderColor: "#e4e7ec",
@@ -1515,19 +1324,6 @@ const styles = StyleSheet.create({
     color: "#0f5f58",
     fontSize: 12,
     fontWeight: "900",
-  },
-  resetButton: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d7dce7",
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  resetButtonText: {
-    color: "#344054",
-    fontSize: 12,
-    fontWeight: "800",
   },
   returnCard: {
     backgroundColor: "#f8fafc",

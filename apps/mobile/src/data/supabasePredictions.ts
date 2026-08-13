@@ -1,5 +1,6 @@
 import { publicEnv } from "../config/env";
 import type { DisciplineReturn, FavouriteStat, RaceFilterOption } from "./collectedRaceDay";
+import { supabaseClient } from "./supabaseClient";
 
 type NullableNumber = number | string | null;
 const DEFAULT_DATE_WINDOW_SIZE = 14;
@@ -325,6 +326,11 @@ type MultiBetRecommendationMetadataRow = {
   source_date: string;
 };
 
+type LockedMultiRecommendationMetadataRow = {
+  legs: unknown[] | null;
+  source_date: string;
+};
+
 type UfcMultiRecommendationLegRow = {
   advertisedStart: string | null;
   bucketLabel: string | null;
@@ -628,9 +634,22 @@ export async function fetchRacingMultiBetRecommendationHistoryMetadata(
       }
     }
 
-    const dates = unique([...dateRows.map((row) => row.source_date), yesterday]).sort();
+    const lockedMetadataRows = await fetchUserLockedMultiMetadataRows(predictionModel);
+    const lockedLegMetadataRows = lockedMetadataRows.flatMap((row) =>
+      (row.legs ?? []).map(mapLockedMultiMetadataLeg).filter((leg): leg is {
+        country: string | null;
+        course_name: string | null;
+        course_slug: string | null;
+        race_code: string | null;
+      } => Boolean(leg)));
+    const dates = unique([
+      ...dateRows.map((row) => row.source_date),
+      ...lockedMetadataRows.map((row) => row.source_date),
+      yesterday,
+    ]).sort();
     const latestDates = dates.slice(-DEFAULT_DATE_WINDOW_SIZE);
-    const countryOptions = unique(metadataRows
+    const combinedMetadataRows = [...metadataRows, ...lockedLegMetadataRows];
+    const countryOptions = unique(combinedMetadataRows
       .map((row) => row.country)
       .filter((country): country is string => Boolean(country)))
       .sort()
@@ -639,8 +658,8 @@ export async function fetchRacingMultiBetRecommendationHistoryMetadata(
       { label: "Horse", value: "horse" },
       { label: "Harness", value: "harness" },
       { label: "Greyhound", value: "greyhound" },
-    ].filter((option) => metadataRows.some((row) => row.race_code === option.value));
-    const courseOptionsByCountry = buildCourseOptionsByCountry(metadataRows);
+    ].filter((option) => combinedMetadataRows.some((row) => row.race_code === option.value));
+    const courseOptionsByCountry = buildCourseOptionsByCountry(combinedMetadataRows);
 
     return {
       countryOptions,
@@ -797,13 +816,13 @@ export async function fetchPredictionStats(
   const isUfcWinPercentageModel = isUfcPercentageMultiModel(winPercentageMultiModel);
   const fetchWinPercentagePerformanceSummary = isUfcWinPercentageModel
     ? fetchUfcMultiRecommendationPerformanceSummary
-    : fetchMultiBetRecommendationPerformanceSummary;
+    : fetchUserAwareRacingMultiBetRecommendationPerformanceSummary;
   const fetchWinPercentageSummary = isUfcWinPercentageModel
     ? fetchUfcMultiRecommendationSummary
-    : fetchMultiBetRecommendationSummary;
+    : fetchUserAwareRacingMultiBetRecommendationSummary;
   const fetchWinPercentageEntries = isUfcWinPercentageModel
     ? fetchUfcMultiRecommendationEntries
-    : fetchMultiBetRecommendationEntries;
+    : fetchUserAwareRacingMultiBetRecommendationEntries;
   const [
     rows,
     performanceSummary,
@@ -959,6 +978,77 @@ async function fetchMultiBetRecommendationPerformanceSummary(
     fromDate: "",
     toDate: "",
   }, predictionModel, maxLegRank);
+}
+
+/**
+ * Uses signed-in locked racing percentage multis when present, otherwise shared tracked recommendations.
+ */
+async function fetchUserAwareRacingMultiBetRecommendationSummary(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+  maxLegRank: number | null = null,
+) {
+  const lockedSummary = await fetchUserLockedMultiBetRecommendationSummary(filters, predictionModel, maxLegRank);
+
+  if (lockedSummary && lockedSummary.prediction_count > 0) {
+    return lockedSummary;
+  }
+
+  return fetchMultiBetRecommendationSummary(filters, predictionModel, maxLegRank);
+}
+
+/**
+ * Uses signed-in locked racing percentage multi performance when present.
+ */
+async function fetchUserAwareRacingMultiBetRecommendationPerformanceSummary(
+  predictionModel: string,
+  maxLegRank: number | null = null,
+) {
+  return fetchUserAwareRacingMultiBetRecommendationSummary({
+    country: "all",
+    course: "all",
+    discipline: "all",
+    fromDate: "",
+    toDate: "",
+  }, predictionModel, maxLegRank);
+}
+
+/**
+ * Reads authenticated user-locked percentage multi summary rows when available.
+ */
+async function fetchUserLockedMultiBetRecommendationSummary(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+  maxLegRank: number | null = null,
+) {
+  try {
+    const body: Record<string, unknown> = {
+      p_country: filters.country === "all" ? null : filters.country,
+      p_course_slug: filters.course === "all" ? null : filters.course,
+      p_from_date: filters.fromDate || null,
+      p_prediction_model: predictionModel,
+      p_race_code: filters.discipline === "all" ? null : filters.discipline,
+      p_recommendation_type: null,
+      p_to_date: filters.toDate || null,
+    };
+
+    if (maxLegRank !== null) {
+      body.p_max_leg_rank = maxLegRank;
+    }
+
+    const rows = await supabaseAuthRpc<MultiBetRecommendationSummaryRow[]>(
+      "get_user_locked_multi_recommendation_summary",
+      body,
+    );
+
+    return rows?.[0] ?? null;
+  } catch (error) {
+    if (isMissingRpcError(error) || isAuthUnavailableError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -1122,6 +1212,76 @@ async function fetchMultiBetRecommendationEntries(
 }
 
 /**
+ * Uses signed-in locked racing percentage multi entries when present.
+ */
+async function fetchUserAwareRacingMultiBetRecommendationEntries(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+  maxLegRank: number | null = null,
+) {
+  const lockedEntries = await fetchUserLockedMultiBetRecommendationEntries(filters, predictionModel, maxLegRank);
+
+  if (lockedEntries.totalCount > 0) {
+    return lockedEntries;
+  }
+
+  return fetchMultiBetRecommendationEntries(filters, predictionModel, maxLegRank);
+}
+
+/**
+ * Reads authenticated user-locked percentage multi history with derived outcomes.
+ */
+async function fetchUserLockedMultiBetRecommendationEntries(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+  maxLegRank: number | null = null,
+) {
+  try {
+    const body: Record<string, unknown> = {
+      p_country: filters.country === "all" ? null : filters.country,
+      p_course_slug: filters.course === "all" ? null : filters.course,
+      p_from_date: filters.fromDate || null,
+      p_limit: DEFAULT_PREDICTION_HISTORY_ROW_LIMIT,
+      p_offset: 0,
+      p_prediction_model: predictionModel,
+      p_race_code: filters.discipline === "all" ? null : filters.discipline,
+      p_recommendation_type: null,
+      p_to_date: filters.toDate || null,
+    };
+
+    if (maxLegRank !== null) {
+      body.p_max_leg_rank = maxLegRank;
+    }
+
+    const rows = await supabaseAuthRpc<MultiBetRecommendationHistoryRow[]>(
+      "get_user_locked_multi_recommendation_entries",
+      body,
+    );
+
+    if (!rows) {
+      return {
+        history: [],
+        totalCount: 0,
+      };
+    }
+
+    return {
+      history: rows.map(mapMultiBetRecommendationHistoryItem),
+      totalCount: rows[0]?.total_count ?? rows.length,
+    };
+  } catch (error) {
+    if (isMissingRpcError(error) || isAuthUnavailableError(error)) {
+      return {
+        history: [],
+        totalCount: 0,
+      };
+    }
+
+    throw error;
+  }
+}
+
+/**
  * Reads tracked UFC same-card multi history with fight-level outcomes.
  */
 async function fetchUfcMultiRecommendationEntries(
@@ -1226,6 +1386,10 @@ function isMissingTableError(error: unknown) {
   );
 }
 
+function isAuthUnavailableError(error: unknown) {
+  return error instanceof Error && error.message === "Supabase auth session is unavailable.";
+}
+
 /**
  * Reads matching Supabase rows using public PostgREST access.
  */
@@ -1308,6 +1472,29 @@ async function supabaseRpc<TResult>(name: string, body: Record<string, unknown>)
 }
 
 /**
+ * Calls a PostgREST RPC through the authenticated Supabase client for user-owned rows.
+ */
+async function supabaseAuthRpc<TResult>(name: string, body: Record<string, unknown>) {
+  if (!supabaseClient) {
+    throw new Error("Supabase auth session is unavailable.");
+  }
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    throw new Error("Supabase auth session is unavailable.");
+  }
+
+  const { data, error } = await supabaseClient.rpc(name, body);
+
+  if (error) {
+    throw new Error(`Supabase prediction RPC ${name} failed: ${error.message}`);
+  }
+
+  return data as TResult;
+}
+
+/**
  * Converts a stored prediction race-code aggregate into the same return metrics used by Insights.
  */
 function mapDisciplineReturn(row: PredictionSummaryMetrics & { race_code: string | null }): DisciplineReturn {
@@ -1375,6 +1562,77 @@ function buildCourseOptionsByCountry(rows: {
     country,
     Array.from(courses.values()).sort((left, right) => left.label.localeCompare(right.label)),
   ]));
+}
+
+/**
+ * Reads signed-in locked multi dates and leg metadata for filter options.
+ */
+async function fetchUserLockedMultiMetadataRows(
+  predictionModel: WinPercentageMultiModelKey,
+): Promise<LockedMultiRecommendationMetadataRow[]> {
+  if (!supabaseClient) {
+    return [];
+  }
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    return [];
+  }
+
+  const { data, error } = await supabaseClient
+    .from("user_locked_multi_recommendations")
+    .select("source_date,legs")
+    .eq("prediction_model", predictionModel)
+    .order("source_date", { ascending: false });
+
+  if (error) {
+    if (isMissingLockedMultiHistoryTableError(error)) {
+      return [];
+    }
+
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as LockedMultiRecommendationMetadataRow[];
+}
+
+/**
+ * Extracts filter metadata from one JSON leg in a locked multi snapshot.
+ */
+function mapLockedMultiMetadataLeg(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const leg = value as Record<string, unknown>;
+  const courseName = stringValue(leg.canonicalTrack)
+    ?? stringValue(leg.sourceTrack)
+    ?? stringValue(leg.track);
+
+  return {
+    country: stringValue(leg.country),
+    course_name: courseName,
+    course_slug: courseName ? toSlug(courseName) : null,
+    race_code: stringValue(leg.code),
+  };
+}
+
+function isMissingLockedMultiHistoryTableError(error: { code?: string; message?: string }) {
+  return error.code === "PGRST205"
+    && Boolean(error.message?.includes("user_locked_multi_recommendations"));
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function toSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function mapSummaryStats(row: PredictionSummaryMetrics): FavouriteStat[] {
@@ -1835,6 +2093,10 @@ function describeOutcome(row: PredictionHistoryRow) {
   }
 
   if (row.outcome_status === "missing_runner") {
+    if ((row.outcome_starter_count ?? 0) === 0) {
+      return "Missing race-card data";
+    }
+
     return "Missing runner match";
   }
 

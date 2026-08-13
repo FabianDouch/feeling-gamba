@@ -456,6 +456,10 @@ Betcha candidate scan independently of promotions. It scans current Betcha race
 cards for all NZ/AUS/HK domestic-region meetings returned by the source, derives the live
 favourite from fixed-win prices, then ranks races within each country/discipline
 group using the active prediction variation's model-specific `cashAverageScore`.
+Betcha detail fetches use the current web operation `BlackbookRaceEntrantInfo`
+against `RacingRace:<uuid>` and adapt `marketsConnection(types: [FINAL_FIELD])`
+entrant rows back to the internal `RacingRaceCard:<uuid>` key used by Prediction
+History reconciliation.
 Cash-plus-bonus remains visible as supporting context, but it must not drive
 recommendation ordering or status pills. The scan keeps at most the five best
 candidates per country/discipline group so HK candidates are not hidden behind
@@ -641,6 +645,11 @@ repo-root public Supabase env values before Metro bundles the app.
   multi bet recommendations and their legs from `multi_bet_recommendations` /
   `multi_bet_recommendation_legs` through cash-only summary and history RPCs,
   including stored fixed-place odds for place-percentage multi returns.
+  For signed-in users, Racing Win % multi history first checks authenticated
+  `user_locked_multi_recommendations` RPCs for the selected percentage model;
+  if matching locked rows exist, the screen shows those personal locked
+  outcomes and derives their results from stored race/result rows instead of
+  the later shared recommendation snapshot.
   UFC percentage multi models read `ufc_multi_recommendations` /
   `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
   Sport is selected first. Racing then shows the history type selector and the
@@ -681,12 +690,13 @@ repo-root public Supabase env values before Metro bundles the app.
   in the GitHub Actions runner, pages historical race rows, and accumulates
   aggregate buckets incrementally so the all-history insight job is outside the
   Supabase Edge worker CPU budget.
-- The same reconciliation family also checks UFC multi recommendation legs
-  against stored `ufc_fight_entries` result rows by source-backed fighter pair
-  and event-date window. Settled UFC matches update leg winners and parent multi
-  `$1` returns; unmatched UFC legs more than four hours after advertised start
-  are marked `missing_result` so Prediction History shows an open issue rather
-  than an active pending event.
+- The separate UFC result refresh loads completed ESPN scoreboard result rows
+  into `ufc_fight_entries`, then checks UFC multi recommendation legs against
+  stored fight rows by source-backed fighter pair and event-date window.
+  Settled UFC matches update leg winners and parent multi `$1` returns;
+  unmatched UFC legs more than four hours after advertised start are marked
+  `missing_result` so Prediction History shows an open issue rather than an
+  active pending event.
 - Normalized race/source tables and operational tables remain server-side behind
   RLS. Public client reads are limited to app-facing read models and public
   promotion snapshots.

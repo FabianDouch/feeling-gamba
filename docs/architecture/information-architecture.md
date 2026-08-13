@@ -91,7 +91,10 @@ Main content:
 - Sport selector: Racing or UFC.
 - View selector: Historical rows or Model backtests.
 - Date range picker bounded to collected race/UFC event dates for Historical
-  rows only.
+  rows only. It keeps adjacent-day arrows, lets the user tap a date label to
+  open a three-column scrolling day/month/year selector bounded to available
+  dates, and includes quick presets for today, yesterday, last 7 available
+  dates, and all available dates.
 - Default latest-20-race Supabase result set across AUS/NZ/HK.
 - Country filter: all countries, NZ, AUS, HK.
 - Discipline filter: horse, harness, greyhound.
@@ -493,6 +496,10 @@ Main content:
   with no matching stored rows.
 - Prediction history date range should default and reset to yesterday in
   `Pacific/Auckland` time, even if no prediction rows exist for that date yet.
+- Prediction history date range controls should keep adjacent-day arrows, let
+  the user tap a date label to open a three-column scrolling day/month/year
+  selector bounded to available prediction dates, and include quick presets for
+  today, yesterday, last 7 available dates, and all available dates.
 - Date range breakdown for the selected Prediction history filters, using the
   same prediction count, settled/pending count, win rate, cash average, cash
   net, cash-plus-bonus average, cash-plus-bonus net, and open-issue metrics as
@@ -506,7 +513,9 @@ Main content:
   tracked multi count, settled/pending count, hit rate, relevant average score,
   cash average, cash net, and open-issue metrics. For
   `multi_place_percentage_v1`, cash return metrics use stored fixed-place odds
-  where available.
+  where available. Signed-in users with locked racing percentage multis see
+  their own locked multi outcomes for the selected model/date range; users with
+  no matching locks continue to see the shared tracked recommendation history.
 - Prediction History sport selector: Racing or UFC.
 - Racing Prediction History keeps the history type selector: singles, cash
   multis, win percentage multis, and placing. UFC Prediction History shows UFC

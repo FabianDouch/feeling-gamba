@@ -118,64 +118,64 @@ const DISCOVERY_QUERY = `
 `;
 
 const RACE_CARD_QUERY = `
-  query RacingRaceCardSnapshot($id: ID!) {
-    raceCard: node(id: $id) {
+  query BlackbookRaceEntrantInfo($raceId: ID!) {
+    race: node(id: $raceId) {
       __typename
-      ... on RacingRaceCard {
+      ... on RacingRace {
         id
         name
         number
-        status
         advertisedStart
-        distance
-        trackCondition
-        finalField(baseAvailability: true) {
-          runnerRows(baseAvailability: true) {
-            id
-            number
-            name
-            scratchedTimestamp
-            isMarketMover
-            prices(baseAvailability: true) {
-              id
-              odds {
-                decimal
-                numerator
-                denominator
-              }
-            }
-          }
+        resultsSummary
+        info {
+          distance
+          trackCondition
         }
-        results {
-          __typename
-          ... on RacingResults {
-            title
-            runnerRows {
-              id
-              position
-              winPlaceDividends {
-                label
-                value
+        finalFieldMarket: marketsConnection(types: [FINAL_FIELD], first: 1) {
+          nodes {
+            id
+            status
+            name
+            entrantsConnection {
+              nodes {
+                id
+                name
+                number
+                scratched
+                isScratched
+                isLateScratched
+                isMarketMover
+                prices {
+                  id
+                  odds {
+                    decimal
+                    numerator
+                    denominator
+                  }
+                }
+                results {
+                  position
+                  fixedWin {
+                    numerator
+                    denominator
+                  }
+                  fixedPlace {
+                    numerator
+                    denominator
+                  }
+                  winDividends {
+                    dividend
+                    tote
+                  }
+                  placeDividends {
+                    dividend
+                    tote
+                  }
+                }
+                runner {
+                  id
+                }
               }
-              toteDividends(includePlaceDividendsForFirstPosition: true) {
-                label
-                value
-              }
-            }
-          }
-          ... on RacingExoticResults {
-            title
-            results {
-              name
-              entrantLabelSummary
-              toteOdds
-            }
-          }
-          ... on RacingMarginResults {
-            title
-            runnerRows {
-              id
-              margin
             }
           }
         }
@@ -334,6 +334,82 @@ function createDomesticTrackFromMeeting(meeting) {
 
 function toRaceCardId(racingRaceId) {
   return String(racingRaceId).replace(/^RacingRace:/, "RacingRaceCard:");
+}
+
+function getRaceDetailId(id) {
+  return String(id).replace(/^RacingRaceCard:/, "RacingRace:");
+}
+
+function decimalFromRacingFractionalOdds(odds) {
+  const numerator = Number(odds?.numerator);
+  const denominator = Number(odds?.denominator);
+
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return null;
+  }
+
+  return Number(((numerator / denominator) + 1).toFixed(2));
+}
+
+function mapEntrantDividend(dividends, fallbackOdds, label) {
+  const dividend = dividends?.[0]?.dividend ?? decimalFromRacingFractionalOdds(fallbackOdds);
+
+  return dividend === null || dividend === undefined
+    ? []
+    : [{ label, value: dividend }];
+}
+
+/**
+ * Adapts Betcha's current RacingRace detail shape to the older race-card shape used internally.
+ */
+function adaptRaceDetailToRaceCard(race, raceCardId = toRaceCardId(race?.id)) {
+  if (!race) {
+    return null;
+  }
+
+  const finalFieldMarket = race.finalFieldMarket?.nodes?.[0] ?? null;
+  const entrants = finalFieldMarket?.entrantsConnection?.nodes ?? [];
+  const runnerRows = entrants.map((entrant) => ({
+    id: entrant.id,
+    isMarketMover: Boolean(entrant.isMarketMover),
+    name: entrant.name,
+    number: entrant.number,
+    prices: entrant.prices ?? [],
+    runnerId: entrant.runner?.id ?? null,
+    scratchedTimestamp: entrant.scratched ?? (entrant.isScratched || entrant.isLateScratched ? true : null),
+  }));
+  const resultRows = entrants
+    .filter((entrant) => entrant.results?.position !== null && entrant.results?.position !== undefined)
+    .map((entrant) => ({
+      id: entrant.id,
+      position: entrant.results.position,
+      toteDividends: [],
+      winPlaceDividends: [
+        ...mapEntrantDividend(entrant.results.winDividends, entrant.results.fixedWin, "Win"),
+        ...mapEntrantDividend(entrant.results.placeDividends, entrant.results.fixedPlace, "Place"),
+      ],
+    }));
+
+  return {
+    advertisedStart: race.advertisedStart ?? finalFieldMarket?.advertisedStart ?? null,
+    distance: race.info?.distance ?? null,
+    finalField: {
+      runnerRows,
+    },
+    id: raceCardId,
+    name: race.name,
+    number: race.number,
+    results: resultRows.length
+      ? [{
+          __typename: "RacingResults",
+          runnerRows: resultRows,
+          title: "Results",
+        }]
+      : [],
+    resultsSummary: race.resultsSummary ?? null,
+    status: finalFieldMarket?.status ?? null,
+    trackCondition: race.info?.trackCondition ?? null,
+  };
 }
 
 function isVacantRunner(runner) {
@@ -592,8 +668,10 @@ async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countri
       const raceCardId = toRaceCardId(race.id);
 
       try {
-        const raceCardResponse = await graphql("RacingRaceCardSnapshot", RACE_CARD_QUERY, { id: raceCardId });
-        const raceCard = raceCardResponse.data?.raceCard;
+        const raceCardResponse = await graphql("BlackbookRaceEntrantInfo", RACE_CARD_QUERY, {
+          raceId: getRaceDetailId(raceCardId),
+        });
+        const raceCard = adaptRaceDetailToRaceCard(raceCardResponse.data?.race, raceCardId);
         races.push({
           derived: raceCard ? deriveRaceInsights(raceCard, getMeetingCountry(entry.meeting)) : null,
           raceCard,
@@ -646,7 +724,7 @@ async function fetchDate(date, { categories = DEFAULT_RACING_CATEGORIES, countri
         discoveryOperation: "RacingHomeMeetingsDesktopScreen",
         endpoint: BETCHA_GRAPHQL_ENDPOINT,
         name: "betcha_graphql",
-        raceCardOperation: "RacingRaceCardSnapshot",
+        raceCardOperation: "BlackbookRaceEntrantInfo",
       },
       testDate: date,
     },

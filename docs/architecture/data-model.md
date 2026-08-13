@@ -274,9 +274,12 @@ Rules:
 - The first lock for a user/source/source-date/model wins; later app refreshes
   should display the locked snapshot instead of replacing it with a newer live
   recommendation.
-- The stored legs are a user-visible snapshot only. They do not settle
-  historical multi performance, do not store real stake size, and do not enable
-  automated wagering.
+- The stored legs are the signed-in user's personal percentage-multi snapshot.
+  Prediction History can read them through authenticated RPCs and derive
+  outcomes from stored `races`, `runners`, and `race_results` rows so a user's
+  locked multi can be counted separately from the later shared recommendation.
+  Locks still do not store real stake size and do not enable automated
+  wagering.
 
 ### `meetings`
 
@@ -1153,8 +1156,9 @@ Rules:
 ### `ufc_fight_entries`
 
 Stored app-facing UFC Historical Data read model. It stores one settled
-two-fighter contest from the five-year Kaggle import and carries the source
-confidence needed to keep price-based Insights honest.
+two-fighter contest from the five-year Kaggle import or a forward result-only
+refresh and carries the source confidence needed to keep price-based Insights
+honest.
 
 Key fields:
 
@@ -1195,6 +1199,10 @@ Rules:
   has an exact `event_date` plus unordered fighter-pair match.
 - Duplicate daily odds rows are reduced deterministically by taking the latest
   row per `source + region`, then the median decimal price per fighter.
+- Forward ESPN scoreboard rows are `result_only` settlement rows with
+  `price_source = missing`, `missing_price = true`, and
+  `included_in_insights = false`. They can settle UFC prediction history but do
+  not feed UFC price buckets.
 - `result_only` rows may appear in Historical Data but must not feed favourite
   price, other fighter price, price-difference, or `$1` return Insights.
 - Equal-price fights and non-standard results are stored, but excluded from
@@ -1451,6 +1459,39 @@ Rules:
   metadata from `multi_bet_recommendations` and its legs for the selected
   multi-only model, so `multi_place_percentage_v1` does not depend on the
   currently selected single-runner prediction model having matching rows.
+
+### `get_user_locked_multi_recommendation_summary(...)`
+
+Authenticated PostgREST RPC used by Prediction History when a signed-in user
+has locked racing percentage multis for the selected model.
+
+Parameters match `get_multi_bet_recommendation_summary(...)`.
+
+Rules:
+
+- Read only `user_locked_multi_recommendations` rows owned by `auth.uid()`.
+- Derive leg outcomes at read time by matching each locked JSON leg's
+  `raceCardId` and favourite runner number against stored race, runner, and
+  result rows.
+- Use the same `$1` unit-stake summary shape as tracked multi recommendations.
+- Support the same all-legs/top-N rank filters for racing percentage multi
+  models.
+
+### `get_user_locked_multi_recommendation_entries(...)`
+
+Authenticated PostgREST RPC used by Prediction History to show the signed-in
+user's locked racing percentage multis and derived leg outcomes.
+
+Parameters match `get_multi_bet_recommendation_entries(...)`.
+
+Rules:
+
+- Return one row per user-owned locked multi plus ordered leg JSON in the same
+  display shape as tracked multi recommendation history.
+- Treat missing race/result data with the same pending/open-issue vocabulary as
+  tracked multi recommendations.
+- For `multi_place_percentage_v1`, count a leg as successful only when the
+  stored finish position is inside the locked leg's place payout depth.
 
 ### Legacy Named Insight Views
 
