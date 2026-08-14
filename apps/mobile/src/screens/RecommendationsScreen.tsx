@@ -203,6 +203,7 @@ export function RecommendationsScreen({ refreshSignal }: RecommendationsScreenPr
 
       try {
         let latestSnapshot = await loadLatestSupabasePromotionSnapshot();
+        let refreshError: Error | null = null;
 
         if (!isActive) {
           return;
@@ -211,10 +212,15 @@ export function RecommendationsScreen({ refreshSignal }: RecommendationsScreenPr
         if (latestSnapshot && isSnapshotStale(latestSnapshot.generatedAt) && hasPromotionRefreshEndpoint) {
           setIsRequestingFreshRecommendations(true);
           setRefreshMessage("Refreshing stale promotion recommendations.");
-          const refreshedPayload = await requestPromotionRefresh<RecommendationPayload>();
-          latestSnapshot = refreshedPayload
-            ? createSnapshotFromPayload(refreshedPayload)
-            : await loadLatestSupabasePromotionSnapshot();
+
+          try {
+            const refreshedPayload = await requestPromotionRefresh<RecommendationPayload>();
+            latestSnapshot = refreshedPayload
+              ? createSnapshotFromPayload(refreshedPayload)
+              : await loadLatestSupabasePromotionSnapshot();
+          } catch (error) {
+            refreshError = error instanceof Error ? error : new Error("Promotion refresh failed.");
+          }
         }
 
         if (latestSnapshot) {
@@ -222,7 +228,9 @@ export function RecommendationsScreen({ refreshSignal }: RecommendationsScreenPr
           setSnapshotGeneratedAt(latestSnapshot.generatedAt);
           setDataSourceStatus("supabase");
           setLoadError(null);
-          setRefreshMessage(null);
+          setRefreshMessage(refreshError
+            ? `Promotion refresh failed, but cached recommendations loaded: ${refreshError.message}`
+            : null);
         } else {
           setPromotionRecommendations(null);
           setSnapshotGeneratedAt(null);
@@ -385,7 +393,7 @@ export function RecommendationsScreen({ refreshSignal }: RecommendationsScreenPr
   const unavailableMessage = dataSourceStatus === "loading"
     ? "Checking Supabase for the latest promotion snapshot."
     : dataSourceStatus === "unconfigured"
-      ? "Promotion signals require EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY."
+      ? "Promotion signals require EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_SUPABASE_KEY, or EXPO_PUBLIC_SUPABASE_ANON_KEY."
       : dataSourceStatus === "empty"
         ? "Run the promotion refresh Edge Function or wait for the next scheduled refresh to populate current_promotion_snapshots."
         : "Promotion signals could not be loaded from Supabase.";

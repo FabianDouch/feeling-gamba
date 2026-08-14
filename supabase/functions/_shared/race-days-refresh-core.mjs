@@ -1789,7 +1789,27 @@ function createPredictionOutcomePatch(prediction, race, runner, result) {
     };
   }
 
+  const summaryResultPosition = getRaceSummaryResultPosition(race, prediction.predicted_runner_number);
+
   if (!runner) {
+    if (summaryResultPosition !== null) {
+      const winReturn = summaryResultPosition === 1 ? Number(prediction.predicted_fixed_win_price ?? 0) : 0;
+      const bonusCredit = getBonusBetCredit(summaryResultPosition, starterCount ?? 0);
+
+      return {
+        outcome_bonus_credit: roundMoney(bonusCredit),
+        outcome_missing_result: false,
+        outcome_missing_runner: false,
+        outcome_race_id: race.id,
+        outcome_result_position: summaryResultPosition || null,
+        outcome_starter_count: starterCount,
+        outcome_status: "settled",
+        outcome_total_value_with_bonus_credit: roundMoney(winReturn + bonusCredit),
+        outcome_updated_at: new Date().toISOString(),
+        outcome_win_return: roundMoney(winReturn),
+      };
+    }
+
     return {
       outcome_missing_result: true,
       outcome_missing_runner: true,
@@ -1801,6 +1821,25 @@ function createPredictionOutcomePatch(prediction, race, runner, result) {
   }
 
   if (!result || result.finish_position === null || result.finish_position === undefined) {
+    if (summaryResultPosition !== null) {
+      const winReturn = summaryResultPosition === 1 ? Number(prediction.predicted_fixed_win_price ?? 0) : 0;
+      const bonusCredit = getBonusBetCredit(summaryResultPosition, starterCount ?? 0);
+
+      return {
+        outcome_bonus_credit: roundMoney(bonusCredit),
+        outcome_missing_result: false,
+        outcome_missing_runner: false,
+        outcome_race_id: race.id,
+        outcome_result_position: summaryResultPosition || null,
+        outcome_runner_id: runner.id,
+        outcome_starter_count: starterCount,
+        outcome_status: "settled",
+        outcome_total_value_with_bonus_credit: roundMoney(winReturn + bonusCredit),
+        outcome_updated_at: new Date().toISOString(),
+        outcome_win_return: roundMoney(winReturn),
+      };
+    }
+
     return {
       outcome_missing_result: true,
       outcome_missing_runner: false,
@@ -1829,6 +1868,28 @@ function createPredictionOutcomePatch(prediction, race, runner, result) {
     outcome_updated_at: new Date().toISOString(),
     outcome_win_return: roundMoney(winReturn),
   };
+}
+
+/**
+ * Uses Betcha's compact result summary when post-event race cards omit entrants.
+ */
+function getRaceSummaryResultPosition(race, runnerNumber) {
+  const numericRunnerNumber = Number(runnerNumber);
+  const summary = race?.raw?.sourceRace?.resultsSummary;
+
+  if (!Number.isFinite(numericRunnerNumber) || !Array.isArray(summary) || !summary.length) {
+    return null;
+  }
+
+  for (const [index, finishers] of summary.entries()) {
+    const finisherNumbers = Array.isArray(finishers) ? finishers : [finishers];
+
+    if (finisherNumbers.some((finisherNumber) => Number(finisherNumber) === numericRunnerNumber)) {
+      return index + 1;
+    }
+  }
+
+  return race?.status === "FINAL" ? 0 : null;
 }
 
 function shouldKeepPredictionPendingWithoutRace(prediction, now = Date.now()) {
@@ -1892,6 +1953,7 @@ export async function reconcilePromotionPredictionOutcomesFromSupabase({ batchSi
 
   const races = await selectRowsByIn(supabase, "races", "source_race_card_id", predictions.map((row) => row.source_race_card_id), [
     "id",
+    "raw",
     "source_race_card_id",
     "starter_count",
     "status",
@@ -1967,7 +2029,13 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
     };
   }
 
+  const summaryResultPosition = getRaceSummaryResultPosition(race, leg.predicted_runner_number);
+
   if (!runner) {
+    if (summaryResultPosition !== null) {
+      return createMultiBetLegSettledPatch(leg, race, null, summaryResultPosition, recommendation);
+    }
+
     return {
       outcome_race_id: race.id,
       outcome_status: "missing_runner",
@@ -1976,6 +2044,10 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
   }
 
   if (!result || result.finish_position === null || result.finish_position === undefined) {
+    if (summaryResultPosition !== null) {
+      return createMultiBetLegSettledPatch(leg, race, runner.id, summaryResultPosition, recommendation);
+    }
+
     return {
       outcome_race_id: race.id,
       outcome_runner_id: runner.id,
@@ -1984,7 +2056,13 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
     };
   }
 
-  const resultPosition = Number(result.finish_position);
+  return createMultiBetLegSettledPatch(leg, race, runner.id, Number(result.finish_position), recommendation);
+}
+
+/**
+ * Builds a settled multi-leg outcome from either full runner results or compact result summaries.
+ */
+function createMultiBetLegSettledPatch(leg, race, runnerId, resultPosition, recommendation) {
   const isPlacePercentageMulti = recommendation.prediction_model === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
   const placePayoutDepth = getMultiBetLegPlacePayoutDepth(leg);
   const isSuccessfulLeg = isPlacePercentageMulti
@@ -1996,8 +2074,8 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
   if (isPlacePercentageMulti && isSuccessfulLeg && !hasFixedPlacePrice) {
     return {
       outcome_race_id: race.id,
-      outcome_result_position: resultPosition,
-      outcome_runner_id: runner.id,
+      outcome_result_position: resultPosition || null,
+      outcome_runner_id: runnerId,
       outcome_status: "missing_result",
       outcome_updated_at: new Date().toISOString(),
     };
@@ -2009,8 +2087,8 @@ function createMultiBetLegOutcomePatch(leg, race, runner, result, recommendation
 
   return {
     outcome_race_id: race.id,
-    outcome_result_position: resultPosition,
-    outcome_runner_id: runner.id,
+    outcome_result_position: resultPosition || null,
+    outcome_runner_id: runnerId,
     outcome_status: "settled",
     outcome_updated_at: new Date().toISOString(),
     outcome_win_return: roundMoney(winReturn),
@@ -2113,7 +2191,9 @@ export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batc
   ].join(","));
   const races = await selectRowsByIn(supabase, "races", "source_race_card_id", legs.map((row) => row.source_race_card_id), [
     "id",
+    "raw",
     "source_race_card_id",
+    "status",
   ].join(","));
   const raceBySourceRaceCardId = new Map(races.map((race) => [race.source_race_card_id, race]));
   const runners = await selectRowsByIn(supabase, "runners", "race_id", races.map((race) => race.id), [
@@ -2395,7 +2475,31 @@ function createUserRaceBetOutcomePatch(bet, race, runner, result) {
     };
   }
 
+  const summaryResultPosition = getRaceSummaryResultPosition(race, bet.selected_runner_number);
+
   if (!runner) {
+    if (summaryResultPosition !== null) {
+      const winReturn = summaryResultPosition === 1 ? Number(bet.selected_fixed_win_price ?? 0) : 0;
+      const bonusCredit = starterCount >= 8 && [2, 3].includes(summaryResultPosition)
+        ? 1
+        : starterCount >= 5 && summaryResultPosition === 2
+          ? 1
+          : 0;
+
+      return {
+        outcome_bonus_credit: bonusCredit,
+        outcome_missing_result: false,
+        outcome_missing_runner: false,
+        outcome_race_id: race.id,
+        outcome_result_position: summaryResultPosition || null,
+        outcome_starter_count: starterCount,
+        outcome_status: "settled",
+        outcome_total_value_with_bonus_credit: winReturn + bonusCredit,
+        outcome_updated_at: new Date().toISOString(),
+        outcome_win_return: winReturn,
+      };
+    }
+
     return {
       outcome_missing_result: false,
       outcome_missing_runner: true,
@@ -2406,6 +2510,29 @@ function createUserRaceBetOutcomePatch(bet, race, runner, result) {
   }
 
   if (!result || !Number.isFinite(Number(result.finish_position))) {
+    if (summaryResultPosition !== null) {
+      const winReturn = summaryResultPosition === 1 ? Number(bet.selected_fixed_win_price ?? 0) : 0;
+      const bonusCredit = starterCount >= 8 && [2, 3].includes(summaryResultPosition)
+        ? 1
+        : starterCount >= 5 && summaryResultPosition === 2
+          ? 1
+          : 0;
+
+      return {
+        outcome_bonus_credit: bonusCredit,
+        outcome_missing_result: false,
+        outcome_missing_runner: false,
+        outcome_race_id: race.id,
+        outcome_result_position: summaryResultPosition || null,
+        outcome_runner_id: runner.id,
+        outcome_starter_count: starterCount,
+        outcome_status: "settled",
+        outcome_total_value_with_bonus_credit: winReturn + bonusCredit,
+        outcome_updated_at: new Date().toISOString(),
+        outcome_win_return: winReturn,
+      };
+    }
+
     return {
       outcome_missing_result: true,
       outcome_missing_runner: false,
@@ -2468,6 +2595,7 @@ export async function reconcileUserRaceBetOutcomesFromSupabase({ batchSize = DEF
 
   const races = await selectRowsByIn(supabase, "races", "source_race_card_id", bets.map((row) => row.source_race_card_id), [
     "id",
+    "raw",
     "source_race_card_id",
     "starter_count",
     "status",

@@ -547,6 +547,14 @@ Initial mode:
   source date. The app can call an optional backend refresh endpoint configured
   as `EXPO_PUBLIC_PREDICTION_REFRESH_URL`; that endpoint must run server-side
   with source access and Supabase service-role secrets, never from Expo.
+- If the app's automatic stale-cache refresh fails while a same-day prediction
+  snapshot is available, Predictions keeps rendering the cached snapshot and
+  shows the refresh error as context instead of hiding the candidates.
+- Prediction outcome reconciliation prefers stored runner/result rows, but can
+  settle Betcha prediction rows from the race row's compact `resultsSummary`
+  when post-event race-card responses omit entrants. This keeps final races with
+  top-three summary data from being stranded as `missing_runner`; genuinely
+  abandoned races with no result summary remain missing.
 - The backend refresh endpoint is scaffolded as the
   `refresh-current-predictions` Supabase Edge Function under
   `supabase/functions/refresh-current-predictions`.

@@ -412,6 +412,7 @@ export type MultiBetRecommendationHistoryItem = {
   predictedAtLabel: string;
   recommendationLabel: string;
   returnLabel: string;
+  sourceDate: string;
   sourceDateLabel: string;
   summaryLabel: string;
 };
@@ -988,12 +989,6 @@ async function fetchUserAwareRacingMultiBetRecommendationSummary(
   predictionModel: string,
   maxLegRank: number | null = null,
 ) {
-  const lockedSummary = await fetchUserLockedMultiBetRecommendationSummary(filters, predictionModel, maxLegRank);
-
-  if (lockedSummary && lockedSummary.prediction_count > 0) {
-    return lockedSummary;
-  }
-
   return fetchMultiBetRecommendationSummary(filters, predictionModel, maxLegRank);
 }
 
@@ -1219,13 +1214,36 @@ async function fetchUserAwareRacingMultiBetRecommendationEntries(
   predictionModel: string,
   maxLegRank: number | null = null,
 ) {
-  const lockedEntries = await fetchUserLockedMultiBetRecommendationEntries(filters, predictionModel, maxLegRank);
+  const [generatedEntries, lockedEntries] = await Promise.all([
+    fetchMultiBetRecommendationEntries(filters, predictionModel, maxLegRank),
+    fetchUserLockedMultiBetRecommendationEntries(filters, predictionModel, maxLegRank),
+  ]);
 
   if (lockedEntries.totalCount > 0) {
-    return lockedEntries;
+    return mergeGeneratedAndLockedMultiBetHistory(generatedEntries, lockedEntries);
   }
 
-  return fetchMultiBetRecommendationEntries(filters, predictionModel, maxLegRank);
+  return generatedEntries;
+}
+
+/**
+ * Keeps shared generated history while replacing matching dates with the user's locked multi.
+ */
+function mergeGeneratedAndLockedMultiBetHistory(
+  generatedEntries: { history: MultiBetRecommendationHistoryItem[]; totalCount: number },
+  lockedEntries: { history: MultiBetRecommendationHistoryItem[]; totalCount: number },
+) {
+  const lockedSourceDates = new Set(lockedEntries.history.map((entry) => entry.sourceDate));
+  const generatedHistory = generatedEntries.history.filter((entry) => !lockedSourceDates.has(entry.sourceDate));
+  const history = [...lockedEntries.history, ...generatedHistory]
+    .sort((left, right) => right.sourceDate.localeCompare(left.sourceDate));
+
+  return {
+    history,
+    totalCount: generatedEntries.totalCount
+      - generatedEntries.history.filter((entry) => lockedSourceDates.has(entry.sourceDate)).length
+      + lockedEntries.totalCount,
+  };
 }
 
 /**
@@ -1846,6 +1864,7 @@ function mapMultiBetRecommendationHistoryItem(
     predictedAtLabel: `Predicted ${formatDateTime(row.predicted_at)}`,
     recommendationLabel: row.recommendation_type === "positive" ? "Positive multi" : "Neutral multi",
     returnLabel: formatCurrency(numeric(row.outcome_win_return)),
+    sourceDate: row.source_date,
     sourceDateLabel: formatDateLabel(row.source_date),
     summaryLabel: `${row.leg_count} legs · ${winningLegs}/${settledLegs || row.leg_count} legs ${isPlacingPercentageMulti ? "placed" : "won"}`,
   };
@@ -1920,6 +1939,7 @@ function mapUfcMultiRecommendationHistoryItem(
     predictedAtLabel: `Predicted ${formatDateTime(row.predicted_at)}`,
     recommendationLabel: `${row.source_card_name ?? "UFC card"} · ${row.recommendation_type === "positive" ? "Positive multi" : "Neutral multi"}`,
     returnLabel: formatCurrency(numeric(row.outcome_win_return)),
+    sourceDate: row.source_date,
     sourceDateLabel: formatDateLabel(row.source_date),
     summaryLabel: `${row.leg_count} fights · ${winningLegs}/${settledLegs || row.leg_count} fights won`,
   };

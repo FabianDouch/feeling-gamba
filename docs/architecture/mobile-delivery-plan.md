@@ -235,6 +235,9 @@ Notes:
 - The EAS `preview` environment must contain the public `EXPO_PUBLIC_*` runtime
   values before cloud builds are used. EAS cloud builds do not read the local
   `.env` file from the developer machine.
+- For local development, `apps/mobile/app.config.js` loads the repo-root `.env`
+  public Expo values into config `extra`; the runtime env helper reads both
+  direct `EXPO_PUBLIC_*` values and those config extras.
 - EAS Update is intentionally deferred. The first internal build should avoid
   `channel` values in `eas.json` until `expo-updates` is deliberately installed
   and configured.

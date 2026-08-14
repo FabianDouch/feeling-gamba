@@ -488,15 +488,22 @@ separately for `sport: "racing"` and `sport: "ufc"` so a slow source scan for
 one sport does not consume the whole Edge request idle-timeout budget. The
 racing scan fetches Betcha race-card details with bounded concurrency instead
 of one card at a time.
-app reads current candidates from `current_prediction_snapshots` for the current
+The app reads current candidates from `current_prediction_snapshots` for the current
 Auckland source date and can call `EXPO_PUBLIC_PREDICTION_REFRESH_URL` to
 request the `refresh-current-predictions` Edge Function. If the stored snapshot's
 prediction window is already closed, the app should render that cached pre-race
 snapshot immediately and skip stale-refresh attempts, because the backend cannot
-replace the snapshot after the first eligible race has started. The worker also writes
+replace the snapshot after the first eligible race has started. If an automatic
+stale refresh fails while a cached same-day snapshot exists, the app should keep
+rendering that cached snapshot and show the refresh error as context instead of
+clearing the candidates. The worker also writes
 model-scoped rows to `promotion_predictions`, keyed by
 `(prediction_model, source, source_race_card_id)`, so multiple model variations
 can run in parallel on the same race card even when no active promotion exists.
+Outcome reconciliation normally uses stored runner and result rows, with a
+Betcha `resultsSummary` fallback for final races whose post-event race-card
+payload omits entrants; abandoned races without result summaries remain
+unsettled rather than being treated as losses.
 During the migration transition, if Supabase reports
 `current_prediction_snapshots` is missing or the table exists but has no rows,
 the app may temporarily read the latest `current_promotion_snapshots` payload
@@ -646,10 +653,10 @@ repo-root public Supabase env values before Metro bundles the app.
   `multi_bet_recommendation_legs` through cash-only summary and history RPCs,
   including stored fixed-place odds for place-percentage multi returns.
   For signed-in users, Racing Win % multi history first checks authenticated
-  `user_locked_multi_recommendations` RPCs for the selected percentage model;
-  if matching locked rows exist, the screen shows those personal locked
-  outcomes and derives their results from stored race/result rows instead of
-  the later shared recommendation snapshot.
+  `user_locked_multi_recommendations` RPCs for the selected percentage model.
+  Locked rows override the shared generated recommendation only for the same
+  model/date, so a user-owned lock appears in history without hiding generated
+  history from other dates.
   UFC percentage multi models read `ufc_multi_recommendations` /
   `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
   Sport is selected first. Racing then shows the history type selector and the

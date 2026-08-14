@@ -170,6 +170,7 @@ export function BetCandidatesSection({
 
       try {
         let latestSnapshot = await fetchLatestPredictionSnapshot<RecommendationPayload>();
+        let refreshError: Error | null = null;
 
         if (!isActive) {
           return;
@@ -182,7 +183,14 @@ export function BetCandidatesSection({
         if (!latestSnapshot && hasPredictionRefreshEndpoint) {
           setIsRequestingRefresh(true);
           setRefreshMessage("Requesting today's pre-race bet candidates.");
-          const refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
+          let refreshedPayload: RecommendationPayload | null = null;
+
+          try {
+            refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
+          } catch (error) {
+            refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
+          }
+
           latestSnapshot = refreshedPayload
             ? createSnapshotFromPayload(refreshedPayload)
             : await fetchLatestPredictionSnapshot<RecommendationPayload>();
@@ -197,10 +205,15 @@ export function BetCandidatesSection({
         ) {
           setIsRequestingRefresh(true);
           setRefreshMessage("Refreshing stale bet candidates.");
-          const refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
-          latestSnapshot = refreshedPayload
-            ? createSnapshotFromPayload(refreshedPayload)
-            : await fetchLatestPredictionSnapshot<RecommendationPayload>();
+
+          try {
+            const refreshedPayload = await requestPredictionRefresh<RecommendationPayload>();
+            latestSnapshot = refreshedPayload
+              ? createSnapshotFromPayload(refreshedPayload)
+              : await fetchLatestPredictionSnapshot<RecommendationPayload>();
+          } catch (error) {
+            refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
+          }
         }
 
         if (!isActive) {
@@ -210,13 +223,17 @@ export function BetCandidatesSection({
         if (!latestSnapshot) {
           setPayload(null);
           setSnapshotGeneratedAt(null);
-          setStatus("empty");
+          setStatus(refreshError ? "error" : "empty");
+          setLoadError(refreshError?.message ?? null);
           return;
         }
 
         setPayload(latestSnapshot.payload);
         setSnapshotGeneratedAt(latestSnapshot.generatedAt);
         setStatus("supabase");
+        setRefreshMessage(refreshError
+          ? `Prediction refresh failed, but cached candidates loaded: ${refreshError.message}`
+          : null);
       } catch (error) {
         if (!isActive) {
           return;
@@ -1872,7 +1889,7 @@ function getUnavailableMessage(status: BetCandidateStatus) {
   }
 
   if (status === "unconfigured") {
-    return "Bet candidates require EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_KEY.";
+    return "Bet candidates require EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_SUPABASE_KEY, or EXPO_PUBLIC_SUPABASE_ANON_KEY.";
   }
 
   if (status === "empty") {
