@@ -20,6 +20,10 @@ recommendation per source date/model, implemented in
 As of `2026-08-05`, racing percentage multi locks close at the current
 prediction snapshot's first eligible race start instead of a fixed 10:00am NZ
 time cutoff.
+As of `2026-08-24`, `single_win_percentage_65_plus_v1` is an additional
+single-runner `prediction_model` value stored in `promotion_predictions`. It
+tracks each current favourite whose blended historical win score is at least
+65% as a separate notional `$1` single and does not require a new table.
 As of `2026-07-24`, `multi_win_percentage_60_plus_v1` and
 `multi_place_percentage_v1` are additional multi-only `prediction_model`
 values for tracked percentage multis; they use the existing multi
@@ -641,6 +645,11 @@ Rules:
     country-and-discipline cash buckets for price, starter-count,
     distance-band, and track-condition signals with conservative shrinkage
     toward broader cash history.
+  - `single_win_percentage_65_plus_v1`: tracks each current favourite whose
+    blended win score is at least 65%, where the score is 65% favourite
+    price-bucket win rate and 35% starter-count win rate. Each eligible row is a
+    separate `$1` single outcome; `cash_average_score` stores the win score and
+    `blended_cash_plus_bonus_average` is null.
 - Current candidate lists are ordered by the active prediction model's
   `cashAverageScore`, which is calculated differently for each prediction type.
   Cash-plus-bonus value remains supporting context and must not drive
@@ -813,6 +822,11 @@ Rules:
 - Only current Betcha competitions whose name/slug clearly identifies a UFC
   card can create UFC recommendations; non-UFC MMA competitions such as PFL are
   filtered out.
+- Current UFC prediction snapshots also expose per-model UFC Win % single
+  candidates in the payload for Predictions display. These are derived from the
+  same fully priced Head to Head fights and historical bucket signals as UFC
+  multis, and are persisted separately in `ufc_single_predictions` for $1
+  unit-stake history.
 - Every leg in a UFC multi must come from the same Betcha UFC card and an open
   Head to Head market with two priced fighters.
 - Each model requires at least three eligible fights and can store up to eight
@@ -848,6 +862,46 @@ Rules:
 
 - Leg snapshots preserve original model ranks so Prediction History can
   re-aggregate all legs, top 3, or top 4 views for each UFC model.
+- Public read access is allowed because rows contain app-facing market snapshots
+  and derived outcomes only.
+
+### `ufc_single_predictions`
+
+Stores every current UFC Win % single candidate per model, source date, Betcha
+UFC card, and fight. These rows answer the historical question "what happens if
+we put $1 on every eligible UFC single candidate for this model?" without
+recalculating from current snapshots.
+
+Key fields:
+
+- `prediction_model text` - one of the UFC percentage model keys also used by
+  UFC multis.
+- `source_date date`, `source_card_id text`, `source_card_name text`
+- `source_event_id text`, `source_market_id text`
+- `advertised_start timestamptz`
+- `prediction_signature text`
+- fight name, predicted fighter entrant/name/fixed-win price, opposing fighter
+  entrant/name/fixed-win price, and `price_difference`.
+- `prediction_rank int`
+- `win_score numeric`
+- bucket label, bucket win percentage, bucket sample size, signal label, tone,
+  and detail.
+- outcome fields for pending, settled, and missing-result states.
+
+Rules:
+
+- Rows are upserted from `ufcWinPercentageMultis.models[].singleCandidates`
+  during UFC current-prediction refresh and snapshot replay.
+- The unique key is `(prediction_model, source, source_date, source_card_id,
+  source_event_id)`, so each model tracks one single candidate per fight.
+- Stale rows for the same source date/model are deleted when a refreshed payload
+  no longer contains the candidate.
+- UFC single reconciliation uses the same fighter-pair and event-date matching
+  as UFC multi legs, writes the stored winner, and records `$1` cash return from
+  the predicted fighter's fixed-win price when the predicted fighter wins.
+- `get_ufc_single_prediction_summary` and
+  `get_ufc_single_prediction_entries` provide app-facing date-range performance
+  and history without racing-only country, discipline, or racecourse filters.
 - Public read access is allowed because rows contain app-facing market snapshots
   and derived outcomes only.
 

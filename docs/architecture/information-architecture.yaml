@@ -244,19 +244,22 @@ navigation:
         audience: app_user
         purpose:
           - Show current ranked Betcha-derived prediction signals from the latest prediction snapshot.
-          - Split current prediction types into Cash, Win %, and Placing tabs so different signal families are not mixed together.
+          - Split current prediction branches into Sport, Singles/Multis format, Cash/Win %/Placing signal type, and model tabs so different signal families are not mixed together.
           - Keep current candidates separate from Prediction History so today's snapshot is not confused with settled outcomes.
-          - Show the cash prediction model selector and method summary only for cash-model candidates.
+          - Show shared Sport tabs for Racing and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
+          - Show the same cash prediction model list under Racing Singles -> Cash and Racing Multis -> Cash: Global bucket blend, Global cash bucket blend, Global cash 50/50 blend, Global cash price only, Global cash starters only, Other starters avg price, Country + discipline blend, and Distance + condition blend.
+          - Show the cash prediction model selector and method summary only for cash-model branches.
           - Show horse, harness, and greyhound cash candidates in discipline tabs so the mobile page does not become a long stacked list.
           - Show compact horse, harness, or greyhound discipline icons beside cash candidate race title and runner lines.
           - Show cash candidate status pills with the active model cash metric basis, such as Positive cash blend or Weak price cash.
           - Show a compact signal guide above cash candidate cards that explains the active prediction model's cash-score formula and Positive, Neutral, Weak, Small sample, and Limited history meanings.
           - Label cash candidate bucket cash average and cash-plus-bonus average separately so bonus context is not mistaken for the recommendation score.
-          - Show a Multi bet recommendation panel derived from the active cash model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
+          - Under Racing Singles -> Cash, show ranked individual candidates only. Under Racing Multis -> Cash, show only the Multi bet recommendation panel derived from the active cash model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
           - Show a Placing recommendations panel under the Placing type, derived from stored place-rate insight aggregates; exclude fields with no place market.
           - Show current placing recommendation cash-average score plus favourite price bucket and starter-count bucket context.
+          - Show the single_win_percentage_65_plus_v1 model under Racing Singles -> Win %, listing every current favourite with a blended historical win score of at least 65% as a separate tracked $1 single.
           - >
-            Show a percentage multi recommendation panel under the Win % type.
+            Show a percentage multi recommendation panel under Racing Multis -> Win %.
             Win-rate models use 65% favourite price-bucket win rate and 35%
             starter-count win rate, falling back to per-candidate historical
             buckets when a cached snapshot predates the backend
@@ -271,6 +274,8 @@ navigation:
             multi_win_percentage_65_plus_v1 models that keep only 60%+ or 65%+
             win-score legs and can show up to 10 legs, plus
             multi_place_percentage_v1 with up to eight place-rate legs.
+          - Show the UFC same-card percentage model selector under UFC Singles -> Win % and UFC Multis -> Win %. UFC Singles list each eligible fully priced Head to Head favourite as an individual current single candidate from the selected historical bucket model.
+          - UFC non-Win % branches should remain selectable but show explicit empty states until matching models are added.
           - Let signed-in users lock the current percentage multi recommendation before the first eligible racing prediction race starts; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date/model.
           - Show the racing percentage multi lock cutoff timestamp under the Lock button.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
@@ -345,14 +350,19 @@ navigation:
           - Include place cash average, place cash net, and missing place-dividend counts in Placing prediction performance.
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
-          - Show percentage multi model tabs under the Win % multis history type so the original, 60%+, 65%+, and place percentage models can be reviewed independently.
+          - Show shared Sport tabs for Racing and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
+          - Show cash model tabs for Racing Cash singles and multis, the 65%+ win singles model for Racing Singles -> Win %, percentage multi model tabs for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, and UFC percentage model tabs for UFC Singles -> Win % and UFC Multis -> Win %.
+          - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, with racing-only country, discipline, and racecourse filters hidden.
+          - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, and place percentage models can be reviewed independently.
           - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 3-5 for the original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show percentage multi date-range breakdown and history with average win score or place score labels and leg-level Won/Placed/Lost/Missed/Pending/Missing outcomes.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, relevant average score, result label, and per-leg Won/Placed/Lost/Missed/Pending/Missing outcomes.
           - Keep prediction tracking statistical only, with no stake sizing or wagering action.
         components:
-          - prediction_history_type_tabs
+          - prediction_sport_tabs
+          - prediction_format_tabs
+          - prediction_type_tabs
           - prediction_variation_tabs
           - win_percentage_multi_model_tabs
           - prediction_variation_method_summary
@@ -566,6 +576,10 @@ content_rules:
   - Prediction History must read model-filtered Supabase prediction aggregates
     for performance metrics and model-filtered promotion_predictions only for
     server-side filtered itemised history display.
+  - >
+    Predictions and Prediction History must use the same prediction hierarchy:
+    Sport, Singles/Multis format, Cash/Win %/Placing signal type, then model tabs
+    filtered to the selected branch.
   - Predictions must separate current prediction types into Cash, Win %, and
     Placing tabs so win-percentage signals are not mixed with cash-return model
     signals.
@@ -586,6 +600,9 @@ content_rules:
   - Prediction History percentage multi sections must use the selected
     dedicated percentage multi model independently of the selected cash
     model.
+  - Racing Singles -> Win % must use single_win_percentage_65_plus_v1 to track
+    every current favourite with a blended historical win score >= 65 as an
+    individual notional $1 single.
   - Signed-in Racing users with locked percentage multis must see their
     matching personal locked multi history and statistics for the selected
     percentage model; users without matching locks continue to see shared

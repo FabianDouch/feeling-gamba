@@ -7,6 +7,7 @@ import {
   reconcileMultiBetRecommendationOutcomesFromSupabase,
   reconcilePromotionPredictionOutcomesFromSupabase,
   reconcileUfcMultiRecommendationOutcomesFromSupabase,
+  reconcileUfcSinglePredictionOutcomesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
   normalizeSupabaseProjectUrl,
@@ -123,6 +124,10 @@ async function main() {
     batchSize: options.batchSize,
     config,
   });
+  const ufcSinglePredictionOutcomeWrite = await reconcileUfcSinglePredictionOutcomesFromSupabase({
+    batchSize: options.batchSize,
+    config,
+  });
 
   console.log(JSON.stringify({
     ok: true,
@@ -130,6 +135,7 @@ async function main() {
     predictionAggregateWrite,
     predictionOutcomeWrite,
     ufcMultiRecommendationOutcomeWrite,
+    ufcSinglePredictionOutcomeWrite,
   }, null, 2));
 }
 

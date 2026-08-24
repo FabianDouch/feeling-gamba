@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   reconcileUfcMultiRecommendationOutcomesFromSupabase,
+  reconcileUfcSinglePredictionOutcomesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
   normalizeSupabaseProjectUrl,
@@ -84,7 +85,7 @@ function getSupabaseWriteConfig() {
 }
 
 /**
- * Settles pending UFC multi recommendations against stored UFC fight results only.
+ * Settles pending UFC prediction rows against stored UFC fight results only.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -108,10 +109,15 @@ async function main() {
     batchSize: options.batchSize,
     config,
   });
+  const ufcSinglePredictionOutcomeWrite = await reconcileUfcSinglePredictionOutcomesFromSupabase({
+    batchSize: options.batchSize,
+    config,
+  });
 
   console.log(JSON.stringify({
     ok: true,
     ufcMultiRecommendationOutcomeWrite,
+    ufcSinglePredictionOutcomeWrite,
   }, null, 2));
 }
 

@@ -2374,6 +2374,35 @@ function createUfcMultiRecommendationOutcomePatch(recommendation, legPatches) {
   };
 }
 
+function createUfcSinglePredictionOutcomePatch(prediction, fight) {
+  if (!fight) {
+    return {
+      outcome_status: shouldMarkUfcLegMissingResult(prediction) ? "missing_result" : "pending",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  if (fight.result_status !== "settled" || !fight.winner_name) {
+    return {
+      outcome_fight_id: fight.id,
+      outcome_status: "missing_result",
+      outcome_updated_at: new Date().toISOString(),
+    };
+  }
+
+  const predictedFighterWon = normalizeName(fight.winner_name) === normalizeName(prediction.predicted_fighter_name);
+  const winReturn = predictedFighterWon ? Number(prediction.predicted_fixed_win_price ?? 0) : 0;
+
+  return {
+    outcome_favourite_won: predictedFighterWon,
+    outcome_fight_id: fight.id,
+    outcome_status: "settled",
+    outcome_updated_at: new Date().toISOString(),
+    outcome_win_return: roundMoney(winReturn),
+    outcome_winner_name: fight.winner_name,
+  };
+}
+
 /**
  * Matches stored UFC multi legs to source-backed UFC fight results and stores multi outcomes.
  */
@@ -2454,6 +2483,73 @@ export async function reconcileUfcMultiRecommendationOutcomesFromSupabase({ batc
     if (parentPatch.outcome_status === "settled") {
       summary.settled += 1;
     } else if (parentPatch.outcome_status === "pending") {
+      summary.pending += 1;
+    } else {
+      summary.missingResults += 1;
+    }
+  }
+
+  return summary;
+}
+
+/**
+ * Matches stored UFC single predictions to source-backed UFC fight results and stores $1 single outcomes.
+ */
+export async function reconcileUfcSinglePredictionOutcomesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, config }) {
+  const supabase = createSupabaseRestClient(config, batchSize);
+  const predictions = await supabase.selectAll("ufc_single_predictions", {
+    order: "source_date.asc,predicted_at.asc",
+    outcome_status: "neq.settled",
+    source: "eq.betcha",
+  }, [
+    "id",
+    "advertised_start",
+    "other_fighter_name",
+    "predicted_fighter_name",
+    "predicted_fixed_win_price",
+    "prediction_model",
+  ].join(","));
+
+  if (!predictions.length) {
+    return {
+      checked: 0,
+      missingResults: 0,
+      pending: 0,
+      settled: 0,
+    };
+  }
+
+  const eventDates = [...new Set(predictions.flatMap(getUfcLegEventDateCandidates))].sort();
+  const fights = eventDates.length
+    ? await supabase.selectAll("ufc_fight_entries", {
+        event_date: `gte.${eventDates[0]}`,
+        and: `(event_date.gte.${eventDates[0]},event_date.lte.${eventDates.at(-1)})`,
+      }, [
+        "id",
+        "event_date",
+        "red_fighter_name",
+        "blue_fighter_name",
+        "result_status",
+        "winner_name",
+      ].join(","))
+    : [];
+  const fightLookup = createUfcFightLookup(fights);
+  const summary = {
+    checked: predictions.length,
+    missingResults: 0,
+    pending: 0,
+    settled: 0,
+  };
+
+  for (const prediction of predictions) {
+    const fight = findUfcFightForLeg(prediction, fightLookup);
+    const patch = createUfcSinglePredictionOutcomePatch(prediction, fight);
+
+    await supabase.patch("ufc_single_predictions", prediction.id, patch);
+
+    if (patch.outcome_status === "settled") {
+      summary.settled += 1;
+    } else if (patch.outcome_status === "pending") {
       summary.pending += 1;
     } else {
       summary.missingResults += 1;
@@ -2842,6 +2938,7 @@ export async function runRaceDaysAndInsightsRefresh({
   reconcileOutcomes = true,
   reconcilePredictionOutcomes,
   reconcileUfcMultiRecommendationOutcomes,
+  reconcileUfcSinglePredictionOutcomes,
   reconcileUserRaceBetOutcomes,
   rebuildInsights = true,
   to,
@@ -2853,6 +2950,7 @@ export async function runRaceDaysAndInsightsRefresh({
   const shouldReconcilePredictionOutcomes = reconcilePredictionOutcomes ?? reconcileOutcomes;
   const shouldReconcileMultiBetRecommendationOutcomes = reconcileMultiBetRecommendationOutcomes ?? reconcileOutcomes;
   const shouldReconcileUfcMultiRecommendationOutcomes = reconcileUfcMultiRecommendationOutcomes ?? reconcileOutcomes;
+  const shouldReconcileUfcSinglePredictionOutcomes = reconcileUfcSinglePredictionOutcomes ?? reconcileOutcomes;
   const shouldReconcileUserRaceBetOutcomes = reconcileUserRaceBetOutcomes ?? reconcileOutcomes;
   const shouldRebuildPredictionAggregates = rebuildPredictionAggregates ?? reconcileOutcomes;
 
@@ -2869,6 +2967,7 @@ export async function runRaceDaysAndInsightsRefresh({
       reconcileOutcomes,
       reconcilePredictionOutcomes: shouldReconcilePredictionOutcomes,
       reconcileUfcMultiRecommendationOutcomes: shouldReconcileUfcMultiRecommendationOutcomes,
+      reconcileUfcSinglePredictionOutcomes: shouldReconcileUfcSinglePredictionOutcomes,
       reconcileUserRaceBetOutcomes: shouldReconcileUserRaceBetOutcomes,
       rebuildInsights,
       sourceTimeZone: SOURCE_TIME_ZONE,
@@ -2925,6 +3024,12 @@ export async function runRaceDaysAndInsightsRefresh({
           config,
         })
       : null;
+    const ufcSinglePredictionOutcomeWrite = shouldReconcileUfcSinglePredictionOutcomes
+      ? await reconcileUfcSinglePredictionOutcomesFromSupabase({
+          batchSize,
+          config,
+        })
+      : null;
     const userRaceBetOutcomeWrite = shouldReconcileUserRaceBetOutcomes
       ? await reconcileUserRaceBetOutcomesFromSupabase({
           batchSize,
@@ -2956,6 +3061,7 @@ export async function runRaceDaysAndInsightsRefresh({
         races: fetched.fixtures.reduce((total, fixture) => total + (fixture.counts?.racesMatched ?? fixture.counts?.pilotRacesMatched ?? 0), 0),
       },
       ufcMultiRecommendationOutcomeWrite,
+      ufcSinglePredictionOutcomeWrite,
       userRaceBetOutcomeWrite,
       window,
     };

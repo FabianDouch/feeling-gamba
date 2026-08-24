@@ -13,6 +13,7 @@ import {
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
   upsertUfcMultiRecommendationsToSupabase,
+  upsertUfcSinglePredictionsToSupabase,
 } from "../_shared/current-promotions-core.mjs";
 
 const STALE_AFTER_MS = 15 * 60 * 1000;
@@ -373,6 +374,11 @@ Deno.serve(async (request) => {
         supabaseKey: config.key,
         supabaseUrl: config.url,
       });
+      const ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
       await upsertPredictionSnapshotToSupabase({
         output: payload,
         supabaseKey: config.key,
@@ -388,6 +394,7 @@ Deno.serve(async (request) => {
         sourceTimeZone: SOURCE_TIME_ZONE,
         sport: body.sport,
         ufcMultiRecommendationWrite,
+        ufcSinglePredictionWrite,
       });
     }
 
@@ -471,6 +478,11 @@ Deno.serve(async (request) => {
         supabaseKey: config.key,
         supabaseUrl: config.url,
       });
+      const ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
 
       return jsonResponse({
         cached: Boolean(latestSnapshot),
@@ -484,6 +496,7 @@ Deno.serve(async (request) => {
         sourceDate: payload.sourceDate,
         sourceTimeZone: SOURCE_TIME_ZONE,
         ufcMultiRecommendationWrite,
+        ufcSinglePredictionWrite,
       });
     }
 
@@ -498,6 +511,11 @@ Deno.serve(async (request) => {
       supabaseUrl: config.url,
     });
     const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+      output: payload,
+      supabaseKey: config.key,
+      supabaseUrl: config.url,
+    });
+    const ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
       output: payload,
       supabaseKey: config.key,
       supabaseUrl: config.url,
@@ -522,6 +540,7 @@ Deno.serve(async (request) => {
       sourceDate: payload.sourceDate,
       sourceTimeZone: SOURCE_TIME_ZONE,
       ufcMultiRecommendationWrite,
+      ufcSinglePredictionWrite,
     });
   } catch (error) {
     return jsonResponse({

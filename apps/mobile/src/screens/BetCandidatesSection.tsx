@@ -16,12 +16,13 @@ import {
   type PredictionModelKey,
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
-import type { CurrentPredictionType, PredictionSport } from "./PredictionControls";
+import type { CurrentPredictionType, PredictionFormat, PredictionSport } from "./PredictionControls";
 import {
   type BetCandidate,
   type RecommendationPayload,
   type RecommendationRace,
   SOURCE_TIME_ZONE,
+  type UfcSinglePredictionCandidate,
   type UfcWinPercentageMultiModelRun,
   type UfcMultiRecommendation,
 } from "../data/promotionPayload";
@@ -56,6 +57,7 @@ const PROMOTION_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfigured";
 
 type BetCandidatesSectionProps = {
+  predictionFormat?: PredictionFormat;
   predictionModelKey?: PredictionModelKey;
   predictionSport?: PredictionSport;
   predictionType?: CurrentPredictionType;
@@ -82,6 +84,7 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
  * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
+  predictionFormat = "singles",
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
   predictionSport = "racing",
   predictionType = "cash",
@@ -117,6 +120,7 @@ export function BetCandidatesSection({
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
+  const winPercentageSingleCandidates = getWinPercentageSingleCandidates(winPercentageMultiCandidatePool);
   const winPercentageMultiRecommendation = isUfcWinPercentageMulti
     ? null
     : buildPercentageMultiBetRecommendation(
@@ -151,7 +155,12 @@ export function BetCandidatesSection({
         : status === "empty"
           ? "No Supabase candidate snapshot available"
           : "Supabase candidate cache unavailable";
-  const sectionTitle = getPredictionTypeHeading(predictionType);
+  const sectionTitle = getPredictionTypeHeading(predictionType, predictionFormat);
+  const unsupportedBranchMessage = getUnsupportedPredictionBranchMessage({
+    predictionFormat,
+    predictionSport,
+    predictionType,
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -522,7 +531,7 @@ export function BetCandidatesSection({
               {betCandidateScan?.scannedMeetings ?? 0} meetings
             </Text>
           )}
-          {predictionType === "cash" ? (
+          {predictionSport === "racing" && predictionType === "cash" ? (
             <Text style={styles.sectionNote}>
               Current model {selectedModelRun?.label ?? "Global bucket blend"}
             </Text>
@@ -582,14 +591,23 @@ export function BetCandidatesSection({
         <Text style={styles.contextText}>{lockedMultiMessage}</Text>
       ) : null}
 
-      {predictionType === "cash" ? (
+      {predictionSport === "racing" && predictionType === "cash" ? (
         <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
       ) : null}
 
       {!payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
+      ) : unsupportedBranchMessage ? (
+        <StateMessage text={unsupportedBranchMessage} />
       ) : predictionType === "win_percentage" ? (
-        isUfcWinPercentageMulti ? (
+        predictionSport === "ufc" && predictionFormat === "singles" ? (
+          <UfcWinPercentageSinglesPanel
+            modelKey={winPercentageMultiModelKey}
+            modelRun={activeUfcModelRun}
+          />
+        ) : predictionFormat === "singles" ? (
+          <WinPercentageSinglesPanel candidates={winPercentageSingleCandidates} />
+        ) : isUfcWinPercentageMulti ? (
           <UfcWinPercentageMultiRecommendationsPanel
             isSigningIn={isSigningIn}
             lockedMultis={lockedUfcMultis}
@@ -617,14 +635,32 @@ export function BetCandidatesSection({
           />
         )
       ) : predictionType === "placing" ? (
-        <PlacingRecommendationsPanel recommendations={placingRecommendations} />
+        predictionFormat === "multis" ? (
+          <WinPercentageMultiRecommendationPanel
+            disabledReason={getWinPercentageLockDisabledReason({
+              isLocked: Boolean(lockedWinPercentageMulti),
+              isSignedIn: Boolean(user),
+              lockCutoffAt: racingLockCutoffAt,
+              recommendation: winPercentageMultiRecommendation,
+            })}
+            isLocked={Boolean(lockedWinPercentageMulti)}
+            isLocking={isLockingWinPercentageMulti || isSigningIn}
+            lockCutoffAt={racingLockCutoffAt}
+            lockedAt={lockedWinPercentageMulti?.lockedAt ?? null}
+            modelKey={winPercentageMultiModelKey}
+            onLock={lockWinPercentageMulti}
+            recommendation={displayedWinPercentageMultiRecommendation}
+          />
+        ) : (
+          <PlacingRecommendationsPanel recommendations={placingRecommendations} />
+        )
+      ) : predictionFormat === "multis" ? (
+        <MultiBetRecommendationPanel
+          modelKey={selectedModelKey}
+          recommendation={multiBetRecommendation}
+        />
       ) : betCandidates.length ? (
         <>
-          <MultiBetRecommendationPanel
-            modelKey={selectedModelKey}
-            recommendation={multiBetRecommendation}
-          />
-
           <View style={styles.disciplineTabs}>
             {candidateGroups.map((group) => {
               const isActive = group.code === activeCandidateGroup?.code;
@@ -761,16 +797,37 @@ export function BetCandidatesSection({
 /**
  * Names the active current prediction family in the snapshot status panel.
  */
-function getPredictionTypeHeading(predictionType: CurrentPredictionType) {
+function getPredictionTypeHeading(predictionType: CurrentPredictionType, predictionFormat: PredictionFormat) {
+  const formatLabel = predictionFormat === "multis" ? "Multi" : "Single";
+
   if (predictionType === "win_percentage") {
-    return "Win percentage predictions";
+    return `${formatLabel} win percentage predictions`;
   }
 
   if (predictionType === "placing") {
-    return "Placing predictions";
+    return `${formatLabel} placing predictions`;
   }
 
-  return "Cash model predictions";
+  return `${formatLabel} cash model predictions`;
+}
+
+/**
+ * Explains branches that exist in the shared structure before matching models have been implemented.
+ */
+function getUnsupportedPredictionBranchMessage({
+  predictionFormat,
+  predictionSport,
+  predictionType,
+}: {
+  predictionFormat: PredictionFormat;
+  predictionSport: PredictionSport;
+  predictionType: CurrentPredictionType;
+}) {
+  if (predictionSport === "ufc" && predictionType !== "win_percentage") {
+    return `No UFC ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
+  }
+
+  return null;
 }
 
 type MultiBetRecommendationPanelProps = {
@@ -780,6 +837,10 @@ type MultiBetRecommendationPanelProps = {
 
 type PlacingRecommendationsPanelProps = {
   recommendations: BetCandidate[];
+};
+
+type WinPercentageSinglesPanelProps = {
+  candidates: BetCandidate[];
 };
 
 type WinPercentageMultiRecommendationPanelProps = {
@@ -801,6 +862,11 @@ type UfcWinPercentageMultiRecommendationsPanelProps = {
   modelRun: UfcWinPercentageMultiModelRun | null;
   onLock: (recommendation: UfcMultiRecommendation) => void;
   userIsSignedIn: boolean;
+};
+
+type UfcWinPercentageSinglesPanelProps = {
+  modelKey: WinPercentageMultiModelKey;
+  modelRun: UfcWinPercentageMultiModelRun | null;
 };
 
 /**
@@ -858,6 +924,66 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
       ) : (
         <Text style={styles.multiFooter}>
           No positive or neutral place signals are available in the current snapshot yet.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Shows every current runner that would be tracked by the 65%+ win-rate singles model.
+ */
+function WinPercentageSinglesPanel({ candidates }: WinPercentageSinglesPanelProps) {
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>65%+ win singles</Text>
+          <Text style={styles.multiContext}>
+            Each listed favourite is tracked as a separate $1 single when its blended historical win score is at least 65%.
+          </Text>
+        </View>
+      </View>
+
+      {candidates.length ? (
+        <View style={styles.multiLegList}>
+          {candidates.map((race, index) => {
+            const signal = race.winPercentageMultiCandidate;
+
+            return (
+              <View key={`win-single-${race.raceCardId}`} style={styles.multiLeg}>
+                <View style={styles.multiLegIndex}>
+                  <Text style={styles.multiLegIndexText}>{index + 1}</Text>
+                </View>
+                <View style={styles.multiLegTextBlock}>
+                  <View style={styles.multiLegTitleRow}>
+                    <RaceDisciplineIcon code={race.code} size={16} />
+                    <Text style={styles.multiLegTitle}>
+                      R{race.raceNumber} {race.sourceTrack} · {formatMultiLegRunner(race)}
+                    </Text>
+                  </View>
+                  <Text style={styles.multiLegMeta}>
+                    {formatDateTime(race.advertisedStart)} · {race.country ?? "Unknown"} ·{" "}
+                    {race.starters} starters · fixed win {formatCurrency(race.favourite?.fixedWinPrice ?? null)}
+                  </Text>
+                  <Text style={styles.multiLegMeta}>
+                    {formatPercentage(signal?.winScore ?? null)} win score · {signal?.sampleSize ?? 0} bucket selections
+                  </Text>
+                  <Text style={styles.multiLegMeta}>
+                    Price {formatBucketWithWinPercentage(signal?.priceBucketLabel, signal?.priceBucketWinPercentage)} · starter{" "}
+                    {formatBucketWithWinPercentage(signal?.starterBucketLabel, signal?.starterBucketWinPercentage)}
+                  </Text>
+                </View>
+                <View style={[styles.signalBadge, styles.signal_positive]}>
+                  <Text style={styles.signalText}>65%+ single</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <Text style={styles.multiFooter}>
+          No current favourites have a 65%+ blended historical win score in this snapshot.
         </Text>
       )}
     </View>
@@ -1129,6 +1255,65 @@ function UfcWinPercentageMultiRecommendationsPanel({
       }) : (
         <Text style={styles.multiFooter}>
           UFC same-card multis will appear here once Betcha has an eligible upcoming UFC card with at least 3 fully priced H2H fights.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Shows current UFC fight favourites as individual win-percentage single candidates.
+ */
+function UfcWinPercentageSinglesPanel({
+  modelKey,
+  modelRun,
+}: UfcWinPercentageSinglesPanelProps) {
+  const candidates = getUfcSinglePredictionCandidates(modelRun);
+
+  return (
+    <View style={styles.multiPanel}>
+      <View style={styles.multiHeader}>
+        <View style={styles.headerText}>
+          <Text style={styles.multiTitle}>{getPercentageMultiDisplayLabel(modelKey)} singles</Text>
+          <Text style={styles.multiContext}>
+            Each listed UFC favourite is shown as a separate current single from the selected historical bucket model.
+          </Text>
+        </View>
+      </View>
+
+      {candidates.length ? (
+        <View style={styles.multiLegList}>
+          {candidates.map((candidate) => (
+            <View key={`${candidate.sourceCardId}-${candidate.sourceEventId}`} style={styles.multiLeg}>
+              <View style={styles.multiLegIndex}>
+                <Text style={styles.multiLegIndexText}>{candidate.predictionRank}</Text>
+              </View>
+              <View style={styles.multiLegTextBlock}>
+                <View style={styles.multiLegTitleRow}>
+                  <RaceDisciplineIcon code="ufc" size={16} />
+                  <Text style={styles.multiLegTitle}>
+                    {candidate.predictedFighterName} vs {candidate.otherFighterName}
+                  </Text>
+                </View>
+                <Text style={styles.multiLegMeta}>
+                  {candidate.sourceCardName} · {formatDateTime(candidate.advertisedStart)}
+                </Text>
+                <Text style={styles.multiLegMeta}>
+                  Fixed win {formatCurrency(candidate.predictedFixedWinPrice)} · {formatPercentage(candidate.signal.score)} win score
+                </Text>
+                <Text style={styles.multiLegMeta}>
+                  {candidate.signal.bucketLabel ?? "Unknown bucket"} · {candidate.signal.bucketSampleSize} samples · diff {formatCurrency(candidate.priceDifference)}
+                </Text>
+              </View>
+              <Text style={[styles.multiLegSignal, styles[`signalText_${candidate.signal.tone}`]]}>
+                {formatWinPercentageSignalLabel(candidate.signal.tone)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.multiFooter}>
+          UFC single candidates will appear here once the current snapshot has eligible fully priced Head to Head fights for this model.
         </Text>
       )}
     </View>
@@ -1481,6 +1666,77 @@ function getUniquePricedWinPercentageCandidates(candidates: BetCandidate[]) {
   }
 
   return Array.from(bestByRace.values()).sort(compareWinPercentageCandidates);
+}
+
+/**
+ * Selects every current favourite eligible for the 65%+ win-rate singles tracker.
+ */
+function getWinPercentageSingleCandidates(candidates: BetCandidate[]) {
+  const bestByRace = new Map<string, BetCandidate>();
+
+  for (const candidate of candidates) {
+    const signal = candidate.winPercentageMultiCandidate;
+
+    if (
+      !candidate.favourite?.fixedWinPrice
+      || !signal
+      || Number(signal.winScore ?? -Infinity) < 65
+    ) {
+      continue;
+    }
+
+    const existing = bestByRace.get(candidate.raceCardId);
+
+    if (!existing || compareWinPercentageCandidates(candidate, existing) < 0) {
+      bestByRace.set(candidate.raceCardId, candidate);
+    }
+  }
+
+  return Array.from(bestByRace.values()).sort(compareWinPercentageCandidates);
+}
+
+/**
+ * Reads UFC single candidates from new snapshots, or derives them from stored multi legs in older snapshots.
+ */
+function getUfcSinglePredictionCandidates(modelRun: UfcWinPercentageMultiModelRun | null) {
+  if (!modelRun) {
+    return [];
+  }
+
+  if (modelRun.singleCandidates?.length) {
+    return [...modelRun.singleCandidates].sort(compareUfcSinglePredictionCandidates);
+  }
+
+  return modelRun.recommendations
+    .flatMap((recommendation) =>
+      recommendation.legs.map((leg): UfcSinglePredictionCandidate => ({
+        ...leg,
+        sourceCardId: recommendation.sourceCardId,
+        sourceCardName: recommendation.sourceCardName,
+        sourceCardSlug: recommendation.sourceCardSlug,
+      })))
+    .sort(compareUfcSinglePredictionCandidates);
+}
+
+/**
+ * Orders UFC singles by model rank, then card and advertised start.
+ */
+function compareUfcSinglePredictionCandidates(
+  left: UfcSinglePredictionCandidate,
+  right: UfcSinglePredictionCandidate,
+) {
+  if (left.predictionRank !== right.predictionRank) {
+    return left.predictionRank - right.predictionRank;
+  }
+
+  const cardComparison = left.sourceCardName.localeCompare(right.sourceCardName);
+
+  if (cardComparison !== 0) {
+    return cardComparison;
+  }
+
+  return new Date(left.advertisedStart).valueOf()
+    - new Date(right.advertisedStart).valueOf();
 }
 
 /**

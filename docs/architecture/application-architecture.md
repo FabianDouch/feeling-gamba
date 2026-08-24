@@ -626,9 +626,9 @@ repo-root public Supabase env values before Metro bundles the app.
   Cash, Win %, and Placing prediction types: Cash shows the selected
   single-runner model and active-model multi, Win % shows the selected racing
   percentage multi-only model, and Placing shows current place-rate signals.
-  UFC shows only UFC Win % multi models for now, reading current Betcha UFC Head
-  to Head fight-card payloads from the same snapshot and listing only
-  same-card multis.
+  UFC shows UFC Win % singles and multis, reading current Betcha UFC Head to
+  Head fight-card payloads from the same snapshot and storing singles/multis in
+  UFC-specific history tables.
 - The app can call `refresh-current-predictions` with a sport-scoped JSON body.
   `{ "sport": "ufc" }` refreshes only UFC aggregates/current Betcha fight
   cards, updates the UFC part of `current_prediction_snapshots`, and writes UFC
@@ -659,10 +659,13 @@ repo-root public Supabase env values before Metro bundles the app.
   history from other dates.
   UFC percentage multi models read `ufc_multi_recommendations` /
   `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
+  UFC percentage singles read `ufc_single_predictions` through dedicated UFC
+  single summary and history RPCs.
   Sport is selected first. Racing then shows the history type selector and the
   relevant model selector below it: single-runner prediction models for
   singles, cash multis, and placing; racing percentage multi-only models for
-  Win % multis. UFC history shows UFC Win % multis and UFC model selectors only.
+  Win % multis. UFC history shows UFC Win % singles/multis and UFC model
+  selectors only.
   Win % multi history can apply all-legs or top-N rank filters against stored
   leg ranks. `multi_win_percentage_blend_v1` supports top 3-5,
   `multi_win_percentage_60_plus_v1` and `multi_win_percentage_65_plus_v1`

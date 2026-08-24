@@ -176,6 +176,12 @@ export type UfcMultiLeg = {
   sourceMarketId: string;
 };
 
+export type UfcSinglePredictionCandidate = UfcMultiLeg & {
+  sourceCardId: string;
+  sourceCardName: string;
+  sourceCardSlug: string | null;
+};
+
 export type UfcMultiRecommendation = {
   averageWinScore: number | null;
   combinedFixedWinPrice: number | null;
@@ -194,6 +200,7 @@ export type UfcWinPercentageMultiModelRun = {
   key: string;
   label: string;
   recommendations: UfcMultiRecommendation[];
+  singleCandidates?: UfcSinglePredictionCandidate[];
 };
 
 export type UfcWinPercentageMultis = {

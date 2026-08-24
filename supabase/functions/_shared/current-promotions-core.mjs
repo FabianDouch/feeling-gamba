@@ -16,6 +16,7 @@ const MULTI_BET_MIN_LEGS = 3;
 const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v1";
 const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
@@ -559,7 +560,7 @@ function createPredictionRowsFromPayload(output) {
         key: DEFAULT_PREDICTION_MODEL_KEY,
       }];
 
-  return modelRuns.flatMap((model) => (model.candidates ?? []).map((candidate) => ({
+  const modelRows = modelRuns.flatMap((model) => (model.candidates ?? []).map((candidate) => ({
     advertised_start: candidate.advertisedStart,
     blended_cash_plus_bonus_average: candidate.candidate?.blendedCashPlusBonusAverage ?? null,
     cash_average_score: candidate.candidate?.cashAverageScore ?? null,
@@ -595,6 +596,71 @@ function createPredictionRowsFromPayload(output) {
     source_track: candidate.sourceTrack ?? candidate.track ?? null,
     starter_bucket_label: candidate.historical?.starterBucket?.label ?? null,
   })));
+
+  return [
+    ...modelRows,
+    ...createSingleWinPercentagePredictionRowsFromPayload(output),
+  ];
+}
+
+/**
+ * Tracks every current favourite with a 65%+ blended historical win score as a single $1 outcome.
+ */
+function createSingleWinPercentagePredictionRowsFromPayload(output) {
+  return (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
+    .filter((candidate) =>
+      candidate.winPercentageMultiCandidate
+      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= 65
+      && candidate.favourite?.fixedWinPrice)
+    .map((candidate) => {
+      const singleCandidate = {
+        ...candidate,
+        candidate: {
+          ...candidate.winPercentageMultiCandidate,
+          blendedCashPlusBonusAverage: null,
+          label: "65%+ win-rate single",
+          tone: "positive",
+        },
+        rank: candidate.winPercentageMultiRank ?? candidate.rank ?? null,
+      };
+
+      return {
+        advertised_start: singleCandidate.advertisedStart,
+        blended_cash_plus_bonus_average: null,
+        cash_average_score: singleCandidate.candidate?.cashAverageScore ?? null,
+        canonical_track: singleCandidate.canonicalTrack ?? null,
+        country: singleCandidate.country ?? null,
+        course_name: singleCandidate.canonicalTrack ?? singleCandidate.sourceTrack ?? null,
+        course_slug: singleCandidate.canonicalTrack ? toSlug(singleCandidate.canonicalTrack) : null,
+        historical_sample_size: singleCandidate.candidate?.sampleSize ?? 0,
+        prediction_model: SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
+        predicted_at: output.generatedAt,
+        predicted_fixed_win_price: singleCandidate.favourite?.fixedWinPrice ?? null,
+        predicted_other_starters_average_fixed_win_price: singleCandidate.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null,
+        predicted_other_starters_price_count: singleCandidate.fieldPriceShape?.otherStartersPriceCount ?? null,
+        predicted_other_starters_price_outlier_count: singleCandidate.fieldPriceShape?.otherStartersPriceOutlierCount ?? null,
+        predicted_implied_win_percentage: singleCandidate.favourite?.impliedWinPercentage ?? null,
+        predicted_runner_name: singleCandidate.favourite?.name ?? null,
+        predicted_runner_number: singleCandidate.favourite?.number ?? null,
+        predicted_starter_count: singleCandidate.starters ?? null,
+        prediction_signature: createPredictionSignature(singleCandidate, SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY),
+        price_bucket_label: singleCandidate.candidate?.priceBucketLabel ?? singleCandidate.historical?.priceBucket?.label ?? singleCandidate.favourite?.priceBucket ?? null,
+        race_code: singleCandidate.code,
+        race_name: singleCandidate.raceName,
+        race_number: singleCandidate.raceNumber,
+        rank: singleCandidate.rank,
+        raw: singleCandidate,
+        signal_detail: singleCandidate.candidate?.detail ?? null,
+        signal_label: singleCandidate.candidate?.label ?? null,
+        signal_tone: singleCandidate.candidate?.tone ?? null,
+        source: output.betBackCandidates?.source ?? "betcha",
+        source_date: output.sourceDate,
+        source_race_card_id: singleCandidate.raceCardId,
+        source_time_zone: output.sourceTimeZone ?? SOURCE_TIME_ZONE,
+        source_track: singleCandidate.sourceTrack ?? singleCandidate.track ?? null,
+        starter_bucket_label: singleCandidate.candidate?.starterBucketLabel ?? singleCandidate.historical?.starterBucket?.label ?? null,
+      };
+    });
 }
 
 /**
@@ -1336,6 +1402,70 @@ function createUfcMultiRecommendationRowsFromPayload(output) {
   );
 }
 
+/**
+ * Converts current UFC single candidates into durable history rows keyed by model and fight.
+ */
+function createUfcSinglePredictionRowsFromPayload(output) {
+  return (output.ufcWinPercentageMultis?.models ?? []).flatMap((model) =>
+    (model.singleCandidates ?? []).map((candidate) => {
+      const signal = candidate.signal ?? candidate.modelSignal ?? null;
+      const row = {
+        advertised_start: candidate.advertisedStart ?? null,
+        bucket_label: signal?.bucketLabel ?? null,
+        bucket_sample_size: signal?.bucketSampleSize ?? signal?.sampleSize ?? null,
+        bucket_win_percentage: signal?.bucketWinPercentage ?? signal?.winScore ?? null,
+        fight_name: candidate.fightName ?? null,
+        other_entrant_id: candidate.otherEntrantId ?? candidate.otherFighter?.entrantId ?? null,
+        other_fighter_fixed_win_price: candidate.otherFixedWinPrice ?? candidate.otherFighter?.fixedWinPrice ?? null,
+        other_fighter_name: candidate.otherFighterName ?? candidate.otherFighter?.name ?? null,
+        outcome_favourite_won: null,
+        outcome_fight_id: null,
+        outcome_status: "pending",
+        outcome_updated_at: null,
+        outcome_win_return: 0,
+        outcome_winner_name: null,
+        predicted_at: output.ufcWinPercentageMultis?.generatedAt ?? output.generatedAt,
+        predicted_entrant_id: candidate.predictedEntrantId ?? candidate.predictedFighter?.entrantId ?? null,
+        predicted_fighter_name: candidate.predictedFighterName ?? candidate.predictedFighter?.name ?? null,
+        predicted_fixed_win_price: candidate.predictedFixedWinPrice ?? candidate.predictedFighter?.fixedWinPrice ?? null,
+        prediction_model: model.key,
+        prediction_rank: candidate.predictionRank ?? null,
+        price_difference: candidate.priceDifference ?? null,
+        raw: candidate,
+        signal_detail: signal?.detail ?? null,
+        signal_label: signal?.label ?? null,
+        signal_tone: signal?.tone ?? null,
+        source: output.ufcWinPercentageMultis?.source ?? "betcha",
+        source_card_id: candidate.sourceCardId ?? candidate.cardId ?? null,
+        source_card_name: candidate.sourceCardName ?? candidate.cardName ?? null,
+        source_card_slug: candidate.sourceCardSlug ?? candidate.cardSlug ?? null,
+        source_date: output.ufcWinPercentageMultis?.sourceDate ?? output.sourceDate,
+        source_event_id: candidate.sourceEventId ?? candidate.eventId ?? null,
+        source_market_id: candidate.sourceMarketId ?? candidate.marketId ?? null,
+        source_time_zone: output.sourceTimeZone ?? SOURCE_TIME_ZONE,
+        win_score: signal?.winScore ?? signal?.score ?? null,
+      };
+
+      return {
+        ...row,
+        prediction_signature: JSON.stringify({
+          fixedWinPrice: row.predicted_fixed_win_price,
+          modelKey: row.prediction_model,
+          predictedFighterName: row.predicted_fighter_name,
+          predictionRank: row.prediction_rank,
+          sourceCardId: row.source_card_id,
+          sourceEventId: row.source_event_id,
+          winScore: row.win_score,
+        }),
+      };
+    }).filter((row) =>
+      row.source_card_id
+      && row.source_card_name
+      && row.source_event_id
+      && row.predicted_fighter_name),
+  );
+}
+
 async function fetchExistingUfcMultiRecommendations({ source, sourceDate, supabaseKey, supabaseUrl }) {
   const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
   const url = new URL("/rest/v1/ufc_multi_recommendations", normalizedUrl);
@@ -1371,6 +1501,39 @@ async function fetchExistingUfcMultiRecommendations({ source, sourceDate, supaba
 
 function getUfcPredictionPayloadModelKeys(output) {
   return (output.ufcWinPercentageMultis?.models ?? []).map((model) => model.key);
+}
+
+async function fetchExistingUfcSinglePredictions({ source, sourceDate, supabaseKey, supabaseUrl }) {
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const url = new URL("/rest/v1/ufc_single_predictions", normalizedUrl);
+  url.searchParams.set("select", "id,prediction_model,source,source_date,source_card_id,source_event_id,prediction_signature");
+  url.searchParams.set("source", `eq.${source}`);
+  url.searchParams.set("source_date", `eq.${sourceDate}`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_single_predictions read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+
+  const existingRows = await response.json();
+
+  return {
+    byKey: new Map(existingRows.map((row) => [
+      `${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.source_event_id}`,
+      {
+        id: row.id,
+        signature: row.prediction_signature,
+      },
+    ])),
+    rows: existingRows,
+  };
 }
 
 async function deleteStaleUfcMultiRecommendations({
@@ -1414,6 +1577,50 @@ async function deleteStaleUfcMultiRecommendations({
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`Supabase ufc_multi_recommendations stale delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
+}
+
+async function deleteStaleUfcSinglePredictions({
+  currentKeys,
+  existingRows,
+  modelKeys,
+  source,
+  sourceDate,
+  supabaseKey,
+  supabaseUrl,
+}) {
+  const existing = existingRows ?? (await fetchExistingUfcSinglePredictions({
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  })).rows;
+  const staleIds = existing
+    .filter((row) => modelKeys.includes(row.prediction_model))
+    .filter((row) => !currentKeys.has(`${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.source_event_id}`))
+    .map((row) => row.id);
+
+  if (!staleIds.length) {
+    return;
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const ids = staleIds.map((id) => `"${escapePostgrestInValue(id)}"`).join(",");
+  const url = new URL("/rest/v1/ufc_single_predictions", normalizedUrl);
+  url.searchParams.set("id", `in.(${ids})`);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: supabaseKey,
+      authorization: `Bearer ${supabaseKey}`,
+      prefer: "return=minimal",
+    },
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_single_predictions stale delete failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
   }
 }
 
@@ -1568,6 +1775,95 @@ export async function upsertUfcMultiRecommendationsToSupabase({ output, supabase
     supabaseKey,
     supabaseUrl,
   });
+
+  return {
+    changed: changedRows.length,
+    ok: true,
+    skipped: false,
+    total: rows.length,
+  };
+}
+
+/**
+ * Stores current UFC single candidates so Prediction History can settle each fight independently.
+ */
+export async function upsertUfcSinglePredictionsToSupabase({ output, supabaseKey, supabaseUrl }) {
+  if (!supabaseUrl || !supabaseKey) {
+    return {
+      changed: 0,
+      ok: false,
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  const rows = createUfcSinglePredictionRowsFromPayload(output);
+  const source = output.ufcWinPercentageMultis?.source ?? "betcha";
+  const sourceDate = output.sourceDate;
+  const modelKeys = getUfcPredictionPayloadModelKeys(output);
+
+  if (!modelKeys.length || !rows.length) {
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: 0,
+    };
+  }
+
+  const existing = await fetchExistingUfcSinglePredictions({
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+  const currentKeys = new Set(rows.map((row) =>
+    `${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.source_event_id}`));
+
+  await deleteStaleUfcSinglePredictions({
+    currentKeys,
+    existingRows: existing.rows,
+    modelKeys,
+    source,
+    sourceDate,
+    supabaseKey,
+    supabaseUrl,
+  });
+
+  const changedRows = rows.filter((row) => {
+    const existingRow = existing.byKey.get(`${row.prediction_model}:${row.source}:${row.source_date}:${row.source_card_id}:${row.source_event_id}`);
+
+    return existingRow?.signature !== row.prediction_signature;
+  });
+
+  if (!changedRows.length) {
+    return {
+      changed: 0,
+      ok: true,
+      skipped: false,
+      total: rows.length,
+    };
+  }
+
+  const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
+  const response = await fetch(
+    `${normalizedUrl}/rest/v1/ufc_single_predictions?on_conflict=prediction_model,source,source_date,source_card_id,source_event_id`,
+    {
+      body: JSON.stringify(changedRows),
+      headers: {
+        apikey: supabaseKey,
+        authorization: `Bearer ${supabaseKey}`,
+        "content-type": "application/json",
+        prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Supabase ufc_single_predictions upsert failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  }
 
   return {
     changed: changedRows.length,
@@ -3684,30 +3980,7 @@ function createUfcRecommendationSignature(recommendation) {
 }
 
 function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, generatedAt, sourceDate) {
-  const rankedCandidates = candidates
-    .map((candidate) => ({
-      ...candidate,
-      modelSignal: candidate.modelSignals?.[modelKey] ?? null,
-    }))
-    .filter((candidate) =>
-      Number.isFinite(candidate.modelSignal?.winScore)
-      && ["neutral", "positive"].includes(candidate.modelSignal?.tone)
-      && candidate.predictedFighter?.fixedWinPrice)
-    .sort((left, right) => {
-      const rightScore = right.modelSignal?.winScore ?? -Infinity;
-      const leftScore = left.modelSignal?.winScore ?? -Infinity;
-
-      if (rightScore !== leftScore) {
-        return rightScore - leftScore;
-      }
-
-      return new Date(left.advertisedStart).valueOf()
-        - new Date(right.advertisedStart).valueOf();
-    })
-    .map((candidate, index) => ({
-      ...candidate,
-      predictionRank: index + 1,
-    }));
+  const rankedCandidates = rankUfcCandidatesForModel(candidates, modelKey);
 
   if (rankedCandidates.length < UFC_MULTI_MIN_LEGS) {
     return null;
@@ -3761,6 +4034,60 @@ function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, gen
     ...recommendation,
     predictionSignature: createUfcRecommendationSignature(recommendation),
   };
+}
+
+/**
+ * Orders current UFC fight candidates for one historical win-percentage model.
+ */
+function rankUfcCandidatesForModel(candidates, modelKey) {
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      modelSignal: candidate.modelSignals?.[modelKey] ?? null,
+    }))
+    .filter((candidate) =>
+      Number.isFinite(candidate.modelSignal?.winScore)
+      && ["neutral", "positive"].includes(candidate.modelSignal?.tone)
+      && candidate.predictedFighter?.fixedWinPrice)
+    .sort((left, right) => {
+      const rightScore = right.modelSignal?.winScore ?? -Infinity;
+      const leftScore = left.modelSignal?.winScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .map((candidate, index) => ({
+      ...candidate,
+      predictionRank: index + 1,
+    }));
+}
+
+/**
+ * Builds current UFC single candidates from every eligible fight in the selected model.
+ */
+function createUfcSinglePredictionCandidates(card, candidates, modelKey) {
+  return rankUfcCandidatesForModel(candidates, modelKey).map((candidate) => ({
+    advertisedStart: candidate.advertisedStart,
+    fightName: candidate.fightName,
+    otherEntrantId: candidate.otherFighter?.entrantId ?? null,
+    otherFighterName: candidate.otherFighter?.name ?? null,
+    otherFixedWinPrice: candidate.otherFighter?.fixedWinPrice ?? null,
+    predictedEntrantId: candidate.predictedFighter?.entrantId ?? null,
+    predictedFighterName: candidate.predictedFighter?.name ?? null,
+    predictedFixedWinPrice: candidate.predictedFighter?.fixedWinPrice ?? null,
+    priceDifference: candidate.priceDifference,
+    predictionRank: candidate.predictionRank,
+    signal: candidate.modelSignal,
+    sourceCardId: card.id,
+    sourceCardName: card.name,
+    sourceCardSlug: extractSlugFromUrl(card.url),
+    sourceEventId: candidate.eventId,
+    sourceMarketId: candidate.marketId,
+  }));
 }
 
 async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt, sourceDate) {
@@ -3844,6 +4171,8 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
         sourceDate,
       ))
       .filter(Boolean),
+    singleCandidates: cardResults.flatMap(({ card, candidates }) =>
+      createUfcSinglePredictionCandidates(card, candidates, model.key)),
   }));
   const firstFightStart = getEarliestIsoDate(
     models.flatMap((model) => model.recommendations.map((recommendation) => recommendation.firstFightStart)),

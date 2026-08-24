@@ -17,10 +17,14 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the YAML was updated on 2026-08-05 to change racing percentage multi
-locking from a fixed 10:00am cutoff to the current prediction snapshot's first
-eligible race start. Rendered IA outputs should be regenerated from the YAML
-before being treated as current. It was previously updated on 2026-07-24 to
+Note: the IA was updated on 2026-08-24 so Predictions and Prediction History use
+the same Sport -> Singles/Multis -> Signal type -> Model structure, including
+the `single_win_percentage_65_plus_v1` 65%+ win-rate single tracker and stored
+UFC Singles -> Win % history. The YAML was previously updated on 2026-08-05 to
+change racing percentage multi locking from a fixed 10:00am cutoff to the
+current prediction snapshot's first eligible race start. Rendered IA outputs
+should be regenerated from the YAML before being treated as current. It was
+previously updated on 2026-07-24 to
 rename Race Days to Historical
 Data, add Racing/UFC sport toggles to Historical Data and Insights, and add the
 UFC favourite price, other fighter price, and price-difference insight
@@ -325,18 +329,24 @@ Purpose:
 
 - Show current ranked Betcha-derived prediction signals from the latest current
   prediction snapshot.
-- Split current prediction types so cash-return model candidates, the
-  win-percentage multi-only signal, and placing signals are not mixed in one
-  stack.
+- Split current prediction branches so sport, single/multi format, cash-return,
+  win-percentage, and placing signals are not mixed in one stack.
 - Keep current race-card facts and current recommendations separate from stored
   historical outcome performance.
 
 Main content:
 
-- Prediction type tabs: cash, win percentage, and placing.
+- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `UFC`); Level 2
+  format tabs (`Singles`, `Multis`); Level 3 signal tabs (`Cash`, `Win %`,
+  `Placing`); Level 4 model tabs filtered to the selected sport/format/signal.
 - Cash prediction model selector and method summary for cash-model candidates.
+  Racing Singles -> Cash and Racing Multis -> Cash expose the same cash model
+  list: `Global bucket blend`, `Global cash bucket blend`, `Global cash 50/50
+  blend`, `Global cash price only`, `Global cash starters only`, `Other starters
+  avg price`, `Country + discipline blend`, and `Distance + condition blend`.
 - Cash model `Bet candidates` section for the current Auckland source date's
-  candidate snapshot and current active-model multi bet recommendation.
+  candidate snapshot. Under Singles it shows ranked individual candidates; under
+  Multis it shows only the current active-model multi bet recommendation.
 - Current bet candidates grouped by discipline, with favourite, fixed-win price,
   active model score, estimated cash return per `$1`, price bucket, starter
   bucket, other-starters average fixed-win price, MarketMover, and manual track
@@ -347,7 +357,11 @@ Main content:
   if at least three active-model Positive signals exist, show a Positive multi;
   otherwise show a Neutral multi from active-model Positive and Neutral signals
   when at least three priced legs are available.
-- Percentage multi recommendation panel shown under the win-percentage type.
+- Win percentage singles panel shown under Racing -> Singles -> Win % for
+  `single_win_percentage_65_plus_v1`, listing every current favourite whose
+  blended historical win score is at least 65% as a separate tracked `$1`
+  single.
+- Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
@@ -363,6 +377,13 @@ Main content:
   favourite price bucket, other fighter price bucket, and price-difference
   bucket signals; each UFC model can show up to eight Head to Head favourite
   legs from one Betcha UFC card.
+- UFC Singles -> Win % uses the same UFC favourite price, other fighter price,
+  and price-difference model tabs as UFC Multis -> Win %. It shows each eligible
+  fully priced Head to Head favourite as an individual current single candidate
+  from the selected historical bucket model.
+- UFC exposes the same sport/format/signal hierarchy as Racing. Unsupported
+  UFC branches, such as non-Win % signal types, show explicit empty states until
+  matching models are added.
 - The current Predictions refresh button refreshes only the active sport:
   Racing refreshes racing race-card predictions; UFC refreshes UFC fight-card
   multis without refreshing racing.
@@ -462,11 +483,15 @@ Purpose:
 
 Main content:
 
-- Prediction history type selector: singles, cash multis, win percentage
-  multis, and placing.
-- Model selectors sit beneath the history type selector: cash prediction model
-  tabs for singles, cash multis, and placing; percentage multi model tabs for
-  Win % multis.
+- Shared prediction hierarchy matching the current Predictions page: Level 1
+  sport tabs (`Racing`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
+  Level 3 signal tabs (`Cash`, `Win %`, `Placing`); Level 4 model tabs filtered
+  to the selected sport/format/signal.
+- Model selectors sit beneath the sport/format/signal controls: cash prediction
+  model tabs for Racing Cash singles and multis, the `65%+ win singles` model
+  for Racing Singles -> Win %, percentage multi model tabs for Racing Multis ->
+  Win %, the place percentage multi model for Racing Multis -> Placing, and UFC
+  same-card percentage multi models for UFC Multis -> Win %.
 - Stored model performance section for historical outcomes, discipline
   performance, date-range breakdowns, and prediction history.
 - Overall prediction count, settled count, pending count, and missing-outcome
@@ -516,10 +541,10 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing or UFC.
-- Racing Prediction History keeps the history type selector: singles, cash
-  multis, win percentage multis, and placing. UFC Prediction History shows UFC
-  Win % multis under the UFC sport tab.
+- Prediction History sport selector: Racing or UFC. UFC uses the same hierarchy
+  and has stored history under Singles -> Win % and Multis -> Win %. UFC Singles
+  -> Win % reads `ufc_single_predictions` through UFC-specific summary/history
+  RPCs and hides racing-only country, discipline, and racecourse filters.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 3-5 for the

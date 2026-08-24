@@ -16,6 +16,7 @@ import {
   upsertPredictionSnapshotToSupabase,
   upsertPromotionPredictionsToSupabase,
   upsertUfcMultiRecommendationsToSupabase,
+  upsertUfcSinglePredictionsToSupabase,
 } from "../../../supabase/functions/_shared/current-promotions-core.mjs";
 
 const DEFAULT_OUTPUT_DIR = "data/raw/predictions";
@@ -232,10 +233,27 @@ async function main() {
     predictions: 0,
     skipped: true,
   };
+  let ufcMultiRecommendationWrite = {
+    changed: 0,
+    ok: false,
+    skipped: true,
+    total: 0,
+  };
+  let ufcSinglePredictionWrite = {
+    changed: 0,
+    ok: false,
+    skipped: true,
+    total: 0,
+  };
 
   if (isPredictionWindowClosed(output)) {
     if (!options.skipSupabase && config) {
-      await upsertUfcMultiRecommendationsToSupabase({
+      ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+        output,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+      ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
         output,
         supabaseKey: config.key,
         supabaseUrl: config.url,
@@ -272,7 +290,12 @@ async function main() {
           supabaseKey: config.key,
           supabaseUrl: config.url,
         });
-        await upsertUfcMultiRecommendationsToSupabase({
+        ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
+          output,
+          supabaseKey: config.key,
+          supabaseUrl: config.url,
+        });
+        ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
           output,
           supabaseKey: config.key,
           supabaseUrl: config.url,
@@ -316,6 +339,8 @@ async function main() {
     predictionSnapshotWrite,
     predictionWrite,
     summary: output.summary,
+    ufcMultiRecommendationWrite,
+    ufcSinglePredictionWrite,
   }, null, 2));
 }
 

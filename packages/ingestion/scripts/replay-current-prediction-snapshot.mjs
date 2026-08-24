@@ -7,12 +7,14 @@ import {
   reconcileMultiBetRecommendationOutcomesFromSupabase,
   reconcilePromotionPredictionOutcomesFromSupabase,
   reconcileUfcMultiRecommendationOutcomesFromSupabase,
+  reconcileUfcSinglePredictionOutcomesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
   normalizeSupabaseProjectUrl,
   upsertMultiBetRecommendationsToSupabase,
   upsertPromotionPredictionsToSupabase,
   upsertUfcMultiRecommendationsToSupabase,
+  upsertUfcSinglePredictionsToSupabase,
 } from "../../../supabase/functions/_shared/current-promotions-core.mjs";
 
 const DEFAULT_BATCH_SIZE = 300;
@@ -172,6 +174,11 @@ async function main() {
     supabaseKey: config.key,
     supabaseUrl: config.url,
   });
+  const ufcSinglePredictionWrite = await upsertUfcSinglePredictionsToSupabase({
+    output,
+    supabaseKey: config.key,
+    supabaseUrl: config.url,
+  });
   const predictionOutcomeWrite = options.skipReconcile
     ? { skipped: true }
     : await reconcilePromotionPredictionOutcomesFromSupabase({
@@ -187,6 +194,12 @@ async function main() {
   const ufcMultiRecommendationOutcomeWrite = options.skipReconcile
     ? { skipped: true }
     : await reconcileUfcMultiRecommendationOutcomesFromSupabase({
+        batchSize: options.batchSize,
+        config,
+      });
+  const ufcSinglePredictionOutcomeWrite = options.skipReconcile
+    ? { skipped: true }
+    : await reconcileUfcSinglePredictionOutcomesFromSupabase({
         batchSize: options.batchSize,
         config,
       });
@@ -206,6 +219,8 @@ async function main() {
     sourceDate: snapshot.source_date,
     ufcMultiRecommendationOutcomeWrite,
     ufcMultiRecommendationWrite,
+    ufcSinglePredictionOutcomeWrite,
+    ufcSinglePredictionWrite,
   }, null, 2));
 }
 

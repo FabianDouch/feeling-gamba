@@ -6,6 +6,7 @@ type NullableNumber = number | string | null;
 const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_PREDICTION_HISTORY_ROW_LIMIT = 50;
 export const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
+export const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v1";
 export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 export const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 export const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
@@ -23,11 +24,13 @@ export type PredictionModelKey =
   | "global_bucket_cash_starter_only_v1"
   | "global_other_starters_average_price_cash_v1"
   | "country_code_bucket_blend_shrunk_v1"
-  | "country_code_distance_condition_v1";
+  | "country_code_distance_condition_v1"
+  | typeof SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY;
 
 export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" | "greyhound";
 export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
 export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
+export type PredictionStatsFormat = "multis" | "singles";
 export type PredictionStatsSport = "racing" | "ufc";
 export type WinPercentageMultiRankFilter = "all" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
 export type WinPercentageMultiModelKey =
@@ -108,6 +111,17 @@ export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
     detail: "Score = 45% scoped price-bucket cash average, 25% scoped starter-count cash average, 20% scoped distance-band cash average, and 10% scoped track-condition cash average. Each bucket is shrunk toward matching broader cash history.",
     key: "country_code_distance_condition_v1",
     label: "Distance + condition blend",
+  },
+];
+
+export const CASH_PREDICTION_MODEL_VARIANTS = PREDICTION_MODEL_VARIANTS;
+
+export const WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS: PredictionModelVariant[] = [
+  {
+    description: "Tracks every current racing favourite whose blended historical win score is at least 65%.",
+    detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Each eligible runner is tracked as a separate $1 single outcome.",
+    key: SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
+    label: "65%+ win singles",
   },
 ];
 
@@ -369,6 +383,35 @@ type UfcMultiRecommendationHistoryRow = {
   source_card_name: string | null;
   source_date: string;
   total_count: number | null;
+};
+
+type UfcSinglePredictionHistoryRow = {
+  advertised_start: string | null;
+  bucket_label: string | null;
+  bucket_sample_size: number | null;
+  bucket_win_percentage: NullableNumber;
+  fight_name: string | null;
+  id: string;
+  other_fighter_fixed_win_price: NullableNumber;
+  other_fighter_name: string | null;
+  outcome_favourite_won: boolean | null;
+  outcome_status: "pending" | "settled" | "missing_result";
+  outcome_win_return: NullableNumber;
+  outcome_winner_name: string | null;
+  predicted_at: string;
+  predicted_fighter_name: string | null;
+  predicted_fixed_win_price: NullableNumber;
+  prediction_model: string | null;
+  prediction_rank: number | null;
+  price_difference: NullableNumber;
+  signal_label: string | null;
+  signal_tone: string | null;
+  source_card_name: string | null;
+  source_date: string;
+  source_event_id: string;
+  source_market_id: string | null;
+  total_count: number | null;
+  win_score: NullableNumber;
 };
 
 export type PredictionHistoryItem = {
@@ -707,11 +750,13 @@ export async function fetchRacingMultiBetRecommendationHistoryMetadata(
  */
 export async function fetchUfcPredictionHistoryMetadata(
   predictionModel: WinPercentageMultiModelKey = UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  format: PredictionStatsFormat = "multis",
 ): Promise<PredictionHistoryMetadata> {
   const yesterday = getYesterdaySourceDate();
+  const tableName = format === "singles" ? "ufc_single_predictions" : "ufc_multi_recommendations";
 
   try {
-    const dateRows = await supabaseSelect<{ source_date: string }>("ufc_multi_recommendations", {
+    const dateRows = await supabaseSelect<{ source_date: string }>(tableName, {
       order: "source_date.desc",
       prediction_model: `eq.${predictionModel}`,
       select: "source_date",
@@ -773,6 +818,7 @@ export async function fetchPredictionStats(
   winPercentageMultiRankFilter: WinPercentageMultiRankFilter = "all",
   winPercentageMultiModel: WinPercentageMultiModelKey = WIN_PERCENTAGE_MULTI_MODEL_KEY,
   sport: PredictionStatsSport = "racing",
+  format: PredictionStatsFormat = "multis",
 ): Promise<PredictionsData> {
   const winPercentageMaxLegRank = winPercentageMultiRankFilter === "all"
     ? null
@@ -782,6 +828,40 @@ export async function fetchPredictionStats(
     const ufcWinPercentageMultiModel = isUfcPercentageMultiModel(winPercentageMultiModel)
       ? winPercentageMultiModel
       : UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY;
+
+    if (format === "singles") {
+      const [
+        performanceSummary,
+        historySummary,
+        historyResult,
+      ] = await Promise.all([
+        fetchUfcSinglePredictionPerformanceSummary(ufcWinPercentageMultiModel),
+        fetchUfcSinglePredictionSummary(filters, ufcWinPercentageMultiModel),
+        fetchUfcSinglePredictionEntries(filters, ufcWinPercentageMultiModel),
+      ]);
+
+      return {
+        disciplineReturns: [],
+        history: historyResult.history,
+        historySummaryStats: historySummary && historySummary.prediction_count > 0
+          ? mapUfcSinglePredictionSummaryStats(historySummary, "UFC single date range")
+          : [],
+        multiBetHistory: [],
+        multiBetPerformanceStats: [],
+        multiBetSummaryStats: [],
+        placingPerformanceStats: [],
+        summaryStats: performanceSummary && performanceSummary.prediction_count > 0
+          ? mapUfcSinglePredictionSummaryStats(performanceSummary, getUfcWinPercentageSinglePredictionLabel(ufcWinPercentageMultiModel))
+          : [],
+        totalHistoryCount: historyResult.totalCount,
+        totalMultiBetHistoryCount: 0,
+        totalWinPercentageMultiBetHistoryCount: 0,
+        winPercentageMultiBetHistory: [],
+        winPercentageMultiBetPerformanceStats: [],
+        winPercentageMultiBetSummaryStats: [],
+      };
+    }
+
     const [
       winPercentageMultiBetPerformanceSummary,
       winPercentageMultiBetSummary,
@@ -1009,44 +1089,6 @@ async function fetchUserAwareRacingMultiBetRecommendationPerformanceSummary(
 }
 
 /**
- * Reads authenticated user-locked percentage multi summary rows when available.
- */
-async function fetchUserLockedMultiBetRecommendationSummary(
-  filters: PredictionHistoryFilters,
-  predictionModel: string,
-  maxLegRank: number | null = null,
-) {
-  try {
-    const body: Record<string, unknown> = {
-      p_country: filters.country === "all" ? null : filters.country,
-      p_course_slug: filters.course === "all" ? null : filters.course,
-      p_from_date: filters.fromDate || null,
-      p_prediction_model: predictionModel,
-      p_race_code: filters.discipline === "all" ? null : filters.discipline,
-      p_recommendation_type: null,
-      p_to_date: filters.toDate || null,
-    };
-
-    if (maxLegRank !== null) {
-      body.p_max_leg_rank = maxLegRank;
-    }
-
-    const rows = await supabaseAuthRpc<MultiBetRecommendationSummaryRow[]>(
-      "get_user_locked_multi_recommendation_summary",
-      body,
-    );
-
-    return rows?.[0] ?? null;
-  } catch (error) {
-    if (isMissingRpcError(error) || isAuthUnavailableError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
-}
-
-/**
  * Reads UFC same-card multi summary stats for the selected model.
  */
 async function fetchUfcMultiRecommendationSummary(
@@ -1094,6 +1136,48 @@ async function fetchUfcMultiRecommendationPerformanceSummary(
     fromDate: "",
     toDate: "",
   }, predictionModel, maxLegRank);
+}
+
+/**
+ * Reads UFC single summary stats for the selected model.
+ */
+async function fetchUfcSinglePredictionSummary(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+) {
+  try {
+    const rows = await supabaseRpc<MultiBetRecommendationSummaryRow[]>(
+      "get_ufc_single_prediction_summary",
+      {
+        p_from_date: filters.fromDate || null,
+        p_prediction_model: predictionModel,
+        p_to_date: filters.toDate || null,
+      },
+    );
+
+    return rows[0] ?? null;
+  } catch (error) {
+    if (isMissingRpcError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Reads all-time UFC single performance for the selected model.
+ */
+async function fetchUfcSinglePredictionPerformanceSummary(
+  predictionModel: string,
+) {
+  return fetchUfcSinglePredictionSummary({
+    country: "all",
+    course: "all",
+    discipline: "all",
+    fromDate: "",
+    toDate: "",
+  }, predictionModel);
 }
 
 /**
@@ -1327,6 +1411,41 @@ async function fetchUfcMultiRecommendationEntries(
 
     return {
       history: rows.map(mapUfcMultiRecommendationHistoryItem),
+      totalCount: rows[0]?.total_count ?? rows.length,
+    };
+  } catch (error) {
+    if (isMissingRpcError(error)) {
+      return {
+        history: [],
+        totalCount: 0,
+      };
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Reads tracked UFC single prediction history with fight-level outcomes.
+ */
+async function fetchUfcSinglePredictionEntries(
+  filters: PredictionHistoryFilters,
+  predictionModel: string,
+) {
+  try {
+    const rows = await supabaseRpc<UfcSinglePredictionHistoryRow[]>(
+      "get_ufc_single_prediction_entries",
+      {
+        p_from_date: filters.fromDate || null,
+        p_limit: DEFAULT_PREDICTION_HISTORY_ROW_LIMIT,
+        p_offset: 0,
+        p_prediction_model: predictionModel,
+        p_to_date: filters.toDate || null,
+      },
+    );
+
+    return {
+      history: rows.map(mapUfcSinglePredictionHistoryItem),
       totalCount: rows[0]?.total_count ?? rows.length,
     };
   } catch (error) {
@@ -1799,6 +1918,42 @@ function mapMultiBetSummaryStats(
 }
 
 /**
+ * Converts UFC single summary rows into $1 unit-stake performance stats.
+ */
+function mapUfcSinglePredictionSummaryStats(
+  row: MultiBetRecommendationSummaryRow,
+  predictionLabel = "UFC single predictions",
+): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.settled_count} settled · ${row.pending_count} pending`,
+      label: predictionLabel,
+      value: String(row.prediction_count),
+    },
+    {
+      detail: `${row.wins} wins from ${row.settled_count} settled`,
+      label: "Win rate",
+      value: formatPercentage(numeric(row.win_percentage)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_return))} cash returned on ${formatCurrency(numeric(row.total_stake))} staked`,
+      label: "Cash avg",
+      value: formatReturn(numeric(row.average_return_per_dollar)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_return))} cash returned on ${formatCurrency(numeric(row.total_stake))} staked`,
+      label: "Cash net",
+      value: formatCurrency(numeric(row.net_return)),
+    },
+    {
+      detail: `${row.missing_result_count} missing results`,
+      label: "Open issues",
+      value: String(row.missing_result_count),
+    },
+  ];
+}
+
+/**
  * Converts one stored prediction row into a compact history item for display.
  */
 function mapPredictionHistoryItem(row: PredictionHistoryRow): PredictionHistoryItem {
@@ -1837,6 +1992,42 @@ function mapPredictionHistoryItem(row: PredictionHistoryRow): PredictionHistoryI
     signalLabel: row.signal_label ?? "Stored prediction",
     startLabel: row.advertised_start ? formatDateTime(row.advertised_start) : formatDateLabel(row.source_date),
     totalValue: formatCurrency(numeric(row.outcome_total_value_with_bonus_credit)),
+  };
+}
+
+/**
+ * Converts one UFC single prediction row into the shared single-history display shape.
+ */
+function mapUfcSinglePredictionHistoryItem(row: UfcSinglePredictionHistoryRow): PredictionHistoryItem {
+  const scoreLabel = formatPercentage(numeric(row.win_score));
+  const bucketLabel = row.bucket_label ? `${row.bucket_label} bucket` : "No bucket";
+
+  return {
+    bonusCredit: "Unavailable",
+    cashReturn: formatCurrency(numeric(row.outcome_win_return)),
+    country: "UFC",
+    discipline: "UFC",
+    historyDetail: [
+      row.source_card_name ?? "UFC card",
+      row.other_fighter_name ? `vs ${row.other_fighter_name}` : null,
+      bucketLabel,
+    ].filter(Boolean).join(" · "),
+    id: row.id,
+    outcomeLabel: describeUfcSinglePredictionOutcome(row),
+    outcomeTone: getUfcSinglePredictionOutcomeTone(row),
+    predictedAtLabel: `Predicted ${formatDateTime(row.predicted_at)}`,
+    predictionMeta: [
+      row.prediction_rank ? `Rank ${row.prediction_rank}` : "Unranked",
+      `Price ${formatPrice(row.predicted_fixed_win_price)}`,
+      `${scoreLabel} win score`,
+      row.bucket_sample_size ? `${row.bucket_sample_size} samples` : "No sample count",
+      `Diff ${formatPriceDifference(row.price_difference)}`,
+    ].join(" · "),
+    raceLabel: row.fight_name ?? `${row.predicted_fighter_name ?? "Unknown fighter"} vs ${row.other_fighter_name ?? "Unknown opponent"}`,
+    runnerLabel: row.predicted_fighter_name ?? "Unknown fighter",
+    signalLabel: row.signal_label ?? "UFC win percentage single",
+    startLabel: row.advertised_start ? formatDateTime(row.advertised_start) : formatDateLabel(row.source_date),
+    totalValue: formatCurrency(numeric(row.outcome_win_return)),
   };
 }
 
@@ -2088,6 +2279,24 @@ function getUfcMultiLegOutcomeTone(leg: UfcMultiRecommendationLegRow): MultiBetR
   return leg.outcomeStatus === "pending" ? "warning" : "default";
 }
 
+function describeUfcSinglePredictionOutcome(row: UfcSinglePredictionHistoryRow) {
+  if (row.outcome_status === "settled") {
+    return numeric(row.outcome_win_return) > 0
+      ? `Won · ${formatCurrency(numeric(row.outcome_win_return))} cash`
+      : "Lost";
+  }
+
+  return row.outcome_status === "pending" ? "Pending result" : "Missing result";
+}
+
+function getUfcSinglePredictionOutcomeTone(row: UfcSinglePredictionHistoryRow): PredictionHistoryItem["outcomeTone"] {
+  if (row.outcome_status === "settled" && numeric(row.outcome_win_return) > 0) {
+    return "good";
+  }
+
+  return row.outcome_status === "pending" ? "warning" : "default";
+}
+
 function describeOutcome(row: PredictionHistoryRow) {
   if (row.outcome_status === "settled") {
     const cashReturn = numeric(row.outcome_win_return);
@@ -2317,6 +2526,18 @@ function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMult
   }
 
   return "Win percentage multis";
+}
+
+function getUfcWinPercentageSinglePredictionLabel(predictionModel: WinPercentageMultiModelKey) {
+  if (predictionModel === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY) {
+    return "UFC other fighter price singles";
+  }
+
+  if (predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY) {
+    return "UFC price difference singles";
+  }
+
+  return "UFC favourite price singles";
 }
 
 export function isUfcPercentageMultiModel(predictionModel: string | null) {

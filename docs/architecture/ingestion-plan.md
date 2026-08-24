@@ -568,7 +568,12 @@ Initial mode:
   any existing UFC snapshot payload, while `{ "sport": "ufc" }` refreshes only
   UFC insight aggregates/current Betcha fight-card markets, updates UFC multis
   in `current_prediction_snapshots`, and writes UFC multi recommendation rows
-  without rebuilding racing prediction aggregates.
+  plus UFC single prediction rows without rebuilding racing prediction
+  aggregates.
+- UFC current prediction payloads include per-model single candidates for the
+  favourite price, other fighter price, and price-difference historical bucket
+  models. These singles are persisted to `ufc_single_predictions` so Prediction
+  History can track $1 unit-stake results over time.
 - The scheduled GitHub Actions current-prediction workflow calls the endpoint
   twice, first with `{ "sport": "racing" }` and then with `{ "sport": "ufc" }`,
   so slow source scans for one sport do not make the combined request hit the
@@ -590,6 +595,11 @@ Initial mode:
   in parallel on the same race card. Existing rows are replaced only when the
   prediction signature changes, such as favourite, fixed-win price, starter
   count, rank, model score, or signal changing.
+- The racing refresh also writes `single_win_percentage_65_plus_v1` rows for
+  every current favourite with a blended historical win score of at least 65%.
+  These are stored as single-runner prediction rows, not multi recommendations,
+  so Prediction History can answer whether a flat `$1` stake on every 65%+
+  win-rate single is profitable over time.
 - After storing pre-first-race predictions, the prediction refresh rebuilds
   `prediction_aggregates` so the Predictions tab can show pending predictions
   before any races have settled.
@@ -682,6 +692,10 @@ Parsing rules:
   country+discipline blend of 45% price bucket, 25% starter-count bucket, 20%
   distance-band bucket, and 10% track-condition bucket, each shrunk toward the
   matching broader bucket where available.
+- The 65%+ win single model uses the win-percentage signal, not cash return:
+  65% favourite price-bucket win rate and 35% starter-count win rate. It writes
+  all priced favourites whose blended score is `>= 65` as separate single
+  outcomes.
 - Group candidate rankings by country and discipline, keeping at most five
   candidates per country/discipline group.
 - Order each prediction variation by that variation's model-specific
@@ -817,8 +831,8 @@ If a current prediction snapshot exists but its tracked prediction rows were not
 written, replay the saved payload with
 `npm --workspace @feeling-gamba/ingestion run repair:prediction-snapshot -- --source-date=YYYY-MM-DD --require-supabase`.
 The replay rewrites `promotion_predictions`, `multi_bet_recommendations`,
-`ufc_multi_recommendations`, reconciles outcomes unless `--skip-reconcile` is
-passed, and rebuilds `prediction_aggregates`.
+`ufc_multi_recommendations`, and `ufc_single_predictions`, reconciles outcomes
+unless `--skip-reconcile` is passed, and rebuilds `prediction_aggregates`.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,
