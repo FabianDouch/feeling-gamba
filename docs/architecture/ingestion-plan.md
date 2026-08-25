@@ -463,6 +463,193 @@ Runtime app rule:
 - The UFC Insights view should read `ufc_insight_aggregates` and display
   favourite price, other fighter price, and price-difference breakdowns.
 
+### `refresh-nrl-results`
+
+Purpose:
+
+- Load completed NRL fixture results from official NRL public match-centre data.
+- Store source-specific NRL teams, players, matches, and try-scorer events.
+- Store player-match appearance rows from official rosters so try-scorer
+  percentage insights have a real denominator.
+- Provide settlement data for future NRL fixed-win, try-scorer, and same-game
+  model history.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --require-supabase`
+- Upcoming fixture preload:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=26 --include-fixtures --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --dry-run`
+- Multi-round catch-up:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --from-round=1 --to-round=25 --require-supabase`
+
+Source rules:
+
+- Use official NRL `draw/data` for fixture rows and final scores.
+- Use each fixture's `matchCentreUrl + "data"` route for stable official
+  `matchId`. Completed fixtures also return timeline events and roster-backed
+  player names.
+- Send explicit browser-like `User-Agent`, `Accept`, and `Referer` headers;
+  the direct JSON route returned HTTP `406` without them on 2026-08-25.
+- Store official NRL rows with `source = 'official_nrl'`.
+- Store upcoming fixture shells as `result_status = 'pending'`.
+- Keep ESPN as a fallback/cross-check only unless official NRL becomes
+  unavailable.
+
+Expected writes:
+
+- `nrl_teams`
+- `nrl_players`
+- `nrl_player_match_appearances`
+- `nrl_matches`
+- `nrl_try_scorers`
+
+### `refresh-nrl-market-snapshots`
+
+Purpose:
+
+- Capture current NRL fixed-win prices from open `Match Betting`
+  markets.
+- Store one `nrl_market_snapshots` row per event and snapshot time.
+- Best-effort match snapshots to existing official NRL match rows by home/away
+  team names, nickname suffixes, and kickoff time.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-market-snapshots -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-market-snapshots -- --dry-run --event-count=8`
+- Source checks:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-market-snapshots -- --source=tab --dry-run`
+
+Source rules:
+
+- Query the retained market adapter with `category = RUGBY_LEAGUE` and
+  `competitionSlug = nrl`.
+- Use open `MATCH` events only.
+- Select the open market named `Match Betting`.
+- Require non-suspended `HOME` and `AWAY` entrants with fractional odds.
+- Convert fractional odds to decimal odds before storage.
+- Mark a favourite only when one side has a strictly lower fixed-win price.
+
+Expected writes:
+
+- `nrl_market_snapshots`
+
+Current limitation:
+
+- The snapshot adapter can only attach `matched_nrl_match_id` when a matching
+  official NRL row already exists.
+- Current NRL prediction models are not generated yet.
+- NRL try-scorer and same-game cash models remain blocked until source-backed
+  player try-scorer prices or quoted SGM prices are validated.
+
+### `reconcile-nrl-fixed-win`
+
+Purpose:
+
+- Convert stored NRL fixed-win snapshots into explicit result/status
+  rows.
+- Match snapshots to official NRL result rows through `matched_nrl_match_id`.
+- Store `$1` fixed-win returns for home, away, and favourite selections once a
+  matched official result is settled.
+- Preserve pending, unmatched, missing-result, draw, and non-standard statuses
+  for auditability.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run reconcile:nrl-fixed-win -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run reconcile:nrl-fixed-win -- --dry-run --limit=200`
+
+Source rules:
+
+- Use `nrl_market_snapshots` as the price source of truth.
+- Use official `nrl_matches` rows as the settlement source of truth.
+- Do not infer settled outcomes for snapshots that are not attached to an
+  official NRL match row.
+- Keep pending and unresolved rows out of settled return denominators.
+
+Expected writes:
+
+- `nrl_fixed_win_snapshot_results`
+
+### `rebuild-nrl-insight-aggregates`
+
+Purpose:
+
+- Rebuild app-facing NRL Insights rows from stored fixed-win snapshot results,
+  official NRL matches, player appearances, and try events.
+- Store fixed-win single performance for favourites, home/away sides, teams,
+  seasons, and rounds.
+- Store try-scorer percentage rows from player-match appearances and official
+  try events.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates -- --dry-run`
+
+Source rules:
+
+- Fixed-win cash metrics use reconciled current-market snapshot rows only.
+- Try-scorer percentages use official NRL appearance rows as the denominator
+  and official try events as the numerator.
+- Try-scorer cash metrics must stay empty until source-backed player
+  try-scorer prices are captured.
+- Pending, unmatched, and missing-result rows are counted for auditability but
+  excluded from settled win-rate and return denominators.
+
+Expected writes:
+
+- `nrl_insight_aggregates`
+
+### `generate-nrl-single-predictions`
+
+Purpose:
+
+- Generate persisted current NRL single prediction rows for the NRL Predictions
+  branch.
+- Rank current fixed-win favourites from `Match Betting` markets by
+  official 2026 team win percentage.
+- Rank likely try-scorer candidates by official 2026 player/team
+  appearance-to-try percentage.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run generate:nrl-single-predictions -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run generate:nrl-single-predictions -- --dry-run`
+
+Source rules:
+
+- Fixed-win percentage predictions use current favourite prices and
+  official NRL season-to-date team results.
+- Try-scorer percentage predictions use official player/team aggregate rows and
+  upcoming official match shells. They must be labelled as
+  `historical_team_roster` until current official lineups are validated.
+- Do not generate NRL cash-win predictions from historical fixed-win results
+  until enough settled current-market snapshots exist.
+- Do not generate NRL try-scorer cash predictions until source-backed player
+  try-scorer prices are captured.
+
+Expected writes:
+
+- `nrl_single_predictions`
+
+Current result:
+
+- The first live write generated 64 NRL single prediction rows for the current
+  source date: 16 fixed-win percentage singles and 48 try-scorer percentage
+  singles.
+
 ### `fetch-current-promotions`
 
 Purpose:
@@ -785,6 +972,11 @@ Proposed recurring jobs:
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 | `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
+| `refresh-nrl-results` | manual only until NRL model generation exists | `refresh:nrl-results` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for an explicit season/round or round range. |
+| `refresh-nrl-market-snapshots` | manual only until NRL model generation exists | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`. |
+| `reconcile-nrl-fixed-win` | manual only until NRL model generation exists | `reconcile:nrl-fixed-win` | Converts NRL fixed-win snapshots into explicit result/status rows once official NRL fixture rows are available. |
+| `rebuild-nrl-insight-aggregates` | manual only until NRL model generation exists | `rebuild:nrl-insight-aggregates` | Rebuilds NRL fixed-win single and try-scorer percentage aggregate rows for the NRL Insights sport toggle. |
+| `generate-nrl-single-predictions` | manual only until NRL model generation exists | `generate:nrl-single-predictions` | Generates current NRL fixed-win percentage and try-scorer percentage single prediction rows for Predictions. |
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -827,12 +1019,59 @@ Imported ESPN rows are settlement-only: they set `price_match_status` to
 dispatch can increase the lookback to 30 days for catch-up runs or run dry mode
 to verify source coverage without writing.
 
+The NRL result refresh is implemented as a manual local worker in
+`packages/ingestion/scripts/refresh-nrl-results-from-official.mjs`. It requires
+an explicit `--season` and either `--round` or `--from-round` / `--to-round`.
+The first live dry run against 2026 round 25 parsed 8 completed matches, 16
+teams, 304 players, and 80 try-scorer rows. As of the NRL Insights update, the
+worker also writes `nrl_player_match_appearances` from official roster rows.
+A 2026 round 26 `--include-fixtures` write loaded 8 pending fixture shells and
+16 teams. Keep it manual until NRL model generation and operational scheduling
+rules are implemented.
+The first completed-season backfill for 2026 rounds 1-25 wrote 188 settled
+matches, 7,143 player-match appearances, 520 players, 17 teams, and 1,570
+try-scorer rows.
+
+The NRL market snapshot refresh is implemented as a manual local worker in
+`packages/ingestion/scripts/refresh-nrl-market-snapshots-from-tab.mjs`.
+The initial two-source validation found TAB and Betcha returned the same
+current NRL events and prices. Betcha was removed from the NRL path on
+2026-08-25 to avoid duplicate current-market rows, and the app-facing Insights
+and Predictions branches no longer expose source/provider labels. Keep the
+snapshot worker manual until NRL fixed-win prediction selection and scheduling
+rules are implemented.
+
+The NRL fixed-win reconciler is implemented as a manual local worker in
+`packages/ingestion/scripts/reconcile-nrl-fixed-win-snapshots.mjs`. The first
+live Supabase write produced 32 status rows: 16 pending rows for the round 26
+snapshots matched to official fixture shells, and 16 unmatched rows for the
+earlier audit snapshot captured before fixture preload. No settled returns were
+available yet because the loaded fixed-win markets were for upcoming fixtures.
+
+The NRL insight aggregate rebuild is implemented as a manual local worker in
+`packages/ingestion/scripts/rebuild-nrl-insight-aggregates.mjs`. It writes
+`nrl_insight_aggregates` for fixed-win singles and try-scorer percentages.
+Try-scorer percentage rows require `nrl_player_match_appearances`, so completed
+rounds loaded before that table existed should be refreshed once after the
+migration is applied. Try-scorer cash and same-game cash insights remain blocked
+until source-backed player try-scorer prices or quoted SGM prices are
+validated.
+After the completed 2026 rounds 1-25 backfill, the rebuild wrote 1,135
+aggregate rows: 46 fixed-win rows and 1,089 try-scorer percentage rows from
+7,143 player appearances and 1,570 try events. The rebuild source read included
+196 NRL matches because the database also contained 8 pending round 26 fixture
+shells. The later NRL source simplification removed provider-specific aggregate
+scopes from app-facing Insights.
+
 If a current prediction snapshot exists but its tracked prediction rows were not
 written, replay the saved payload with
 `npm --workspace @feeling-gamba/ingestion run repair:prediction-snapshot -- --source-date=YYYY-MM-DD --require-supabase`.
 The replay rewrites `promotion_predictions`, `multi_bet_recommendations`,
 `ufc_multi_recommendations`, and `ufc_single_predictions`, reconciles outcomes
 unless `--skip-reconcile` is passed, and rebuilds `prediction_aggregates`.
+If only one model's aggregate rows are missing, rebuild that model without
+scanning every prediction model:
+`npm --workspace @feeling-gamba/ingestion run rebuild:prediction-aggregates -- --prediction-model=single_win_percentage_65_plus_v1 --require-supabase`.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,

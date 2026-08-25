@@ -1,0 +1,307 @@
+# NRL Data Source Validation
+
+## Status
+
+Validation date: 2026-08-25.
+
+Implementation status on 2026-08-25: the first official NRL settlement import
+path is implemented in
+`packages/ingestion/scripts/refresh-nrl-results-from-official.mjs`, with schema
+in `supabase/migrations/202608250001_nrl_settlement_data.sql`. It writes
+official NRL teams, players, matches, and try-scorer rows. The first live dry run
+for 2026 round 25 parsed 8 completed matches, 16 teams, 304 players, and 80
+try-scorer rows. The worker now also supports `--include-fixtures` to preload
+upcoming official NRL match shells as `pending` rows.
+The first season backfill for completed 2026 rounds 1-25 wrote 188 settled
+matches, 7,143 player-match appearances, 520 players, 17 teams, and 1,570
+try-scorer rows.
+
+TAB fixed-win snapshot capture is implemented in
+`packages/ingestion/scripts/refresh-nrl-market-snapshots-from-tab.mjs`.
+The retained NRL market source returns the same current event IDs and prices
+that were observed through Betcha, so Betcha was removed from NRL on
+2026-08-25 to avoid duplicate current-market rows. Existing Betcha NRL rows are
+removed by `supabase/migrations/202608250006_nrl_tab_only_cleanup.sql`.
+
+NRL fixed-win snapshot reconciliation is implemented in
+`packages/ingestion/scripts/reconcile-nrl-fixed-win-snapshots.mjs`, with schema
+in `supabase/migrations/202608250002_nrl_fixed_win_snapshot_results.sql`. The
+first live Supabase write produced 32 result/status rows: 16 pending rows for
+round 26 snapshots matched to official fixture shells, and 16 unmatched rows
+from the earlier audit snapshot captured before fixture preload. No settled
+returns are available yet because the matched round 26 fixtures are upcoming.
+
+NRL Insights support is implemented with
+`supabase/migrations/202608250003_nrl_insight_aggregates.sql` and
+`packages/ingestion/scripts/rebuild-nrl-insight-aggregates.mjs`. Fixed-win
+single aggregates use reconciled current-market snapshots. Try-scorer percentage
+aggregates use official NRL roster appearances as the denominator and official
+try events as the numerator, so they are source-backed once completed rounds
+have been refreshed with the updated importer. Try-scorer cash and same-game
+cash insights remain blocked until source-backed player try-scorer prices or
+quoted same-game multi prices are validated.
+After the completed 2026 rounds 1-25 backfill, the NRL insight rebuild wrote
+1,135 `nrl_insight_aggregates` rows: 46 fixed-win rows and 1,089 try-scorer
+percentage rows from 7,143 official player appearances and 1,570 official try
+events. The aggregate source read included 196 NRL matches because the database
+also contained 8 pending round 26 fixture shells.
+The follow-up NRL source simplification removed provider-specific app-facing
+aggregate scopes so Insights show fixed-win favourite, home/away, team, season,
+and round breakdowns without exposing the market provider.
+
+NRL current single prediction generation is implemented in
+`packages/ingestion/scripts/generate-nrl-single-predictions.mjs`, with schema
+in `supabase/migrations/202608250005_nrl_single_predictions.sql`. The first
+live write generated 64 current NRL single prediction rows: 16 fixed-win
+percentage singles from current market favourites and 48 try-scorer
+percentage singles from official historical player/team try rates. Try-scorer
+rows are labelled `historical_team_roster` because current official lineups and
+player try-scorer prices are not validated yet.
+
+TAB and Betcha expose the same public web GraphQL sports query shape for current
+NRL market discovery:
+
+- `https://api.tab.co.nz/graphql`
+- `https://api.betcha.co.nz/graphql`
+
+Treat these as internal web APIs until usage rights and support are confirmed.
+
+## Current Market Access
+
+Validated current NRL access:
+
+- Rugby League category enum: `RUGBY_LEAGUE`.
+- NRL competition slug: `nrl`.
+- NRL competition:
+  - ID: `SportingCompetition:3e85a456-59b5-4363-95e6-836854492fdf`.
+  - URL: `/sports/rugby-league/nrl`.
+- `sportingEvents` with `statuses: [OPEN]` and `eventTypes: [MATCH]` returned
+  eight upcoming NRL events.
+- `marketsConnection` returned 157 to 168 open public markets for the sampled
+  event, depending on page size and query path.
+
+Sample event validated:
+
+- Event: `Brisbane Broncos vs Melbourne Storm`.
+- Event ID: `SportingEvent:bfa0fb63-4468-48d7-8e48-987dd764d38c`.
+- Event URL:
+  `/sports/rugby-league/nrl/brisbane-broncos-vs-melbourne-storm/bfa0fb63-4468-48d7-8e48-987dd764d38c`.
+- Advertised start: `2026-08-27T09:50:00.000Z`.
+
+## Fixed-Win Market
+
+Fixed-win access is validated.
+
+The NRL fixed-win market is exposed as `Match Betting`, not `Head to Head`.
+Entrants include home/away roles and fractional odds that can be converted to
+decimal prices.
+
+Sample `Match Betting` market from `Brisbane Broncos vs Melbourne Storm`:
+
+| Entrant | Role | Fractional odds | Decimal odds |
+| --- | --- | --- | --- |
+| Brisbane Broncos | `HOME` | `19/20` | `1.95` |
+| Melbourne Storm | `AWAY` | `87/100` | `1.87` |
+
+This is enough to support forward fixed-win snapshot capture once a completed
+result source is validated.
+
+Historical fixed-win backfill remains blocked. A 2026-08-25 live probe using
+the working public GraphQL query shape returned open NRL events, but
+`statuses: [CLOSED]` and `statuses: [FINAL]` returned no completed NRL events
+or markets.
+
+The current fixed-win snapshot command is:
+
+```text
+npm --workspace @feeling-gamba/ingestion run refresh:nrl-market-snapshots -- --dry-run --event-count=8
+```
+
+The current fixed-win reconciliation command is:
+
+```text
+npm --workspace @feeling-gamba/ingestion run reconcile:nrl-fixed-win -- --dry-run --limit=200
+```
+
+## Other Observed NRL Markets
+
+The sampled event also exposed useful non-player markets:
+
+- `Line`.
+- `Total Points`.
+- `Winner / Total Points Double`.
+- `InPlay SGMs`.
+- Team total tries markets, such as `Brisbane Broncos Total Tries`.
+- Team `Score X+ Tries` markets.
+- Team try time-window markets.
+- Non-player try timing markets, such as `Time Of First Try` and
+  `Half With Most Tries`.
+
+These markets are source-backed observations only. Do not treat them as
+player try-scorer access.
+
+## Try-Scorer Market Access
+
+Player try-scorer market access is not validated through the public GraphQL
+paths tested on 2026-08-25.
+
+Findings:
+
+- A scan of 168 open public markets for the sampled event found no
+  `Anytime Tryscorer`, `Try Scorer`, `Tryscorer`, first player scorer, or last
+  player scorer market names.
+- The static Betcha event page included generic `SGM` and `Player` strings, but
+  did not expose extractable player market rows.
+- `SportingEventPopularSameGameMultis` exists in the web GraphQL schema shape,
+  but returned `null` for the sampled event.
+- `SportingPromotedMarkets` returned an empty array for the sampled event.
+- `SportingEventEntrantFormData` and `SportingEntrantFormData` returned team,
+  total-points, and match-betting form snippets, not player try-scorer markets
+  or player scoring outcomes.
+
+Conclusion: use the retained current-market adapter for NRL match and fixed-win
+market snapshots. Keep player try-scorer markets behind a separate validation task for a
+different lazy-loaded route, authenticated/session-backed route, bookmaker
+market endpoint, or alternative player-prop source.
+
+## Completed Results
+
+Completed NRL results were not validated through the current-market adapter in this pass.
+
+- `sportingEvents` with `statuses: [FINAL]` returned no NRL event rows.
+- `sportingEvents` with `statuses: [CLOSED]` returned no NRL event rows.
+- `ABANDONED` was not accepted as a valid status enum in the tested query.
+- `scoresV2` was not directly queryable on `SportingEvent` through the tested
+  query shape.
+
+Use the current-market adapter for current market snapshots only unless a later proof finds a
+settled sports result path.
+
+## Official NRL Settlement Source
+
+Validated on 2026-08-25.
+
+The official NRL draw data endpoint works with browser-like request headers and
+returns completed fixture rows:
+
+```text
+https://www.nrl.com/draw/data?competition=111&round=25&season=2026
+```
+
+Useful fixture fields:
+
+- `matchCentreUrl`, which points to the public match-centre route.
+- `matchState`, such as `FullTime`.
+- `matchMode`, such as `Post`.
+- `clock.kickOffTimeLong`.
+- `homeTeam.nickName`, `homeTeam.score`.
+- `awayTeam.nickName`, `awayTeam.score`.
+
+The direct JSON request returned HTTP `406` without browser-like headers. With a
+normal `User-Agent`, `Accept`, and `Referer`, it returned HTTP `200` and a JSON
+body.
+
+The official match-centre data route also works with browser-like headers:
+
+```text
+https://www.nrl.com/draw/nrl-premiership/2026/round-25/storm-v-panthers/data
+```
+
+It returns match-level fields plus a `timeline` array. Try events are identifiable
+with `type: "Try"` and include:
+
+- `matchId`.
+- `gameSeconds`.
+- `playerId`.
+- `teamId`.
+- running `homeScore` / `awayScore` where available.
+
+The payload includes `homeTeam.players` and `awayTeam.players`, so `playerId`
+can be resolved to first name, last name, number, and position without a second
+request.
+
+Sample official NRL settlement rows:
+
+| Match ID | Match | Status | Score |
+| --- | --- | --- | --- |
+| `20261112510` | Storm vs Panthers | `FullTime` / `Post` | Storm 14, Panthers 22 |
+| `20261112520` | Raiders vs Broncos | `FullTime` / `Post` | Raiders 30, Broncos 34 |
+| `20261112530` | Dolphins vs Eels | `FullTime` / `Post` | Dolphins 34, Eels 16 |
+
+Sample official NRL try-scorer rows:
+
+| Match ID | Player | Team | Game seconds |
+| --- | --- | --- | --- |
+| `20261112510` | Brian To'o | Panthers | `158`, `1386`, `1787` |
+| `20261112510` | Liam Henry | Panthers | `1198` |
+| `20261112510` | Tyran Wishart | Storm | `2613` |
+| `20261112520` | Grant Anderson | Broncos | `1927`, `3979` |
+| `20261112530` | Jamayne Isaako | Dolphins | `2103`, `2854` |
+| `20261112530` | Herbie Farnworth | Dolphins | `1486`, `4726` |
+
+Verdict: official NRL is the preferred settlement source for final scores and
+player try-scorer outcomes, subject to confirming acceptable usage rights and
+keeping request headers explicit in the adapter.
+
+The current refresh command is:
+
+```text
+npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --dry-run
+```
+
+Upcoming fixture shells can be preloaded with:
+
+```text
+npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=26 --include-fixtures --require-supabase
+```
+
+After applying the NRL Insights migration, refresh completed rounds once to
+backfill player appearances, then rebuild aggregates:
+
+```text
+npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --require-supabase
+npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates -- --require-supabase
+```
+
+## ESPN Settlement Fallback
+
+Validated on 2026-08-25.
+
+ESPN's public NRL scoreboard works at:
+
+```text
+https://site.api.espn.com/apis/site/v2/sports/rugby-league/3/scoreboard?dates=20260820-20260824&limit=100
+```
+
+The league path uses `rugby-league/3`, not `rugby-league/nrl`. The response
+returned eight completed week-25 NRL matches with event IDs, final scores,
+winner flags, team IDs, player scoring events, athlete IDs, and athlete names.
+
+For the same three sampled matches, ESPN returned matching try-scorer names:
+
+- Storm vs Panthers: Brian To'o, Liam Henry, Tyran Wishart, Jack Howarth,
+  Siulagi Tuimalatu-Brown.
+- Raiders vs Broncos: Billy Walters, Kaeo Weekes, Ata Mariota, Ezra Mam, Grant
+  Anderson, Owen Pattie, Zac Hosking, Payne Haas, Hayze Perham.
+- Dolphins vs Eels: Ronald Volkman, Brian Kelly, Herbie Farnworth, Selwyn Cobbo,
+  Jamayne Isaako, Max Plath, Kelma Tuilagi.
+
+ESPN player and team IDs differ from official NRL IDs, so joins should use a
+source-specific identity table rather than treating IDs as interchangeable.
+
+## Implementation Implications
+
+- `Singles -> Fixed Win %` can start from official NRL settled results.
+- `Singles -> Cash Win` can start from captured `Match Betting` snapshots after
+  official NRL result settlement is available.
+- Current-market snapshot rows can match existing official NRL rows only when the
+  official fixture/result has already been loaded. Matching is conservative:
+  home/away order, kickoff time, and team-name/nickname suffixes must align.
+- `Singles -> Try Scorer %`, `Singles -> Cash Try Scorer`,
+  `Multis -> Same Game %`, and `Multis -> Same Game Cash` remain blocked on
+  market-price access, not on scorer settlement. Official NRL can settle player
+  try-scorer outcomes, but player try-scorer prices are still not
+  validated.
+- Do not infer same-game multi returns by multiplying single-leg prices unless
+  the output is explicitly labelled as hypothetical. Real `Same Game Cash`
+  requires quoted SGM prices or a documented return basis.

@@ -6,11 +6,10 @@ import {
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS,
   type PredictionModelKey,
-  type PredictionModelVariant,
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "racing" | "ufc";
+export type PredictionSport = "nrl" | "racing" | "ufc";
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
@@ -18,6 +17,10 @@ const PREDICTION_SPORT_OPTIONS = [
   {
     label: "Racing",
     value: "racing",
+  },
+  {
+    label: "NRL",
+    value: "nrl",
   },
   {
     label: "UFC",
@@ -64,11 +67,18 @@ const PREDICTION_FORMAT_OPTIONS = [
   value: PredictionFormat;
 }[];
 
-type PredictionModelTabsProps = {
-  activeModelKey: PredictionModelKey;
-  models?: PredictionModelVariant[];
-  multiBetModelKeys?: PredictionModelKey[];
-  onChange: (value: PredictionModelKey) => void;
+type PredictionTabModel<TModelKey extends string> = {
+  description: string;
+  detail: string;
+  key: TModelKey;
+  label: string;
+};
+
+type PredictionModelTabsProps<TModelKey extends string = PredictionModelKey> = {
+  activeModelKey: TModelKey;
+  models?: PredictionTabModel<TModelKey>[];
+  multiBetModelKeys?: TModelKey[];
+  onChange: (value: TModelKey) => void;
 };
 
 type PredictionSportTabsProps = {
@@ -138,12 +148,12 @@ export function PredictionFormatTabs({ activeFormat, onChange }: PredictionForma
 /**
  * Renders the supported cash prediction model tabs with tracked-multi markers.
  */
-export function PredictionModelTabs({
+export function PredictionModelTabs<TModelKey extends string = PredictionModelKey>({
   activeModelKey,
-  models = PREDICTION_MODEL_VARIANTS,
+  models = PREDICTION_MODEL_VARIANTS as PredictionTabModel<TModelKey>[],
   multiBetModelKeys = [],
   onChange,
-}: PredictionModelTabsProps) {
+}: PredictionModelTabsProps<TModelKey>) {
   const multiBetModels = new Set(multiBetModelKeys);
 
   return (

@@ -582,15 +582,18 @@ repo-root public Supabase env values before Metro bundles the app.
 - Signed-in users can select saved favourite-track chips in Race Days; the chip
   applies the stored country, discipline, and course to the same Supabase
   `race_day_entries` query path.
-- Insights reads stored rows from `insight_aggregates`; the app must not
+- Insights reads stored sport-specific aggregate rows; the app must not
   calculate the main historical insight tables from local fixtures at runtime.
-  Insights filters include country, track, and discipline. When one track and
-  one discipline are selected, the app can call `request-track-race-odds` to
-  fetch current public Betcha odds for all races at the selected track, store
-  an audit row in `track_race_odds_requests`, and show the response for manual
-  comparison with account-visible hidden promos. The response includes the
-  default `global_bucket_blend_v1` cash average score plus cash-plus-bonus
-  context for each returned race.
+  Racing reads `insight_aggregates` with country, track, and discipline
+  filters. UFC reads `ufc_insight_aggregates`. NRL reads
+  `nrl_insight_aggregates` for fixed-win singles and try-scorer percentage
+  rows. When one racing track and one racing discipline are selected, the app
+  can call `request-track-race-odds` to fetch current public Betcha odds for all
+  races at the selected track, store an audit row in
+  `track_race_odds_requests`, and show the response for manual comparison with
+  account-visible hidden promos. The response includes the default
+  `global_bucket_blend_v1` cash average score plus cash-plus-bonus context for
+  each returned race.
 - Signed-in users can select saved favourite-track chips in Insights; the chip
   applies the stored country, discipline, and track scope before reading
   `insight_aggregates`.
@@ -628,7 +631,10 @@ repo-root public Supabase env values before Metro bundles the app.
   percentage multi-only model, and Placing shows current place-rate signals.
   UFC shows UFC Win % singles and multis, reading current Betcha UFC Head to
   Head fight-card payloads from the same snapshot and storing singles/multis in
-  UFC-specific history tables.
+  UFC-specific history tables. NRL reads current Singles -> Win % rows from
+  `nrl_single_predictions`, with fixed-win percentage candidates sourced from
+  current market favourites and try-scorer percentage candidates sourced
+  from official historical player/team try rates.
 - The app can call `refresh-current-predictions` with a sport-scoped JSON body.
   `{ "sport": "ufc" }` refreshes only UFC aggregates/current Betcha fight
   cards, updates the UFC part of `current_prediction_snapshots`, and writes UFC
@@ -660,7 +666,8 @@ repo-root public Supabase env values before Metro bundles the app.
   UFC percentage multi models read `ufc_multi_recommendations` /
   `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
   UFC percentage singles read `ufc_single_predictions` through dedicated UFC
-  single summary and history RPCs.
+  single summary and history RPCs. NRL prediction history is intentionally empty
+  until NRL single prediction reconciliation and history RPCs are added.
   Sport is selected first. Racing then shows the history type selector and the
   relevant model selector below it: single-runner prediction models for
   singles, cash multis, and placing; racing percentage multi-only models for
@@ -700,6 +707,12 @@ repo-root public Supabase env values before Metro bundles the app.
   in the GitHub Actions runner, pages historical race rows, and accumulates
   aggregate buckets incrementally so the all-history insight job is outside the
   Supabase Edge worker CPU budget.
+- NRL Insights are rebuilt manually with
+  `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates`.
+  Fixed-win cash metrics are sourced from reconciled current-market snapshots.
+  Try-scorer percentage metrics are sourced from official NRL player
+  appearances and try events; try-scorer cash remains blocked until player
+  try-scorer prices are validated.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

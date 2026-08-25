@@ -270,6 +270,20 @@ systems:
         - insight_aggregate_runs
         - insight_aggregates
 
+    derive_nrl_statistics:
+      type: manual_worker
+      responsibility:
+        - Rebuild NRL fixed-win single aggregate rows from reconciled current-market Match Betting snapshots.
+        - Rebuild NRL try-scorer percentage rows from official player appearances and try events.
+        - Keep try-scorer cash metrics empty until source-backed player try-scorer prices are validated.
+      reads_from:
+        - nrl_fixed_win_snapshot_results
+        - nrl_matches
+        - nrl_player_match_appearances
+        - nrl_try_scorers
+      writes_to:
+        - nrl_insight_aggregates
+
     fetch_current_promotions:
       type: edge_function_or_manual_worker
       responsibility:
@@ -554,6 +568,9 @@ data_model:
     insight_aggregates:
       purpose: Stored app-facing insight rows by overall, country, course, race-code, starter-count, price-bucket, distance-band, and track-condition scope.
       key: scope_key
+    nrl_insight_aggregates:
+      purpose: Stored app-facing NRL insight rows for fixed-win singles and try-scorer percentages.
+      key: scope_key
     track_race_odds_requests:
       purpose: Audit log of on-demand track-race public odds requests made from Insights.
       key: id
@@ -569,6 +586,11 @@ derived_views:
       - Store starter-count, price-bucket, distance-band, track-condition, country, course, and race-code aggregate rows.
       - Include unit-stake cash, place-cash, bonus-credit, cash-plus-bonus, denominator, and missing-data metrics.
       - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
+  nrl_insight_aggregates:
+    responsibility:
+      - Store fixed-win favourite, source, home/away, team, season, and round aggregate rows.
+      - Store try-scorer percentage rows by player, team, season, and round.
+      - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
   promotion_recommendations:
     responsibility:
       - Join current racing promotions to current race-card facts.

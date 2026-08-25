@@ -33,6 +33,14 @@ import {
   requestPredictionRefresh,
 } from "../data/supabasePromotions";
 import {
+  fetchCurrentNrlSinglePredictions,
+  hasSupabaseNrlPredictionsConfig,
+  NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  type NrlSinglePredictionItem,
+  type NrlSinglePredictionModelKey,
+  type NrlSinglePredictionsResult,
+} from "../data/supabaseNrlPredictions";
+import {
   fetchLockedWinPercentageMulti,
   saveLockedWinPercentageMulti,
   type LockedWinPercentageMultiRecommendation,
@@ -57,6 +65,7 @@ const PROMOTION_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfigured";
 
 type BetCandidatesSectionProps = {
+  nrlSinglePredictionModelKey?: NrlSinglePredictionModelKey;
   predictionFormat?: PredictionFormat;
   predictionModelKey?: PredictionModelKey;
   predictionSport?: PredictionSport;
@@ -84,6 +93,7 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
  * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
+  nrlSinglePredictionModelKey = NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   predictionFormat = "singles",
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
   predictionSport = "racing",
@@ -103,6 +113,9 @@ export function BetCandidatesSection({
   const [lockedWinPercentageMulti, setLockedWinPercentageMulti] =
     useState<LockedWinPercentageMultiRecommendation | null>(null);
   const [lockedUfcMultis, setLockedUfcMultis] = useState<Record<string, LockedUfcMultiRecommendation>>({});
+  const [nrlPredictions, setNrlPredictions] = useState<NrlSinglePredictionsResult | null>(null);
+  const [nrlPredictionError, setNrlPredictionError] = useState<string | null>(null);
+  const [isLoadingNrlPredictions, setIsLoadingNrlPredictions] = useState(false);
   const [lockedMultiMessage, setLockedMultiMessage] = useState<string | null>(null);
   const [lockedMultiError, setLockedMultiError] = useState<string | null>(null);
   const [isLockingWinPercentageMulti, setIsLockingWinPercentageMulti] = useState(false);
@@ -161,6 +174,47 @@ export function BetCandidatesSection({
     predictionSport,
     predictionType,
   });
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadNrlPredictions() {
+      if (predictionSport !== "nrl") {
+        return;
+      }
+
+      if (!hasSupabaseNrlPredictionsConfig) {
+        setNrlPredictions(null);
+        setNrlPredictionError("Supabase is not configured for NRL predictions.");
+        return;
+      }
+
+      try {
+        setIsLoadingNrlPredictions(true);
+        setNrlPredictionError(null);
+        const nextPredictions = await fetchCurrentNrlSinglePredictions(nrlSinglePredictionModelKey);
+
+        if (isActive) {
+          setNrlPredictions(nextPredictions);
+        }
+      } catch (error) {
+        if (isActive) {
+          setNrlPredictions(null);
+          setNrlPredictionError(error instanceof Error ? error.message : "NRL predictions failed to load.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingNrlPredictions(false);
+        }
+      }
+    }
+
+    loadNrlPredictions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [nrlSinglePredictionModelKey, predictionSport]);
 
   useEffect(() => {
     let isActive = true;
@@ -373,7 +427,7 @@ export function BetCandidatesSection({
       if (hasPredictionRefreshEndpoint) {
         try {
           refreshedPayload = await requestPredictionRefresh<RecommendationPayload>({
-            sport: predictionSport,
+            sport: predictionSport === "nrl" ? "racing" : predictionSport,
           });
         } catch (error) {
           refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
@@ -518,7 +572,12 @@ export function BetCandidatesSection({
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <Text style={styles.subheading}>{sectionTitle}</Text>
-          {predictionSport === "ufc" ? (
+          {predictionSport === "nrl" ? (
+            <Text style={styles.sectionNote}>
+              {nrlPredictions?.totalCount ?? 0} stored NRL predictions · source date{" "}
+              {nrlPredictions?.sourceDate ?? "not generated"}
+            </Text>
+          ) : predictionSport === "ufc" ? (
             <Text style={styles.sectionNote}>
               {payload?.ufcWinPercentageMultis?.scannedUfcCardCount ?? 0} UFC cards scanned ·{" "}
               {payload?.ufcWinPercentageMultis?.models.reduce((total, model) =>
@@ -536,27 +595,37 @@ export function BetCandidatesSection({
               Current model {selectedModelRun?.label ?? "Global bucket blend"}
             </Text>
           ) : null}
-          <Text style={styles.sectionNote}>{statusLabel}</Text>
-          <Text style={styles.sectionNote}>
-            Snapshot age {formatCacheAge(cacheAgeMs)}
-            {predictionWindowClosedNow ? " · pre-race snapshot locked" : " · refresh before first race"}
-          </Text>
+          {predictionSport === "nrl" ? (
+            <Text style={styles.sectionNote}>
+              {isLoadingNrlPredictions ? "Loading NRL predictions" : "Loaded from NRL single prediction rows"}
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.sectionNote}>{statusLabel}</Text>
+              <Text style={styles.sectionNote}>
+                Snapshot age {formatCacheAge(cacheAgeMs)}
+                {predictionWindowClosedNow ? " · pre-race snapshot locked" : " · refresh before first race"}
+              </Text>
+            </>
+          )}
         </View>
-        <Pressable
-          disabled={isRequestingRefresh}
-          onPress={refreshCandidates}
-          style={[
-            styles.refreshButton,
-            isRequestingRefresh ? styles.refreshButtonDisabled : null,
-          ]}
-        >
-          <Text style={styles.refreshButtonText}>
-            {isRequestingRefresh ? "Refreshing" : "Refresh"}
-          </Text>
-        </Pressable>
+        {predictionSport === "nrl" ? null : (
+          <Pressable
+            disabled={isRequestingRefresh}
+            onPress={refreshCandidates}
+            style={[
+              styles.refreshButton,
+              isRequestingRefresh ? styles.refreshButtonDisabled : null,
+            ]}
+          >
+            <Text style={styles.refreshButtonText}>
+              {isRequestingRefresh ? "Refreshing" : "Refresh"}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      {candidatesAreStale ? (
+      {predictionSport !== "nrl" && candidatesAreStale ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Bet candidates were captured before the first eligible race, but prices may have changed. Refresh before the first race starts.
@@ -570,7 +639,7 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionWindowClosedNow ? (
+      {predictionSport !== "nrl" && predictionWindowClosedNow ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Prediction window is closed for today. Showing the stored pre-race snapshot captured before {payload?.predictionWindow?.firstRaceStartNz ?? "the first eligible race"}.
@@ -578,8 +647,8 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
-      {refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
+      {predictionSport !== "nrl" && loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
+      {predictionSport !== "nrl" && refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
       {trackedBetError ? (
         <Text style={styles.errorText}>{trackedBetError}</Text>
       ) : trackedBetMessage ? (
@@ -595,7 +664,17 @@ export function BetCandidatesSection({
         <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
       ) : null}
 
-      {!payload ? (
+      {predictionSport === "nrl" ? (
+        predictionFormat === "singles" && predictionType === "win_percentage" ? (
+          <NrlSinglePredictionsPanel
+            errorMessage={nrlPredictionError}
+            isLoading={isLoadingNrlPredictions}
+            result={nrlPredictions}
+          />
+        ) : (
+          <StateMessage text={unsupportedBranchMessage ?? "No NRL models are tracked for this branch yet."} />
+        )
+      ) : !payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
       ) : unsupportedBranchMessage ? (
         <StateMessage text={unsupportedBranchMessage} />
@@ -827,6 +906,10 @@ function getUnsupportedPredictionBranchMessage({
     return `No UFC ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
 
+  if (predictionSport === "nrl" && (predictionFormat !== "singles" || predictionType !== "win_percentage")) {
+    return `No NRL ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
+  }
+
   return null;
 }
 
@@ -834,6 +917,83 @@ type MultiBetRecommendationPanelProps = {
   modelKey: string;
   recommendation: MultiBetRecommendation | null;
 };
+
+type NrlSinglePredictionsPanelProps = {
+  errorMessage: string | null;
+  isLoading: boolean;
+  result: NrlSinglePredictionsResult | null;
+};
+
+/**
+ * Shows current persisted NRL single prediction rows for the selected percentage model.
+ */
+function NrlSinglePredictionsPanel({
+  errorMessage,
+  isLoading,
+  result,
+}: NrlSinglePredictionsPanelProps) {
+  if (isLoading) {
+    return <StateMessage text="Loading stored NRL single predictions." />;
+  }
+
+  if (errorMessage) {
+    return <StateMessage text={errorMessage} />;
+  }
+
+  if (!result || !result.predictions.length) {
+    return <StateMessage text="No NRL single predictions have been generated yet." />;
+  }
+
+  return (
+    <View style={styles.candidateGroup}>
+      {result.predictions.map((prediction) => (
+        <NrlSinglePredictionCard key={prediction.id} prediction={prediction} />
+      ))}
+    </View>
+  );
+}
+
+type NrlSinglePredictionCardProps = {
+  prediction: NrlSinglePredictionItem;
+};
+
+/**
+ * Renders one stored NRL single prediction row.
+ */
+function NrlSinglePredictionCard({ prediction }: NrlSinglePredictionCardProps) {
+  return (
+    <View style={styles.candidateCard}>
+      <View style={styles.candidateHeader}>
+        <View style={styles.rankBadge}>
+          <Text style={styles.rankText}>{prediction.rank}</Text>
+        </View>
+        <View style={styles.candidateTitleBlock}>
+          <Text style={styles.raceTitle}>{prediction.teamLabel}</Text>
+          <Text style={styles.raceMeta}>
+            {prediction.matchLabel} · {prediction.startLabel}
+          </Text>
+        </View>
+        <View style={[styles.signalBadge, styles[`signal_${prediction.signalTone}`]]}>
+          <Text style={styles.signalText}>{prediction.signal}</Text>
+        </View>
+      </View>
+
+      <View style={styles.metricGrid}>
+        <View style={styles.metric}>
+          <Text style={styles.metricValue}>{prediction.score}</Text>
+          <Text style={styles.metricLabel}>Model score</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={styles.metricValue}>{prediction.price}</Text>
+          <Text style={styles.metricLabel}>Fixed win</Text>
+        </View>
+      </View>
+
+      <Text style={styles.raceName}>{prediction.detail}</Text>
+      <Text style={styles.contextText}>{prediction.meta}</Text>
+    </View>
+  );
+}
 
 type PlacingRecommendationsPanelProps = {
   recommendations: BetCandidate[];

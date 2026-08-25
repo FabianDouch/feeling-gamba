@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-08-24 so Predictions and Prediction History use
+Note: the IA was updated on 2026-08-25 so Insights includes an NRL sport option
+that reads fixed-win single and try-scorer percentage rows from
+`nrl_insight_aggregates`. Rendered IA outputs should be regenerated from the
+YAML before being treated as current. It was updated on 2026-08-24 so
+Predictions and Prediction History use
 the same Sport -> Singles/Multis -> Signal type -> Model structure, including
 the `single_win_percentage_65_plus_v1` 65%+ win-rate single tracker and stored
 UFC Singles -> Win % history. The YAML was previously updated on 2026-08-05 to
@@ -192,7 +196,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing and UFC insight views.
+- Toggle between Racing, NRL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -211,12 +215,14 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
+- For NRL, show fixed-win single aggregates and official try-scorer percentage
+  aggregates from `nrl_insight_aggregates`.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 
 Main content:
 
-- Sport selector: Racing or UFC.
+- Sport selector: Racing, NRL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -249,6 +255,9 @@ Main content:
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
 - UFC favourite price, other fighter price, and price-difference breakdowns.
+- NRL fixed-win favourite, home/away, team, and round breakdowns.
+- NRL try-scorer percentage summaries by player and team. Cash try-scorer
+  metrics stay empty until source-backed player try-scorer prices are captured.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
@@ -327,8 +336,8 @@ MVP limits:
 
 Purpose:
 
-- Show current ranked Betcha-derived prediction signals from the latest current
-  prediction snapshot.
+- Show current ranked sport-specific prediction signals from the latest stored
+  current prediction source.
 - Split current prediction branches so sport, single/multi format, cash-return,
   win-percentage, and placing signals are not mixed in one stack.
 - Keep current race-card facts and current recommendations separate from stored
@@ -336,9 +345,10 @@ Purpose:
 
 Main content:
 
-- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `UFC`); Level 2
-  format tabs (`Singles`, `Multis`); Level 3 signal tabs (`Cash`, `Win %`,
-  `Placing`); Level 4 model tabs filtered to the selected sport/format/signal.
+- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `NRL`, `UFC`);
+  Level 2 format tabs (`Singles`, `Multis`); Level 3 signal tabs (`Cash`,
+  `Win %`, `Placing`); Level 4 model tabs filtered to the selected
+  sport/format/signal.
 - Cash prediction model selector and method summary for cash-model candidates.
   Racing Singles -> Cash and Racing Multis -> Cash expose the same cash model
   list: `Global bucket blend`, `Global cash bucket blend`, `Global cash 50/50
@@ -361,12 +371,17 @@ Main content:
   `single_win_percentage_65_plus_v1`, listing every current favourite whose
   blended historical win score is at least 65% as a separate tracked `$1`
   single.
+- NRL Singles -> Win % reads `nrl_single_predictions` and shows fixed-win
+  percentage and try-scorer percentage model tabs. Fixed-win percentage rows
+  use current market favourites; try-scorer percentage rows use official
+  historical player/team try rates and are labelled as historical roster
+  candidates until current lineups are validated.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing or UFC.
+- Sport selector for current Predictions: Racing, NRL, or UFC.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   three-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
@@ -384,6 +399,9 @@ Main content:
 - UFC exposes the same sport/format/signal hierarchy as Racing. Unsupported
   UFC branches, such as non-Win % signal types, show explicit empty states until
   matching models are added.
+- NRL exposes the same sport/format/signal hierarchy as Racing. Unsupported NRL
+  branches, such as cash, placing, and multis, show explicit empty states until
+  matching cash or same-game models are added.
 - The current Predictions refresh button refreshes only the active sport:
   Racing refreshes racing race-card predictions; UFC refreshes UFC fight-card
   multis without refreshing racing.
@@ -541,10 +559,12 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing or UFC. UFC uses the same hierarchy
-  and has stored history under Singles -> Win % and Multis -> Win %. UFC Singles
-  -> Win % reads `ufc_single_predictions` through UFC-specific summary/history
-  RPCs and hides racing-only country, discipline, and racecourse filters.
+- Prediction History sport selector: Racing, NRL, or UFC. UFC uses the same
+  hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
+  UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
+  summary/history RPCs and hides racing-only country, discipline, and
+  racecourse filters. NRL history branches show explicit empty states until NRL
+  prediction reconciliation and history RPCs are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 3-5 for the

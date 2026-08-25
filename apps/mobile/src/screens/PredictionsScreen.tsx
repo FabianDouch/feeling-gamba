@@ -18,6 +18,11 @@ import {
   type PredictionModelVariant,
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
+import {
+  NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  NRL_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type NrlSinglePredictionModelKey,
+} from "../data/supabaseNrlPredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionFormatTabs,
@@ -43,6 +48,8 @@ export function PredictionsScreen() {
   const [activeCashModelKey, setActiveCashModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
+  const [activeNrlSingleModelKey, setActiveNrlSingleModelKey] =
+    useState<NrlSinglePredictionModelKey>(NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
@@ -52,6 +59,9 @@ export function PredictionsScreen() {
   const activeSingleWinPercentageModel = WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS.find((model) =>
     model.key === activeSingleWinPercentageModelKey)
     ?? WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS[0];
+  const activeNrlSingleModel = NRL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeNrlSingleModelKey)
+    ?? NRL_SINGLE_PREDICTION_MODEL_VARIANTS[0];
   const activeCashModel = CASH_PREDICTION_MODEL_VARIANTS.find((model) => model.key === activeCashModelKey)
     ?? CASH_PREDICTION_MODEL_VARIANTS[0];
   const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
@@ -63,6 +73,7 @@ export function PredictionsScreen() {
   const activeModelInfo = getActiveModelInfo({
     activeCashModel,
     activeFormat,
+    activeNrlSingleModel,
     activePredictionType,
     activeSingleWinPercentageModel,
     activeSport,
@@ -76,6 +87,12 @@ export function PredictionsScreen() {
       setActiveFormat("multis");
       setActivePredictionType("win_percentage");
       setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      return;
+    }
+
+    if (value === "nrl") {
+      setActiveFormat("singles");
+      setActivePredictionType("win_percentage");
       return;
     }
 
@@ -170,6 +187,14 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "nrl" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeNrlSingleModelKey}
+          models={NRL_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveNrlSingleModelKey}
+        />
+      ) : null}
+
       {activeSport === "racing" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
         <WinPercentageMultiModelTabs
           activeModelKey={activeWinPercentageMultiModelKey}
@@ -209,6 +234,7 @@ export function PredictionsScreen() {
       ) : null}
 
       <BetCandidatesSection
+        nrlSinglePredictionModelKey={activeNrlSingleModelKey}
         predictionFormat={activeFormat}
         predictionModelKey={activePredictionType === "cash" ? activeCashModelKey : activeSingleModelKey}
         predictionSport={activeSport}
@@ -222,6 +248,11 @@ export function PredictionsScreen() {
 type ActiveModelInfoInput = {
   activeCashModel: PredictionModelVariant;
   activeFormat: PredictionFormat;
+  activeNrlSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
   activePredictionType: CurrentPredictionType;
   activeSingleWinPercentageModel: PredictionModelVariant;
   activeSport: PredictionSport;
@@ -238,11 +269,29 @@ type ActiveModelInfoInput = {
 function getActiveModelInfo({
   activeCashModel,
   activeFormat,
+  activeNrlSingleModel,
   activePredictionType,
   activeSingleWinPercentageModel,
   activeSport,
   activeWinPercentageModel,
 }: ActiveModelInfoInput) {
+  if (activeSport === "nrl" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future NRL prediction models.",
+      detail: "NRL cash and same-game branches need source-backed prices and same-game market validation before they can be tracked.",
+      empty: `No NRL ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `NRL ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "nrl") {
+    return {
+      description: activeNrlSingleModel.description,
+      detail: activeNrlSingleModel.detail,
+      label: activeNrlSingleModel.label,
+    };
+  }
+
   if (activeSport === "ufc" && activePredictionType !== "win_percentage") {
     return {
       description: "This branch is reserved for future UFC prediction models.",

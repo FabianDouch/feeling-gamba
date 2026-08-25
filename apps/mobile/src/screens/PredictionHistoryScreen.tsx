@@ -271,7 +271,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport,
+          activeSport === "nrl" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -332,6 +332,12 @@ export function PredictionHistoryScreen() {
       setActiveFormat("multis");
       setActivePredictionType("win_percentage");
       setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      return;
+    }
+
+    if (value === "nrl") {
+      setActiveFormat("singles");
+      setActivePredictionType("win_percentage");
       return;
     }
 
@@ -1097,6 +1103,10 @@ function getUnsupportedHistoryBranchMessage({
     return `No UFC ${activeFormat === "singles" ? "single" : "multi"} ${activePredictionType} history is tracked yet.`;
   }
 
+  if (activeSport === "nrl") {
+    return "NRL prediction history is not tracked yet. Current NRL single predictions are available on the Predictions tab.";
+  }
+
   return null;
 }
 
@@ -1116,7 +1126,7 @@ function getActiveHistoryModelInfo({
     return {
       description: "This branch is reserved for future model history.",
       detail: "The controls are present so each sport can use the same Singles and Multis history structure as models are added.",
-      label: `${activeSport === "ufc" ? "UFC" : "Racing"} ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+      label: `${activeSport === "ufc" ? "UFC" : activeSport === "nrl" ? "NRL" : "Racing"} ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
     };
   }
 

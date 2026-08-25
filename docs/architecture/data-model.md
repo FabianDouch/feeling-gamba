@@ -41,6 +41,17 @@ recommendation and lock tables in
 `supabase/migrations/202607240003_ufc_prediction_multis.sql`, because the
 racing multi tables depend on race-card fields and a first-eligible-race
 prediction lock rule.
+As of `2026-08-25`, NRL settlement support starts with sport-specific source
+tables in `supabase/migrations/202608250001_nrl_settlement_data.sql`. Official
+NRL match, team, player, and try-scorer rows are stored separately from racing
+and UFC because the source identity model and scoring events do not fit the
+race/runner shape. Current-market fixed-win snapshot capture writes current
+`Match Betting` prices to `nrl_market_snapshots`, and
+`supabase/migrations/202608250002_nrl_fixed_win_snapshot_results.sql` adds
+fixed-win snapshot result/status rows for settled return tracking.
+`supabase/migrations/202608250003_nrl_insight_aggregates.sql` adds NRL player
+match appearances plus `nrl_insight_aggregates`, so Insights can show
+fixed-win single aggregates and official try-scorer percentage aggregates.
 
 The design should support:
 
@@ -918,6 +929,151 @@ Rules:
   `now() < lock_cutoff_at`.
 - Locked UFC snapshots are informational only. They do not store stake size,
   bankroll state, or automated wagering instructions.
+
+### NRL settlement tables
+
+Implemented sport-specific NRL tables for official result settlement:
+
+- `nrl_teams`: source-specific team identities.
+- `nrl_players`: source-specific player identities and latest observed team.
+- `nrl_matches`: official NRL match rows, final scores, winner, status, venue,
+  season, and round.
+- `nrl_try_scorers`: official NRL `type: "Try"` timeline rows with player,
+  team, game seconds, display minute, and running score when provided.
+- `nrl_player_match_appearances`: official NRL match roster rows used as the
+  denominator for player/team anytime try-scorer percentages.
+- `nrl_market_snapshots`: current fixed-win snapshots, kept separate from
+  official NRL result rows.
+- `nrl_fixed_win_snapshot_results`: one outcome/status row per current-market
+  fixed-win snapshot, including pending, unmatched, missing-result, settled,
+  draw, and non-standard states.
+- `nrl_insight_aggregates`: stored app-facing NRL aggregates for fixed-win
+  singles and try-scorer percentages.
+- `nrl_single_predictions`: persisted current NRL single prediction rows for
+  fixed-win percentage and try-scorer percentage models.
+
+Rules:
+
+- Official NRL is stored with `source = 'official_nrl'`.
+- Current-market IDs must not be treated as interchangeable with official NRL
+  IDs.
+- NRL result and try-scorer rows can support percentage models once prediction
+  selection rules exist.
+- NRL cash models require source-backed current-market prices before a row can
+  contribute to return metrics.
+- Pending, unmatched, and missing-result fixed-win snapshots are retained for
+  auditability but excluded from settled return denominators.
+- Try-scorer percentages use player-match appearances as the denominator and
+  official try events as the numerator. Try-scorer cash metrics remain blocked
+  until source-backed player try-scorer prices are validated.
+- Current NRL single predictions must preserve whether a row came from a
+  source-backed bookmaker market or from official historical roster context.
+- Same-game multi return metrics require quoted same-game multi prices or a
+  documented return basis; do not infer them from multiplied single-leg prices.
+
+### `nrl_insight_aggregates`
+
+Stored app-facing NRL aggregate read model. The app reads this table when the
+Insights sport toggle is set to NRL.
+
+Key fields:
+
+- `scope_key text unique`
+- `insight_type text` - `fixed_win_single` or `try_scorer_percentage`
+- `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
+  `team`, `season`, `season_round`, `player`, or `player_team`
+- `source text`
+- `selection_type text` - `home`, `away`, or `favourite`
+- `season int`
+- `round_number int`
+- `team_source_id text`
+- `team_name text`
+- `player_source_id text`
+- `player_name text`
+- `date_from date`
+- `date_to date`
+- `event_count int`
+- `selection_count int`
+- `win_count int`
+- `win_percentage numeric`
+- `total_tries int`
+- `total_stake numeric`
+- `total_return numeric`
+- `net_return numeric`
+- `average_return_per_dollar numeric`
+- `roi_percentage numeric`
+- `missing_price_count int`
+- `pending_count int`
+- `unmatched_count int`
+- `missing_result_count int`
+
+Rules:
+
+- Fixed-win aggregates use current `Match Betting` prices reconciled through
+  `nrl_fixed_win_snapshot_results`.
+- The overall fixed-win row tracks favourites only. Team rows track home/away
+  fixed-win selections for each team without double-counting the favourite.
+- Provider-specific fixed-win rows are intentionally not generated for the
+  app-facing Insights view.
+- Try-scorer percentage rows use one settled player appearance as one
+  selection and count a win when that player scored at least one official try.
+- Try-scorer rows store counts and percentages only; cash fields remain zero
+  until source-backed player try-scorer prices are added.
+- Public RLS read access is allowed because rows contain app-facing aggregate
+  facts only.
+
+### `nrl_single_predictions`
+
+Stored app-facing current NRL single prediction rows. The Predictions tab reads
+this table for NRL Singles -> Win %.
+
+Key fields:
+
+- `prediction_model text` -
+  `nrl_fixed_win_percentage_single_v1` or
+  `nrl_try_scorer_percentage_single_v1`
+- `source text`
+- `source_date date`
+- `source_prediction_key text unique`
+- `source_event_id text`
+- `source_market_id text`
+- `matched_nrl_match_id uuid`
+- `source_match_id text`
+- `advertised_start_at timestamptz`
+- `predicted_at timestamptz`
+- `match_label text`
+- `home_team_name text`
+- `away_team_name text`
+- `predicted_team_source_id text`
+- `predicted_team_name text`
+- `predicted_player_source_id text`
+- `predicted_player_name text`
+- `predicted_fixed_win_price numeric`
+- `other_team_name text`
+- `other_team_fixed_win_price numeric`
+- `prediction_rank int`
+- `win_score numeric`
+- `signal_label text`
+- `signal_tone text`
+- `signal_detail text`
+- `bucket_sample_size int`
+- `lineup_status text` - `not_applicable`, `official_lineup`, or
+  `historical_team_roster`
+- `outcome_status text`
+- outcome fields for winner, team win, player scored, try count, and `$1`
+  return
+
+Rules:
+
+- `nrl_fixed_win_percentage_single_v1` uses the latest current `Match Betting`
+  favourite per event and scores it with official 2026 team win percentage.
+- `nrl_try_scorer_percentage_single_v1` uses official 2026 player/team
+  appearance-to-try percentages and writes `lineup_status =
+  'historical_team_roster'` until current official lineups are validated.
+- Try-scorer prediction rows do not include price or cash return until
+  source-backed player try-scorer prices are captured.
+- Public RLS read access is allowed because rows contain app-facing current
+  predictions and derived outcomes only.
 
 ### `promotion_recommendations`
 
