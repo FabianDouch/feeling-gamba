@@ -258,7 +258,7 @@ navigation:
           - Under Racing Singles -> Cash, show ranked individual candidates only. Under Racing Multis -> Cash, show only the Multi bet recommendation panel derived from the active cash model's current candidate snapshot; prefer three or more Positive priced legs, otherwise use three or more Positive-or-Neutral priced legs.
           - Show a Placing recommendations panel under the Placing type, derived from stored place-rate insight aggregates; exclude fields with no place market.
           - Show current placing recommendation cash-average score plus favourite price bucket and starter-count bucket context.
-          - Show the single_win_percentage_65_plus_v1 model under Racing Singles -> Win %, listing every current favourite with a blended historical win score of at least 65% as a separate tracked $1 single.
+          - Show single_win_percentage_60_plus_v1 and single_win_percentage_65_plus_v1 under Racing Singles -> Win %, listing every current favourite with a blended historical win score of at least the selected threshold as a separate tracked $1 single.
           - >
             Show a percentage multi recommendation panel under Racing Multis -> Win %.
             Win-rate models use 65% favourite price-bucket win rate and 35%
@@ -275,12 +275,13 @@ navigation:
             multi_win_percentage_65_plus_v1 models that keep only 60%+ or 65%+
             win-score legs and can show up to 10 legs, plus
             multi_place_percentage_v1 with up to eight place-rate legs.
-          - Show the UFC same-card percentage model selector under UFC Singles -> Win % and UFC Multis -> Win %. UFC Singles list each eligible fully priced Head to Head favourite as an individual current single candidate from the selected historical bucket model.
+          - Show UFC 65%+, 75%+, and 85%+ single threshold model tabs under UFC Singles -> Win % alongside the existing UFC favourite-price, other-fighter-price, and price-difference single model tabs. Threshold singles list fully priced Head to Head favourites whose strongest UFC historical win-percentage signal is at least the selected threshold.
+          - Show the UFC same-card percentage model selector under UFC Multis -> Win %, using favourite price, other fighter price, and price-difference bucket models.
           - Show NRL fixed-win percentage and try-scorer percentage model tabs under NRL Singles -> Win %, reading current rows from nrl_single_predictions.
           - UFC non-Win % branches should remain selectable but show explicit empty states until matching models are added.
           - NRL non-Singles Win % branches should remain selectable but show explicit empty states until matching cash or same-game models are added.
           - Let signed-in users lock the current percentage multi recommendation before the first eligible racing prediction race starts; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date/model.
-          - Show the racing percentage multi lock cutoff timestamp under the Lock button.
+          - Show the percentage multi lock cutoff timestamp under every Lock button.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
           - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - >
@@ -354,8 +355,8 @@ navigation:
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
           - Show shared Sport tabs for Racing, NRL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
-          - Show cash model tabs for Racing Cash singles and multis, the 65%+ win singles model for Racing Singles -> Win %, percentage multi model tabs for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, and UFC percentage model tabs for UFC Singles -> Win % and UFC Multis -> Win %.
-          - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, with racing-only country, discipline, and racecourse filters hidden.
+          - Show cash model tabs for Racing Cash singles and multis, 60%+ and 65%+ win singles models for Racing Singles -> Win %, percentage multi model tabs for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, UFC 65%+, 75%+, and 85%+ threshold model tabs for UFC Singles -> Win %, and UFC same-card model tabs for UFC Multis -> Win %.
+          - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, including the 65%+, 75%+, and 85%+ threshold single models, with racing-only country, discipline, and racecourse filters hidden.
           - NRL history branches remain explicit empty states until NRL prediction reconciliation and history RPCs are added.
           - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, and place percentage models can be reviewed independently.
           - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 3-5 for the original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models.
@@ -608,8 +609,9 @@ content_rules:
   - Prediction History percentage multi sections must use the selected
     dedicated percentage multi model independently of the selected cash
     model.
-  - Racing Singles -> Win % must use single_win_percentage_65_plus_v1 to track
-    every current favourite with a blended historical win score >= 65 as an
+  - Racing Singles -> Win % must use single_win_percentage_60_plus_v1 and
+    single_win_percentage_65_plus_v1 to track every current favourite with a
+    blended historical win score at or above the selected threshold as an
     individual notional $1 single.
   - Signed-in Racing users with locked percentage multis must see their
     matching personal locked multi history and statistics for the selected

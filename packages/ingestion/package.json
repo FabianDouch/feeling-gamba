@@ -6,7 +6,9 @@
   "scripts": {
     "backfill:race-fixtures": "node scripts/backfill-race-fixtures-to-supabase.mjs",
     "backfill:historical-multi-backtests": "node scripts/backfill-historical-multi-backtests.mjs",
+    "backfill:single-win-percentage": "node scripts/backfill-single-win-percentage-from-multi-legs.mjs",
     "backfill:ufc-kaggle": "node scripts/backfill-ufc-kaggle-to-supabase.mjs",
+    "backfill:ufc-singles-from-multis": "node scripts/backfill-ufc-single-predictions-from-multis.mjs",
     "refresh:nrl-market-snapshots": "node scripts/refresh-nrl-market-snapshots-from-tab.mjs",
     "refresh:nrl-results": "node scripts/refresh-nrl-results-from-official.mjs",
     "refresh:ufc-results": "node scripts/refresh-ufc-results-from-espn.mjs",

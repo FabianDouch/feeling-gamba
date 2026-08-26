@@ -6,6 +6,7 @@ type NullableNumber = number | string | null;
 const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_PREDICTION_HISTORY_ROW_LIMIT = 50;
 export const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
+export const SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY = "single_win_percentage_60_plus_v1";
 export const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v1";
 export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 export const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
@@ -14,6 +15,9 @@ export const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 export const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 export const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
 export const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
+export const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
+export const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
+export const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export type PredictionModelKey =
@@ -25,6 +29,7 @@ export type PredictionModelKey =
   | "global_other_starters_average_price_cash_v1"
   | "country_code_bucket_blend_shrunk_v1"
   | "country_code_distance_condition_v1"
+  | typeof SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY
   | typeof SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY;
 
 export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" | "greyhound";
@@ -40,7 +45,10 @@ export type WinPercentageMultiModelKey =
   | typeof PLACING_PERCENTAGE_MULTI_MODEL_KEY
   | typeof UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
   | typeof UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
-  | typeof UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY;
+  | typeof UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
+  | typeof UFC_SINGLE_65_PLUS_MODEL_KEY
+  | typeof UFC_SINGLE_75_PLUS_MODEL_KEY
+  | typeof UFC_SINGLE_85_PLUS_MODEL_KEY;
 
 export type PredictionPerformanceFilters = {
   discipline: PredictionPerformanceDisciplineFilter;
@@ -118,6 +126,12 @@ export const CASH_PREDICTION_MODEL_VARIANTS = PREDICTION_MODEL_VARIANTS;
 
 export const WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS: PredictionModelVariant[] = [
   {
+    description: "Tracks every current racing favourite whose blended historical win score is at least 60%.",
+    detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Each eligible runner is tracked as a separate $1 single outcome.",
+    key: SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY,
+    label: "60%+ win singles",
+  },
+  {
     description: "Tracks every current racing favourite whose blended historical win score is at least 65%.",
     detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Each eligible runner is tracked as a separate $1 single outcome.",
     key: SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
@@ -173,6 +187,27 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     detail: "Score = historical UFC favourite win percentage for the difference between the other fighter price and favourite price. Eligible legs must be Head to Head fights on the same UFC card.",
     key: UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
     label: "UFC price diff",
+    sport: "ufc",
+  },
+  {
+    description: "Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least 65%.",
+    detail: "Each fully priced Head to Head favourite is scored across the UFC favourite-price, other-fighter-price, and price-difference models. The strongest 65%+ signal is tracked as a separate $1 single.",
+    key: UFC_SINGLE_65_PLUS_MODEL_KEY,
+    label: "65%+ win singles",
+    sport: "ufc",
+  },
+  {
+    description: "Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least 75%.",
+    detail: "Each fully priced Head to Head favourite is scored across the UFC favourite-price, other-fighter-price, and price-difference models. The strongest 75%+ signal is tracked as a separate $1 single.",
+    key: UFC_SINGLE_75_PLUS_MODEL_KEY,
+    label: "75%+ win singles",
+    sport: "ufc",
+  },
+  {
+    description: "Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least 85%.",
+    detail: "Each fully priced Head to Head favourite is scored across the UFC favourite-price, other-fighter-price, and price-difference models. The strongest 85%+ signal is tracked as a separate $1 single.",
+    key: UFC_SINGLE_85_PLUS_MODEL_KEY,
+    label: "85%+ win singles",
     sport: "ufc",
   },
 ];
@@ -2529,6 +2564,18 @@ function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMult
 }
 
 function getUfcWinPercentageSinglePredictionLabel(predictionModel: WinPercentageMultiModelKey) {
+  if (predictionModel === UFC_SINGLE_65_PLUS_MODEL_KEY) {
+    return "UFC 65%+ win singles";
+  }
+
+  if (predictionModel === UFC_SINGLE_75_PLUS_MODEL_KEY) {
+    return "UFC 75%+ win singles";
+  }
+
+  if (predictionModel === UFC_SINGLE_85_PLUS_MODEL_KEY) {
+    return "UFC 85%+ win singles";
+  }
+
   if (predictionModel === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY) {
     return "UFC other fighter price singles";
   }
@@ -2543,7 +2590,10 @@ function getUfcWinPercentageSinglePredictionLabel(predictionModel: WinPercentage
 export function isUfcPercentageMultiModel(predictionModel: string | null) {
   return predictionModel === UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
     || predictionModel === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
-    || predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY;
+    || predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
+    || predictionModel === UFC_SINGLE_65_PLUS_MODEL_KEY
+    || predictionModel === UFC_SINGLE_75_PLUS_MODEL_KEY
+    || predictionModel === UFC_SINGLE_85_PLUS_MODEL_KEY;
 }
 
 function formatPriceDifference(value: NullableNumber) {

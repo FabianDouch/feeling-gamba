@@ -16,14 +16,35 @@ const MULTI_BET_MIN_LEGS = 3;
 const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+const SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY = "single_win_percentage_60_plus_v1";
 const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v1";
 const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
 const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
+const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
+const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
+const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
 const UFC_MULTI_MIN_LEGS = 3;
 const UFC_MULTI_MAX_LEGS = 8;
 const UFC_LOCK_CUTOFF_BUFFER_MINUTES = 15;
+const UFC_SINGLE_THRESHOLD_MODEL_CONFIGS = [
+  {
+    key: UFC_SINGLE_65_PLUS_MODEL_KEY,
+    label: "UFC 65%+ win singles",
+    threshold: 65,
+  },
+  {
+    key: UFC_SINGLE_75_PLUS_MODEL_KEY,
+    label: "UFC 75%+ win singles",
+    threshold: 75,
+  },
+  {
+    key: UFC_SINGLE_85_PLUS_MODEL_KEY,
+    label: "UFC 85%+ win singles",
+    threshold: 85,
+  },
+];
 const RACING_RACE_CARD_FETCH_CONCURRENCY = 8;
 const DEFAULT_PREDICTION_MODEL_KEY = "global_bucket_blend_v1";
 const CASH_ONLY_PREDICTION_MODEL_KEY = "global_bucket_cash_blend_v1";
@@ -603,14 +624,35 @@ function createPredictionRowsFromPayload(output) {
   ];
 }
 
+const SINGLE_WIN_PERCENTAGE_MODELS = [
+  {
+    label: "60%+ win-rate single",
+    modelKey: SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY,
+    threshold: 60,
+  },
+  {
+    label: "65%+ win-rate single",
+    modelKey: SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
+    threshold: 65,
+  },
+];
+
 /**
- * Tracks every current favourite with a 65%+ blended historical win score as a single $1 outcome.
+ * Tracks every current favourite over each configured win-score threshold as a single $1 outcome.
  */
 function createSingleWinPercentagePredictionRowsFromPayload(output) {
+  return SINGLE_WIN_PERCENTAGE_MODELS.flatMap((model) =>
+    createSingleWinPercentagePredictionRowsForModel(output, model));
+}
+
+/**
+ * Creates single win-percentage prediction rows for one configured threshold.
+ */
+function createSingleWinPercentagePredictionRowsForModel(output, model) {
   return (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
     .filter((candidate) =>
       candidate.winPercentageMultiCandidate
-      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= 65
+      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= model.threshold
       && candidate.favourite?.fixedWinPrice)
     .map((candidate) => {
       const singleCandidate = {
@@ -618,7 +660,7 @@ function createSingleWinPercentagePredictionRowsFromPayload(output) {
         candidate: {
           ...candidate.winPercentageMultiCandidate,
           blendedCashPlusBonusAverage: null,
-          label: "65%+ win-rate single",
+          label: model.label,
           tone: "positive",
         },
         rank: candidate.winPercentageMultiRank ?? candidate.rank ?? null,
@@ -633,7 +675,7 @@ function createSingleWinPercentagePredictionRowsFromPayload(output) {
         course_name: singleCandidate.canonicalTrack ?? singleCandidate.sourceTrack ?? null,
         course_slug: singleCandidate.canonicalTrack ? toSlug(singleCandidate.canonicalTrack) : null,
         historical_sample_size: singleCandidate.candidate?.sampleSize ?? 0,
-        prediction_model: SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
+        prediction_model: model.modelKey,
         predicted_at: output.generatedAt,
         predicted_fixed_win_price: singleCandidate.favourite?.fixedWinPrice ?? null,
         predicted_other_starters_average_fixed_win_price: singleCandidate.fieldPriceShape?.otherStartersAverageFixedWinPrice ?? null,
@@ -643,7 +685,7 @@ function createSingleWinPercentagePredictionRowsFromPayload(output) {
         predicted_runner_name: singleCandidate.favourite?.name ?? null,
         predicted_runner_number: singleCandidate.favourite?.number ?? null,
         predicted_starter_count: singleCandidate.starters ?? null,
-        prediction_signature: createPredictionSignature(singleCandidate, SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY),
+        prediction_signature: createPredictionSignature(singleCandidate, model.modelKey),
         price_bucket_label: singleCandidate.candidate?.priceBucketLabel ?? singleCandidate.historical?.priceBucket?.label ?? singleCandidate.favourite?.priceBucket ?? null,
         race_code: singleCandidate.code,
         race_name: singleCandidate.raceName,
@@ -4090,6 +4132,73 @@ function createUfcSinglePredictionCandidates(card, candidates, modelKey) {
   }));
 }
 
+/**
+ * Builds UFC single candidates whose strongest model signal clears a fixed threshold.
+ */
+function createUfcThresholdSinglePredictionCandidates(card, candidates, threshold) {
+  return candidates
+    .map((candidate) => {
+      const signalEntries = [
+        UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+        UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+        UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+      ]
+        .map((modelKey) => ({
+          modelKey,
+          signal: candidate.modelSignals?.[modelKey] ?? null,
+        }))
+        .filter((entry) =>
+          Number.isFinite(entry.signal?.winScore)
+          && ["neutral", "positive"].includes(entry.signal?.tone)
+          && Number(entry.signal?.winScore) >= threshold);
+      const strongest = signalEntries.sort((left, right) =>
+        Number(right.signal?.winScore ?? -Infinity) - Number(left.signal?.winScore ?? -Infinity))[0];
+
+      return strongest && candidate.predictedFighter?.fixedWinPrice
+        ? {
+            ...candidate,
+            modelSignal: {
+              ...strongest.signal,
+              detail: `${threshold}%+ UFC single from ${strongest.signal.detail}`,
+              label: `${threshold}%+ win-rate single`,
+              sourceModelKey: strongest.modelKey,
+              tone: "positive",
+            },
+          }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const rightScore = right.modelSignal?.winScore ?? -Infinity;
+      const leftScore = left.modelSignal?.winScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .map((candidate, index) => ({
+      advertisedStart: candidate.advertisedStart,
+      fightName: candidate.fightName,
+      otherEntrantId: candidate.otherFighter?.entrantId ?? null,
+      otherFighterName: candidate.otherFighter?.name ?? null,
+      otherFixedWinPrice: candidate.otherFighter?.fixedWinPrice ?? null,
+      predictedEntrantId: candidate.predictedFighter?.entrantId ?? null,
+      predictedFighterName: candidate.predictedFighter?.name ?? null,
+      predictedFixedWinPrice: candidate.predictedFighter?.fixedWinPrice ?? null,
+      priceDifference: candidate.priceDifference,
+      predictionRank: index + 1,
+      signal: candidate.modelSignal,
+      sourceCardId: card.id,
+      sourceCardName: card.name,
+      sourceCardSlug: extractSlugFromUrl(card.url),
+      sourceEventId: candidate.eventId,
+      sourceMarketId: candidate.marketId,
+    }));
+}
+
 async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt, sourceDate) {
   if (!ufcHistoricalStats) {
     return null;
@@ -4174,6 +4283,15 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
     singleCandidates: cardResults.flatMap(({ card, candidates }) =>
       createUfcSinglePredictionCandidates(card, candidates, model.key)),
   }));
+  const thresholdSingleModels = UFC_SINGLE_THRESHOLD_MODEL_CONFIGS.map((model) => ({
+    description: `Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least ${model.threshold}%.`,
+    key: model.key,
+    label: model.label,
+    recommendations: [],
+    singleCandidates: cardResults.flatMap(({ card, candidates }) =>
+      createUfcThresholdSinglePredictionCandidates(card, candidates, model.threshold)),
+  }));
+  const allModels = [...models, ...thresholdSingleModels];
   const firstFightStart = getEarliestIsoDate(
     models.flatMap((model) => model.recommendations.map((recommendation) => recommendation.firstFightStart)),
   );
@@ -4181,8 +4299,8 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
   return {
     errors,
     firstFightStart,
-    modelCount: models.length,
-    models,
+    modelCount: allModels.length,
+    models: allModels,
     note: "UFC win percentage multis are built from current Betcha UFC Head to Head markets only. Each recommendation uses one Betcha UFC card, excludes non-UFC MMA competitions, and ranks favourite legs by the selected historical UFC bucket win rate.",
     provider: source.label,
     scannedCompetitionCount: leagues.length,

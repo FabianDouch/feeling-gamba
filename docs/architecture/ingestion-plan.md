@@ -759,8 +759,10 @@ Initial mode:
   aggregates.
 - UFC current prediction payloads include per-model single candidates for the
   favourite price, other fighter price, and price-difference historical bucket
-  models. These singles are persisted to `ufc_single_predictions` so Prediction
-  History can track $1 unit-stake results over time.
+  models, plus 65%+, 75%+, and 85%+ threshold single models based on each fight's
+  strongest qualifying UFC bucket signal. These singles are persisted to
+  `ufc_single_predictions` so Prediction History can track $1 unit-stake
+  results over time.
 - The scheduled GitHub Actions current-prediction workflow calls the endpoint
   twice, first with `{ "sport": "racing" }` and then with `{ "sport": "ufc" }`,
   so slow source scans for one sport do not make the combined request hit the
@@ -782,10 +784,11 @@ Initial mode:
   in parallel on the same race card. Existing rows are replaced only when the
   prediction signature changes, such as favourite, fixed-win price, starter
   count, rank, model score, or signal changing.
-- The racing refresh also writes `single_win_percentage_65_plus_v1` rows for
-  every current favourite with a blended historical win score of at least 65%.
-  These are stored as single-runner prediction rows, not multi recommendations,
-  so Prediction History can answer whether a flat `$1` stake on every 65%+
+- The racing refresh also writes `single_win_percentage_60_plus_v1` and
+  `single_win_percentage_65_plus_v1` rows for every current favourite with a
+  blended historical win score at or above the selected threshold. These are
+  stored as single-runner prediction rows, not multi recommendations, so
+  Prediction History can answer whether a flat `$1` stake on every threshold
   win-rate single is profitable over time.
 - After storing pre-first-race predictions, the prediction refresh rebuilds
   `prediction_aggregates` so the Predictions tab can show pending predictions
@@ -1072,6 +1075,30 @@ unless `--skip-reconcile` is passed, and rebuilds `prediction_aggregates`.
 If only one model's aggregate rows are missing, rebuild that model without
 scanning every prediction model:
 `npm --workspace @feeling-gamba/ingestion run rebuild:prediction-aggregates -- --prediction-model=single_win_percentage_65_plus_v1 --require-supabase`.
+If historical single win-percentage rows need to be recovered from already
+stored threshold multi legs, run
+`npm --workspace @feeling-gamba/ingestion run backfill:single-win-percentage -- --threshold=60 --require-supabase`
+or
+`npm --workspace @feeling-gamba/ingestion run backfill:single-win-percentage -- --threshold=65 --require-supabase`
+and then rebuild the same model-scoped aggregates. This backfill only recovers
+the runners that were persisted as matching threshold multi legs, so it does not
+reconstruct any uncaptured candidates beyond the multi-leg storage cap.
+If historical UFC Singles -> Win % rows need to be recovered from already
+stored UFC same-card multi legs, run
+`npm --workspace @feeling-gamba/ingestion run backfill:ufc-singles-from-multis -- --require-supabase`.
+The UFC backfill writes `ufc_single_predictions` rows keyed by the same UFC
+percentage model, source date, card, and event as the stored multi leg; it skips
+existing single rows unless `--replace-existing` is passed.
+For UFC threshold single models, run
+`npm --workspace @feeling-gamba/ingestion run backfill:ufc-singles-from-multis -- --threshold=65 --require-supabase`
+or
+`npm --workspace @feeling-gamba/ingestion run backfill:ufc-singles-from-multis -- --threshold=75 --require-supabase`.
+For the stricter 85% threshold model, run
+`npm --workspace @feeling-gamba/ingestion run backfill:ufc-singles-from-multis -- --threshold=85 --require-supabase`.
+These threshold backfills write `ufc_single_win_percentage_65_plus_v1`,
+`ufc_single_win_percentage_75_plus_v1`, or
+`ufc_single_win_percentage_85_plus_v1` rows and keep the strongest qualifying
+stored UFC multi-leg signal per model/source date/card/event.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,

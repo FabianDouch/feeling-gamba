@@ -12,6 +12,11 @@ import {
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+  UFC_SINGLE_65_PLUS_MODEL_KEY,
+  UFC_SINGLE_75_PLUS_MODEL_KEY,
+  UFC_SINGLE_85_PLUS_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS,
   type PredictionModelKey,
@@ -39,6 +44,19 @@ const RACING_WIN_PERCENTAGE_MULTI_KEYS = [
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const UFC_WIN_PERCENTAGE_MULTI_KEYS = [
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const UFC_WIN_PERCENTAGE_SINGLE_KEYS = [
+  UFC_SINGLE_65_PLUS_MODEL_KEY,
+  UFC_SINGLE_75_PLUS_MODEL_KEY,
+  UFC_SINGLE_85_PLUS_MODEL_KEY,
+  UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
 ] satisfies WinPercentageMultiModelKey[];
 
 /**
@@ -104,6 +122,9 @@ export function PredictionsScreen() {
 
     if (activeSport === "ufc" && value === "singles") {
       setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(UFC_SINGLE_65_PLUS_MODEL_KEY);
+    } else if (activeSport === "ufc" && value === "multis") {
+      setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
     }
   }
 
@@ -112,7 +133,7 @@ export function PredictionsScreen() {
 
     if (value === "win_percentage") {
       setActiveWinPercentageMultiModelKey(activeSport === "ufc"
-        ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
+        ? activeFormat === "singles" ? UFC_SINGLE_65_PLUS_MODEL_KEY : UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
         : WIN_PERCENTAGE_MULTI_MODEL_KEY);
     } else if (value === "placing") {
       setActiveWinPercentageMultiModelKey(PLACING_PERCENTAGE_MULTI_MODEL_KEY);
@@ -213,9 +234,19 @@ export function PredictionsScreen() {
         />
       ) : null}
 
-      {activeSport === "ufc" && activePredictionType === "win_percentage" ? (
+      {activeSport === "ufc" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
         <WinPercentageMultiModelTabs
           activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={UFC_WIN_PERCENTAGE_SINGLE_KEYS}
+          onChange={setActiveWinPercentageMultiModelKey}
+          sport={activeSport}
+        />
+      ) : null}
+
+      {activeSport === "ufc" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
+        <WinPercentageMultiModelTabs
+          activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={UFC_WIN_PERCENTAGE_MULTI_KEYS}
           onChange={setActiveWinPercentageMultiModelKey}
           sport={activeSport}
         />

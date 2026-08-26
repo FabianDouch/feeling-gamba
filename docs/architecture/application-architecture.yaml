@@ -530,7 +530,7 @@ data_model:
       purpose: Current app-facing Betcha candidate prediction payload cache, independent of promotion availability.
       key: id
     promotion_predictions:
-      purpose: Latest stored Betcha bet-back candidate prediction per source race card, with reconciled outcome fields for itemised Predictions history.
+      purpose: Latest stored Betcha bet-back candidate prediction per source race card, including cash-model single rows and threshold win-percentage single rows, with reconciled outcome fields for itemised Predictions history.
       key: source, source_race_card_id
     multi_bet_recommendations:
       purpose: >
@@ -544,6 +544,9 @@ data_model:
     multi_bet_recommendation_legs:
       purpose: Leg snapshots, predicted win/place odds, and leg-level outcomes for tracked multi bet recommendations.
       key: recommendation_id, leg_index
+    ufc_single_predictions:
+      purpose: UFC single prediction rows for base UFC bucket models plus 65%+, 75%+, and 85%+ threshold single models, keyed by model, source date, card, and event.
+      key: prediction_model, source, source_date, source_card_id, source_event_id
     get_prediction_history_summary:
       purpose: Server-side model-scoped Prediction history summary for the selected date range, country, discipline, and racecourse filters.
       key: rpc
@@ -662,6 +665,17 @@ flows:
         threshold models multi_win_percentage_60_plus_v1 and
         multi_win_percentage_65_plus_v1 that keep only 60%+ or 65%+ win-score
         legs and can store up to 10 legs.
+      - >
+        persist matching single_win_percentage_60_plus_v1 and
+        single_win_percentage_65_plus_v1 promotion prediction rows for each
+        qualifying current favourite so threshold singles can be tracked as
+        separate notional $1 outcomes.
+      - >
+        persist UFC single threshold rows for
+        ufc_single_win_percentage_65_plus_v1,
+        ufc_single_win_percentage_75_plus_v1, and
+        ufc_single_win_percentage_85_plus_v1 by keeping each fight's strongest
+        qualifying UFC bucket-model signal.
       - >
         build a multi_place_percentage_v1 tracked percentage multi from current
         placing candidates with active place markets, ranked by blended

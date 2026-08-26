@@ -523,7 +523,10 @@ win scores of at least 60% and 65% respectively, require at least three legs,
 and can keep up to 10 legs. The `multi_place_percentage_v1` model also appears
 under Win % multis, ranks favourites by blended historical place percentage,
 requires an active place market, requires at least three legs, and can keep up
-to eight legs. Win-based tracked multis settle as a cash win only when every
+to eight legs. The corresponding racing single win-percentage models
+`single_win_percentage_60_plus_v1` and `single_win_percentage_65_plus_v1`
+store each qualifying favourite as an individual notional `$1` single.
+Win-based tracked multis settle as a cash win only when every
 leg wins. The place-percentage multi stores fixed-place leg odds and the
 combined fixed-place price, then settles as a cash return only when every
 selected leg finishes inside the stored place payout depth. No bonus-bet value,
@@ -666,8 +669,10 @@ repo-root public Supabase env values before Metro bundles the app.
   UFC percentage multi models read `ufc_multi_recommendations` /
   `ufc_multi_recommendation_legs` through UFC-specific summary and history RPCs.
   UFC percentage singles read `ufc_single_predictions` through dedicated UFC
-  single summary and history RPCs. NRL prediction history is intentionally empty
-  until NRL single prediction reconciliation and history RPCs are added.
+  single summary and history RPCs, including 65%+, 75%+, and 85%+ single-threshold
+  models based on each fight's strongest UFC bucket signal. NRL prediction
+  history is intentionally empty until NRL single prediction reconciliation and
+  history RPCs are added.
   Sport is selected first. Racing then shows the history type selector and the
   relevant model selector below it: single-runner prediction models for
   singles, cash multis, and placing; racing percentage multi-only models for

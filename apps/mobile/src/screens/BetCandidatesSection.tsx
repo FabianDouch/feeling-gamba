@@ -6,9 +6,13 @@ import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
+  SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY,
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+  UFC_SINGLE_65_PLUS_MODEL_KEY,
+  UFC_SINGLE_75_PLUS_MODEL_KEY,
+  UFC_SINGLE_85_PLUS_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
@@ -84,9 +88,12 @@ const WIN_PERCENTAGE_THRESHOLD_MAX_LEGS = 10;
 const PLACING_PERCENTAGE_MAX_LEGS = 8;
 const MULTI_BET_MIN_LEGS = 3;
 const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelKey, string>> = {
-  [UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "UFC favourite price multi",
-  [UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "UFC other fighter price multi",
-  [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: "UFC price difference multi",
+  [UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "UFC favourite price",
+  [UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "UFC other fighter price",
+  [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: "UFC price difference",
+  [UFC_SINGLE_65_PLUS_MODEL_KEY]: "65%+ win",
+  [UFC_SINGLE_75_PLUS_MODEL_KEY]: "75%+ win",
+  [UFC_SINGLE_85_PLUS_MODEL_KEY]: "85%+ win",
 };
 
 /**
@@ -133,7 +140,10 @@ export function BetCandidatesSection({
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
   const placingRecommendations = buildPlacingRecommendations(placingCandidatePool);
-  const winPercentageSingleCandidates = getWinPercentageSingleCandidates(winPercentageMultiCandidatePool);
+  const winPercentageSingleCandidates = getWinPercentageSingleCandidates(
+    winPercentageMultiCandidatePool,
+    predictionModelKey,
+  );
   const winPercentageMultiRecommendation = isUfcWinPercentageMulti
     ? null
     : buildPercentageMultiBetRecommendation(
@@ -685,7 +695,10 @@ export function BetCandidatesSection({
             modelRun={activeUfcModelRun}
           />
         ) : predictionFormat === "singles" ? (
-          <WinPercentageSinglesPanel candidates={winPercentageSingleCandidates} />
+          <WinPercentageSinglesPanel
+            candidates={winPercentageSingleCandidates}
+            modelKey={predictionModelKey}
+          />
         ) : isUfcWinPercentageMulti ? (
           <UfcWinPercentageMultiRecommendationsPanel
             isSigningIn={isSigningIn}
@@ -1001,6 +1014,7 @@ type PlacingRecommendationsPanelProps = {
 
 type WinPercentageSinglesPanelProps = {
   candidates: BetCandidate[];
+  modelKey: PredictionModelKey;
 };
 
 type WinPercentageMultiRecommendationPanelProps = {
@@ -1091,16 +1105,18 @@ function PlacingRecommendationsPanel({ recommendations }: PlacingRecommendations
 }
 
 /**
- * Shows every current runner that would be tracked by the 65%+ win-rate singles model.
+ * Shows every current runner that would be tracked by the selected win-rate singles model.
  */
-function WinPercentageSinglesPanel({ candidates }: WinPercentageSinglesPanelProps) {
+function WinPercentageSinglesPanel({ candidates, modelKey }: WinPercentageSinglesPanelProps) {
+  const threshold = getSingleWinPercentageThreshold(modelKey);
+
   return (
     <View style={styles.multiPanel}>
       <View style={styles.multiHeader}>
         <View style={styles.headerText}>
-          <Text style={styles.multiTitle}>65%+ win singles</Text>
+          <Text style={styles.multiTitle}>{threshold}%+ win singles</Text>
           <Text style={styles.multiContext}>
-            Each listed favourite is tracked as a separate $1 single when its blended historical win score is at least 65%.
+            Each listed favourite is tracked as a separate $1 single when its blended historical win score is at least {threshold}%.
           </Text>
         </View>
       </View>
@@ -1135,7 +1151,7 @@ function WinPercentageSinglesPanel({ candidates }: WinPercentageSinglesPanelProp
                   </Text>
                 </View>
                 <View style={[styles.signalBadge, styles.signal_positive]}>
-                  <Text style={styles.signalText}>65%+ single</Text>
+                  <Text style={styles.signalText}>{threshold}%+ single</Text>
                 </View>
               </View>
             );
@@ -1143,7 +1159,7 @@ function WinPercentageSinglesPanel({ candidates }: WinPercentageSinglesPanelProp
         </View>
       ) : (
         <Text style={styles.multiFooter}>
-          No current favourites have a 65%+ blended historical win score in this snapshot.
+          No current favourites have a {threshold}%+ blended historical win score in this snapshot.
         </Text>
       )}
     </View>
@@ -1346,7 +1362,7 @@ function UfcWinPercentageMultiRecommendationsPanel({
               <View style={styles.headerText}>
                 <Text style={styles.multiTitle}>{recommendation.sourceCardName}</Text>
                 <Text style={styles.multiContext}>
-                  First fight {formatDateTime(recommendation.firstFightStart)} · locks before {formatDateTime(recommendation.lockCutoffAt)}
+                  First fight {formatDateTime(recommendation.firstFightStart)}
                 </Text>
               </View>
               <View style={styles.multiActions}>
@@ -1372,6 +1388,9 @@ function UfcWinPercentageMultiRecommendationsPanel({
                     {locked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
                   </Text>
                 </Pressable>
+                <Text style={styles.lockCutoffText}>
+                  {formatLockCutoffLabel(recommendation.lockCutoffAt)}
+                </Text>
               </View>
             </View>
             {locked ? (
@@ -1829,10 +1848,11 @@ function getUniquePricedWinPercentageCandidates(candidates: BetCandidate[]) {
 }
 
 /**
- * Selects every current favourite eligible for the 65%+ win-rate singles tracker.
+ * Selects every current favourite eligible for the selected win-rate singles tracker.
  */
-function getWinPercentageSingleCandidates(candidates: BetCandidate[]) {
+function getWinPercentageSingleCandidates(candidates: BetCandidate[], modelKey: PredictionModelKey) {
   const bestByRace = new Map<string, BetCandidate>();
+  const threshold = getSingleWinPercentageThreshold(modelKey);
 
   for (const candidate of candidates) {
     const signal = candidate.winPercentageMultiCandidate;
@@ -1840,7 +1860,7 @@ function getWinPercentageSingleCandidates(candidates: BetCandidate[]) {
     if (
       !candidate.favourite?.fixedWinPrice
       || !signal
-      || Number(signal.winScore ?? -Infinity) < 65
+      || Number(signal.winScore ?? -Infinity) < threshold
     ) {
       continue;
     }
@@ -1853,6 +1873,13 @@ function getWinPercentageSingleCandidates(candidates: BetCandidate[]) {
   }
 
   return Array.from(bestByRace.values()).sort(compareWinPercentageCandidates);
+}
+
+/**
+ * Maps racing single win-percentage model keys to their threshold.
+ */
+function getSingleWinPercentageThreshold(modelKey: PredictionModelKey) {
+  return modelKey === SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY ? 60 : 65;
 }
 
 /**

@@ -20,10 +20,11 @@ recommendation per source date/model, implemented in
 As of `2026-08-05`, racing percentage multi locks close at the current
 prediction snapshot's first eligible race start instead of a fixed 10:00am NZ
 time cutoff.
-As of `2026-08-24`, `single_win_percentage_65_plus_v1` is an additional
-single-runner `prediction_model` value stored in `promotion_predictions`. It
-tracks each current favourite whose blended historical win score is at least
-65% as a separate notional `$1` single and does not require a new table.
+As of `2026-08-26`, `single_win_percentage_60_plus_v1` and
+`single_win_percentage_65_plus_v1` are additional single-runner
+`prediction_model` values stored in `promotion_predictions`. They track each
+current favourite whose blended historical win score is at least the selected
+threshold as a separate notional `$1` single and do not require a new table.
 As of `2026-07-24`, `multi_win_percentage_60_plus_v1` and
 `multi_place_percentage_v1` are additional multi-only `prediction_model`
 values for tracked percentage multis; they use the existing multi
@@ -656,11 +657,12 @@ Rules:
     country-and-discipline cash buckets for price, starter-count,
     distance-band, and track-condition signals with conservative shrinkage
     toward broader cash history.
-  - `single_win_percentage_65_plus_v1`: tracks each current favourite whose
-    blended win score is at least 65%, where the score is 65% favourite
-    price-bucket win rate and 35% starter-count win rate. Each eligible row is a
-    separate `$1` single outcome; `cash_average_score` stores the win score and
-    `blended_cash_plus_bonus_average` is null.
+  - `single_win_percentage_60_plus_v1` and
+    `single_win_percentage_65_plus_v1`: track each current favourite whose
+    blended win score is at least the selected threshold, where the score is 65%
+    favourite price-bucket win rate and 35% starter-count win rate. Each
+    eligible row is a separate `$1` single outcome; `cash_average_score` stores
+    the win score and `blended_cash_plus_bonus_average` is null.
 - Current candidate lists are ordered by the active prediction model's
   `cashAverageScore`, which is calculated differently for each prediction type.
   Cash-plus-bonus value remains supporting context and must not drive
@@ -834,10 +836,12 @@ Rules:
   card can create UFC recommendations; non-UFC MMA competitions such as PFL are
   filtered out.
 - Current UFC prediction snapshots also expose per-model UFC Win % single
-  candidates in the payload for Predictions display. These are derived from the
-  same fully priced Head to Head fights and historical bucket signals as UFC
-  multis, and are persisted separately in `ufc_single_predictions` for $1
-  unit-stake history.
+  candidates in the payload for Predictions display. The base single candidates
+  use the same favourite-price, other-fighter-price, and price-difference
+  historical bucket signals as UFC multis. Dedicated 65%+, 75%+, and 85%+ single
+  threshold models keep each fight's strongest qualifying signal across those
+  UFC bucket models. All UFC singles are persisted separately in
+  `ufc_single_predictions` for $1 unit-stake history.
 - Every leg in a UFC multi must come from the same Betcha UFC card and an open
   Head to Head market with two priced fighters.
 - Each model requires at least three eligible fights and can store up to eight
@@ -885,8 +889,10 @@ recalculating from current snapshots.
 
 Key fields:
 
-- `prediction_model text` - one of the UFC percentage model keys also used by
-  UFC multis.
+- `prediction_model text` - one of the UFC percentage model keys, including the
+  three UFC same-card bucket models or the `ufc_single_win_percentage_65_plus_v1`,
+  `ufc_single_win_percentage_75_plus_v1`, and
+  `ufc_single_win_percentage_85_plus_v1` threshold single models.
 - `source_date date`, `source_card_id text`, `source_card_name text`
 - `source_event_id text`, `source_market_id text`
 - `advertised_start timestamptz`
@@ -903,6 +909,8 @@ Rules:
 
 - Rows are upserted from `ufcWinPercentageMultis.models[].singleCandidates`
   during UFC current-prediction refresh and snapshot replay.
+- Threshold single rows use the strongest qualifying UFC bucket-model signal per
+  fight and are ranked within the model/source date/card by win score.
 - The unique key is `(prediction_model, source, source_date, source_card_id,
   source_event_id)`, so each model tracks one single candidate per fight.
 - Stale rows for the same source date/model are deleted when a refreshed payload

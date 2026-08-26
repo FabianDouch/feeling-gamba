@@ -368,9 +368,9 @@ Main content:
   otherwise show a Neutral multi from active-model Positive and Neutral signals
   when at least three priced legs are available.
 - Win percentage singles panel shown under Racing -> Singles -> Win % for
-  `single_win_percentage_65_plus_v1`, listing every current favourite whose
-  blended historical win score is at least 65% as a separate tracked `$1`
-  single.
+  `single_win_percentage_60_plus_v1` and `single_win_percentage_65_plus_v1`,
+  listing every current favourite whose blended historical win score is at
+  least the selected threshold as a separate tracked `$1` single.
 - NRL Singles -> Win % reads `nrl_single_predictions` and shows fixed-win
   percentage and try-scorer percentage model tabs. Fixed-win percentage rows
   use current market favourites; try-scorer percentage rows use official
@@ -392,10 +392,11 @@ Main content:
   favourite price bucket, other fighter price bucket, and price-difference
   bucket signals; each UFC model can show up to eight Head to Head favourite
   legs from one Betcha UFC card.
-- UFC Singles -> Win % uses the same UFC favourite price, other fighter price,
-  and price-difference model tabs as UFC Multis -> Win %. It shows each eligible
-  fully priced Head to Head favourite as an individual current single candidate
-  from the selected historical bucket model.
+- UFC Singles -> Win % shows dedicated `65%+ win singles`, `75%+ win
+  singles`, and `85%+ win singles` model tabs alongside the existing UFC favourite-price,
+  other-fighter-price, and price-difference single model tabs. Each threshold
+  model lists fully priced Head to Head favourites whose strongest UFC
+  historical win-percentage signal is at least the selected threshold.
 - UFC exposes the same sport/format/signal hierarchy as Racing. Unsupported
   UFC branches, such as non-Win % signal types, show explicit empty states until
   matching models are added.
@@ -451,8 +452,9 @@ Main content:
   recommendation before the first eligible racing prediction race starts. Once
   locked, the panel should display that user-owned snapshot for the current
   source date/model instead of later live recommendation changes.
-- The lock action should show the cutoff timestamp beneath the button so users
-  can see when the current recommendation stops being lockable.
+- Percentage multi lock actions should show the cutoff timestamp beneath the
+  button so users can see when each current recommendation stops being
+  lockable.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -506,10 +508,11 @@ Main content:
   Level 3 signal tabs (`Cash`, `Win %`, `Placing`); Level 4 model tabs filtered
   to the selected sport/format/signal.
 - Model selectors sit beneath the sport/format/signal controls: cash prediction
-  model tabs for Racing Cash singles and multis, the `65%+ win singles` model
-  for Racing Singles -> Win %, percentage multi model tabs for Racing Multis ->
-  Win %, the place percentage multi model for Racing Multis -> Placing, and UFC
-  same-card percentage multi models for UFC Multis -> Win %.
+  model tabs for Racing Cash singles and multis, the `60%+ win singles` and
+  `65%+ win singles` models for Racing Singles -> Win %, percentage multi model
+  tabs for Racing Multis -> Win %, the place percentage multi model for Racing
+  Multis -> Placing, and UFC same-card percentage multi models for UFC Multis
+  -> Win %.
 - Stored model performance section for historical outcomes, discipline
   performance, date-range breakdowns, and prediction history.
 - Overall prediction count, settled count, pending count, and missing-outcome
@@ -563,8 +566,9 @@ Main content:
   hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
-  racecourse filters. NRL history branches show explicit empty states until NRL
-  prediction reconciliation and history RPCs are added.
+  racecourse filters. UFC single history includes the bucket models plus the
+  `65%+`, `75%+`, and `85%+` threshold single models. NRL history branches show explicit
+  empty states until NRL prediction reconciliation and history RPCs are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 3-5 for the
