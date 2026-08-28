@@ -17,10 +17,17 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-08-25 so Insights includes an NRL sport option
+Note: the IA was updated on 2026-08-27 to show sport-specific current
+prediction finalisation at 15 minutes before the first race, fight, or match
+starts and to add generic current prediction view locks. Rendered IA outputs
+should be regenerated from the YAML before being treated as current. It was
+updated on 2026-08-25 so Insights includes an NRL sport option
 that reads fixed-win single and try-scorer percentage rows from
-`nrl_insight_aggregates`. Rendered IA outputs should be regenerated from the
-YAML before being treated as current. It was updated on 2026-08-24 so
+`nrl_insight_aggregates`. It was updated on 2026-08-28 so NRL Insights can also
+show Same Game % rows for the favourite team plus the two shortest-priced
+favourite-team try scorers once player try-scorer prices are captured, with the
+Same Game % section shown before the NRL singles sections. It was
+updated on 2026-08-24 so
 Predictions and Prediction History use
 the same Sport -> Singles/Multis -> Signal type -> Model structure, including
 the `single_win_percentage_65_plus_v1` 65%+ win-rate single tracker and stored
@@ -79,7 +86,7 @@ inspection but should not be the default app landing page.
 
 Purpose:
 
-- Toggle between Racing and UFC historical rows.
+- Toggle between Racing, PFL, and UFC historical rows.
 - Toggle between raw Historical rows and generated Model backtests.
 - Browse races by date.
 - Filter by collected date range, country, discipline, and racecourse.
@@ -87,7 +94,7 @@ Purpose:
   result, and payout/dividend data.
 - Load the latest 20 races across AUS/NZ/HK by default and query Supabase for
   filtered sets when the user changes date, country, discipline, or course.
-- Browse UFC fights by event-date range with fighter names, winner, favourite,
+- Browse PFL and UFC fights by event-date range with fighter names, winner, favourite,
   favourite price, other fighter price, price difference, source match status,
   and `$1` favourite return state.
 - Compare aggregate historical win-percentage multi backtests generated from
@@ -96,9 +103,9 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing or UFC.
+- Sport selector: Racing, PFL, or UFC.
 - View selector: Historical rows or Model backtests.
-- Date range picker bounded to collected race/UFC event dates for Historical
+- Date range picker bounded to collected race/PFL/UFC event dates for Historical
   rows only. It keeps adjacent-day arrows, lets the user tap a date label to
   open a three-column scrolling day/month/year selector bounded to available
   dates, and includes quick presets for today, yesterday, last 7 available
@@ -196,7 +203,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, and UFC insight views.
+- Toggle between Racing, NRL, PFL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -215,14 +222,16 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
-- For NRL, show fixed-win single aggregates and official try-scorer percentage
-  aggregates from `nrl_insight_aggregates`.
+- For NRL, show fixed-win single aggregates, official try-scorer percentage
+  aggregates, and Same Game % aggregate rows from `nrl_insight_aggregates`.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
+- For PFL, show the same fixed-win favourite price, other fighter price, and
+  price-difference breakdowns from `pfl_insight_aggregates`.
 
 Main content:
 
-- Sport selector: Racing, NRL, or UFC.
+- Sport selector: Racing, NRL, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -258,6 +267,10 @@ Main content:
 - NRL fixed-win favourite, home/away, team, and round breakdowns.
 - NRL try-scorer percentage summaries by player and team. Cash try-scorer
   metrics stay empty until source-backed player try-scorer prices are captured.
+- NRL Same Game % summaries by favourite team and round for the favourite-team
+  plus top-two try-scorer model. Rows stay empty or `missing_price` until
+  source-backed player try-scorer prices are captured. Show this section before
+  the NRL fixed-win and try-scorer singles sections.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
@@ -283,7 +296,8 @@ MVP limits:
 - No automated wagering.
 - No account credential storage or automated access to personalised promo
   surfaces.
-- No push notifications until ingestion is reliable.
+- Push notifications are limited to neutral finalised-model alerts for
+  user-favourited prediction models with active current predictions.
 
 ### Recommendations
 
@@ -364,9 +378,9 @@ Main content:
 - Race recommendation rows should show a compact horse, harness, or greyhound
   discipline icon beside the race title/runner line.
 - Multi bet recommendation panel derived from the current candidate snapshot:
-  if at least three active-model Positive signals exist, show a Positive multi;
+  if at least two active-model Positive signals exist, show a Positive multi;
   otherwise show a Neutral multi from active-model Positive and Neutral signals
-  when at least three priced legs are available.
+  when at least two priced legs are available.
 - Win percentage singles panel shown under Racing -> Singles -> Win % for
   `single_win_percentage_60_plus_v1` and `single_win_percentage_65_plus_v1`,
   listing every current favourite whose blended historical win score is at
@@ -381,13 +395,16 @@ Main content:
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing, NRL, or UFC.
+- Sport selector for current Predictions: Racing, NRL, PFL, or UFC.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
-  three-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
+  two-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
   `multi_win_percentage_65_plus_v1` models that keep only 60%+ or 65%+
-  win-score legs and can show up to 10 legs, plus `multi_place_percentage_v1`
-  with up to eight place-rate legs.
+  win-score legs using the 65/35 blend, plus
+  `multi_win_percentage_50_50_65_plus_v1` for a 50/50 price-bucket and
+  starter-count 65%+ threshold. Threshold models can generate with a minimum
+  of two legs and show up to 10 legs, plus
+  `multi_place_percentage_v1` with up to eight place-rate legs.
 - UFC Win percentage model selector with same-card percentage multi models for
   favourite price bucket, other fighter price bucket, and price-difference
   bucket signals; each UFC model can show up to eight Head to Head favourite
@@ -400,12 +417,17 @@ Main content:
 - UFC exposes the same sport/format/signal hierarchy as Racing. Unsupported
   UFC branches, such as non-Win % signal types, show explicit empty states until
   matching models are added.
+- PFL exposes the same sport/format/signal hierarchy and Win % model tab shape
+  as UFC. Current PFL Win % tabs show candidates only when current fixed-win MMA
+  odds match the reviewed PFL event allow-list by event date and fighter pair;
+  unsupported PFL signal types remain explicit empty states.
 - NRL exposes the same sport/format/signal hierarchy as Racing. Unsupported NRL
   branches, such as cash, placing, and multis, show explicit empty states until
   matching cash or same-game models are added.
 - The current Predictions refresh button refreshes only the active sport:
   Racing refreshes racing race-card predictions; UFC refreshes UFC fight-card
-  multis without refreshing racing.
+  multis without refreshing racing; PFL refreshes reviewed current PFL
+  fixed-win candidates without refreshing racing or UFC.
 - UFC percentage multis can be locked per signed-in user, source date, card,
   and model until the stored card cutoff just before the first fight. They do
   not use the racing first-eligible-race lock rule.
@@ -429,14 +451,14 @@ Main content:
   separately so supporting bonus context is not mistaken for the recommendation
   score.
 - Current bet candidates must come from the current Auckland source date's
-  pre-first-race prediction snapshot. If the first eligible race has started
-  and no pre-race snapshot was captured, show an explicit closed-window empty
-  state instead of displaying an older source date.
+  pre-finalisation prediction snapshot. If the sport-specific finalisation
+  cutoff has passed and no same-day snapshot was captured, show an explicit
+  closed-window empty state instead of displaying an older source date.
 - Current bet candidates and multi bet recommendations must exclude source
   races marked abandoned or cancelled by the race listing or race-card status.
 - If a stored current prediction snapshot exists and its prediction window is
   already closed, render the cached snapshot immediately instead of attempting a
-  stale-cache refresh that cannot replace the locked pre-race snapshot.
+  stale-cache refresh that cannot replace the finalised snapshot.
 - Current bet candidates should be ordered by the active prediction variation's
   model-specific `cashAverageScore`. Cash-plus-bonus remains visible as
   supporting context but must not drive recommendations.
@@ -448,13 +470,20 @@ Main content:
 - Prediction variation tabs should show a small `Multi` tag when that model has
   at least one tracked multi-bet prediction row for the current Auckland source
   date.
-- Signed-in users should be able to lock the current percentage multi
-  recommendation before the first eligible racing prediction race starts. Once
-  locked, the panel should display that user-owned snapshot for the current
-  source date/model instead of later live recommendation changes.
-- Percentage multi lock actions should show the cutoff timestamp beneath the
-  button so users can see when each current recommendation stops being
-  lockable.
+- Show a visible `Prediction finalises before ...` status near the top of
+  Predictions, calculated as 15 minutes before the selected sport's first race,
+  fight, or match starts.
+- Signed-in users should be able to lock the current selected
+  sport/format/type/model prediction view before that sport's finalisation
+  cutoff. Existing percentage multi locks continue to display user-owned
+  snapshots for the current source date/model instead of later live
+  recommendation changes.
+- Lock actions should show or sit near the cutoff timestamp so users can see
+  when each current recommendation or view stops being lockable.
+- Signed-in users should be able to favourite the selected prediction model for
+  mobile notifications. The control should save the exact sport/format/type/model
+  branch and alert only after the model finalises with active current
+  predictions.
 - A method summary at the top of each prediction variation explaining how the
   candidates are scored and how current cards are ordered.
 - `Global cash bucket blend` should score candidates as 65% favourite
@@ -483,8 +512,8 @@ Rules:
 - Exclude abandoned or cancelled races before ranking candidates, building
   current multis, or writing tracked multi-bet recommendations.
 - Do not include bonus-bet value in tracked multi recommendation stats.
-- Do not create or store new prediction rows after the first eligible race in
-  the day's all-domestic NZ/AUS/HK prediction coverage has started.
+- Do not create or store new current prediction rows after the selected sport's
+  standard finalisation cutoff has passed.
 - Treat other-starters average fixed-win price as a statistical field-shape
   signal, not certainty about race strength.
 - Keep the screen as statistical tracking only: no stake sizing, bankroll
@@ -562,19 +591,24 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing, NRL, or UFC. UFC uses the same
+- Prediction History sport selector: Racing, NRL, PFL, or UFC. UFC uses the same
   hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
   racecourse filters. UFC single history includes the bucket models plus the
-  `65%+`, `75%+`, and `85%+` threshold single models. NRL history branches show explicit
-  empty states until NRL prediction reconciliation and history RPCs are added.
+  `65%+`, `75%+`, and `85%+` threshold single models. PFL history uses the same
+  visible Singles/Multis -> Win % tab structure as UFC but remains an explicit
+  reserved state until PFL prediction storage/RPCs exist, even though current
+  PFL predictions can appear in the latest mixed snapshot. NRL history branches
+  show explicit empty states until NRL prediction reconciliation and history
+  RPCs are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
-  top-N options up to the selected model's configured maximum: top 3-5 for the
-  original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage
-  models, top 3-8 for `multi_place_percentage_v1`, and top 3-8 for UFC
-  percentage multi models.
+  top-N options up to the selected model's configured maximum: top 2-5 for the
+  original win-percentage model, top 2-10 for the racing threshold
+  win-percentage models including `multi_win_percentage_50_50_65_plus_v1`, top
+  2-8 for `multi_place_percentage_v1`, and top 2-8 for UFC percentage multi
+  models.
   Filtered rows should re-aggregate the first ranked percentage multi legs from
   each stored recommendation instead of reusing the full stored multi result.
 - Placing prediction performance in Stored model performance for the selected
@@ -869,7 +903,7 @@ flowchart LR
 
 - Track detail pages.
 - Runner history pages.
-- Alerts or notifications after ingestion reliability is proven.
+- Additional alert types, such as lead-time reminders or card-level alerts.
 - Backfill/admin tools for operators.
 - Authenticated or personalized promotion tracking if the product gains a clear
   use case and terms are confirmed.

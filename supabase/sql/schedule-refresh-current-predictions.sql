@@ -20,7 +20,7 @@ select cron.schedule(
   '35 17,18 * * *',
   $$
   select net.http_post(
-    url := 'https://<project-ref>.supabase.co/functions/v1/refresh-current-predictions',
+    url := 'https://parobgrsaxrmnvrkagyb.supabase.co/functions/v1/refresh-current-predictions',
     headers := jsonb_build_object(
       'Authorization', 'Bearer <anon-or-service-token>',
       'Content-Type', 'application/json'

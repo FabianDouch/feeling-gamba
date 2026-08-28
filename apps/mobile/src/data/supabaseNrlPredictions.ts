@@ -19,6 +19,7 @@ export type NrlSinglePredictionModelVariant = {
 };
 
 export type NrlSinglePredictionItem = {
+  advertisedStartAt: string | null;
   detail: string;
   id: string;
   matchLabel: string;
@@ -144,6 +145,7 @@ function mapNrlSinglePrediction(row: NrlSinglePredictionRow): NrlSinglePredictio
   const playerPrefix = row.predicted_player_name ? `${row.predicted_player_name} · ` : "";
 
   return {
+    advertisedStartAt: row.advertised_start_at,
     detail: row.signal_detail ?? "No signal detail available.",
     id: row.id,
     matchLabel: row.match_label ?? "NRL match",

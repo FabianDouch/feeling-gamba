@@ -176,7 +176,7 @@ export async function requestPromotionRefresh<TPayload>() {
     const firstRaceStart = body.predictionWindow?.firstRaceStartNz
       ?? body.predictionWindow?.firstRaceStart
       ?? "the first eligible race";
-    throw new Error(`Prediction window closed after ${firstRaceStart}. No pre-race prediction snapshot was captured today.`);
+    throw new Error(`Prediction window closed after ${firstRaceStart}. No pre-finalisation prediction snapshot was captured today.`);
   }
 
   return body?.payload ?? null;
@@ -186,7 +186,7 @@ export async function requestPromotionRefresh<TPayload>() {
  * Requests a server-side prediction refresh without exposing service-role secrets to Expo.
  */
 export async function requestPredictionRefresh<TPayload>(options: {
-  sport?: "racing" | "ufc";
+  sport?: "pfl" | "racing" | "ufc";
 } = {}) {
   if (!publicEnv.predictionRefreshUrl) {
     throw new Error("Prediction refresh endpoint is not configured.");

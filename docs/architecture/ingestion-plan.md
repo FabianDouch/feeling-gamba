@@ -543,9 +543,116 @@ Current limitation:
 
 - The snapshot adapter can only attach `matched_nrl_match_id` when a matching
   official NRL row already exists.
-- Current NRL prediction models are not generated yet.
-- NRL try-scorer and same-game cash models remain blocked until source-backed
-  player try-scorer prices or quoted SGM prices are validated.
+- NRL try-scorer cash and true same-game cash remain blocked until enough
+  source-backed player try-scorer price history or quoted SGM prices exist.
+
+### `validate-nrl-try-scorer-markets`
+
+Purpose:
+
+- Run a read-only TAB NRL market probe for exact `Anytime Try Scorer` markets.
+- Confirm whether upcoming match events expose priced player try-scorer entrants
+  before adding write ingestion.
+
+Initial mode:
+
+- Manual local validation:
+  `npm --workspace @feeling-gamba/ingestion run validate:nrl-try-scorer-markets -- --event-count=10 --markets-first=500 --entrants-first=60 --sample-entrants=5`
+
+Source rules:
+
+- Query open NRL `MATCH` events through the retained TAB market adapter.
+- Use `marketsConnection(first: 500)` or pagination; smaller pages can miss the
+  exact `Anytime Try Scorer` market on full match payloads.
+- Treat `Anytime Try Scorer` as the source-backed player try-scorer price market
+  for the current Same Game percentage model.
+- Do not write Supabase rows from this validation script.
+
+2026-08-28 finding:
+
+- The validation run found seven exact `Anytime Try Scorer` markets across 10
+  open NRL payload events, with 238 priced player entrants.
+- Production capture writes those entrants with
+  `refresh-nrl-try-scorer-market-snapshots` before kickoff.
+- The write worker must match TAB entrant names and team roles back to official
+  `nrl_player_match_appearances` rows so Same Game settlement can use official
+  scorer IDs.
+
+### `refresh-nrl-try-scorer-market-snapshots`
+
+Purpose:
+
+- Capture current NRL `Anytime Try Scorer` player prices from open match
+  markets.
+- Store one `nrl_try_scorer_market_snapshots` row per event-market-player
+  selection, updating the latest captured price for that selection.
+- Match events to official NRL fixture shells and match player entrants to
+  official NRL player-match appearances for same-game settlement.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-try-scorer-market-snapshots -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-try-scorer-market-snapshots -- --dry-run --event-count=10 --markets-first=500 --entrants-first=60`
+
+Source rules:
+
+- Query open NRL `MATCH` events through the retained TAB market adapter.
+- Use `marketsConnection(first: 500)` by default because smaller pages can miss
+  the exact player try-scorer market.
+- Require the event to expose `Match Betting` so home/away teams can be matched
+  to official NRL fixtures.
+- Parse entrant labels formatted as `Player Name (Team Name)`.
+- Use the entrant home/away role and parsed team name to match against
+  `nrl_player_match_appearances`; unresolved player IDs are retained for audit
+  but cannot settle same-game scorer outcomes.
+
+Expected writes:
+
+- `nrl_try_scorer_market_snapshots`
+
+### `refresh-nrl-current-markets`
+
+Purpose:
+
+- Run the regular pre-match NRL market collection flow in one operator command.
+- Capture fixed-win `Match Betting` snapshots and `Anytime Try Scorer` player
+  price snapshots from the same open-event window.
+- Reconcile fixed-win rows, rebuild same-game multi tracking rows, rebuild NRL
+  Insights, and regenerate current NRL single predictions.
+
+Initial mode:
+
+- Scheduled GitHub Actions workflow:
+  `.github/workflows/nrl-market-refresh.yml`
+- Scheduled command:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-current-markets -- --require-supabase`
+- Manual fixture preload plus market capture:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-current-markets -- --season=2026 --round=26 --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-current-markets -- --dry-run --event-count=10`
+
+Source rules:
+
+- The recurring run scans open NRL market events and assumes official fixture
+  shells/player appearances have already been loaded for the relevant round.
+- Passing `--season` plus `--round` or `--from-round` / `--to-round` preloads
+  official fixture shells before market capture.
+- The job runs fixed-win capture before try-scorer capture, then reconciles and
+  rebuilds the same-game/insight/prediction read models.
+- Recurring schedules are useful only while markets are open before kickoff; a
+  match that closes before player prices are captured will remain
+  `missing_price` in the same-game audit.
+
+Expected writes:
+
+- `nrl_market_snapshots`
+- `nrl_try_scorer_market_snapshots`
+- `nrl_fixed_win_snapshot_results`
+- `nrl_same_game_multi_results`
+- `nrl_insight_aggregates`
+- `nrl_single_predictions`
 
 ### `reconcile-nrl-fixed-win`
 
@@ -588,6 +695,8 @@ Purpose:
   seasons, and rounds.
 - Store try-scorer percentage rows from player-match appearances and official
   try events.
+- Store same-game multi percentage rows from `nrl_same_game_multi_results` once
+  player try-scorer price snapshots exist.
 
 Initial mode:
 
@@ -603,12 +712,51 @@ Source rules:
   and official try events as the numerator.
 - Try-scorer cash metrics must stay empty until source-backed player
   try-scorer prices are captured.
+- Same-game multi percentage uses the stored model
+  `nrl_favourite_top2_try_scorers_same_game_percentage_v1`: pre-game favourite
+  team fixed win plus the two shortest-priced favourite-team try scorers.
+  Returns are estimated by multiplying the three fixed-leg prices and must not
+  be labelled as true bookmaker same-game cash.
 - Pending, unmatched, and missing-result rows are counted for auditability but
   excluded from settled win-rate and return denominators.
 
 Expected writes:
 
 - `nrl_insight_aggregates`
+
+### `rebuild-nrl-same-game-multis`
+
+Purpose:
+
+- Build historical NRL same-game multi tracking rows for the favourite team
+  plus the two shortest-priced favourite-team try scorers.
+- Preserve one row per fixed-win favourite snapshot result, including
+  `missing_price` rows while player try-scorer price snapshots are unavailable.
+- Provide the source rows consumed by NRL Insights -> Multis -> Same Game %.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-same-game-multis -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-same-game-multis -- --dry-run`
+
+Source rules:
+
+- Fixed-win favourite prices come from reconciled
+  `nrl_fixed_win_snapshot_results`.
+- When both unmatched and later matched fixed-win rows exist for the same source
+  event, prefer the matched row so stale unmatched rows do not duplicate the
+  Same Game denominator.
+- Try-scorer prices must come from source-backed
+  `nrl_try_scorer_market_snapshots`.
+- Official NRL try-scorer rows settle whether the two selected players scored.
+- Until player try-scorer prices are captured, rows are written as
+  `missing_price` and excluded from settled return denominators.
+
+Expected writes:
+
+- `nrl_same_game_multi_results`
 
 ### `generate-nrl-single-predictions`
 
@@ -756,24 +904,54 @@ Initial mode:
   UFC insight aggregates/current Betcha fight-card markets, updates UFC multis
   in `current_prediction_snapshots`, and writes UFC multi recommendation rows
   plus UFC single prediction rows without rebuilding racing prediction
-  aggregates.
+  aggregates. `{ "sport": "pfl" }` refreshes only PFL insight aggregates and
+  current fixed-win MMA odds, then writes the PFL section of
+  `current_prediction_snapshots` only after current fighter pairs match the
+  reviewed PFL event allow-list.
 - UFC current prediction payloads include per-model single candidates for the
   favourite price, other fighter price, and price-difference historical bucket
   models, plus 65%+, 75%+, and 85%+ threshold single models based on each fight's
   strongest qualifying UFC bucket signal. These singles are persisted to
   `ufc_single_predictions` so Prediction History can track $1 unit-stake
   results over time.
+- PFL uses the same visible Singles/Multis -> Win % hierarchy and model tab
+  shape as UFC. Current PFL prediction generation reads The Odds API current MMA
+  H2H prices only when an odds event matches the reviewed PFL allow-list by
+  event date and unordered fighter pair. PFL prediction history persistence
+  remains reserved until PFL-specific tables/RPCs are added. Do not write PFL
+  rows into UFC-specific history tables.
+- PFL historical backfill must pass the source proof documented in
+  `docs/integrations/pfl-data-sources.md` before migrations or importer code are
+  added. As of 2026-08-26, Betcha can only be treated as a forward current-market
+  snapshot candidate when PFL cards are open; it is not a historical PFL
+  backfill source. A PFL backfill needs source-backed fixed-win prices joined to
+  settled fight winners before `pfl_fight_entries` / `pfl_insight_aggregates`
+  are created.
+- The first PFL seed path creates `pfl_fight_entries` and
+  `pfl_insight_aggregates` with
+  `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`, then
+  imports the source-backed PFL New York July 31, 2026 seed with:
+  `npm --workspace @feeling-gamba/ingestion run backfill:pfl-seed -- --require-supabase`.
+  The seed intentionally includes only the eight Bookmakers Review priced fights
+  in PFL favourite-return insights; the ninth fight is stored as result-only
+  because no fixed-win price was captured from the indexed odds page.
+- PFL current predictions must stay empty until current MMA odds match the
+  reviewed PFL allow-list. The 2026-08-26 The Odds API current MMA proof
+  returned prices for generic MMA fights but no organisation label and no
+  matches against the reviewed PFL card/fighter allow-list, so those rows were
+  not treated as PFL predictions.
 - The scheduled GitHub Actions current-prediction workflow calls the endpoint
-  twice, first with `{ "sport": "racing" }` and then with `{ "sport": "ufc" }`,
+  by sport, currently racing and UFC. Add `{ "sport": "pfl" }` to that workflow
+  after `ODDS_API_KEY` is configured in the deployed Edge Function environment,
   so slow source scans for one sport do not make the combined request hit the
   Supabase Edge request idle timeout.
 - Racing current-card detail fetches use bounded concurrency when scanning
   domestic NZ/AUS/HK race cards so large mornings do not spend the whole Edge
   request on sequential Betcha race-card calls.
-- After the first eligible race has started, `refresh-current-predictions`
-  returns the same-day cached pre-race snapshot when one exists. It must not
-  write a new snapshot, upsert `promotion_predictions`, or rebuild
-  `prediction_aggregates`.
+- After the selected sport's standard finalisation cutoff has passed,
+  `refresh-current-predictions` returns the same-day cached pre-finalisation
+  snapshot when one exists. It must not write a new snapshot, upsert
+  `promotion_predictions`, or rebuild `prediction_aggregates` for that sport.
 - If Betcha returns a racing meeting list but every race-card detail request
   fails, treat the run as a source failure and skip racing snapshot,
   prediction-row, and multi-row writes. This prevents an empty candidate payload
@@ -790,7 +968,7 @@ Initial mode:
   stored as single-runner prediction rows, not multi recommendations, so
   Prediction History can answer whether a flat `$1` stake on every threshold
   win-rate single is profitable over time.
-- After storing pre-first-race predictions, the prediction refresh rebuilds
+- After storing pre-finalisation predictions, the prediction refresh rebuilds
   `prediction_aggregates` so the Predictions tab can show pending predictions
   before any races have settled.
 - `refresh-race-days-and-insights` reconciles non-settled predictions after it
@@ -973,13 +1151,25 @@ Proposed recurring jobs:
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
 | `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
-| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-first-race Betcha racing prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late-day racing refreshes after the first eligible race has started. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC refreshes can refresh UFC fight-card multis independently. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
+| `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-finalisation prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late refreshes after the selected sport's standard finalisation cutoff has passed. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC/PFL refreshes can refresh fight-card predictions independently before cutoff. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
+| `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
 | `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
 | `refresh-nrl-results` | manual only until NRL model generation exists | `refresh:nrl-results` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for an explicit season/round or round range. |
-| `refresh-nrl-market-snapshots` | manual only until NRL model generation exists | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`. |
-| `reconcile-nrl-fixed-win` | manual only until NRL model generation exists | `reconcile:nrl-fixed-win` | Converts NRL fixed-win snapshots into explicit result/status rows once official NRL fixture rows are available. |
-| `rebuild-nrl-insight-aggregates` | manual only until NRL model generation exists | `rebuild:nrl-insight-aggregates` | Rebuilds NRL fixed-win single and try-scorer percentage aggregate rows for the NRL Insights sport toggle. |
-| `generate-nrl-single-predictions` | manual only until NRL model generation exists | `generate:nrl-single-predictions` | Generates current NRL fixed-win percentage and try-scorer percentage single prediction rows for Predictions. |
+| `refresh-nrl-current-markets` | active: GitHub Actions `*/30 4-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
+| `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`. |
+| `validate-nrl-try-scorer-markets` | manual validation only | `validate:nrl-try-scorer-markets` | Read-only probe for TAB NRL `Anytime Try Scorer` markets and priced player entrants before adding write ingestion. |
+| `refresh-nrl-try-scorer-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-try-scorer-market-snapshots` | Captures current NRL `Anytime Try Scorer` player prices and matches them to official player appearances. |
+| `reconcile-nrl-fixed-win` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `reconcile:nrl-fixed-win` | Converts NRL fixed-win snapshots into explicit result/status rows once official NRL fixture rows are available. |
+| `rebuild-nrl-same-game-multis` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `rebuild:nrl-same-game-multis` | Builds NRL favourite-team same-game multi result rows from fixed-win favourites plus source-backed top-two try-scorer prices. |
+| `rebuild-nrl-insight-aggregates` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `rebuild:nrl-insight-aggregates` | Rebuilds NRL fixed-win single, try-scorer percentage, and same-game percentage aggregate rows for the NRL Insights sport toggle. |
+| `generate-nrl-single-predictions` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `generate:nrl-single-predictions` | Generates current NRL fixed-win percentage and try-scorer percentage single prediction rows for Predictions. |
+
+Notification work parked on 2026-08-28:
+
+- Implemented local notification schema, Expo token registration, model favourite UI, sender Edge Function, and Supabase Cron SQL.
+- Created/updated `prediction_notification_admin_token` in Supabase Vault and set matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` as an Edge Function secret.
+- Manual dry-run call to `send-prediction-finalised-notifications` returned `{"dryRun":true,"eventCount":0,"events":[],"sourceDate":"2026-08-28","targetDeliveryCount":0}`.
+- Remaining deployment/testing: apply/deploy any unpushed code if needed, build a new native app because `expo-notifications` is a native dependency, sign in on device, enable `Notify when finalised`, confirm `user_push_tokens` and `user_favourite_prediction_models` rows, then observe the scheduled cron after a favourited model finalises.
 
 Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
@@ -1011,6 +1201,15 @@ buckets incrementally, but runs outside the Edge worker CPU budget. Manual
 workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
 for catch-up runs such as recovering data after the app only shows race days
 through `2026-06-21`.
+
+2026-08-28 operational note: GitHub Actions did not create the expected
+scheduled overnight race refresh for the 2026-08-27 source date. A manual
+workflow dispatch with `lookback_days=1` wrote the race data and rebuilt
+insights, but the hosted prediction reconciliation request hit Supabase Edge's
+150 second idle timeout before multi reconciliation. The local
+`npm --workspace @feeling-gamba/ingestion run reconcile:predictions -- --require-supabase`
+pass completed the pending settlement. Keep reconciliation split or date-scoped
+before relying on the hosted all-pending reconciliation path for large backlogs.
 
 The UFC result refresh is deployed as `.github/workflows/ufc-result-refresh.yml`.
 It runs daily at `21:30` UTC, scans the latest 14 UTC scoreboard dates using

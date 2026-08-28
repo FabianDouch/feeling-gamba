@@ -37,9 +37,29 @@ NRL Insights support is implemented with
 single aggregates use reconciled current-market snapshots. Try-scorer percentage
 aggregates use official NRL roster appearances as the denominator and official
 try events as the numerator, so they are source-backed once completed rounds
-have been refreshed with the updated importer. Try-scorer cash and same-game
-cash insights remain blocked until source-backed player try-scorer prices or
-quoted same-game multi prices are validated.
+have been refreshed with the updated importer. Try-scorer cash remains blocked
+until enough source-backed player try-scorer price history exists, and true
+same-game cash remains blocked until quoted same-game multi prices or a
+documented same-game payout basis are captured.
+The same-game multi percentage storage path was added on 2026-08-28 with
+`supabase/migrations/202608280001_nrl_same_game_multi_results.sql` and
+`packages/ingestion/scripts/rebuild-nrl-same-game-multis.mjs`. It tracks the
+pre-game favourite team plus the two shortest-priced favourite-team try scorers
+as a `$1` estimated multi. Current player try-scorer price capture is now
+implemented in
+`packages/ingestion/scripts/refresh-nrl-try-scorer-market-snapshots-from-tab.mjs`;
+older same-game rows remain `missing_price` if no pre-game player prices were
+captured before the match closed.
+The regular pre-match current-market flow is
+`packages/ingestion/scripts/refresh-nrl-current-markets.mjs`, exposed through
+`refresh:nrl-current-markets` and scheduled by
+`.github/workflows/nrl-market-refresh.yml` every 30 minutes during the usual
+NRL match window. Manual dispatch can pass `season` and `round` to preload
+official fixture/player rows before market capture.
+The first combined live run on 2026-08-28 wrote 6 fixed-win market snapshots,
+238 try-scorer market snapshots, 38 fixed-win result/status rows, 8 same-game
+multi result rows, 1,155 NRL insight aggregate rows, and 49 current NRL single
+prediction rows.
 After the completed 2026 rounds 1-25 backfill, the NRL insight rebuild wrote
 1,135 `nrl_insight_aggregates` rows: 46 fixed-win rows and 1,089 try-scorer
 percentage rows from 7,143 official player appearances and 1,570 official try
@@ -142,14 +162,32 @@ player try-scorer access.
 
 ## Try-Scorer Market Access
 
-Player try-scorer market access is not validated through the public GraphQL
-paths tested on 2026-08-25.
+Player try-scorer market access was validated through the public TAB GraphQL
+competition market payload on 2026-08-28.
 
 Findings:
 
-- A scan of 168 open public markets for the sampled event found no
+- The read-only validation command is:
+
+```text
+npm --workspace @feeling-gamba/ingestion run validate:nrl-try-scorer-markets -- --event-count=10 --markets-first=500 --entrants-first=60 --sample-entrants=5
+```
+
+- A 2026-08-28 scan of 10 open NRL payload events with `marketsConnection(first:
+  500)` found seven exact `Anytime Try Scorer` markets, covering 238 priced
+  player entrants. Special/promo NRL events did not expose match-level
+  try-scorer markets.
+- The `Anytime Try Scorer` market uses `marketTypeId:
+  a463c3f2-874a-473f-8588-4abf5b91b41f`. Entrants include a name formatted as
+  `Player Name (Team Name)`, a home/away role, and fractional odds that can be
+  converted to decimal prices.
+- `marketsConnection(first: 240)` can miss the exact `Anytime Try Scorer`
+  market on full match payloads; use at least `first: 500` or implement
+  pagination before relying on the scan for production capture.
+- A 2026-08-25 scan of 168 open public markets for the sampled event found no
   `Anytime Tryscorer`, `Try Scorer`, `Tryscorer`, first player scorer, or last
-  player scorer market names.
+  player scorer market names. That finding is superseded by the broader
+  `marketsConnection(first: 500)` validation above.
 - The static Betcha event page included generic `SGM` and `Player` strings, but
   did not expose extractable player market rows.
 - `SportingEventPopularSameGameMultis` exists in the web GraphQL schema shape,
@@ -160,9 +198,19 @@ Findings:
   or player scoring outcomes.
 
 Conclusion: use the retained current-market adapter for NRL match and fixed-win
-market snapshots. Keep player try-scorer markets behind a separate validation task for a
-different lazy-loaded route, authenticated/session-backed route, bookmaker
-market endpoint, or alternative player-prop source.
+market snapshots, and use the dedicated `Anytime Try Scorer` snapshot adapter to
+write `nrl_try_scorer_market_snapshots` before kickoff:
+
+```text
+npm --workspace @feeling-gamba/ingestion run refresh:nrl-try-scorer-market-snapshots -- --require-supabase
+```
+
+The adapter matches entrant names and home/away roles back to official NRL
+player-match appearance rows before Same Game settlement relies on those player
+IDs. If an event has no official fixture shell yet, the row can still be
+captured for auditability but cannot settle into the same-game model until a
+future rematch path or another pre-close run attaches the official fixture and
+player IDs.
 
 ## Completed Results
 
@@ -297,11 +345,13 @@ source-specific identity table rather than treating IDs as interchangeable.
 - Current-market snapshot rows can match existing official NRL rows only when the
   official fixture/result has already been loaded. Matching is conservative:
   home/away order, kickoff time, and team-name/nickname suffixes must align.
-- `Singles -> Try Scorer %`, `Singles -> Cash Try Scorer`,
-  `Multis -> Same Game %`, and `Multis -> Same Game Cash` remain blocked on
-  market-price access, not on scorer settlement. Official NRL can settle player
-  try-scorer outcomes, but player try-scorer prices are still not
-  validated.
+- `Singles -> Try Scorer %` can use official appearance-to-try percentages.
+- `Multis -> Same Game %` now has permanent storage for the favourite-team plus
+  top-two try-scorer model. Rows remain `missing_price` only when no pre-game
+  player prices were captured for that match.
+- `Singles -> Cash Try Scorer` and `Multis -> Same Game Cash` remain blocked on
+  enough settled market-price history or quoted same-game multi pricing, not on
+  scorer settlement.
 - Do not infer same-game multi returns by multiplying single-leg prices unless
   the output is explicitly labelled as hypothetical. Real `Same Game Cash`
   requires quoted SGM prices or a documented return basis.

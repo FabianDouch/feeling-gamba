@@ -17,7 +17,9 @@ import {
   type NrlInsightsData,
 } from "../data/supabaseNrl";
 import {
+  fetchPflInsights,
   fetchUfcInsights,
+  hasSupabasePflConfig,
   hasSupabaseUfcConfig,
   type UfcInsightsData,
 } from "../data/supabaseUfc";
@@ -41,7 +43,7 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "racing" | "nrl" | "ufc";
+type InsightSport = "pfl" | "racing" | "nrl" | "ufc";
 
 const emptyUfcInsights: UfcInsightsData = {
   favouritePriceBreakdown: [],
@@ -55,6 +57,9 @@ const emptyNrlInsights: NrlInsightsData = {
   fixedWinSelectionBreakdown: [],
   fixedWinSummaryStats: [],
   fixedWinTeamBreakdown: [],
+  sameGameRoundBreakdown: [],
+  sameGameSummaryStats: [],
+  sameGameTeamBreakdown: [],
   tryScorerPlayerBreakdown: [],
   tryScorerSummaryStats: [],
   tryScorerTeamBreakdown: [],
@@ -124,6 +129,9 @@ export function InsightsScreen() {
     || nrlInsights.fixedWinSelectionBreakdown.length > 0
     || nrlInsights.fixedWinTeamBreakdown.length > 0
     || nrlInsights.fixedWinRoundBreakdown.length > 0
+    || nrlInsights.sameGameSummaryStats.length > 0
+    || nrlInsights.sameGameTeamBreakdown.length > 0
+    || nrlInsights.sameGameRoundBreakdown.length > 0
     || nrlInsights.tryScorerSummaryStats.length > 0
     || nrlInsights.tryScorerPlayerBreakdown.length > 0
     || nrlInsights.tryScorerTeamBreakdown.length > 0;
@@ -243,26 +251,31 @@ export function InsightsScreen() {
     let cancelled = false;
 
     async function loadUfcInsights() {
-      if (sport !== "ufc") {
+      if (sport !== "pfl" && sport !== "ufc") {
         return;
       }
 
-      if (!hasSupabaseUfcConfig) {
-        setErrorMessage("Supabase is not configured for UFC Insights.");
+      const sportLabel = sport === "pfl" ? "PFL" : "UFC";
+      const hasConfig = sport === "pfl" ? hasSupabasePflConfig : hasSupabaseUfcConfig;
+
+      if (!hasConfig) {
+        setErrorMessage(`Supabase is not configured for ${sportLabel} Insights.`);
         return;
       }
 
       try {
         setIsLoadingUfcInsights(true);
         setErrorMessage(null);
-        const nextInsights = await fetchUfcInsights();
+        const nextInsights = sport === "pfl"
+          ? await fetchPflInsights()
+          : await fetchUfcInsights();
 
         if (!cancelled) {
           setUfcInsights(nextInsights);
         }
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "UFC Insights failed to load.");
+          setErrorMessage(error instanceof Error ? error.message : `${sportLabel} Insights failed to load.`);
           setUfcInsights(emptyUfcInsights);
         }
       } finally {
@@ -280,7 +293,7 @@ export function InsightsScreen() {
   }, [sport]);
 
   function updateSport(value: string) {
-    if (value === "racing" || value === "nrl" || value === "ufc") {
+    if (value === "pfl" || value === "racing" || value === "nrl" || value === "ufc") {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -368,6 +381,8 @@ export function InsightsScreen() {
       <Text style={styles.trackNote}>
         {sport === "ufc"
           ? "Showing UFC favourite price, other fighter price, and price-difference signals"
+          : sport === "pfl"
+            ? "Showing PFL favourite price, other fighter price, and price-difference signals"
           : sport === "nrl"
             ? "Showing NRL fixed-win favourite and try-scorer percentage signals"
           : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
@@ -379,6 +394,7 @@ export function InsightsScreen() {
         options={[
           { label: "Racing", value: "racing" },
           { label: "NRL", value: "nrl" },
+          { label: "PFL", value: "pfl" },
           { label: "UFC", value: "ufc" },
         ]}
         selectedValue={sport}
@@ -441,15 +457,15 @@ export function InsightsScreen() {
         ) : (
           <NrlInsightsPanel insights={nrlInsights} />
         )
-      ) : sport === "ufc" ? (
+      ) : sport === "pfl" || sport === "ufc" ? (
         errorMessage ? (
           <StateMessage tone="error" text={errorMessage} />
         ) : isLoadingUfcInsights ? (
-          <StateMessage text="Loading stored UFC insight aggregates from Supabase." />
+          <StateMessage text={`Loading stored ${sport === "pfl" ? "PFL" : "UFC"} insight aggregates from Supabase.`} />
         ) : !hasUfcInsightRows ? (
-          <StateMessage text="No stored UFC insight aggregates are loaded yet." />
+          <StateMessage text={`No stored ${sport === "pfl" ? "PFL" : "UFC"} insight aggregates are loaded yet.`} />
         ) : (
-          <UfcInsightsPanel insights={ufcInsights} />
+          <UfcInsightsPanel insights={ufcInsights} sportLabel={sport === "pfl" ? "PFL" : "UFC"} />
         )
       ) : errorMessage ? (
         <StateMessage tone="error" text={errorMessage} />
@@ -519,14 +535,37 @@ type NrlInsightsPanelProps = {
 
 type UfcInsightsPanelProps = {
   insights: UfcInsightsData;
+  sportLabel: "PFL" | "UFC";
 };
 
 /**
- * Shows NRL fixed-win and try-scorer percentage aggregate statistics.
+ * Shows NRL Same Game percentage first, followed by singles breakdowns.
  */
 function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
+  const hasSameGameRows = insights.sameGameSummaryStats.length > 0
+    || insights.sameGameTeamBreakdown.length > 0
+    || insights.sameGameRoundBreakdown.length > 0;
+
   return (
     <>
+      {hasSameGameRows ? (
+        <>
+          <Text style={styles.subheading}>Same game percentage</Text>
+          <View style={styles.statsRow}>
+            {insights.sameGameSummaryStats.map((stat) => (
+              <View key={stat.label} style={styles.stat}>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+                <Text style={styles.statDetail}>{stat.detail}</Text>
+              </View>
+            ))}
+          </View>
+
+          <NrlBreakdown title="Same game by team" rows={insights.sameGameTeamBreakdown} />
+          <NrlBreakdown title="Same game by round" rows={insights.sameGameRoundBreakdown} />
+        </>
+      ) : null}
+
       <Text style={styles.subheading}>Fixed win singles</Text>
       <View style={styles.statsRow}>
         {insights.fixedWinSummaryStats.map((stat) => (
@@ -606,9 +645,9 @@ function NrlBreakdown({ rows, title }: NrlBreakdownProps) {
 }
 
 /**
- * Shows UFC win-return statistics and price-shape breakdowns.
+ * Shows fight-sport win-return statistics and price-shape breakdowns.
  */
-function UfcInsightsPanel({ insights }: UfcInsightsPanelProps) {
+function UfcInsightsPanel({ insights, sportLabel }: UfcInsightsPanelProps) {
   return (
     <>
       <View style={styles.statsRow}>
@@ -621,9 +660,9 @@ function UfcInsightsPanel({ insights }: UfcInsightsPanelProps) {
         ))}
       </View>
 
-      <WinPriceBreakdown title="Favourite price breakdown" rows={insights.favouritePriceBreakdown} />
-      <WinPriceBreakdown title="Other fighter price breakdown" rows={insights.otherFighterPriceBreakdown} />
-      <WinPriceBreakdown title="Price difference breakdown" rows={insights.priceDifferenceBreakdown} />
+      <WinPriceBreakdown title={`${sportLabel} favourite price breakdown`} rows={insights.favouritePriceBreakdown} />
+      <WinPriceBreakdown title={`${sportLabel} other fighter price breakdown`} rows={insights.otherFighterPriceBreakdown} />
+      <WinPriceBreakdown title={`${sportLabel} price difference breakdown`} rows={insights.priceDifferenceBreakdown} />
     </>
   );
 }

@@ -26,8 +26,11 @@ import {
 import {
   createDefaultUfcHistoricalFilters,
   DEFAULT_UFC_ROW_LIMIT,
+  fetchPflHistoricalEntries,
+  fetchPflHistoricalMetadata,
   fetchUfcHistoricalEntries,
   fetchUfcHistoricalMetadata,
+  hasSupabasePflConfig,
   hasSupabaseUfcConfig,
   type UfcFightSummary,
   type UfcHistoricalFilters,
@@ -39,7 +42,7 @@ import { FavouriteTrackQuickFilter } from "./FavouriteTrackQuickFilter";
 import { WinPercentageMultiModelTabs } from "./PredictionControls";
 import type { UserFavouriteTrack } from "../data/userFavouriteTracks";
 
-type HistoricalSport = "racing" | "ufc";
+type HistoricalSport = "pfl" | "racing" | "ufc";
 type HistoricalView = "backtests" | "rows";
 type HistoricalBacktestHistoryType = "win_percentage_multis";
 
@@ -48,6 +51,7 @@ const HISTORICAL_BACKTEST_HISTORY_TYPE_OPTIONS = [
 ] satisfies { label: string; value: HistoricalBacktestHistoryType }[];
 const HISTORICAL_BACKTEST_RANK_OPTIONS = [
   { label: "All legs", value: "all" },
+  { label: "Top 2", value: "2" },
   { label: "Top 3", value: "3" },
   { label: "Top 4", value: "4" },
 ] satisfies { label: string; value: HistoricalBacktestRankFilter }[];
@@ -105,6 +109,8 @@ export function RaceDaysScreen() {
     : null;
   const filterKey = `${filters.fromDate}-${filters.toDate}-${filters.country}-${filters.discipline}-${filters.course}`;
   const ufcFilterKey = `${ufcFilters.fromDate}-${ufcFilters.toDate}`;
+  const isFightSport = sport === "pfl" || sport === "ufc";
+  const fightSportLabel = sport === "pfl" ? "PFL" : "UFC";
 
   useEffect(() => {
     let cancelled = false;
@@ -156,12 +162,14 @@ export function RaceDaysScreen() {
     let cancelled = false;
 
     async function loadUfcMetadata() {
-      if (sport !== "ufc" || ufcMetadata) {
+      if (!isFightSport || ufcMetadata) {
         return;
       }
 
-      if (!hasSupabaseUfcConfig) {
-        setErrorMessage("Supabase is not configured for UFC Historical Data.");
+      const hasConfig = sport === "pfl" ? hasSupabasePflConfig : hasSupabaseUfcConfig;
+
+      if (!hasConfig) {
+        setErrorMessage(`Supabase is not configured for ${fightSportLabel} Historical Data.`);
         setIsLoadingUfcMetadata(false);
         return;
       }
@@ -169,7 +177,9 @@ export function RaceDaysScreen() {
       try {
         setIsLoadingUfcMetadata(true);
         setErrorMessage(null);
-        const nextMetadata = await fetchUfcHistoricalMetadata();
+        const nextMetadata = sport === "pfl"
+          ? await fetchPflHistoricalMetadata()
+          : await fetchUfcHistoricalMetadata();
 
         if (cancelled) {
           return;
@@ -179,7 +189,7 @@ export function RaceDaysScreen() {
         setUfcFilters(createDefaultUfcHistoricalFilters(nextMetadata));
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "UFC Historical Data metadata failed to load.");
+          setErrorMessage(error instanceof Error ? error.message : `${fightSportLabel} Historical Data metadata failed to load.`);
         }
       } finally {
         if (!cancelled) {
@@ -193,7 +203,7 @@ export function RaceDaysScreen() {
     return () => {
       cancelled = true;
     };
-  }, [sport, ufcMetadata]);
+  }, [fightSportLabel, isFightSport, sport, ufcMetadata]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,14 +250,15 @@ export function RaceDaysScreen() {
     let cancelled = false;
 
     async function loadUfcFights() {
-      if (sport !== "ufc" || view !== "rows" || !ufcMetadata || !ufcFilters.fromDate || !ufcFilters.toDate) {
+      if (!isFightSport || view !== "rows" || !ufcMetadata || !ufcFilters.fromDate || !ufcFilters.toDate) {
         return;
       }
 
       try {
         setIsLoadingUfcFights(true);
         setErrorMessage(null);
-        const result = await fetchUfcHistoricalEntries(ufcFilters, {
+        const fetchEntries = sport === "pfl" ? fetchPflHistoricalEntries : fetchUfcHistoricalEntries;
+        const result = await fetchEntries(ufcFilters, {
           limit: isDefaultUfcView(ufcFilters, ufcMetadata) ? DEFAULT_UFC_ROW_LIMIT : undefined,
         });
 
@@ -259,7 +270,7 @@ export function RaceDaysScreen() {
         setTotalUfcFightCount(result.totalCount);
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "UFC Historical Data failed to load.");
+          setErrorMessage(error instanceof Error ? error.message : `${fightSportLabel} Historical Data failed to load.`);
           setUfcFights([]);
           setTotalUfcFightCount(0);
         }
@@ -275,13 +286,13 @@ export function RaceDaysScreen() {
     return () => {
       cancelled = true;
     };
-  }, [sport, ufcFilters, ufcMetadata, view]);
+  }, [fightSportLabel, isFightSport, sport, ufcFilters, ufcMetadata, view]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadBacktestPerformance() {
-      if (view !== "backtests") {
+      if (view !== "backtests" || sport === "pfl") {
         return;
       }
 
@@ -331,8 +342,17 @@ export function RaceDaysScreen() {
   }
 
   function updateSport(value: string) {
-    if (value === "racing" || value === "ufc") {
+    if (value === "pfl" || value === "racing" || value === "ufc") {
+      if ((value === "pfl" || value === "ufc") && value !== sport) {
+        setUfcMetadata(null);
+        setUfcFilters({ fromDate: "", toDate: "" });
+        setUfcFights([]);
+        setTotalUfcFightCount(0);
+      }
       setSport(value);
+      if (value === "pfl") {
+        setView("rows");
+      }
       setErrorMessage(null);
     }
   }
@@ -429,7 +449,7 @@ export function RaceDaysScreen() {
           <Text style={styles.heading}>
             {view === "backtests"
               ? "Historical model backtests"
-              : sport === "ufc" ? "Logged UFC fights" : "Logged races"}
+              : isFightSport ? `Logged ${fightSportLabel} fights` : "Logged races"}
           </Text>
           <Text style={styles.countText}>
             {view === "backtests"
@@ -438,9 +458,9 @@ export function RaceDaysScreen() {
                 : backtestPerformanceStats.length
                   ? "All-time model backtest performance"
                   : "No historical model performance"
-              : sport === "ufc"
+              : isFightSport
               ? isLoadingUfcMetadata || isLoadingUfcFights
-                ? "Loading Supabase UFC fights"
+                ? `Loading Supabase ${fightSportLabel} fights`
                 : `${ufcFights.length} of ${totalUfcFightCount} fights`
               : isLoadingMetadata || isLoadingRaces
               ? "Loading Supabase races"
@@ -448,7 +468,7 @@ export function RaceDaysScreen() {
           </Text>
         </View>
         <Text style={styles.datePill}>
-          {sport === "ufc"
+          {isFightSport
             ? ufcMetadata?.latestWindowLabel ?? "Supabase"
             : metadata?.latestWindowLabel ?? "Supabase"}
         </Text>
@@ -458,22 +478,25 @@ export function RaceDaysScreen() {
         label="Sport"
         options={[
           { label: "Racing", value: "racing" },
+          { label: "PFL", value: "pfl" },
           { label: "UFC", value: "ufc" },
         ]}
         selectedValue={sport}
         onChange={updateSport}
       />
-      <FilterGroup
-        label="View"
-        options={[
-          { label: "Historical rows", value: "rows" },
-          { label: "Model backtests", value: "backtests" },
-        ]}
-        selectedValue={view}
-        onChange={(value) => setView(value as HistoricalView)}
-      />
+      {sport === "pfl" ? null : (
+        <FilterGroup
+          label="View"
+          options={[
+            { label: "Historical rows", value: "rows" },
+            { label: "Model backtests", value: "backtests" },
+          ]}
+          selectedValue={view}
+          onChange={(value) => setView(value as HistoricalView)}
+        />
+      )}
 
-      {sport === "ufc" ? (
+      {isFightSport ? (
         <>
           {view === "backtests" ? (
             <HistoricalBacktestPerformancePanel
@@ -491,13 +514,13 @@ export function RaceDaysScreen() {
           ) : (
             <>
               <DateRangeFilter
-                availableLabel="available UFC event dates"
+                availableLabel={`available ${fightSportLabel} event dates`}
                 fromDate={ufcFilters.fromDate}
                 onChange={updateUfcDateBoundary}
                 onReset={resetUfcDateRange}
                 options={ufcMetadata?.dateOptions ?? []}
                 toDate={ufcFilters.toDate}
-                windowLabel={ufcMetadata?.latestWindowRangeLabel ?? "Loading available UFC dates"}
+                windowLabel={ufcMetadata?.latestWindowRangeLabel ?? `Loading available ${fightSportLabel} dates`}
               />
 
               <View key={ufcFilterKey}>
@@ -507,16 +530,16 @@ export function RaceDaysScreen() {
                   </View>
                 ) : isLoadingUfcMetadata || isLoadingUfcFights ? (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>Loading UFC fights from Supabase.</Text>
+                    <Text style={styles.emptyStateText}>Loading {fightSportLabel} fights from Supabase.</Text>
                   </View>
                 ) : ufcFights.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>No UFC fights match this date range.</Text>
+                    <Text style={styles.emptyStateText}>No {fightSportLabel} fights match this date range.</Text>
                   </View>
                 ) : ufcFights.map((fight) => (
                   <View key={fight.fightId} style={styles.raceRow}>
                     <View style={styles.raceNumber}>
-                      <Text style={styles.raceNumberText}>UFC</Text>
+                      <Text style={styles.raceNumberText}>{fightSportLabel}</Text>
                     </View>
                     <View style={styles.raceContent}>
                       <Text style={styles.raceTitle}>

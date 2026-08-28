@@ -11,6 +11,7 @@ export const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65
 export const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 export const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 export const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+export const WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_50_50_65_plus_v1";
 export const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 export const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 export const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
@@ -18,6 +19,12 @@ export const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_
 export const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 export const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
 export const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
+export const PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY = "pfl_multi_favourite_price_win_percentage_v1";
+export const PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "pfl_multi_other_fighter_price_win_percentage_v1";
+export const PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "pfl_multi_price_difference_win_percentage_v1";
+export const PFL_SINGLE_65_PLUS_MODEL_KEY = "pfl_single_win_percentage_65_plus_v1";
+export const PFL_SINGLE_75_PLUS_MODEL_KEY = "pfl_single_win_percentage_75_plus_v1";
+export const PFL_SINGLE_85_PLUS_MODEL_KEY = "pfl_single_win_percentage_85_plus_v1";
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
 
 export type PredictionModelKey =
@@ -36,19 +43,26 @@ export type PredictionPerformanceDisciplineFilter = "all" | "horse" | "harness" 
 export type PredictionPerformanceRankFilter = "all" | "1" | "2" | "3";
 export type PredictionPerformanceSignalFilter = "all" | "positive_only" | "neutral_or_better";
 export type PredictionStatsFormat = "multis" | "singles";
-export type PredictionStatsSport = "racing" | "ufc";
-export type WinPercentageMultiRankFilter = "all" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
+export type PredictionStatsSport = "pfl" | "racing" | "ufc";
+export type WinPercentageMultiRankFilter = "all" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
 export type WinPercentageMultiModelKey =
   | typeof WIN_PERCENTAGE_MULTI_MODEL_KEY
   | typeof WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
   | typeof WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+  | typeof WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY
   | typeof PLACING_PERCENTAGE_MULTI_MODEL_KEY
   | typeof UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
   | typeof UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
   | typeof UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
   | typeof UFC_SINGLE_65_PLUS_MODEL_KEY
   | typeof UFC_SINGLE_75_PLUS_MODEL_KEY
-  | typeof UFC_SINGLE_85_PLUS_MODEL_KEY;
+  | typeof UFC_SINGLE_85_PLUS_MODEL_KEY
+  | typeof PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY
+  | typeof PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
+  | typeof PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY
+  | typeof PFL_SINGLE_65_PLUS_MODEL_KEY
+  | typeof PFL_SINGLE_75_PLUS_MODEL_KEY
+  | typeof PFL_SINGLE_85_PLUS_MODEL_KEY;
 
 export type PredictionPerformanceFilters = {
   discipline: PredictionPerformanceDisciplineFilter;
@@ -68,7 +82,7 @@ export type WinPercentageMultiModelVariant = {
   detail: string;
   key: WinPercentageMultiModelKey;
   label: string;
-  sport: "racing" | "ufc";
+  sport: "pfl" | "racing" | "ufc";
 };
 
 export const PREDICTION_MODEL_VARIANTS: PredictionModelVariant[] = [
@@ -141,7 +155,7 @@ export const WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS: PredictionModelVariant[] = [
 
 export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant[] = [
   {
-    description: "Builds a three-to-five leg multi from Positive win-rate signals first, otherwise Positive-or-Neutral win-rate signals.",
+    description: "Builds a two-to-five leg multi from Positive win-rate signals first, otherwise Positive-or-Neutral win-rate signals.",
     detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Positive starts at 50%, neutral starts at 40%.",
     key: WIN_PERCENTAGE_MULTI_MODEL_KEY,
     label: "Original win %",
@@ -159,6 +173,13 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     detail: "Score = 65% favourite price-bucket win rate plus 35% starter-count win rate. Eligible legs need a 65%+ score and the recommendation can include up to 10 legs.",
     key: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
     label: "65%+ win %",
+    sport: "racing",
+  },
+  {
+    description: "Builds a stricter multi from current favourites whose equal-weight historical win score is at least 65%.",
+    detail: "Score = 50% favourite price-bucket win rate plus 50% starter-count win rate. Eligible legs need a 65%+ score and the recommendation can include up to 10 legs.",
+    key: WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
+    label: "50/50 65%+ win %",
     sport: "racing",
   },
   {
@@ -210,12 +231,56 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     label: "85%+ win singles",
     sport: "ufc",
   },
+  {
+    description: "Builds a PFL same-card multi from favourites ranked by the matching historical favourite price bucket win rate.",
+    detail: "Reserved for PFL Head to Head fight-card predictions once PFL historical price aggregates and PFL-specific persistence are available.",
+    key: PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+    label: "PFL fav price",
+    sport: "pfl",
+  },
+  {
+    description: "Builds a PFL same-card multi from favourites ranked by the opponent's historical price bucket win rate.",
+    detail: "Reserved for PFL Head to Head fight-card predictions once PFL historical other-fighter price aggregates and PFL-specific persistence are available.",
+    key: PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+    label: "PFL other price",
+    sport: "pfl",
+  },
+  {
+    description: "Builds a PFL same-card multi from favourites ranked by the historical price-difference bucket win rate.",
+    detail: "Reserved for PFL Head to Head fight-card predictions once PFL historical price-difference aggregates and PFL-specific persistence are available.",
+    key: PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+    label: "PFL price diff",
+    sport: "pfl",
+  },
+  {
+    description: "Tracks each current PFL favourite whose strongest historical PFL win-percentage signal is at least 65%.",
+    detail: "Reserved for PFL single tracking once PFL historical bucket models and PFL-specific prediction history are available.",
+    key: PFL_SINGLE_65_PLUS_MODEL_KEY,
+    label: "65%+ win singles",
+    sport: "pfl",
+  },
+  {
+    description: "Tracks each current PFL favourite whose strongest historical PFL win-percentage signal is at least 75%.",
+    detail: "Reserved for PFL single tracking once PFL historical bucket models and PFL-specific prediction history are available.",
+    key: PFL_SINGLE_75_PLUS_MODEL_KEY,
+    label: "75%+ win singles",
+    sport: "pfl",
+  },
+  {
+    description: "Tracks each current PFL favourite whose strongest historical PFL win-percentage signal is at least 85%.",
+    detail: "Reserved for PFL single tracking once PFL historical bucket models and PFL-specific prediction history are available.",
+    key: PFL_SINGLE_85_PLUS_MODEL_KEY,
+    label: "85%+ win singles",
+    sport: "pfl",
+  },
 ];
 
 export const RACING_WIN_PERCENTAGE_MULTI_MODEL_VARIANTS = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS
   .filter((model) => model.sport === "racing");
 export const UFC_WIN_PERCENTAGE_MULTI_MODEL_VARIANTS = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS
   .filter((model) => model.sport === "ufc");
+export const PFL_WIN_PERCENTAGE_MULTI_MODEL_VARIANTS = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS
+  .filter((model) => model.sport === "pfl");
 
 type PredictionSummaryMetrics = {
   average_return_per_dollar: NullableNumber;
@@ -926,6 +991,25 @@ export async function fetchPredictionStats(
       winPercentageMultiBetSummaryStats: winPercentageMultiBetSummary && winPercentageMultiBetSummary.prediction_count > 0
         ? mapMultiBetSummaryStats(winPercentageMultiBetSummary, getWinPercentageMultiPredictionLabel(ufcWinPercentageMultiModel))
         : [],
+    };
+  }
+
+  if (sport === "pfl") {
+    return {
+      disciplineReturns: [],
+      history: [],
+      historySummaryStats: [],
+      multiBetHistory: [],
+      multiBetPerformanceStats: [],
+      multiBetSummaryStats: [],
+      placingPerformanceStats: [],
+      summaryStats: [],
+      totalHistoryCount: 0,
+      totalMultiBetHistoryCount: 0,
+      totalWinPercentageMultiBetHistoryCount: 0,
+      winPercentageMultiBetHistory: [],
+      winPercentageMultiBetPerformanceStats: [],
+      winPercentageMultiBetSummaryStats: [],
     };
   }
 
@@ -2506,7 +2590,8 @@ function formatMultiBetScore(value: NullableNumber, predictionModel: string | nu
 function isWinPercentageMultiModel(predictionModel: string | null) {
   return predictionModel === WIN_PERCENTAGE_MULTI_MODEL_KEY
     || predictionModel === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
-    || predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY;
+    || predictionModel === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+    || predictionModel === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY;
 }
 
 function isPlacingPercentageMultiModel(predictionModel: string | null) {
@@ -2560,6 +2645,10 @@ function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMult
     return "65%+ win multis";
   }
 
+  if (predictionModel === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY) {
+    return "50/50 65%+ win multis";
+  }
+
   return "Win percentage multis";
 }
 
@@ -2594,6 +2683,15 @@ export function isUfcPercentageMultiModel(predictionModel: string | null) {
     || predictionModel === UFC_SINGLE_65_PLUS_MODEL_KEY
     || predictionModel === UFC_SINGLE_75_PLUS_MODEL_KEY
     || predictionModel === UFC_SINGLE_85_PLUS_MODEL_KEY;
+}
+
+export function isPflPercentageMultiModel(predictionModel: string | null) {
+  return predictionModel === PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY
+    || predictionModel === PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
+    || predictionModel === PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY
+    || predictionModel === PFL_SINGLE_65_PLUS_MODEL_KEY
+    || predictionModel === PFL_SINGLE_75_PLUS_MODEL_KEY
+    || predictionModel === PFL_SINGLE_85_PLUS_MODEL_KEY;
 }
 
 function formatPriceDifference(value: NullableNumber) {

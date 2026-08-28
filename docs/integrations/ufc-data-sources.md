@@ -225,7 +225,7 @@ Current priced-card proof:
 - Current competition scan also returned a priced `PFL` card and a one-fight
   future UFC card. UFC prediction collection should include only competitions
   whose Betcha competition name/slug clearly identifies a UFC card, and should
-  require at least three fully priced `Head to Head` fights on the same card
+  require at least two fully priced `Head to Head` fights on the same card
   before creating a UFC multi recommendation.
 
 Historical proof attempt:

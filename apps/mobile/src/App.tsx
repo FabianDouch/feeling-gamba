@@ -1,10 +1,12 @@
+import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { hasSupabaseClientConfig } from "./config/env";
 import { AuthProvider, useAuth } from "./data/authSession";
+import { configurePredictionNotificationHandler } from "./data/userPredictionNotifications";
 import { AccountScreen } from "./screens/AccountScreen";
 import { InsightsScreen } from "./screens/InsightsScreen";
 import { PredictionHistoryScreen } from "./screens/PredictionHistoryScreen";
@@ -13,6 +15,8 @@ import { RaceDaysScreen } from "./screens/RaceDaysScreen";
 import { RecommendationsScreen } from "./screens/RecommendationsScreen";
 
 type AppPage = "account" | "insights" | "predictionHistory" | "predictions" | "recommendations" | "raceDays";
+
+configurePredictionNotificationHandler();
 
 export function App() {
   return (
@@ -26,6 +30,24 @@ function AppShell() {
   const [activePage, setActivePage] = useState<AppPage>("insights");
   const [recommendationsRefreshSignal, setRecommendationsRefreshSignal] = useState(0);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const openPredictionNotification = (response: Notifications.NotificationResponse | null) => {
+      if (response?.notification.request.content.data?.type === "prediction_finalised") {
+        setActivePage("predictions");
+      }
+    };
+
+    Notifications.getLastNotificationResponseAsync()
+      .then(openPredictionNotification)
+      .catch(() => undefined);
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(openPredictionNotification);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   /**
    * Opens the Promos tab and asks it to re-check the Supabase cache.

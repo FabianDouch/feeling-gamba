@@ -7,5 +7,8 @@ verify_jwt = false
 [functions.refresh-race-days-and-insights]
 verify_jwt = false
 
+[functions.send-prediction-finalised-notifications]
+verify_jwt = false
+
 [functions.request-track-race-odds]
 verify_jwt = false

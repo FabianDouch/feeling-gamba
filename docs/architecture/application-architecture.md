@@ -10,10 +10,14 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-08-05 to change racing percentage multi
-locking from a fixed 10:00am cutoff to the current prediction snapshot's first
-eligible race start. Rendered architecture outputs should be regenerated from
-the YAML before being treated as current. It was previously updated on
+Note: the YAML was updated on 2026-08-27 to standardise current prediction
+finalisation across sports at 15 minutes before the first race, fight, or match
+starts, to add generic current prediction view locks, and to add
+model-finalised mobile notifications for favourited prediction models. Rendered
+architecture outputs should be regenerated from the YAML before being treated as current. It
+was previously updated on 2026-08-05 to change racing percentage multi locking
+from a fixed 10:00am cutoff to the current prediction snapshot's first eligible
+race start. It was previously updated on
 2026-07-24 for the
 `multi_win_percentage_60_plus_v1` and `multi_place_percentage_v1` tracked
 models. It was previously updated on 2026-07-23 for the
@@ -470,19 +474,20 @@ placing signal to each current candidate from stored place-rate insight
 aggregates, using country-aware place-market depth: AU/NZ 5-7 starters pays top
 2 and 8+ pays top 3; HK 4-6 pays top 2 and 7+ pays top 3. It is a statistical signal
 only, with no stake sizing, bankroll guidance, automated wagering, or invented
-favourites. Stored prediction rows must be created only before the first
-eligible race in the day's all-domestic NZ/AUS/HK prediction coverage has
-started.
+favourites. Stored racing prediction rows must be created only before the
+standard prediction finalisation cutoff: 15 minutes before the first eligible
+race in the day's all-domestic NZ/AUS/HK prediction coverage starts.
 The daily prediction refresh is scheduled through
 `.github/workflows/current-prediction-refresh.yml` at `17:35` and `18:35` UTC,
 with optional Supabase Cron backup using
 `supabase/sql/schedule-refresh-current-predictions.sql`, so prediction data is
-captured even when nobody opens the app. After the first advertised start,
-`refresh-current-predictions` may return the same-day cached pre-race snapshot,
-but it must not upsert a replacement `current_prediction_snapshots` row, write
-`promotion_predictions`, or rebuild `prediction_aggregates`. This keeps model
+captured even when nobody opens the app. After the sport-specific finalisation
+cutoff, `refresh-current-predictions` may return the same-day cached
+pre-finalisation snapshot, but it must not upsert a replacement
+`current_prediction_snapshots` row, write `promotion_predictions`, or rebuild
+`prediction_aggregates` for that sport. This keeps model
 performance comparable because each source date is measured from a full-card
-pre-race decision point rather than a late-day subset of remaining races. The
+pre-finalisation decision point rather than a late-day subset of remaining races. The
 scheduled GitHub Actions workflow calls `refresh-current-predictions`
 separately for `sport: "racing"` and `sport: "ufc"` so a slow source scan for
 one sport does not consume the whole Edge request idle-timeout budget. The
@@ -493,7 +498,7 @@ Auckland source date and can call `EXPO_PUBLIC_PREDICTION_REFRESH_URL` to
 request the `refresh-current-predictions` Edge Function. If the stored snapshot's
 prediction window is already closed, the app should render that cached pre-race
 snapshot immediately and skip stale-refresh attempts, because the backend cannot
-replace the snapshot after the first eligible race has started. If an automatic
+replace the snapshot after predictions have finalised. If an automatic
 stale refresh fails while a cached same-day snapshot exists, the app should keep
 rendering that cached snapshot and show the refresh error as context instead of
 clearing the candidates. The worker also writes
@@ -516,13 +521,17 @@ to the selected single-runner prediction models. Dedicated win-percentage
 multi-only models are tracked separately and score current favourites from
 historical win percentages using 65% favourite price-bucket win rate and 35%
 starter-count win rate. The original `multi_win_percentage_blend_v1` model
-keeps the existing Positive-first, then Positive-or-Neutral, three-to-five-leg
+keeps the existing Positive-first, then Positive-or-Neutral, two-to-five-leg
 rule. The stricter `multi_win_percentage_60_plus_v1` and
 `multi_win_percentage_65_plus_v1` models store only priced legs with blended
-win scores of at least 60% and 65% respectively, require at least three legs,
-and can keep up to 10 legs. The `multi_place_percentage_v1` model also appears
-under Win % multis, ranks favourites by blended historical place percentage,
-requires an active place market, requires at least three legs, and can keep up
+win scores of at least 60% and 65% respectively. Both threshold models can
+generate with a minimum of two legs and can keep up to 10 legs. The
+`multi_win_percentage_50_50_65_plus_v1` model is a separate 65%+ threshold
+model that uses an equal 50% favourite price-bucket win rate and 50%
+starter-count win rate blend, with the same two-to-10-leg threshold behaviour.
+The `multi_place_percentage_v1` model also appears under Win % multis, ranks
+favourites by blended historical place percentage, requires an active place
+market, requires at least two legs, and can keep up
 to eight legs. The corresponding racing single win-percentage models
 `single_win_percentage_60_plus_v1` and `single_win_percentage_65_plus_v1`
 store each qualifying favourite as an individual notional `$1` single.
@@ -588,7 +597,8 @@ repo-root public Supabase env values before Metro bundles the app.
 - Insights reads stored sport-specific aggregate rows; the app must not
   calculate the main historical insight tables from local fixtures at runtime.
   Racing reads `insight_aggregates` with country, track, and discipline
-  filters. UFC reads `ufc_insight_aggregates`. NRL reads
+  filters. PFL reads `pfl_insight_aggregates`. UFC reads
+  `ufc_insight_aggregates`. NRL reads
   `nrl_insight_aggregates` for fixed-win singles and try-scorer percentage
   rows. When one racing track and one racing discipline are selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
@@ -619,14 +629,28 @@ repo-root public Supabase env values before Metro bundles the app.
   balance history line graph. The balance ledger must remain manual tracking
   only and must not feed stake sizing, bankroll guidance, or automated wagering.
 - Predictions reads `user_locked_multi_recommendations` through owner-only RLS
-  for signed-in users. Before the first eligible racing prediction race starts,
+  for signed-in users. Before racing predictions finalise,
   a user can lock the selected percentage multi recommendation model for the
   current source date; after that, the screen displays the locked snapshot even
   if the live prediction snapshot refreshes to a different recommendation.
 - Predictions reads `user_locked_ufc_multi_recommendations` through owner-only
   RLS for UFC percentage multi models. UFC locks are keyed by source date,
   Betcha UFC card, and model, and close at the stored card-level cutoff just
-  before the first fight rather than the racing first-eligible-race cutoff.
+  before the first fight.
+- Predictions reads and writes `user_locked_current_predictions` through
+  owner-only RLS for every selected sport/format/type/model view. The generic
+  lock stores the current visible prediction payload before that sport's
+  standard finalisation cutoff: 15 minutes before the first race, fight, or
+  match starts.
+- Predictions reads and writes `user_favourite_prediction_models` through
+  owner-only RLS. When a signed-in user enables `Notify when finalised`, the
+  Expo app requests notification permission, stores the device token in
+  `user_push_tokens`, and saves the exact sport/format/type/model preference.
+- The `send-prediction-finalised-notifications` Edge Function checks favourited
+  model preferences for the current Auckland source date, confirms the selected
+  model has active current predictions after its finalisation timestamp, writes
+  an idempotent `prediction_notification_events` row, queues per-token
+  `user_prediction_notifications`, and sends neutral Expo push messages.
 - Predictions reads current candidates from the latest
   `current_prediction_snapshots` payload behind a sport selector. Racing shows
   Cash, Win %, and Placing prediction types: Cash shows the selected
@@ -637,7 +661,13 @@ repo-root public Supabase env values before Metro bundles the app.
   UFC-specific history tables. NRL reads current Singles -> Win % rows from
   `nrl_single_predictions`, with fixed-win percentage candidates sourced from
   current market favourites and try-scorer percentage candidates sourced
-  from official historical player/team try rates.
+  from official historical player/team try rates. PFL uses the same
+  Singles/Multis -> Win % model tabs as UFC and reads current fixed-win MMA odds
+  only when a current odds event matches the reviewed PFL event allow-list by
+  event date and unordered fighter pair. PFL-specific prediction storage/RPCs
+  are still not implemented, so PFL Prediction History remains an explicit empty
+  state. Historical Data and Insights read the seeded `pfl_fight_entries` and
+  `pfl_insight_aggregates` fixed-win history tables.
 - The app can call `refresh-current-predictions` with a sport-scoped JSON body.
   `{ "sport": "ufc" }` refreshes only UFC aggregates/current Betcha fight
   cards, updates the UFC part of `current_prediction_snapshots`, and writes UFC
@@ -645,7 +675,9 @@ repo-root public Supabase env values before Metro bundles the app.
   aggregates. UFC-scoped refreshes update UFC-specific freshness fields while
   preserving the top-level racing snapshot freshness timestamp. `{ "sport":
   "racing" }` refreshes only racing predictions and preserves the existing UFC
-  snapshot data. Refresh workers write normalized prediction rows, tracked
+  and PFL snapshot data. `{ "sport": "pfl" }` refreshes the PFL snapshot fields
+  from PFL aggregates and reviewed current fixed-win odds without touching
+  racing or UFC rows. Refresh workers write normalized prediction rows, tracked
   multi recommendation rows, and aggregate rebuilds before updating
   `current_prediction_snapshots`; this keeps the current Predictions tab and
   Prediction History on the same generated payload. If a past current snapshot
@@ -672,18 +704,21 @@ repo-root public Supabase env values before Metro bundles the app.
   single summary and history RPCs, including 65%+, 75%+, and 85%+ single-threshold
   models based on each fight's strongest UFC bucket signal. NRL prediction
   history is intentionally empty until NRL single prediction reconciliation and
-  history RPCs are added.
+  history RPCs are added. PFL prediction history is also intentionally empty:
+  the app shows the same PFL Win % tab shape as UFC, but does not read UFC
+  tables because they do not distinguish PFL rows.
   Sport is selected first. Racing then shows the history type selector and the
   relevant model selector below it: single-runner prediction models for
   singles, cash multis, and placing; racing percentage multi-only models for
   Win % multis. UFC history shows UFC Win % singles/multis and UFC model
   selectors only.
   Win % multi history can apply all-legs or top-N rank filters against stored
-  leg ranks. `multi_win_percentage_blend_v1` supports top 3-5,
-  `multi_win_percentage_60_plus_v1` and `multi_win_percentage_65_plus_v1`
-  support top 3-10, `multi_place_percentage_v1` supports top 3-8, and UFC
-  percentage multi models support top 3-8 while hiding racing-only country,
-  discipline, and racecourse filters.
+  leg ranks. `multi_win_percentage_blend_v1` supports top 2-5,
+  `multi_win_percentage_60_plus_v1`, `multi_win_percentage_65_plus_v1`, and
+  `multi_win_percentage_50_50_65_plus_v1` support top 2-10,
+  `multi_place_percentage_v1` supports top 2-8, and UFC percentage multi models
+  support top 2-8 while hiding racing-only country, discipline, and racecourse
+  filters.
   The screen presents prediction variations as tabs, tags tabs that have
   tracked multi-bet prediction rows for the current Auckland source date, and
   shows a concise model-method explanation at the top of each variation.
@@ -717,7 +752,10 @@ repo-root public Supabase env values before Metro bundles the app.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
-  try-scorer prices are validated.
+  try-scorer prices are validated. Same-game multi percentage support uses
+  `nrl_same_game_multi_results` for the favourite team plus the two
+  shortest-priced favourite-team try scorers, with estimated multiplied-leg
+  returns only after source-backed player try-scorer prices are captured.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

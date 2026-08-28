@@ -342,6 +342,30 @@ function addTryScorerAppearance(bucket, record) {
 }
 
 /**
+ * Adds one same-game multi result to an aggregate bucket.
+ */
+function addSameGameMultiSelection(bucket, record) {
+  addEvent(bucket, record);
+
+  if (record.outcomeStatus === "missing_price") {
+    bucket.missing_price_count += 1;
+    return;
+  }
+
+  if (record.outcomeStatus !== "settled") {
+    return;
+  }
+
+  bucket.selection_count += 1;
+  bucket.total_stake += 1;
+  bucket.total_return += record.returnValue;
+
+  if (record.won) {
+    bucket.win_count += 1;
+  }
+}
+
+/**
  * Finalizes percentage and return metrics on each aggregate row.
  */
 function finalizeAggregates(buckets) {
@@ -612,10 +636,73 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesBySourceKey) {
 }
 
 /**
+ * Builds same-game multi aggregate rows from stored tracked multi outcomes.
+ */
+function buildSameGameMultiAggregates(results) {
+  const buckets = new Map();
+
+  for (const row of results) {
+    const record = {
+      date: getMatchDate(null, row.advertised_start_at ?? row.snapshot_at),
+      outcomeStatus: row.outcome_status,
+      returnValue: numeric(row.outcome_win_return),
+      roundNumber: row.round_number ?? null,
+      season: row.season ?? null,
+      selectionType: "favourite",
+      source: row.source,
+      teamName: row.selected_team_name,
+      teamSourceId: row.selected_team_source_id,
+      won: Number(row.outcome_win_return) > 0,
+    };
+
+    addToBucket(buckets, {
+      insightType: "same_game_multi_percentage",
+      scopeKey: "nrl:same_game_multi_percentage:overall:favourite_top2_try_scorers",
+      scopeType: "overall",
+      selectionType: "favourite",
+    }, record, addSameGameMultiSelection);
+
+    if (record.teamName) {
+      addToBucket(buckets, {
+        insightType: "same_game_multi_percentage",
+        scopeKey: `nrl:same_game_multi_percentage:team:${record.teamSourceId ?? record.teamName}`,
+        scopeType: "team",
+        selectionType: "favourite",
+        teamName: record.teamName,
+        teamSourceId: record.teamSourceId,
+      }, record, addSameGameMultiSelection);
+    }
+
+    if (record.season) {
+      addToBucket(buckets, {
+        insightType: "same_game_multi_percentage",
+        scopeKey: `nrl:same_game_multi_percentage:season:${record.season}:favourite_top2_try_scorers`,
+        scopeType: "season",
+        season: record.season,
+        selectionType: "favourite",
+      }, record, addSameGameMultiSelection);
+    }
+
+    if (record.season && record.roundNumber) {
+      addToBucket(buckets, {
+        insightType: "same_game_multi_percentage",
+        roundNumber: record.roundNumber,
+        scopeKey: `nrl:same_game_multi_percentage:season_round:${record.season}:${record.roundNumber}:favourite_top2_try_scorers`,
+        scopeType: "season_round",
+        season: record.season,
+        selectionType: "favourite",
+      }, record, addSameGameMultiSelection);
+    }
+  }
+
+  return finalizeAggregates(buckets);
+}
+
+/**
  * Loads all source rows needed for NRL insight rebuilds.
  */
 async function readSourceRows(supabase) {
-  const [fixedWinResults, matches, appearances, tryScorers] = await Promise.all([
+  const [fixedWinResults, matches, appearances, tryScorers, sameGameMultiResults] = await Promise.all([
     supabase.selectAll("nrl_fixed_win_snapshot_results", {
       order: "snapshot_at.asc",
       select: [
@@ -672,12 +759,27 @@ async function readSourceRows(supabase) {
         "source_player_id",
       ].join(","),
     }),
+    supabase.selectAll("nrl_same_game_multi_results", {
+      order: "advertised_start_at.asc",
+      select: [
+        "source",
+        "snapshot_at",
+        "advertised_start_at",
+        "selected_team_source_id",
+        "selected_team_name",
+        "season",
+        "round_number",
+        "outcome_status",
+        "outcome_win_return",
+      ].join(","),
+    }),
   ]);
 
   return {
     appearances,
     fixedWinResults,
     matches,
+    sameGameMultiResults,
     tryScorers,
   };
 }
@@ -691,7 +793,7 @@ async function clearExistingAggregates(supabase) {
     method: "DELETE",
     prefer: "return=minimal",
     search: {
-      insight_type: "in.(fixed_win_single,try_scorer_percentage)",
+      insight_type: "in.(fixed_win_single,try_scorer_percentage,same_game_multi_percentage)",
     },
   });
 }
@@ -713,13 +815,15 @@ async function writeAggregates(supabase, rows) {
 /**
  * Produces a compact summary for dry runs and writes.
  */
-function summarize(sourceRows, fixedWinRows, tryScorerRows) {
+function summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows) {
   return {
     fixedWinAggregateRows: fixedWinRows.length,
     fixedWinSnapshots: sourceRows.fixedWinResults.length,
     nrlAppearances: sourceRows.appearances.length,
     nrlMatches: sourceRows.matches.length,
+    nrlSameGameMultiResults: sourceRows.sameGameMultiResults.length,
     nrlTryScorers: sourceRows.tryScorers.length,
+    sameGameMultiAggregateRows: sameGameMultiRows.length,
     tryScorerAggregateRows: tryScorerRows.length,
   };
 }
@@ -762,8 +866,9 @@ async function main() {
     sourceRows.tryScorers,
     matchesBySourceKey,
   );
-  const rows = [...fixedWinRows, ...tryScorerRows];
-  const summary = summarize(sourceRows, fixedWinRows, tryScorerRows);
+  const sameGameMultiRows = buildSameGameMultiAggregates(sourceRows.sameGameMultiResults);
+  const rows = [...fixedWinRows, ...tryScorerRows, ...sameGameMultiRows];
+  const summary = summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows);
 
   if (options.dryRun) {
     console.log(JSON.stringify({

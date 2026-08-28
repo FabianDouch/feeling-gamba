@@ -17,9 +17,16 @@ tracking added by `supabase/migrations/202606210004_user_race_bet_bookmaker.sql`
 As of `2026-07-17`, signed-in users can lock one current win-percentage multi
 recommendation per source date/model, implemented in
 `supabase/migrations/202607170004_user_locked_multi_recommendations.sql`.
-As of `2026-08-05`, racing percentage multi locks close at the current
-prediction snapshot's first eligible race start instead of a fixed 10:00am NZ
-time cutoff.
+As of `2026-08-27`, all current prediction branches use a standard
+finalisation cutoff of 15 minutes before the selected sport's first relevant
+race, fight, or match starts. Generic current prediction view locks are stored
+in `supabase/migrations/202608270002_user_locked_current_predictions.sql`.
+Model-finalised mobile notifications are stored in
+`supabase/migrations/202608270003_prediction_notifications.sql`: users can
+favourite an exact prediction hierarchy branch and receive one Expo push
+notification after that model finalises with active current predictions.
+As of `2026-08-05`, racing percentage multi locks moved away from a fixed
+10:00am NZ time cutoff.
 As of `2026-08-26`, `single_win_percentage_60_plus_v1` and
 `single_win_percentage_65_plus_v1` are additional single-runner
 `prediction_model` values stored in `promotion_predictions`. They track each
@@ -53,6 +60,16 @@ fixed-win snapshot result/status rows for settled return tracking.
 `supabase/migrations/202608250003_nrl_insight_aggregates.sql` adds NRL player
 match appearances plus `nrl_insight_aggregates`, so Insights can show
 fixed-win single aggregates and official try-scorer percentage aggregates.
+As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
+first historical seed tables are defined in
+`supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.
+`pfl_fight_entries` and `pfl_insight_aggregates` mirror the UFC fixed-win
+history/aggregate shape with PFL-specific table names and `pfl:*` aggregate
+scope keys. PFL rows must not be written into `ufc_fight_entries`,
+`ufc_insight_aggregates`, or UFC prediction tables because those tables and RPCs
+are sport-specific and would pollute UFC statistics. Current PFL predictions
+are stored only inside `current_prediction_snapshots` until PFL-specific
+prediction tables/RPCs are added.
 
 The design should support:
 
@@ -286,7 +303,7 @@ Rules:
   RLS.
 - The app and insert RLS policy allow creating a lock only before the stored
   `lock_cutoff_at`, which is copied from the current racing prediction
-  snapshot's first eligible race start.
+  finalisation timestamp.
 - The first lock for a user/source/source-date/model wins; later app refreshes
   should display the locked snapshot instead of replacing it with a newer live
   recommendation.
@@ -296,6 +313,170 @@ Rules:
   locked multi can be counted separately from the later shared recommendation.
   Locks still do not store real stake size and do not enable automated
   wagering.
+
+### `user_locked_current_predictions`
+
+Owner-secured lock table for the signed-in user's selected current prediction
+view. It is sport/model generic and complements the specialised percentage
+multi lock tables that feed Prediction History.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `source_date date`
+- `source_time_zone text`
+- `prediction_sport text` - `racing`, `ufc`, `pfl`, or `nrl`
+- `prediction_format text` - `singles` or `multis`
+- `prediction_type text` - `cash`, `win_percentage`, or `placing`
+- `prediction_model text`
+- `generated_at timestamptz`
+- `generated_at_nz text`
+- `locked_at timestamptz`
+- `lock_cutoff_at timestamptz`
+- `payload jsonb`
+- `created_at timestamptz`
+
+Unique key:
+
+- `(user_id, source_date, prediction_sport, prediction_format,
+  prediction_type, prediction_model)`
+
+Rules:
+
+- A user can read, insert, and delete only their own locked current prediction
+  rows through RLS.
+- Insert RLS allows a lock only when `now() < lock_cutoff_at`.
+- The lock cutoff is the selected sport's standard finalisation timestamp: 15
+  minutes before the first relevant race, fight, or match starts.
+- The payload is the current visible prediction view at the time of locking and
+  must remain a manual user-owned record only; it must not drive stake sizing,
+  bankroll guidance, or automated wagering.
+
+### `user_push_tokens`
+
+Owner-secured Expo push tokens for signed-in mobile devices.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `expo_push_token text`
+- `platform text`
+- `device_id text`
+- `enabled boolean`
+- `last_seen_at timestamptz`
+- `last_error text`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Unique keys:
+
+- `(expo_push_token)`
+- `(user_id, expo_push_token)`
+
+Rules:
+
+- A user can read, insert, update, and delete only their own push-token rows
+  through RLS.
+- The Expo app should request notification permission only when a signed-in
+  user enables model notifications, then upsert the current device token.
+- The server-side notification worker may disable tokens after permanent Expo
+  delivery errors such as `DeviceNotRegistered`.
+
+### `user_favourite_prediction_models`
+
+Owner-secured model notification preference keyed by the Predictions hierarchy.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `sport text` - `racing`, `ufc`, `pfl`, or `nrl`
+- `prediction_format text` - `singles` or `multis`
+- `prediction_type text`
+- `model_key text`
+- `enabled boolean`
+- `notify_on_finalised boolean`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Unique key:
+
+- `(user_id, sport, prediction_format, prediction_type, model_key)`
+
+Rules:
+
+- A user can read, insert, update, and delete only their own favourite model
+  rows through RLS.
+- The key must match the visible Predictions hierarchy exactly so future sports
+  and model branches can be added without changing the preference shape.
+- A favourite does not imply a bet or stake; it only opts the user into a
+  neutral finalised-prediction alert.
+
+### `prediction_notification_events`
+
+Server-side idempotency ledger for model-finalised notification events.
+
+Key fields:
+
+- `id uuid primary key`
+- `source_date date`
+- `source_time_zone text`
+- `sport text`
+- `prediction_format text`
+- `prediction_type text`
+- `model_key text`
+- `event_type text`
+- `prediction_key text`
+- `finalises_at timestamptz`
+- `active_prediction_count int`
+- `payload jsonb`
+- `created_at timestamptz`
+
+Unique key:
+
+- `(event_type, source_date, sport, prediction_format, prediction_type,
+  model_key, prediction_key)`
+
+Rules:
+
+- The Edge Function creates one event only after the selected sport/model has
+  a finalisation timestamp at or before `now()` and at least one active current
+  prediction.
+- `prediction_key` is reserved for future card/match-level alerts; the MVP
+  uses one event per model/source date.
+- No public read policy is required; the service role owns event creation.
+
+### `user_prediction_notifications`
+
+Per-user delivery ledger for Expo push attempts.
+
+Key fields:
+
+- `id uuid primary key`
+- `user_id uuid references auth.users(id) on delete cascade`
+- `push_token_id uuid references user_push_tokens(id) on delete cascade`
+- `event_id uuid references prediction_notification_events(id) on delete cascade`
+- `status text` - `queued`, `sent`, `failed`, or `skipped`
+- `expo_ticket_id text`
+- `expo_receipt_status text`
+- `error text`
+- `sent_at timestamptz`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Unique key:
+
+- `(user_id, push_token_id, event_id)`
+
+Rules:
+
+- The unique key prevents duplicate sends when the notification cron retries.
+- Users may read their own delivery rows; writes are server-side through the
+  notification worker.
+- Expo receipt follow-up can extend `expo_receipt_status` later without
+  changing the preference/event schema.
 
 ### `meetings`
 
@@ -726,26 +907,30 @@ Rules:
 - When a changed same-day recommendation replaces the stored leg snapshot, reset
   the parent outcome fields to `pending` before reconciliation so stale results
   from the previous leg set do not leak into Prediction History.
-- Prefer a `positive` multi when at least three Positive priced legs exist for
+- Prefer a `positive` multi when at least two Positive priced legs exist for
   the model; otherwise store a `neutral` multi from Positive-or-Neutral priced
   legs.
-- Store three to five legs for cash-score and original win-percentage multis,
+- Store two to five legs for cash-score and original win-percentage multis,
   ordered by the model-specific score and then advertised start.
 - `multi_win_percentage_blend_v1` is a multi-only model that scores favourites
   from historical win percentages using 65% favourite price-bucket win rate and
   35% starter-count win rate. It keeps the same Positive-first then
-  Neutral-or-better minimum-three-leg rule as cash-score multis, but its stored
+  Neutral-or-better minimum-two-leg rule as cash-score multis, but its stored
   `average_cash_score`/leg `cash_average_score` values represent win-rate
   percentages for display as an average win score.
 - `multi_win_percentage_60_plus_v1` and
   `multi_win_percentage_65_plus_v1` are stricter multi-only models using the
-  same blended win score. They store only priced legs with scores of at least
-  60% and 65% respectively, require at least three eligible legs, and can store
-  up to 10 legs.
+  same 65% favourite price-bucket / 35% starter-count blended win score. They
+  store only priced legs with scores of at least 60% and 65% respectively.
+- `multi_win_percentage_50_50_65_plus_v1` is a separate 65%+ racing
+  win-percentage multi model using a 50% favourite price-bucket / 50%
+  starter-count blended win score.
+- All racing threshold win-percentage multi models can store a multi with a
+  minimum of two eligible legs and can store up to 10 legs.
 - `multi_place_percentage_v1` is a percentage-based placing multi model. It
   scores favourites from historical place percentages using 65% favourite
   price-bucket place rate and 35% starter-count place rate, stores only races
-  with an active place market, requires at least three eligible legs, and can
+  with an active place market, requires at least two eligible legs, and can
   store up to eight legs.
 - Win-based multis settle as a cash win only when every leg wins; otherwise a
   fully resulted multi settles as a cash loss.
@@ -792,7 +977,7 @@ Key fields:
 Rules:
 
 - Refresh replaces the leg snapshot whenever the parent recommendation
-  signature changes before the first eligible race starts.
+  signature changes before the prediction finalisation cutoff.
 - Reconcile outcomes by matching `source_race_card_id` to `races` and the
   predicted runner number to `runners` / `race_results`.
 - Keep no-race matches pending during the same 24-hour grace window used by
@@ -802,9 +987,9 @@ Rules:
 - Dedicated percentage multi leg snapshots must preserve the original
   percentage candidate rank so historical performance can be re-aggregated as
   hypothetical top-N multis after settlement. The original win-percentage model
-  supports top 3-5, the 60%+/65%+ win-percentage models support top 3-10,
-  `multi_place_percentage_v1` supports top 3-8, and UFC percentage multi
-  models support top 3-8.
+  supports top 2-5, the 60%+/65%+ win-percentage models support top 2-10,
+  `multi_place_percentage_v1` supports top 2-8, and UFC percentage multi
+  models support top 2-8.
 
 ### `ufc_multi_recommendations`
 
@@ -835,6 +1020,11 @@ Rules:
 - Only current Betcha competitions whose name/slug clearly identifies a UFC
   card can create UFC recommendations; non-UFC MMA competitions such as PFL are
   filtered out.
+- PFL is exposed in Predictions and Prediction History as a UFC-shaped branch.
+  Current PFL snapshot generation reads generic current MMA H2H odds only after
+  matching the event date and unordered fighter pair to the reviewed PFL
+  allow-list. PFL must not reuse UFC tables or RPCs until PFL-specific history
+  storage exists.
 - Current UFC prediction snapshots also expose per-model UFC Win % single
   candidates in the payload for Predictions display. The base single candidates
   use the same favourite-price, other-fighter-price, and price-difference
@@ -844,7 +1034,7 @@ Rules:
   `ufc_single_predictions` for $1 unit-stake history.
 - Every leg in a UFC multi must come from the same Betcha UFC card and an open
   Head to Head market with two priced fighters.
-- Each model requires at least three eligible fights and can store up to eight
+- Each model requires at least two eligible fights and can store up to eight
   legs, ordered by model-specific historical favourite win percentage and then
   advertised start.
 - UFC locks close from the stored `lock_cutoff_at`, currently 15 minutes before
@@ -876,7 +1066,7 @@ Key fields:
 Rules:
 
 - Leg snapshots preserve original model ranks so Prediction History can
-  re-aggregate all legs, top 3, or top 4 views for each UFC model.
+  re-aggregate all legs, top 2, top 3, or top 4 views for each UFC model.
 - Public read access is allowed because rows contain app-facing market snapshots
   and derived outcomes only.
 
@@ -956,9 +1146,13 @@ Implemented sport-specific NRL tables for official result settlement:
   fixed-win snapshot, including pending, unmatched, missing-result, settled,
   draw, and non-standard states.
 - `nrl_insight_aggregates`: stored app-facing NRL aggregates for fixed-win
-  singles and try-scorer percentages.
+  singles, try-scorer percentages, and same-game multi percentages.
 - `nrl_single_predictions`: persisted current NRL single prediction rows for
   fixed-win percentage and try-scorer percentage models.
+- `nrl_try_scorer_market_snapshots`: current-market player try-scorer price
+  rows, separated from fixed-win match snapshots.
+- `nrl_same_game_multi_results`: tracked `$1` estimated same-game multi rows for
+  the favourite team plus the two shortest-priced favourite-team try scorers.
 
 Rules:
 
@@ -973,11 +1167,13 @@ Rules:
   auditability but excluded from settled return denominators.
 - Try-scorer percentages use player-match appearances as the denominator and
   official try events as the numerator. Try-scorer cash metrics remain blocked
-  until source-backed player try-scorer prices are validated.
+  until enough source-backed player try-scorer prices have been captured.
 - Current NRL single predictions must preserve whether a row came from a
   source-backed bookmaker market or from official historical roster context.
-- Same-game multi return metrics require quoted same-game multi prices or a
-  documented return basis; do not infer them from multiplied single-leg prices.
+- Same-game multi percentage rows use a documented estimated return basis:
+  fixed-win favourite price multiplied by the two selected try-scorer fixed-win
+  prices. They must not be labelled as true bookmaker same-game cash unless a
+  quoted same-game multi price is captured.
 
 ### `nrl_insight_aggregates`
 
@@ -987,7 +1183,8 @@ Insights sport toggle is set to NRL.
 Key fields:
 
 - `scope_key text unique`
-- `insight_type text` - `fixed_win_single` or `try_scorer_percentage`
+- `insight_type text` - `fixed_win_single`, `try_scorer_percentage`, or
+  `same_game_multi_percentage`
 - `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
   `team`, `season`, `season_round`, `player`, or `player_team`
 - `source text`
@@ -1027,8 +1224,83 @@ Rules:
   selection and count a win when that player scored at least one official try.
 - Try-scorer rows store counts and percentages only; cash fields remain zero
   until source-backed player try-scorer prices are added.
+- Same-game multi percentage rows read `nrl_same_game_multi_results`, count one
+  `$1` selection per settled row, and record estimated returns only from the
+  documented multiplied-leg basis.
 - Public RLS read access is allowed because rows contain app-facing aggregate
   facts only.
+
+### `nrl_try_scorer_market_snapshots`
+
+Current-market player try-scorer price rows. This table is intentionally
+separate from `nrl_market_snapshots`, which stores match-level `Match Betting`
+fixed-win markets.
+
+Key fields:
+
+- `source text` - currently constrained to `tab`
+- `source_snapshot_key text`
+- `source_event_id text`
+- `source_market_id text`
+- `source_selection_key text unique`
+- `matched_nrl_match_id uuid`
+- `market_name text`
+- `snapshot_at timestamptz`
+- `advertised_start_at timestamptz`
+- player source ID/name
+- team source ID/name
+- `fixed_win_price numeric`
+- `raw jsonb`
+
+Rules:
+
+- Rows must be source-backed player try-scorer prices. Do not populate this
+  table from official try outcomes or historical percentages.
+- Rows are populated by
+  `refresh-nrl-try-scorer-market-snapshots`, which reads exact `Anytime Try
+  Scorer` markets before kickoff.
+- Player/team IDs are matched conservatively against official NRL
+  `nrl_player_match_appearances` rows before same-game multi results rely on
+  them. Unmatched rows are retained for audit but cannot settle scorer outcomes.
+- Public RLS read access is allowed because rows contain market facts used for
+  app-facing insights.
+
+### `nrl_same_game_multi_results`
+
+Stored app-facing tracking rows for the first NRL same-game multi percentage
+model.
+
+Model:
+
+- `nrl_favourite_top2_try_scorers_same_game_percentage_v1`
+
+Selection rule:
+
+- For each fixed-win snapshot result, select the pre-game favourite team.
+- Select the two shortest-priced player try-scorer rows from that favourite
+  team for the same matched NRL match/source event.
+- Treat the row as a `$1` estimated same-game multi.
+
+Outcome rule:
+
+- The row wins only when the favourite team wins and both selected players score
+  at least one official try.
+- `combined_estimated_price` is the product of favourite fixed-win price and the
+  two selected try-scorer prices.
+- `outcome_win_return` is `combined_estimated_price` for winners and `0` for
+  losing settled rows.
+- If the fixed-win result exists but fewer than two favourite-team try-scorer
+  prices are available, store `outcome_status = 'missing_price'` so the price
+  gap remains visible in Insights.
+
+Rules:
+
+- This is a percentage/estimated-return tracking model, not a true same-game
+  cash model.
+- True `Same Game cash` remains blocked until quoted same-game multi prices or a
+  documented bookmaker payout basis are captured.
+- Public RLS read access is allowed because rows contain app-facing derived
+  results and source-backed market facts only.
 
 ### `nrl_single_predictions`
 
@@ -1268,7 +1540,7 @@ Key fields:
 Rules:
 
 - Preserve `prediction_rank` so later Historical Data views can compare all
-  legs, top 3, top 4, or other model-specific slices without regenerating the
+  legs, top 2, top 3, top 4, or other model-specific slices without regenerating the
   whole backtest.
 - Public read access is allowed because rows are generated app-facing historical
   analysis.

@@ -6,11 +6,18 @@ import {
   DEFAULT_PREDICTION_MODEL_KEY,
   fetchMultiBetRecommendationModelKeys,
   hasSupabasePredictionsConfig,
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+  PFL_SINGLE_65_PLUS_MODEL_KEY,
+  PFL_SINGLE_75_PLUS_MODEL_KEY,
+  PFL_SINGLE_85_PLUS_MODEL_KEY,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
@@ -44,6 +51,7 @@ const RACING_WIN_PERCENTAGE_MULTI_KEYS = [
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
 ] satisfies WinPercentageMultiModelKey[];
 const UFC_WIN_PERCENTAGE_MULTI_KEYS = [
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
@@ -57,6 +65,19 @@ const UFC_WIN_PERCENTAGE_SINGLE_KEYS = [
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const PFL_WIN_PERCENTAGE_MULTI_KEYS = [
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const PFL_WIN_PERCENTAGE_SINGLE_KEYS = [
+  PFL_SINGLE_65_PLUS_MODEL_KEY,
+  PFL_SINGLE_75_PLUS_MODEL_KEY,
+  PFL_SINGLE_85_PLUS_MODEL_KEY,
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
 ] satisfies WinPercentageMultiModelKey[];
 
 /**
@@ -114,6 +135,13 @@ export function PredictionsScreen() {
       return;
     }
 
+    if (value === "pfl") {
+      setActiveFormat("multis");
+      setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      return;
+    }
+
     setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
   }
 
@@ -125,6 +153,11 @@ export function PredictionsScreen() {
       setActiveWinPercentageMultiModelKey(UFC_SINGLE_65_PLUS_MODEL_KEY);
     } else if (activeSport === "ufc" && value === "multis") {
       setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+    } else if (activeSport === "pfl" && value === "singles") {
+      setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(PFL_SINGLE_65_PLUS_MODEL_KEY);
+    } else if (activeSport === "pfl" && value === "multis") {
+      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
     }
   }
 
@@ -134,6 +167,8 @@ export function PredictionsScreen() {
     if (value === "win_percentage") {
       setActiveWinPercentageMultiModelKey(activeSport === "ufc"
         ? activeFormat === "singles" ? UFC_SINGLE_65_PLUS_MODEL_KEY : UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
+        : activeSport === "pfl"
+          ? activeFormat === "singles" ? PFL_SINGLE_65_PLUS_MODEL_KEY : PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY
         : WIN_PERCENTAGE_MULTI_MODEL_KEY);
     } else if (value === "placing") {
       setActiveWinPercentageMultiModelKey(PLACING_PERCENTAGE_MULTI_MODEL_KEY);
@@ -252,6 +287,24 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "pfl" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <WinPercentageMultiModelTabs
+          activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={PFL_WIN_PERCENTAGE_SINGLE_KEYS}
+          onChange={setActiveWinPercentageMultiModelKey}
+          sport={activeSport}
+        />
+      ) : null}
+
+      {activeSport === "pfl" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
+        <WinPercentageMultiModelTabs
+          activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={PFL_WIN_PERCENTAGE_MULTI_KEYS}
+          onChange={setActiveWinPercentageMultiModelKey}
+          sport={activeSport}
+        />
+      ) : null}
+
       <View style={styles.modelInfo}>
         <Text style={styles.modelInfoTitle}>{activeModelInfo.label}</Text>
         <Text style={styles.modelInfoText}>{activeModelInfo.description}</Text>
@@ -340,6 +393,29 @@ function getActiveModelInfo({
       detail: activeFormat === "singles"
         ? `${activeWinPercentageModel.detail} Each eligible Head to Head favourite is shown as a separate current single candidate.`
         : activeWinPercentageModel.detail,
+      label: activeFormat === "singles"
+        ? `${activeWinPercentageModel.label} singles`
+        : activeWinPercentageModel.label,
+    };
+  }
+
+  if (activeSport === "pfl" && activePredictionType !== "win_percentage") {
+    return {
+      description: "This branch is reserved for future PFL prediction models.",
+      detail: "The controls are present so PFL can grow into the same Singles and Multis structure as UFC.",
+      empty: `No PFL ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `PFL ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "pfl") {
+    return {
+      description: activeFormat === "singles"
+        ? "Shows current PFL favourites as individual win-percentage singles when a reviewed PFL card is priced."
+        : activeWinPercentageModel.description,
+      detail: activeFormat === "singles"
+        ? `${activeWinPercentageModel.detail} Each eligible Head to Head favourite is matched to the reviewed PFL event allow-list before it is shown as a separate current single candidate.`
+        : `${activeWinPercentageModel.detail} PFL multis only appear when enough current fixed-win fights match one reviewed PFL card.`,
       label: activeFormat === "singles"
         ? `${activeWinPercentageModel.label} singles`
         : activeWinPercentageModel.label,

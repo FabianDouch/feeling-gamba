@@ -25,6 +25,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [TAB API notes](./integrations/tab-api.md)
 - [Betcha API notes](./integrations/betcha-api.md)
 - [UFC data source validation](./integrations/ufc-data-sources.md)
+- [PFL data source validation](./integrations/pfl-data-sources.md)
 - [NRL data source validation](./integrations/nrl-data-sources.md)
 - [TAB Form Guide notes](./integrations/tab-form-guide.md)
 - [HRNZ notes](./integrations/hrnz.md)
@@ -40,7 +41,10 @@ The first statistics target uses all collected historical data starting from the
 
 Signed-in account features include saved favourite tracks, manual promo-bet
 tracking, locking the user's current win-percentage multi recommendation before
-the first eligible racing prediction race starts, and a manual balance ledger
+the prediction finalisation cutoff, generic current prediction view locks before
+the selected sport's cutoff, and a manual balance ledger
 for initial balance, deposits, withdrawals, balance updates, and balance
-history. These account features must not provide stake sizing, bankroll
+history. Signed-in users can also favourite prediction models for a mobile
+notification after that model finalises with active current predictions. These
+account features must not provide stake sizing, bankroll
 guidance, account scraping, or automated wagering.

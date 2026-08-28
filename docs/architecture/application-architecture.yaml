@@ -108,7 +108,8 @@ systems:
         - Let signed-in users save or remove favourite tracks for one concrete country, discipline, and course.
         - Let signed-in users apply saved favourite tracks as quick filters in Race Days and Insights.
         - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
-        - Let signed-in users lock one current percentage multi recommendation before the first eligible racing prediction race starts so later pre-race refreshes do not replace the chosen snapshot.
+        - Let signed-in users lock the selected current prediction view before that sport's 15-minute-before-first-start finalisation cutoff, while existing percentage multi locks continue to preserve history-specific snapshots.
+        - Let signed-in users favourite exact prediction model branches and enable neutral mobile notifications when those models finalise with active current predictions.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -119,6 +120,8 @@ systems:
         - user_favourite_tracks
         - user_race_bets
         - user_locked_multi_recommendations
+        - user_push_tokens
+        - user_favourite_prediction_models
         - user_balance_accounts
         - user_balance_events
 
@@ -275,9 +278,11 @@ systems:
       responsibility:
         - Rebuild NRL fixed-win single aggregate rows from reconciled current-market Match Betting snapshots.
         - Rebuild NRL try-scorer percentage rows from official player appearances and try events.
+        - Rebuild NRL same-game multi percentage rows from favourite-team top-two try-scorer result rows.
         - Keep try-scorer cash metrics empty until source-backed player try-scorer prices are validated.
       reads_from:
         - nrl_fixed_win_snapshot_results
+        - nrl_same_game_multi_results
         - nrl_matches
         - nrl_player_match_appearances
         - nrl_try_scorers
@@ -309,10 +314,10 @@ systems:
         - Store current favourite, fixed-win price, starter count, MarketMover, and missing-price state.
         - Attach historical starter-count, price-bucket, distance-band, track-condition, other-starters average fixed-win price, cash, and cash-plus-bonus statistical signals.
         - Rank Betcha bet-back candidates by country and discipline, keeping at most five per country/discipline group, without stake sizing or automated wagering actions.
-        - Capture one app-facing pre-first-race prediction cache for each Auckland source date.
-        - Store one prediction row per model and Betcha source race card before the first eligible race starts, replacing it only when the prediction signature changes before that cutoff.
-        - Refuse to write snapshots, promotion_predictions, or prediction_aggregates after the first eligible race in the all-domestic NZ/AUS/HK prediction coverage has started.
-        - Rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending model rows before races settle.
+        - Capture one app-facing pre-finalisation prediction cache for each Auckland source date.
+        - Store one prediction row per model and Betcha source race card before the selected sport's finalisation cutoff, replacing it only when the prediction signature changes before that cutoff.
+        - Refuse to write snapshots, promotion_predictions, or prediction_aggregates after the selected sport's standard finalisation cutoff has passed.
+        - Rebuild prediction_aggregates after storing pre-finalisation predictions so the Predictions tab can show pending model rows before races settle.
       reads_from:
         - betcha_graphql
         - insight_aggregates
@@ -400,13 +405,17 @@ systems:
         - Store canonical racing data.
         - Store append-only odds snapshots.
         - Store final results and dividends.
-        - Store user profiles, favourite tracks, personal race logs, locked user multi snapshots, and manual balance rows behind owner-only RLS.
+        - Store user profiles, favourite tracks, personal race logs, locked user multi snapshots, push tokens, favourite prediction model preferences, notification delivery ledgers, and manual balance rows behind owner-only RLS.
         - Power app read views.
       contains:
         - profiles
         - user_favourite_tracks
         - user_race_bets
         - user_locked_multi_recommendations
+        - user_push_tokens
+        - user_favourite_prediction_models
+        - prediction_notification_events
+        - user_prediction_notifications
         - user_balance_accounts
         - user_balance_events
         - meetings
@@ -537,9 +546,10 @@ data_model:
         Tracked multi bet recommendation per model/source date, including
         cash-score prediction-model multis and dedicated multi-only models such
         as multi_win_percentage_blend_v1, multi_win_percentage_60_plus_v1,
-        multi_win_percentage_65_plus_v1, and multi_place_percentage_v1, with
-        settled parent outcome and stored combined place odds for place
-        percentage multis where available.
+        multi_win_percentage_65_plus_v1,
+        multi_win_percentage_50_50_65_plus_v1, and
+        multi_place_percentage_v1, with settled parent outcome and stored
+        combined place odds for place percentage multis where available.
       key: prediction_model, source, source_date, recommendation_type
     multi_bet_recommendation_legs:
       purpose: Leg snapshots, predicted win/place odds, and leg-level outcomes for tracked multi bet recommendations.
@@ -572,7 +582,10 @@ data_model:
       purpose: Stored app-facing insight rows by overall, country, course, race-code, starter-count, price-bucket, distance-band, and track-condition scope.
       key: scope_key
     nrl_insight_aggregates:
-      purpose: Stored app-facing NRL insight rows for fixed-win singles and try-scorer percentages.
+      purpose: Stored app-facing NRL insight rows for fixed-win singles, try-scorer percentages, and same-game multi percentages.
+      key: scope_key
+    pfl_insight_aggregates:
+      purpose: Stored app-facing PFL fixed-win insight rows for favourite, other fighter, and price-difference buckets.
       key: scope_key
     track_race_odds_requests:
       purpose: Audit log of on-demand track-race public odds requests made from Insights.
@@ -593,7 +606,12 @@ derived_views:
     responsibility:
       - Store fixed-win favourite, source, home/away, team, season, and round aggregate rows.
       - Store try-scorer percentage rows by player, team, season, and round.
+      - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
       - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
+  pfl_insight_aggregates:
+    responsibility:
+      - Store PFL favourite fixed-win performance by favourite price, other fighter price, and price-difference buckets.
+      - Keep PFL Insights on stored Supabase aggregates instead of calculating rates in the app.
   promotion_recommendations:
     responsibility:
       - Join current racing promotions to current race-card facts.
@@ -604,8 +622,8 @@ derived_views:
     responsibility:
       - Store the current app-facing Betcha candidate prediction payload.
       - Keep candidate rankings available even when no race-specific promotion URL matches current race cards.
-      - Treat rows older than 15 minutes as stale only while the prediction window remains open, because live race cards and fixed-win prices can change before the first eligible race starts.
-      - Treat closed-window rows as locked pre-race snapshots for app display.
+      - Treat rows older than 15 minutes as stale only while the prediction window remains open, because live race cards and fixed-win prices can change before prediction finalisation.
+      - Treat closed-window rows as finalised pre-start snapshots for app display.
   prediction_aggregates:
     responsibility:
       - Store Betcha prediction outcome counts and notional unit-stake return metrics by prediction_model.
@@ -664,7 +682,10 @@ flows:
         multi_win_percentage_blend_v1 win-percentage model, and stricter
         threshold models multi_win_percentage_60_plus_v1 and
         multi_win_percentage_65_plus_v1 that keep only 60%+ or 65%+ win-score
-        legs and can store up to 10 legs.
+        legs, plus multi_win_percentage_50_50_65_plus_v1 that keeps only 65%+
+        legs using a 50/50 price-bucket and starter-count blend. Threshold
+        models can generate with a minimum of two legs and can store up to 10
+        legs.
       - >
         persist matching single_win_percentage_60_plus_v1 and
         single_win_percentage_65_plus_v1 promotion prediction rows for each
@@ -677,18 +698,35 @@ flows:
         ufc_single_win_percentage_85_plus_v1 by keeping each fight's strongest
         qualifying UFC bucket-model signal.
       - >
+        expose PFL as a UFC-shaped reserved prediction branch with Singles,
+        Multis, favourite-price, other-fighter-price, price-difference, and
+        65%+/75%+/85%+ Win % model tabs; Historical Data and Insights read
+        PFL-specific fixed-win storage, but Predictions and Prediction History
+        remain reserved until current PFL fight-card capture and prediction
+        storage/RPCs exist.
+      - >
         build a multi_place_percentage_v1 tracked percentage multi from current
         placing candidates with active place markets, ranked by blended
-        historical place score, requiring at least three legs and storing up to
+        historical place score, requiring at least two legs and storing up to
         eight legs.
       - determine the earliest advertised start among eligible all-domestic NZ/AUS/HK prediction races.
       - run scheduled capture attempts at 17:35 and 18:35 UTC so daily prediction data is collected without waiting for an app open.
       - invoke the hosted refresh-current-predictions function as separate sport-scoped racing and UFC requests so one source scan cannot consume the whole Edge request idle-timeout budget.
       - fetch Betcha racing race-card details with bounded concurrency during the racing scan.
-      - write the current app-facing payload to current_prediction_snapshots only when the refresh started before that first eligible race.
+      - write the current app-facing payload to current_prediction_snapshots only when the refresh started before the selected sport's finalisation cutoff.
       - write or replace promotion_predictions by prediction_model only when the source race-card prediction signature changes before that cutoff.
-      - rebuild prediction_aggregates after storing pre-first-race predictions so the Predictions tab can show pending rows before races settle.
-      - after the first eligible race has started, return the same-day cached pre-race snapshot when one exists and otherwise report a closed prediction window.
+      - rebuild prediction_aggregates after storing pre-finalisation predictions so the Predictions tab can show pending rows before races settle.
+      - after the selected sport's finalisation cutoff has passed, return the same-day cached pre-finalisation snapshot when one exists and otherwise report a closed prediction window.
+
+  prediction_finalised_notifications:
+    trigger: Optional Supabase Cron every 5 minutes.
+    steps:
+      - send_prediction_finalised_notifications reads enabled user_favourite_prediction_models and user_push_tokens with the service role.
+      - find the current Auckland source date and inspect current_prediction_snapshots for Racing, UFC, and PFL active current predictions.
+      - read nrl_single_predictions for NRL active current single predictions until NRL is folded into the mixed current snapshot.
+      - create or reuse a prediction_notification_events row once the selected sport/model finalisation timestamp has passed and at least one active prediction exists.
+      - create user_prediction_notifications rows before sending so retries remain idempotent.
+      - send neutral Expo push notifications and record Expo ticket ids or errors; disable permanently invalid push tokens.
 
   race_day_refresh:
     trigger: GitHub Actions invokes refresh-race-days-and-insights daily overnight; Supabase Cron remains an optional later scheduler.
@@ -720,6 +758,7 @@ flows:
       - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ/HK records.
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
+      - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
@@ -737,10 +776,13 @@ flows:
       - Prediction History calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
       - Prediction History calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
       - Prediction History calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
-      - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with model-aware all-legs/top-N rank filters calculated from persisted leg ranks: top 3-5 for multi_win_percentage_blend_v1, top 3-10 for the 60%+/65%+ win models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models. Signed-in Racing users with matching personal locks use the locked-multi RPCs instead of the shared tracked recommendation rows.
-      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before the first eligible racing prediction race starts; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
+      - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with model-aware all-legs/top-N rank filters calculated from persisted leg ranks: top 2-5 for multi_win_percentage_blend_v1, top 2-10 for the 60%+/65%+ win models, top 2-8 for multi_place_percentage_v1, and top 2-8 for UFC percentage multi models. Signed-in Racing users with matching personal locks use the locked-multi RPCs instead of the shared tracked recommendation rows.
+      - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before racing predictions finalise; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
+      - Predictions reads and writes user_locked_current_predictions for signed-in users so the selected sport/format/type/model view can be locked before that sport's standard finalisation cutoff.
+      - Predictions reads and writes user_favourite_prediction_models for signed-in users. Enabling a model notification requests Expo notification permission, stores the device token in user_push_tokens, and saves the exact sport/format/type/model branch.
+      - send-prediction-finalised-notifications sends one neutral mobile notification per user/device/model/source-date after finalisation only when active current predictions exist.
       - Predictions can call EXPO_PUBLIC_PREDICTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
-      - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because locked pre-race snapshots cannot be replaced after the first eligible race has started.
+      - Predictions renders closed-window current_prediction_snapshots directly from cache without attempting stale-refresh, because finalised snapshots cannot be replaced after the sport cutoff.
       - Predictions shows model variation tabs and a short method explanation for each variation.
       - Predictions shows the current Multi bet recommendation from the active model's current candidate payload, while the prediction refresh stores the same pre-race recommendation for cash-only history and leg-level settlement.
       - Predictions shows separate current Win percentage multi recommendations from historical favourite price-bucket and starter-count win rates, including the original, 60%+, 65%+, and place-percentage models.

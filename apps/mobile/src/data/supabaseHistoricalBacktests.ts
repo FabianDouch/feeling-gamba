@@ -6,13 +6,14 @@ import {
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
   type WinPercentageMultiModelKey,
 } from "./supabasePredictions";
 
 type NullableNumber = number | string | null;
 
 export type HistoricalBacktestSport = "racing" | "ufc";
-export type HistoricalBacktestRankFilter = "all" | "3" | "4";
+export type HistoricalBacktestRankFilter = "all" | "2" | "3" | "4";
 
 type HistoricalBacktestSummaryRow = {
   average_return_per_dollar: NullableNumber;
@@ -114,6 +115,10 @@ function getHistoricalBacktestModelLabel(model: string) {
 
   if (model === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY) {
     return "65%+ win multis";
+  }
+
+  if (model === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY) {
+    return "50/50 65%+ win multis";
   }
 
   if (model === UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY) {

@@ -185,9 +185,9 @@ export type UfcSinglePredictionCandidate = UfcMultiLeg & {
 export type UfcMultiRecommendation = {
   averageWinScore: number | null;
   combinedFixedWinPrice: number | null;
-  firstFightStart: string;
+  firstFightStart: string | null;
   legs: UfcMultiLeg[];
-  lockCutoffAt: string;
+  lockCutoffAt: string | null;
   raw: Record<string, unknown>;
   recommendationType: "neutral" | "positive";
   sourceCardId: string;
@@ -205,13 +205,18 @@ export type UfcWinPercentageMultiModelRun = {
 
 export type UfcWinPercentageMultis = {
   errors?: { competitionSlug: string; message: string }[];
+  finalisesAt?: string | null;
+  finalisesAtNz?: string | null;
   firstFightStart?: string | null;
+  matchedPflFightCount?: number;
   modelCount?: number;
   models: UfcWinPercentageMultiModelRun[];
   note?: string;
   provider: string;
+  reviewedPflEventCount?: number;
   scannedCompetitionCount?: number;
-  scannedUfcCardCount: number;
+  scannedPflCardCount?: number;
+  scannedUfcCardCount?: number;
   source: string;
 };
 
@@ -234,8 +239,11 @@ export type RecommendationPayload = {
   generatedAtNz?: string;
   note: string;
   predictionWindow?: {
+    finalisesAt?: string | null;
+    finalisesAtNz?: string | null;
     firstRaceStart: string | null;
     firstRaceStartNz: string | null;
+    generatedBeforeFinalisation?: boolean;
     generatedBeforeFirstRace: boolean;
     isClosed: boolean;
     skippedReason: string | null;
@@ -248,8 +256,13 @@ export type RecommendationPayload = {
     basisLabel?: string;
     fixtureCount: number;
     otherStartersAveragePriceBucketCount?: number;
+    pflBasisLabel?: string | null;
+    pflFavouritePriceBucketCount?: number;
+    pflOtherFighterPriceBucketCount?: number;
+    pflPriceDifferenceBucketCount?: number;
     priceBucketCount: number;
     starterBucketCount: number;
+    ufcBasisLabel?: string | null;
     ufcFavouritePriceBucketCount?: number;
     ufcOtherFighterPriceBucketCount?: number;
     ufcPriceDifferenceBucketCount?: number;
@@ -260,8 +273,12 @@ export type RecommendationPayload = {
     raceSpecificPromotions: number;
     racingPromotions: number;
     sources: number;
+    pflRecommendations?: number;
     ufcRecommendations?: number;
   };
+  pflGeneratedAt?: string | null;
+  pflGeneratedAtNz?: string | null;
+  pflWinPercentageMultis?: UfcWinPercentageMultis | null;
   ufcGeneratedAt?: string | null;
   ufcGeneratedAtNz?: string | null;
   ufcWinPercentageMultis?: UfcWinPercentageMultis | null;

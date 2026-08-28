@@ -6,6 +6,7 @@ import {
   rebuildPredictionAggregatesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
 import {
+  createPflHistoricalStatsFromInsightAggregates,
   createUfcHistoricalStatsFromInsightAggregates,
   createHistoricalStatsFromFixtures,
   generateCurrentPredictionPayload,
@@ -171,6 +172,48 @@ async function fetchUfcInsightAggregateRows(config) {
 }
 
 /**
+ * Reads PFL insight aggregates for local refresh runs when Supabase is configured.
+ */
+async function fetchPflInsightAggregateRows(config) {
+  const url = new URL("/rest/v1/pfl_insight_aggregates", config.url);
+  url.searchParams.set(
+    "select",
+    [
+      "scope_key",
+      "scope_type",
+      "price_bucket_label",
+      "price_bucket_start",
+      "price_bucket_end",
+      "fight_count",
+      "priced_fight_count",
+      "favourite_selections",
+      "favourite_wins",
+      "favourite_win_percentage",
+      "total_stake",
+      "total_return",
+      "net_return",
+      "average_return_per_dollar",
+      "roi_percentage",
+    ].join(","),
+  );
+  url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
+  url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: config.key,
+      authorization: `Bearer ${config.key}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase pfl_insight_aggregates read failed with HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Generates, writes, and optionally upserts today's independent prediction snapshot.
  */
 async function main() {
@@ -182,6 +225,7 @@ async function main() {
     ?? path.join(REPO_ROOT, DEFAULT_OUTPUT_DIR, `current-racing-predictions-${today}.json`);
   const historicalStats = await loadHistoricalStatsFromFixtures();
   const config = getSupabaseWriteConfig();
+  let pflHistoricalStats = null;
   let ufcHistoricalStats = null;
 
   if (config) {
@@ -196,11 +240,25 @@ async function main() {
         ? `Skipping UFC current multis: ${error.message}`
         : "Skipping UFC current multis because UFC aggregates could not be loaded.");
     }
+
+    try {
+      pflHistoricalStats = createPflHistoricalStatsFromInsightAggregates(await fetchPflInsightAggregateRows(config));
+    } catch (error) {
+      if (options.requireSupabase) {
+        throw error;
+      }
+
+      console.warn(error instanceof Error
+        ? `Skipping PFL current predictions: ${error.message}`
+        : "Skipping PFL current predictions because PFL aggregates could not be loaded.");
+    }
   }
   const output = await generateCurrentPredictionPayload({
     date: today,
     generatedAt: new Date(),
     historicalStats,
+    oddsApiKey: process.env.ODDS_API_KEY ?? process.env.THE_ODDS_API_KEY ?? null,
+    pflHistoricalStats,
     ufcHistoricalStats,
   });
 
@@ -263,7 +321,7 @@ async function main() {
     predictionSnapshotWrite = {
       ok: true,
       skipped: true,
-      reason: "Prediction window is closed because the first eligible race has started.",
+      reason: "Prediction window is closed because predictions have finalised.",
     };
     predictionWrite = {
       changed: 0,

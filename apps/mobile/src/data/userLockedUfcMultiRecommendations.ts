@@ -10,7 +10,7 @@ export type LockedUfcMultiRecommendation = {
   id: string;
   legs: UfcMultiLeg[];
   lockedAt: string;
-  lockCutoffAt: string;
+  lockCutoffAt: string | null;
   sourceCardId: string;
   sourceCardName: string;
   sourceDate: string;
@@ -23,7 +23,7 @@ export type LockedUfcMultiInput = {
   generatedAt: string | null;
   generatedAtNz: string | null;
   legs: UfcMultiLeg[];
-  lockCutoffAt: string;
+  lockCutoffAt: string | null;
   raw: Record<string, unknown>;
   recommendationType: LockedMultiTone;
   source: string;
@@ -118,6 +118,10 @@ export async function saveLockedUfcMulti(
 
   if (existing) {
     return existing;
+  }
+
+  if (!input.lockCutoffAt) {
+    throw new Error("This UFC multi does not have a lock cutoff yet.");
   }
 
   const { data, error } = await supabaseClient

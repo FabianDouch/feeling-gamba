@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-07-24"
+last_updated: "2026-08-28"
 
 purpose:
   summary: >
@@ -35,13 +35,13 @@ navigation:
         priority: secondary_required
         audience: app_user
         purpose:
-          - Toggle between Racing and UFC historical rows.
+          - Toggle between Racing, PFL, and UFC historical rows.
           - Browse races by date.
           - Filter by collected date range, country, discipline, and racecourse.
           - Let users open a three-column scrolling day/month/year selector of available Historical Data dates from the date label, while retaining previous/next arrows and quick presets for today, yesterday, last 7 available dates, and all available dates.
           - Compare field size, favourite, MarketMover, result, and payouts.
           - Load the latest 20 races across AUS/NZ/HK by default and query Supabase when filters change.
-          - Browse UFC fights by event-date range with fighter names, winner, favourite, favourite price, other fighter price, price difference, source match status, and $1 favourite return state.
+          - Browse PFL and UFC fights by event-date range with fighter names, winner, favourite, favourite price, other fighter price, price difference, source match status, and $1 favourite return state.
         components:
           - sport_selector
           - collected_date_range_picker
@@ -134,7 +134,7 @@ navigation:
         audience: app_user
         purpose:
           - Act as the default app landing page.
-          - Toggle between Racing, NRL, and UFC insight views.
+          - Toggle between Racing, NRL, PFL, and UFC insight views.
           - Summarise favourite and MarketMover outcomes.
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
@@ -147,8 +147,10 @@ navigation:
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
-          - For NRL, show fixed-win single aggregate rows by favourite, home/away, team, and round, plus official try-scorer percentage rows from nrl_insight_aggregates.
+          - For NRL, show fixed-win single aggregate rows by favourite, home/away, team, and round, official try-scorer percentage rows, and Same Game % rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
+          - Show the NRL Same Game % section before the NRL fixed-win and try-scorer singles sections.
           - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates.
+          - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates.
           - Surface missing-data counts.
           - Link users back to filtered race lists and race details.
         components:
@@ -270,25 +272,33 @@ navigation:
             place-multi payout odds.
           - >
             Show a Win % model selector with the original
-            multi_win_percentage_blend_v1 three-to-five-leg model and stricter
+            multi_win_percentage_blend_v1 two-to-five-leg model and stricter
             multi_win_percentage_60_plus_v1 and
             multi_win_percentage_65_plus_v1 models that keep only 60%+ or 65%+
-            win-score legs and can show up to 10 legs, plus
-            multi_place_percentage_v1 with up to eight place-rate legs.
+            65/35 win-score legs, plus multi_win_percentage_50_50_65_plus_v1
+            for a 50/50 price-bucket and starter-count 65%+ threshold.
+            Threshold models can generate with a minimum
+            of two legs and show up to 10 legs, plus
+            multi_place_percentage_v1 with up to eight
+            place-rate legs.
           - Show UFC 65%+, 75%+, and 85%+ single threshold model tabs under UFC Singles -> Win % alongside the existing UFC favourite-price, other-fighter-price, and price-difference single model tabs. Threshold singles list fully priced Head to Head favourites whose strongest UFC historical win-percentage signal is at least the selected threshold.
+          - Show PFL favourite-price, other-fighter-price, price-difference, 65%+, 75%+, and 85%+ Win % model tabs under the same PFL Singles/Multis hierarchy as UFC, with explicit reserved empty states until PFL historical aggregates, current fight-card collection, and PFL-specific persistence are added.
           - Show the UFC same-card percentage model selector under UFC Multis -> Win %, using favourite price, other fighter price, and price-difference bucket models.
           - Show NRL fixed-win percentage and try-scorer percentage model tabs under NRL Singles -> Win %, reading current rows from nrl_single_predictions.
           - UFC non-Win % branches should remain selectable but show explicit empty states until matching models are added.
-          - NRL non-Singles Win % branches should remain selectable but show explicit empty states until matching cash or same-game models are added.
-          - Let signed-in users lock the current percentage multi recommendation before the first eligible racing prediction race starts; after locking, show that user-owned snapshot instead of later live recommendation changes for the current source date/model.
-          - Show the percentage multi lock cutoff timestamp under every Lock button.
+          - NRL Multis -> Same Game % should expose the favourite-team plus top-two try-scorer model once same-game multi result rows exist; other unsupported NRL branches should remain selectable but show explicit empty states until matching cash or same-game models are added.
+          - Show a visible Prediction finalises before timestamp near the top of Predictions, calculated as 15 minutes before the selected sport's first race, fight, or match starts.
+          - Let signed-in users lock the current selected sport/format/type/model prediction view before that sport's finalisation cutoff; existing percentage multi locks continue to show user-owned snapshots instead of later live recommendation changes for the current source date/model.
+          - Show lock cutoff context near every lock action.
           - Show a small Multi tag on prediction variation tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.
-          - Track one pre-race multi bet recommendation per prediction model/source date for cash-only historical outcomes.
+          - Track one pre-finalisation multi bet recommendation per prediction model/source date for cash-only historical outcomes.
           - >
             Track dedicated percentage multi-only models separately from
             single-runner prediction models, including
             multi_win_percentage_blend_v1, multi_win_percentage_60_plus_v1, and
-            multi_win_percentage_65_plus_v1, plus multi_place_percentage_v1.
+            multi_win_percentage_65_plus_v1,
+            multi_win_percentage_50_50_65_plus_v1, plus
+            multi_place_percentage_v1.
           - Track candidate predictions made by independent current prediction scans.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
@@ -299,9 +309,9 @@ navigation:
           - Include an other-starters average price variation that uses 100% of the matching other-starters average fixed-win price bucket cash average and excludes $70.00+ other-starter outlier prices from the average.
           - Keep median other-starter fixed-win price as a planned follow-up field-shape signal.
           - Order current bet candidates by the active prediction variation's model-specific cashAverageScore; cash-plus-bonus remains visible as supporting context but must not drive recommendations.
-          - Use the current Auckland source date's pre-first-race prediction snapshot for current bet candidates; show a closed-window empty state if the first eligible race has started and no pre-race snapshot exists.
+          - Use the current Auckland source date's pre-finalisation prediction snapshot for current bet candidates; show a closed-window empty state if the sport-specific finalisation cutoff has passed and no same-day snapshot exists.
           - Exclude source races marked abandoned or cancelled from current Bet candidates and Multi bet recommendations.
-          - Render an existing closed-window current prediction snapshot immediately instead of attempting a stale-cache refresh that cannot replace the locked pre-race snapshot.
+          - Render an existing closed-window current prediction snapshot immediately instead of attempting a stale-cache refresh that cannot replace the finalised snapshot.
           - Keep prediction tracking statistical only, with no stake sizing or wagering action.
         components:
           - prediction_type_tabs
@@ -355,11 +365,12 @@ navigation:
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
           - Show shared Sport tabs for Racing, NRL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
-          - Show cash model tabs for Racing Cash singles and multis, 60%+ and 65%+ win singles models for Racing Singles -> Win %, percentage multi model tabs for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, UFC 65%+, 75%+, and 85%+ threshold model tabs for UFC Singles -> Win %, and UFC same-card model tabs for UFC Multis -> Win %.
+          - Show cash model tabs for Racing Cash singles and multis, 60%+ and 65%+ win singles models for Racing Singles -> Win %, percentage multi model tabs including the 50/50 65%+ model for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, UFC 65%+, 75%+, and 85%+ threshold model tabs for UFC Singles -> Win %, UFC same-card model tabs for UFC Multis -> Win %, and matching reserved PFL Win % model tabs.
           - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, including the 65%+, 75%+, and 85%+ threshold single models, with racing-only country, discipline, and racecourse filters hidden.
+          - PFL Prediction History shows the UFC-shaped PFL Win % model hierarchy as a reserved empty state until PFL prediction storage and RPCs are added.
           - NRL history branches remain explicit empty states until NRL prediction reconciliation and history RPCs are added.
-          - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, and place percentage models can be reviewed independently.
-          - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 3-5 for the original win-percentage model, top 3-10 for the 60%+/65%+ win-percentage models, top 3-8 for multi_place_percentage_v1, and top 3-8 for UFC percentage multi models.
+          - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, 50/50 65%+, and place percentage models can be reviewed independently.
+          - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 2-5 for the original win-percentage model, top 2-10 for the racing threshold win-percentage models including multi_win_percentage_50_50_65_plus_v1, top 2-8 for multi_place_percentage_v1, and top 2-8 for UFC percentage multi models.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show percentage multi date-range breakdown and history with average win score or place score labels and leg-level Won/Placed/Lost/Missed/Pending/Missing outcomes.
           - Show tracked Multi bet recommendation history with recommendation type, leg count, relevant average score, result label, and per-leg Won/Placed/Lost/Missed/Pending/Missing outcomes.
@@ -542,11 +553,11 @@ content_rules:
   - Race list rows should show missing favourite, MarketMover, result, or
     dividend data as explicit unavailable states.
   - Historical Data should remain a separate page from Insights and provide a
-    Racing/UFC sport selector. Racing should provide date, country, discipline,
+    Racing/PFL/UFC sport selector. Racing should provide date, country, discipline,
     and racecourse filters. It should load the latest 20 races across AUS/NZ/HK
-    from Supabase by default, then query Supabase with selected filters. UFC
-    should provide event-date filtering and load the latest 20 fights from
-    ufc_fight_entries by default.
+    from Supabase by default, then query Supabase with selected filters. PFL and
+    UFC should provide event-date filtering and load the latest 20 fights from
+    pfl_fight_entries or ufc_fight_entries by default.
   - Race Detail should show the snapshot timestamp used for favourite/MM when
     the data came from pre-race odds.
   - Result-page favourite rank and pre-race favourite are separate concepts.
@@ -569,6 +580,9 @@ content_rules:
     country/course scope rows.
   - UFC Insights should read ufc_insight_aggregates and show favourite price,
     other fighter price, and price-difference breakdowns. Result-only UFC rows
+    must not feed price-based denominators.
+  - PFL Insights should read pfl_insight_aggregates and show favourite price,
+    other fighter price, and price-difference breakdowns. Result-only PFL rows
     must not feed price-based denominators.
   - Recommendations should show source-backed promotion details, current race
     facts, and historical statistical signals only.
@@ -596,10 +610,10 @@ content_rules:
     model's current candidate payload. The server stores the same pre-race
     recommendation for cash-only history and leg-level settlement, without
     bonus-bet value.
-  - Predictions should let signed-in users lock one percentage multi
-    recommendation for the current source date before the first eligible racing
-    prediction race starts and keep showing the locked snapshot after later
-    pre-race refreshes.
+  - Predictions should let signed-in users lock the selected current prediction
+    view before the selected sport's finalisation cutoff. Existing percentage
+    multi locks keep showing locked snapshots after later pre-finalisation
+    refreshes.
   - The active prediction model tab must drive cash-model Predictions sections,
     current candidates, and current active-model multi recommendations.
   - The active prediction model tab must drive cash-model Prediction History
@@ -629,9 +643,8 @@ content_rules:
     or open issue rows.
   - Prediction history defaults and resets must use yesterday's source date in
     Pacific/Auckland time.
-  - Prediction refreshes must not create or store new prediction rows after the
-    first eligible race in the day's all-domestic NZ/AUS/HK prediction coverage
-    has started.
+  - Prediction refreshes must not create or store new current prediction rows
+    after the selected sport's standard finalisation cutoff has passed.
   - Prediction refreshes must exclude abandoned or cancelled source races before
     ranking current candidates, building current multis, or writing tracked
     multi-bet recommendations.

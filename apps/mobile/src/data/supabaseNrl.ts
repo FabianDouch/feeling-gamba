@@ -23,6 +23,9 @@ export type NrlInsightsData = {
   fixedWinSelectionBreakdown: NrlInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
   fixedWinTeamBreakdown: NrlInsightBreakdown[];
+  sameGameRoundBreakdown: NrlInsightBreakdown[];
+  sameGameSummaryStats: FavouriteStat[];
+  sameGameTeamBreakdown: NrlInsightBreakdown[];
   tryScorerPlayerBreakdown: NrlInsightBreakdown[];
   tryScorerSummaryStats: FavouriteStat[];
   tryScorerTeamBreakdown: NrlInsightBreakdown[];
@@ -53,7 +56,7 @@ type NrlInsightAggregateRow = {
   win_percentage: NullableNumber;
 };
 
-type NrlInsightType = "fixed_win_single" | "try_scorer_percentage";
+type NrlInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_scorer_percentage";
 
 type NrlInsightScopeType =
   | "overall"
@@ -102,6 +105,9 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     fixedWinSelectionRows,
     fixedWinTeamRows,
     fixedWinRoundRows,
+    sameGameOverallRows,
+    sameGameTeamRows,
+    sameGameRoundRows,
     tryScorerOverallRows,
     tryScorerPlayerRows,
     tryScorerTeamRows,
@@ -117,6 +123,16 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     fetchNrlAggregateRows("fixed_win_single", "season_round", {
       order: "season.desc,round_number.desc",
     }),
+    fetchNrlAggregateRows("same_game_multi_percentage", "overall", {
+      scope_key: "eq.nrl:same_game_multi_percentage:overall:favourite_top2_try_scorers",
+    }),
+    fetchNrlAggregateRows("same_game_multi_percentage", "team", {
+      limit: "12",
+      order: "selection_count.desc,team_name.asc",
+    }),
+    fetchNrlAggregateRows("same_game_multi_percentage", "season_round", {
+      order: "season.desc,round_number.desc",
+    }),
     fetchNrlAggregateRows("try_scorer_percentage", "overall"),
     fetchNrlAggregateRows("try_scorer_percentage", "player", {
       limit: "12",
@@ -127,6 +143,7 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     }),
   ]);
   const fixedWinOverall = fixedWinOverallRows[0] ?? null;
+  const sameGameOverall = sameGameOverallRows[0] ?? null;
   const tryScorerOverall = tryScorerOverallRows[0] ?? null;
 
   return {
@@ -134,10 +151,36 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     fixedWinSelectionBreakdown: fixedWinSelectionRows.map(mapFixedWinBreakdown),
     fixedWinSummaryStats: fixedWinOverall ? mapFixedWinSummaryStats(fixedWinOverall) : [],
     fixedWinTeamBreakdown: fixedWinTeamRows.map(mapFixedWinBreakdown),
+    sameGameRoundBreakdown: sameGameRoundRows.map(mapSameGameBreakdown),
+    sameGameSummaryStats: sameGameOverall ? mapSameGameSummaryStats(sameGameOverall) : [],
+    sameGameTeamBreakdown: sameGameTeamRows.map(mapSameGameBreakdown),
     tryScorerPlayerBreakdown: tryScorerPlayerRows.map(mapTryScorerBreakdown),
     tryScorerSummaryStats: tryScorerOverall ? mapTryScorerSummaryStats(tryScorerOverall) : [],
     tryScorerTeamBreakdown: tryScorerTeamRows.map(mapTryScorerBreakdown),
   };
+}
+
+/**
+ * Maps the overall same-game multi row to KPI cards.
+ */
+function mapSameGameSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.win_count} of ${row.selection_count} settled favourite-team multis landed`,
+      label: "Favourite + 2 scorers",
+      value: formatPercentage(numeric(row.win_percentage)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_return))} estimated return from ${formatCurrency(numeric(row.total_stake))} unit stake`,
+      label: "$1 estimated return",
+      value: formatReturn(numeric(row.average_return_per_dollar)),
+    },
+    {
+      detail: `${row.missing_price_count} missing try-scorer prices, ${row.pending_count} pending`,
+      label: "Same-game audit",
+      value: String(row.event_count),
+    },
+  ];
 }
 
 /**
@@ -234,6 +277,24 @@ function mapTryScorerBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown
     selections: `${row.selection_count} appearances`,
     totalReturned: "No prices",
     totalStaked: "No prices",
+    winRate: formatPercentage(numeric(row.win_percentage)),
+  };
+}
+
+/**
+ * Maps a same-game multi aggregate row to the generic NRL breakdown display model.
+ */
+function mapSameGameBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown {
+  return {
+    averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
+    detail: `${row.win_count} wins from ${row.selection_count} settled estimated multis`,
+    label: getNrlAggregateLabel(row),
+    netReturn: formatCurrency(numeric(row.net_return)),
+    pending: `${row.pending_count} pending · ${row.missing_price_count} missing prices`,
+    roi: formatPercentage(numeric(row.roi_percentage)),
+    selections: `${row.selection_count} multis`,
+    totalReturned: formatCurrency(numeric(row.total_return)),
+    totalStaked: formatCurrency(numeric(row.total_stake)),
     winRate: formatPercentage(numeric(row.win_percentage)),
   };
 }

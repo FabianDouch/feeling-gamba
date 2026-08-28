@@ -3,10 +3,12 @@ import {
 } from "../_shared/race-days-refresh-core.mjs";
 import {
   createHistoricalStatsFromInsightAggregates,
+  createPflHistoricalStatsFromInsightAggregates,
   createUfcHistoricalStatsFromInsightAggregates,
   generateCurrentPredictionPayload,
   getTodayNzDate,
   isPredictionWindowClosed,
+  isSportPredictionFinalised,
   normalizeSupabaseProjectUrl,
   SOURCE_TIME_ZONE,
   upsertMultiBetRecommendationsToSupabase,
@@ -38,7 +40,7 @@ type CurrentPredictionSnapshotRow = {
 
 type RefreshRequestBody = {
   force?: boolean;
-  sport?: "racing" | "ufc";
+  sport?: "pfl" | "racing" | "ufc";
 };
 
 /**
@@ -226,6 +228,55 @@ async function fetchUfcInsightAggregateRows(config: SupabaseConfig) {
 }
 
 /**
+ * Loads PFL price-bucket aggregate rows used by current PFL prediction models.
+ */
+async function fetchPflInsightAggregateRows(config: SupabaseConfig) {
+  const url = new URL("/rest/v1/pfl_insight_aggregates", config.url);
+  url.searchParams.set(
+    "select",
+    [
+      "scope_key",
+      "scope_type",
+      "price_bucket_label",
+      "price_bucket_start",
+      "price_bucket_end",
+      "fight_count",
+      "priced_fight_count",
+      "favourite_selections",
+      "favourite_wins",
+      "favourite_win_percentage",
+      "total_stake",
+      "total_return",
+      "net_return",
+      "average_return_per_dollar",
+      "roi_percentage",
+    ].join(","),
+  );
+  url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
+  url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: config.key,
+      authorization: `Bearer ${config.key}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase pfl_insight_aggregates read failed with HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Reads the current-odds API key used for reviewed forward PFL cards.
+ */
+function getOddsApiKey() {
+  return Deno.env.get("ODDS_API_KEY") ?? Deno.env.get("THE_ODDS_API_KEY") ?? null;
+}
+
+/**
  * Checks whether the cached prediction payload is still inside the live-racing freshness window.
  */
 function isFreshSnapshot(row: CurrentPredictionSnapshotRow | null) {
@@ -267,7 +318,7 @@ async function readRefreshRequestBody(request: Request): Promise<RefreshRequestB
 function mergePredictionPayload(
   existingPayload: unknown,
   freshPayload: Record<string, unknown>,
-  sport: "racing" | "ufc",
+  sport: "pfl" | "racing" | "ufc",
 ) {
   const existing = existingPayload && typeof existingPayload === "object"
     ? existingPayload as Record<string, unknown>
@@ -299,14 +350,47 @@ function mergePredictionPayload(
         ufcFavouritePriceBucketCount: freshStatsBasis.ufcFavouritePriceBucketCount,
         ufcOtherFighterPriceBucketCount: freshStatsBasis.ufcOtherFighterPriceBucketCount,
         ufcPriceDifferenceBucketCount: freshStatsBasis.ufcPriceDifferenceBucketCount,
+        pflBasisLabel: existingStatsBasis.pflBasisLabel ?? null,
+        pflFavouritePriceBucketCount: existingStatsBasis.pflFavouritePriceBucketCount ?? 0,
+        pflOtherFighterPriceBucketCount: existingStatsBasis.pflOtherFighterPriceBucketCount ?? 0,
+        pflPriceDifferenceBucketCount: existingStatsBasis.pflPriceDifferenceBucketCount ?? 0,
       },
       summary: {
         ...existingSummary,
         ufcRecommendations: freshSummary.ufcRecommendations,
+        pflRecommendations: existingSummary.pflRecommendations ?? 0,
       },
       ufcGeneratedAt: freshPayload.ufcGeneratedAt ?? freshPayload.generatedAt,
       ufcGeneratedAtNz: freshPayload.ufcGeneratedAtNz ?? freshPayload.generatedAtNz,
       ufcWinPercentageMultis: freshPayload.ufcWinPercentageMultis,
+      pflGeneratedAt: existing.pflGeneratedAt ?? null,
+      pflGeneratedAtNz: existing.pflGeneratedAtNz ?? null,
+      pflWinPercentageMultis: existing.pflWinPercentageMultis ?? null,
+    };
+  }
+
+  if (sport === "pfl") {
+    return {
+      ...existing,
+      generatedAt: existing.generatedAt ?? freshPayload.generatedAt,
+      generatedAtNz: existing.generatedAtNz ?? freshPayload.generatedAtNz,
+      note: freshPayload.note,
+      sourceDate: freshPayload.sourceDate,
+      sourceTimeZone: freshPayload.sourceTimeZone,
+      statsBasis: {
+        ...existingStatsBasis,
+        pflBasisLabel: freshStatsBasis.pflBasisLabel,
+        pflFavouritePriceBucketCount: freshStatsBasis.pflFavouritePriceBucketCount,
+        pflOtherFighterPriceBucketCount: freshStatsBasis.pflOtherFighterPriceBucketCount,
+        pflPriceDifferenceBucketCount: freshStatsBasis.pflPriceDifferenceBucketCount,
+      },
+      summary: {
+        ...existingSummary,
+        pflRecommendations: freshSummary.pflRecommendations,
+      },
+      pflGeneratedAt: freshPayload.pflGeneratedAt ?? freshPayload.generatedAt,
+      pflGeneratedAtNz: freshPayload.pflGeneratedAtNz ?? freshPayload.generatedAtNz,
+      pflWinPercentageMultis: freshPayload.pflWinPercentageMultis,
     };
   }
 
@@ -318,14 +402,22 @@ function mergePredictionPayload(
       ufcFavouritePriceBucketCount: existingStatsBasis.ufcFavouritePriceBucketCount ?? 0,
       ufcOtherFighterPriceBucketCount: existingStatsBasis.ufcOtherFighterPriceBucketCount ?? 0,
       ufcPriceDifferenceBucketCount: existingStatsBasis.ufcPriceDifferenceBucketCount ?? 0,
+      pflBasisLabel: existingStatsBasis.pflBasisLabel ?? null,
+      pflFavouritePriceBucketCount: existingStatsBasis.pflFavouritePriceBucketCount ?? 0,
+      pflOtherFighterPriceBucketCount: existingStatsBasis.pflOtherFighterPriceBucketCount ?? 0,
+      pflPriceDifferenceBucketCount: existingStatsBasis.pflPriceDifferenceBucketCount ?? 0,
     },
     summary: {
       ...freshSummary,
       ufcRecommendations: existingSummary.ufcRecommendations ?? 0,
+      pflRecommendations: existingSummary.pflRecommendations ?? 0,
     },
     ufcGeneratedAt: existing.ufcGeneratedAt ?? null,
     ufcGeneratedAtNz: existing.ufcGeneratedAtNz ?? null,
     ufcWinPercentageMultis: existing.ufcWinPercentageMultis ?? null,
+    pflGeneratedAt: existing.pflGeneratedAt ?? null,
+    pflGeneratedAtNz: existing.pflGeneratedAtNz ?? null,
+    pflWinPercentageMultis: existing.pflWinPercentageMultis ?? null,
   };
 }
 
@@ -369,6 +461,22 @@ Deno.serve(async (request) => {
       }) as Record<string, unknown>;
       const payload = mergePredictionPayload(latestSnapshot?.payload ?? null, freshPayload, "ufc");
 
+      if (isSportPredictionFinalised(freshPayload, "ufc")) {
+        return jsonResponse({
+          cached: Boolean(latestSnapshot),
+          generatedAt: latestSnapshot?.generated_at ?? null,
+          generatedAtNz: latestSnapshot?.generated_at_nz ?? null,
+          payload: latestSnapshot?.payload ?? null,
+          predictionFinalised: true,
+          predictionFinalisesAt: (freshPayload.ufcWinPercentageMultis as { finalisesAt?: string | null } | undefined)?.finalisesAt ?? null,
+          skipped: true,
+          skippedReason: "prediction_finalised",
+          sourceDate: freshPayload.sourceDate,
+          sourceTimeZone: SOURCE_TIME_ZONE,
+          sport: body.sport,
+        });
+      }
+
       const ufcMultiRecommendationWrite = await upsertUfcMultiRecommendationsToSupabase({
         output: payload,
         supabaseKey: config.key,
@@ -395,6 +503,59 @@ Deno.serve(async (request) => {
         sport: body.sport,
         ufcMultiRecommendationWrite,
         ufcSinglePredictionWrite,
+      });
+    }
+
+    if (body.sport === "pfl") {
+      const oddsApiKey = getOddsApiKey();
+
+      if (!oddsApiKey) {
+        throw new Error("ODDS_API_KEY or THE_ODDS_API_KEY must be configured before PFL prediction refresh can run.");
+      }
+
+      const pflAggregateRows = await fetchPflInsightAggregateRows(config);
+      const pflHistoricalStats = createPflHistoricalStatsFromInsightAggregates(pflAggregateRows);
+      const freshPayload = await generateCurrentPredictionPayload({
+        date: sourceDate,
+        generatedAt: new Date(),
+        includePfl: true,
+        includeRacing: false,
+        includeUfc: false,
+        oddsApiKey,
+        pflHistoricalStats,
+      }) as Record<string, unknown>;
+      const payload = mergePredictionPayload(latestSnapshot?.payload ?? null, freshPayload, "pfl");
+
+      if (isSportPredictionFinalised(freshPayload, "pfl")) {
+        return jsonResponse({
+          cached: Boolean(latestSnapshot),
+          generatedAt: latestSnapshot?.generated_at ?? null,
+          generatedAtNz: latestSnapshot?.generated_at_nz ?? null,
+          payload: latestSnapshot?.payload ?? null,
+          predictionFinalised: true,
+          predictionFinalisesAt: (freshPayload.pflWinPercentageMultis as { finalisesAt?: string | null } | undefined)?.finalisesAt ?? null,
+          skipped: true,
+          skippedReason: "prediction_finalised",
+          sourceDate: freshPayload.sourceDate,
+          sourceTimeZone: SOURCE_TIME_ZONE,
+          sport: body.sport,
+        });
+      }
+
+      await upsertPredictionSnapshotToSupabase({
+        output: payload,
+        supabaseKey: config.key,
+        supabaseUrl: config.url,
+      });
+
+      return jsonResponse({
+        cached: false,
+        generatedAt: payload.generatedAt,
+        generatedAtNz: payload.generatedAtNz,
+        payload,
+        sourceDate: payload.sourceDate,
+        sourceTimeZone: SOURCE_TIME_ZONE,
+        sport: body.sport,
       });
     }
 
@@ -459,16 +620,20 @@ Deno.serve(async (request) => {
       });
     }
 
-    const [aggregateRows, ufcAggregateRows] = await Promise.all([
+    const [aggregateRows, ufcAggregateRows, pflAggregateRows] = await Promise.all([
       fetchPredictionInsightAggregateRows(config),
       fetchUfcInsightAggregateRows(config),
+      fetchPflInsightAggregateRows(config),
     ]);
     const historicalStats = createHistoricalStatsFromInsightAggregates(aggregateRows);
     const ufcHistoricalStats = createUfcHistoricalStatsFromInsightAggregates(ufcAggregateRows);
+    const pflHistoricalStats = createPflHistoricalStatsFromInsightAggregates(pflAggregateRows);
     const payload = await generateCurrentPredictionPayload({
       date: sourceDate,
       generatedAt: new Date(),
       historicalStats,
+      oddsApiKey: getOddsApiKey(),
+      pflHistoricalStats,
       ufcHistoricalStats,
     });
 

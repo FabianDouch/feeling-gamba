@@ -9,11 +9,13 @@ const DOT_ENV_FILES = [".env.local", ".env"];
 const MODEL_ORIGINAL = "multi_win_percentage_blend_v1";
 const MODEL_60_PLUS = "multi_win_percentage_60_plus_v1";
 const MODEL_65_PLUS = "multi_win_percentage_65_plus_v1";
+const MODEL_50_50_65_PLUS = "multi_win_percentage_50_50_65_plus_v1";
 const MODEL_UFC_FAVOURITE = "ufc_multi_favourite_price_win_percentage_v1";
 const MODEL_UFC_OTHER = "ufc_multi_other_fighter_price_win_percentage_v1";
 const MODEL_UFC_DIFFERENCE = "ufc_multi_price_difference_win_percentage_v1";
-const RACING_MODELS = [MODEL_ORIGINAL, MODEL_60_PLUS, MODEL_65_PLUS];
+const RACING_MODELS = [MODEL_ORIGINAL, MODEL_60_PLUS, MODEL_65_PLUS, MODEL_50_50_65_PLUS];
 const UFC_MODELS = [MODEL_UFC_FAVOURITE, MODEL_UFC_OTHER, MODEL_UFC_DIFFERENCE];
+const MULTI_MIN_LEGS = 2;
 
 /**
  * Parses the small CLI surface for rebuilding generated historical backtests.
@@ -246,16 +248,15 @@ function buildRacingBacktests(rows, fromDate, toDate) {
     }
 
     const stats = buildRacingStats(priorRows);
-    const candidates = dayRows
-      .map((row) => createRacingCandidate(row, stats))
-      .filter((candidate) => Number.isFinite(candidate.winScore))
-      .sort(compareCandidates)
-      .map((candidate, index) => ({
-        ...candidate,
-        predictionRank: index + 1,
-      }));
-
     for (const model of RACING_MODELS) {
+      const candidates = dayRows
+        .map((row) => createRacingCandidate(row, stats, model))
+        .filter((candidate) => Number.isFinite(candidate.winScore))
+        .sort(compareCandidates)
+        .map((candidate, index) => ({
+          ...candidate,
+          predictionRank: index + 1,
+        }));
       const recommendation = createRacingRecommendation(date, model, candidates);
 
       if (recommendation) {
@@ -380,14 +381,17 @@ function buildBucketStats(rows, getKey, isWin) {
   return buckets;
 }
 
-function createRacingCandidate(row, stats) {
+function createRacingCandidate(row, stats, model = MODEL_ORIGINAL) {
   const priceBucketLabel = createPriceBucketLabel(getPriceBucketStart(Number(row.favourite_price)));
   const starterBucketLabel = String(row.starter_count);
   const priceBucket = stats.byPriceBucket.get(priceBucketLabel) ?? null;
   const starterBucket = stats.byStarterCount.get(starterBucketLabel) ?? null;
+  const weights = model === MODEL_50_50_65_PLUS
+    ? { price: 0.5, starter: 0.5 }
+    : { price: 0.65, starter: 0.35 };
   const winScore = weightedAverage([
-    { value: priceBucket?.winPercentage, weight: 0.65 },
-    { value: starterBucket?.winPercentage, weight: 0.35 },
+    { value: priceBucket?.winPercentage, weight: weights.price },
+    { value: starterBucket?.winPercentage, weight: weights.starter },
   ]);
 
   return {
@@ -444,7 +448,11 @@ function createUfcCandidate(row, stats, model) {
 }
 
 function createRacingRecommendation(date, model, candidates) {
-  const threshold = model === MODEL_60_PLUS ? 60 : model === MODEL_65_PLUS ? 65 : null;
+  const threshold = model === MODEL_60_PLUS
+    ? 60
+    : model === MODEL_65_PLUS || model === MODEL_50_50_65_PLUS
+      ? 65
+      : null;
   const maxLegs = threshold ? 10 : 5;
   const eligible = threshold
     ? candidates.filter((candidate) => candidate.winScore >= threshold)
@@ -476,7 +484,7 @@ function createUfcRecommendation(date, groupKey, model, candidates) {
 function getOriginalEligibleCandidates(candidates) {
   const positive = candidates.filter((candidate) => candidate.winScore >= 50);
 
-  if (positive.length >= 3) {
+  if (positive.length >= MULTI_MIN_LEGS) {
     return positive;
   }
 
@@ -484,7 +492,7 @@ function getOriginalEligibleCandidates(candidates) {
 }
 
 function createRecommendation({ candidates, groupKey, groupName, maxLegs, model, sourceDate, sport }) {
-  if (candidates.length < 3) {
+  if (candidates.length < MULTI_MIN_LEGS) {
     return null;
   }
 

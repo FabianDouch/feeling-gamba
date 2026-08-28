@@ -12,10 +12,12 @@ const BET_BACK_CANDIDATES_PER_COUNTRY_DISCIPLINE = 5;
 const MULTI_BET_MAX_LEGS = 5;
 const WIN_PERCENTAGE_THRESHOLD_MULTI_MAX_LEGS = 10;
 const PLACING_PERCENTAGE_MULTI_MAX_LEGS = 8;
-const MULTI_BET_MIN_LEGS = 3;
+const MULTI_BET_MIN_LEGS = 2;
+const PREDICTION_FINALISATION_BUFFER_MINUTES = 15;
 const WIN_PERCENTAGE_MULTI_MODEL_KEY = "multi_win_percentage_blend_v1";
 const WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_60_plus_v1";
 const WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_65_plus_v1";
+const WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentage_50_50_65_plus_v1";
 const SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY = "single_win_percentage_60_plus_v1";
 const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v1";
 const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
@@ -25,9 +27,14 @@ const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_per
 const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
 const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
-const UFC_MULTI_MIN_LEGS = 3;
+const PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY = "pfl_multi_favourite_price_win_percentage_v1";
+const PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "pfl_multi_other_fighter_price_win_percentage_v1";
+const PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "pfl_multi_price_difference_win_percentage_v1";
+const PFL_SINGLE_65_PLUS_MODEL_KEY = "pfl_single_win_percentage_65_plus_v1";
+const PFL_SINGLE_75_PLUS_MODEL_KEY = "pfl_single_win_percentage_75_plus_v1";
+const PFL_SINGLE_85_PLUS_MODEL_KEY = "pfl_single_win_percentage_85_plus_v1";
+const UFC_MULTI_MIN_LEGS = 2;
 const UFC_MULTI_MAX_LEGS = 8;
-const UFC_LOCK_CUTOFF_BUFFER_MINUTES = 15;
 const UFC_SINGLE_THRESHOLD_MODEL_CONFIGS = [
   {
     key: UFC_SINGLE_65_PLUS_MODEL_KEY,
@@ -43,6 +50,76 @@ const UFC_SINGLE_THRESHOLD_MODEL_CONFIGS = [
     key: UFC_SINGLE_85_PLUS_MODEL_KEY,
     label: "UFC 85%+ win singles",
     threshold: 85,
+  },
+];
+const PFL_SINGLE_THRESHOLD_MODEL_CONFIGS = [
+  {
+    key: PFL_SINGLE_65_PLUS_MODEL_KEY,
+    label: "PFL 65%+ win singles",
+    threshold: 65,
+  },
+  {
+    key: PFL_SINGLE_75_PLUS_MODEL_KEY,
+    label: "PFL 75%+ win singles",
+    threshold: 75,
+  },
+  {
+    key: PFL_SINGLE_85_PLUS_MODEL_KEY,
+    label: "PFL 85%+ win singles",
+    threshold: 85,
+  },
+];
+const PFL_THE_ODDS_API_SPORT_KEY = "mma_mixed_martial_arts";
+const PFL_REVIEWED_EVENT_ALLOWLIST = [
+  {
+    date: "2026-10-02",
+    id: "pfl-mena-11-2026",
+    location: "Riyadh, KSA",
+    name: "PFL MENA 11",
+    pairs: [
+      ["Ylies Djiroun", "Basel Ahmed Shalaan"],
+      ["Mohammad Fahmi", "Ahmed El Sisy"],
+      ["Omar Hussein", "Abdelkrim Zouad"],
+      ["Badreddine Diani", "Hazem Kayyali"],
+      ["Hamza Kooheji", "Elias Boudegzdame"],
+      ["Shadi Kabbani", "Mehdi Saadi"],
+      ["Hassan Shaaban", "Assem Ghanem"],
+      ["Mostafa Rashed Nada", "Osama ElSeady"],
+    ],
+    reviewSources: [
+      "https://www.sherdog.com/events/Professional-Fighters-League-PFL-MENA-11-2026-Semifinals-113638",
+    ],
+  },
+  {
+    date: "2026-10-10",
+    id: "pfl-africa-morocco-2026",
+    location: "Casablanca, Morocco",
+    name: "PFL Africa Morocco",
+    pairs: [
+      ["Abdoulaye Kane", "Badr Medkouri"],
+      ["Karim Henniene", "Raphael Uchegbu"],
+      ["Shido Boris Esperanca", "Peace Nguphane"],
+      ["Patrick Ocheme", "Cornel Thompson"],
+      ["Rivaldo Pereira", "David Samuel"],
+      ["Demba Seck", "Hussain Al Kurdi"],
+      ["Dwight Joseph", "Boule Godogo"],
+    ],
+    reviewSources: [
+      "https://pflmma.com/news/pfl-africa-sets-semifinal-matchups-for-morocco",
+      "https://www.sherdog.com/events/Professional-Fighters-League-PFL-Africa-3-2026-Playoffs-113283",
+    ],
+  },
+  {
+    date: "2026-10-16",
+    id: "pfl-chicago-2-2026",
+    location: "Chicago, Illinois",
+    name: "PFL Chicago 2 - 2026",
+    pairs: [
+      ["Liz Carmouche", "Jena Bishop"],
+    ],
+    reviewSources: [
+      "https://pflmma.com/news/pfl-chicago-returns-to-the-wintrust-arena-on-october-16-to-crown-the-inaugural-pfl-womens-flyweight-world-champion",
+    ],
   },
 ];
 const RACING_RACE_CARD_FETCH_CONCURRENCY = 8;
@@ -731,6 +808,13 @@ function createMultiBetRecommendationRowsFromPayload(output) {
       modelKey: WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
       threshold: 65,
     }),
+    createWinPercentageThresholdMultiBetRecommendationRow(output, {
+      label: "50/50 65%+ win-rate signal",
+      modelKey: WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
+      priceWeight: 0.5,
+      starterWeight: 0.5,
+      threshold: 65,
+    }),
     createPlacingPercentageMultiBetRecommendationRow(output),
   ].filter(Boolean);
 
@@ -777,19 +861,21 @@ function createWinPercentageMultiBetRecommendationRow(output) {
 /**
  * Creates a stricter tracked win-percentage multi from candidates above a score threshold.
  */
-function createWinPercentageThresholdMultiBetRecommendationRow(output, { label, modelKey, threshold }) {
+function createWinPercentageThresholdMultiBetRecommendationRow(
+  output,
+  { label, modelKey, priceWeight = 0.65, starterWeight = 0.35, threshold },
+) {
   const candidates = (output.betBackCandidates?.winPercentageMultiCandidates ?? [])
-    .filter((candidate) =>
-      candidate.winPercentageMultiCandidate
-      && Number(candidate.winPercentageMultiCandidate.winScore ?? -Infinity) >= threshold)
+    .filter((candidate) => candidate.winPercentageMultiCandidate)
     .map((candidate) => ({
       ...candidate,
       candidate: {
-        ...candidate.winPercentageMultiCandidate,
+        ...createWinPercentageMultiCandidate(candidate, priceWeight, starterWeight),
         label,
         tone: "positive",
       },
-    }));
+    }))
+    .filter((candidate) => Number(candidate.candidate?.winScore ?? -Infinity) >= threshold);
 
   return createMultiBetRecommendationFromLegs(
     output,
@@ -1079,7 +1165,7 @@ export async function upsertPromotionPredictionsToSupabase({ output, supabaseKey
     return {
       changed: 0,
       ok: true,
-      reason: "Prediction window is closed because the first eligible race has started.",
+      reason: "Prediction window is closed because predictions have finalised.",
       skipped: true,
       total: 0,
     };
@@ -1164,7 +1250,7 @@ export async function upsertMultiBetRecommendationsToSupabase({ output, supabase
     return {
       changed: 0,
       ok: true,
-      reason: "Prediction window is closed because the first eligible race has started.",
+      reason: "Prediction window is closed because predictions have finalised.",
       skipped: true,
       total: 0,
     };
@@ -1290,6 +1376,7 @@ function getPredictionPayloadModelKeys(output) {
     WIN_PERCENTAGE_MULTI_MODEL_KEY,
     WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
     WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+    WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
     PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   ];
 }
@@ -1727,6 +1814,16 @@ export async function upsertUfcMultiRecommendationsToSupabase({ output, supabase
     };
   }
 
+  if (isSportPredictionFinalised(output, "ufc")) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Skipped because UFC predictions have finalised.",
+      skipped: true,
+      total: 0,
+    };
+  }
+
   const rows = createUfcMultiRecommendationRowsFromPayload(output);
   const source = output.ufcWinPercentageMultis?.source ?? "betcha";
   const sourceDate = output.sourceDate;
@@ -1834,6 +1931,16 @@ export async function upsertUfcSinglePredictionsToSupabase({ output, supabaseKey
     return {
       changed: 0,
       ok: false,
+      skipped: true,
+      total: 0,
+    };
+  }
+
+  if (isSportPredictionFinalised(output, "ufc")) {
+    return {
+      changed: 0,
+      ok: true,
+      reason: "Skipped because UFC predictions have finalised.",
       skipped: true,
       total: 0,
     };
@@ -1947,19 +2054,41 @@ function getEarliestIsoDate(values) {
 }
 
 /**
+ * Applies the standard prediction finalisation buffer to a sport's first start.
+ */
+export function getPredictionFinalisesAt(firstStart) {
+  if (!firstStart) {
+    return null;
+  }
+
+  const startTime = new Date(firstStart).valueOf();
+
+  if (!Number.isFinite(startTime)) {
+    return null;
+  }
+
+  return new Date(startTime - (PREDICTION_FINALISATION_BUFFER_MINUTES * 60 * 1000)).toISOString();
+}
+
+/**
  * Decides whether a prediction refresh is still allowed to create stored rows.
  */
 export function createPredictionWindowStatus({ firstRaceStart, generatedAt }) {
   const firstRaceStartTime = firstRaceStart ? new Date(firstRaceStart).valueOf() : null;
+  const finalisesAt = getPredictionFinalisesAt(firstRaceStart);
+  const finalisesAtTime = finalisesAt ? new Date(finalisesAt).valueOf() : null;
   const generatedAtTime = new Date(generatedAt).valueOf();
-  const isClosed = Number.isFinite(firstRaceStartTime) && generatedAtTime >= firstRaceStartTime;
+  const isClosed = Number.isFinite(finalisesAtTime) && generatedAtTime >= finalisesAtTime;
 
   return {
+    finalisesAt,
+    finalisesAtNz: formatNzDateTimeOrNull(finalisesAt),
     firstRaceStart,
     firstRaceStartNz: formatNzDateTimeOrNull(firstRaceStart),
-    generatedBeforeFirstRace: !isClosed,
+    generatedBeforeFinalisation: !isClosed,
+    generatedBeforeFirstRace: Number.isFinite(firstRaceStartTime) ? generatedAtTime < firstRaceStartTime : !isClosed,
     isClosed,
-    skippedReason: isClosed ? "first_race_started" : null,
+    skippedReason: isClosed ? "prediction_finalised" : null,
     status: isClosed ? "closed" : "open",
   };
 }
@@ -1977,6 +2106,46 @@ export function isPredictionWindowClosed(output) {
     firstRaceStart: output.betBackCandidates?.firstEligibleRaceStart ?? null,
     generatedAt: output.generatedAt,
   }).isClosed;
+}
+
+/**
+ * Reads the sport-specific finalisation timestamp from the current prediction payload.
+ */
+export function getSportPredictionFinalisesAt(output, sport) {
+  if (sport === "racing") {
+    return output?.predictionWindow?.finalisesAt
+      ?? getPredictionFinalisesAt(output?.betBackCandidates?.firstEligibleRaceStart);
+  }
+
+  if (sport === "ufc") {
+    return output?.ufcWinPercentageMultis?.finalisesAt
+      ?? getPredictionFinalisesAt(output?.ufcWinPercentageMultis?.firstFightStart);
+  }
+
+  if (sport === "pfl") {
+    return output?.pflWinPercentageMultis?.finalisesAt
+      ?? getPredictionFinalisesAt(output?.pflWinPercentageMultis?.firstFightStart);
+  }
+
+  return null;
+}
+
+/**
+ * Prevents sport-specific current prediction rows from being replaced after finalisation.
+ */
+export function isSportPredictionFinalised(output, sport) {
+  const finalisesAt = getSportPredictionFinalisesAt(output, sport);
+
+  if (!finalisesAt) {
+    return false;
+  }
+
+  const generatedAtTime = new Date(output?.generatedAt ?? Date.now()).valueOf();
+  const finalisesAtTime = new Date(finalisesAt).valueOf();
+
+  return Number.isFinite(generatedAtTime)
+    && Number.isFinite(finalisesAtTime)
+    && generatedAtTime >= finalisesAtTime;
 }
 
 /**
@@ -2872,11 +3041,11 @@ export function createHistoricalStatsFromInsightAggregates(rows) {
 }
 
 /**
- * Adapts UFC aggregate rows into bucket maps used by the current UFC prediction models.
+ * Adapts combat-sport aggregate rows into bucket maps used by current fight prediction models.
  */
-export function createUfcHistoricalStatsFromInsightAggregates(rows) {
+function createCombatHistoricalStatsFromInsightAggregates(rows, sportLabel) {
   const stats = {
-    basisLabel: `${rows?.length ?? 0} stored UFC insight aggregate rows`,
+    basisLabel: `${rows?.length ?? 0} stored ${sportLabel} insight aggregate rows`,
     byFavouritePriceBucket: {},
     byOtherFighterPriceBucket: {},
     byPriceDifferenceBucket: {},
@@ -2910,6 +3079,20 @@ export function createUfcHistoricalStatsFromInsightAggregates(rows) {
   }
 
   return stats;
+}
+
+/**
+ * Adapts UFC aggregate rows into bucket maps used by the current UFC prediction models.
+ */
+export function createUfcHistoricalStatsFromInsightAggregates(rows) {
+  return createCombatHistoricalStatsFromInsightAggregates(rows, "UFC");
+}
+
+/**
+ * Adapts PFL aggregate rows into bucket maps used by the current PFL prediction models.
+ */
+export function createPflHistoricalStatsFromInsightAggregates(rows) {
+  return createCombatHistoricalStatsFromInsightAggregates(rows, "PFL");
 }
 
 /**
@@ -3939,8 +4122,112 @@ function createUfcCandidateSignals(candidate, ufcHistoricalStats) {
   };
 }
 
+/**
+ * Builds PFL model signals from the sport's own historical insight buckets.
+ */
+function createPflCandidateSignals(candidate, pflHistoricalStats) {
+  const favouritePriceBucket = candidate.predictedFighter?.priceBucket ?? null;
+  const otherFighterPriceBucket = candidate.otherFighter?.priceBucket ?? null;
+  const favouriteBucket = favouritePriceBucket
+    ? pflHistoricalStats.byFavouritePriceBucket[favouritePriceBucket] ?? null
+    : null;
+  const otherBucket = otherFighterPriceBucket
+    ? pflHistoricalStats.byOtherFighterPriceBucket[otherFighterPriceBucket] ?? null
+    : null;
+  const differenceBucket = pflHistoricalStats.byPriceDifferenceBucket[candidate.priceDifferenceBucket] ?? null;
+
+  return {
+    [PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY]: createCombatModelSignal(
+      favouriteBucket,
+      favouritePriceBucket,
+      "favourite price bucket",
+      "PFL",
+    ),
+    [PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: createCombatModelSignal(
+      otherBucket,
+      otherFighterPriceBucket,
+      "other fighter price bucket",
+      "PFL",
+    ),
+    [PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: createCombatModelSignal(
+      differenceBucket,
+      candidate.priceDifferenceBucket,
+      "price difference bucket",
+      "PFL",
+    ),
+  };
+}
+
+/**
+ * Labels combat-sport bucket win-rate signals without tying copy to one promotion.
+ */
+function createCombatWinPercentageSignal(bucket, scopeLabel, sportLabel) {
+  const score = Number.isFinite(Number(bucket?.favouriteWinPercentage))
+    ? Number(bucket.favouriteWinPercentage)
+    : null;
+  const sampleSize = Number(bucket?.favouriteSelections ?? 0);
+
+  if (score === null) {
+    return {
+      detail: `Matching ${sportLabel} win-rate data is limited. Scope: ${scopeLabel}.`,
+      label: `Limited ${sportLabel} history`,
+      tone: "neutral",
+    };
+  }
+
+  if (sampleSize < 10) {
+    return {
+      detail: `${sportLabel} win-rate data is available, but the sample size is small. Scope: ${scopeLabel}.`,
+      label: `Small ${sportLabel} sample`,
+      tone: "neutral",
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      detail: `Historical ${sportLabel} favourite win rate is at least 50% for ${scopeLabel}.`,
+      label: `Positive ${sportLabel} win-rate signal`,
+      tone: "positive",
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      detail: `Historical ${sportLabel} favourite win rate is at least 40% for ${scopeLabel}.`,
+      label: `Neutral ${sportLabel} win-rate signal`,
+      tone: "neutral",
+    };
+  }
+
+  return {
+    detail: `Historical ${sportLabel} favourite win rate is below 40% for ${scopeLabel}.`,
+    label: `Weak ${sportLabel} win-rate signal`,
+    tone: "caution",
+  };
+}
+
 function createUfcModelSignal(bucket, bucketLabel, basisLabel) {
   const signal = createUfcWinPercentageSignal(bucket, `${basisLabel} ${bucketLabel ?? "unknown"}`);
+
+  return {
+    bucketLabel: bucket?.label ?? bucketLabel ?? null,
+    bucketSampleSize: bucket?.favouriteSelections ?? 0,
+    bucketWinPercentage: bucket?.favouriteWinPercentage ?? null,
+    cashAverageScore: bucket?.favouriteWinPercentage ?? null,
+    detail: signal.detail,
+    label: signal.label,
+    sampleSize: bucket?.favouriteSelections ?? 0,
+    score: bucket?.favouriteWinPercentage ?? null,
+    tone: signal.tone,
+    winScore: bucket?.favouriteWinPercentage ?? null,
+  };
+}
+
+/**
+ * Converts one combat-sport historical bucket into a model signal payload.
+ */
+function createCombatModelSignal(bucket, bucketLabel, basisLabel, sportLabel) {
+  const signal = createCombatWinPercentageSignal(bucket, `${basisLabel} ${bucketLabel ?? "unknown"}`, sportLabel);
 
   return {
     bucketLabel: bucket?.label ?? bucketLabel ?? null,
@@ -4046,9 +4333,7 @@ function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, gen
   const averageWinScore = legs.reduce((total, leg) =>
     total + Number(leg.modelSignal?.winScore ?? 0), 0) / legs.length;
   const firstFightStart = getEarliestIsoDate(legs.map((leg) => leg.advertisedStart));
-  const lockCutoffAt = firstFightStart
-    ? new Date(new Date(firstFightStart).valueOf() - (UFC_LOCK_CUTOFF_BUFFER_MINUTES * 60 * 1000)).toISOString()
-    : null;
+  const lockCutoffAt = getPredictionFinalisesAt(firstFightStart);
   const recommendation = {
     averageWinScore: Number.isFinite(averageWinScore) ? Number(averageWinScore.toFixed(4)) : null,
     cardId: card.id,
@@ -4293,11 +4578,16 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
   }));
   const allModels = [...models, ...thresholdSingleModels];
   const firstFightStart = getEarliestIsoDate(
-    models.flatMap((model) => model.recommendations.map((recommendation) => recommendation.firstFightStart)),
+    allModels.flatMap((model) => [
+      ...model.recommendations.map((recommendation) => recommendation.firstFightStart),
+      ...(model.singleCandidates ?? []).map((candidate) => candidate.advertisedStart),
+    ]),
   );
 
   return {
     errors,
+    finalisesAt: getPredictionFinalisesAt(firstFightStart),
+    finalisesAtNz: formatNzDateTimeOrNull(getPredictionFinalisesAt(firstFightStart)),
     firstFightStart,
     modelCount: allModels.length,
     models: allModels,
@@ -4306,6 +4596,441 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
     scannedCompetitionCount: leagues.length,
     scannedUfcCardCount: ufcLeagues.length,
     source: source.source,
+  };
+}
+
+/**
+ * Produces strict-but-tolerant PFL fighter name keys for reviewed pair matching.
+ */
+function getPflNameMatchKeys(value) {
+  const normalized = normalizeName(value);
+  const tokens = normalized.split(" ").filter(Boolean);
+  const keys = new Set([normalized]);
+
+  if (tokens.length >= 2) {
+    keys.add(`${tokens[0]} ${tokens[tokens.length - 1]}`);
+  }
+
+  return keys;
+}
+
+/**
+ * Checks whether two PFL fighter names match exactly or by first/last name.
+ */
+function arePflNamesCompatible(left, right) {
+  const leftKeys = getPflNameMatchKeys(left);
+  const rightKeys = getPflNameMatchKeys(right);
+
+  return Array.from(leftKeys).some((key) => rightKeys.has(key));
+}
+
+/**
+ * Matches an unordered Odds API fighter pair against one reviewed PFL pair.
+ */
+function isReviewedPflPair(leftName, rightName, pair) {
+  return (
+    arePflNamesCompatible(leftName, pair[0])
+    && arePflNamesCompatible(rightName, pair[1])
+  ) || (
+    arePflNamesCompatible(leftName, pair[1])
+    && arePflNamesCompatible(rightName, pair[0])
+  );
+}
+
+/**
+ * Allows timezone drift between listed PFL event dates and odds commence times.
+ */
+function isWithinReviewedPflEventWindow(commenceTime, sourceDate) {
+  const commenceMs = new Date(commenceTime).valueOf();
+  const reviewedMs = new Date(`${sourceDate}T12:00:00Z`).valueOf();
+
+  if (!Number.isFinite(commenceMs) || !Number.isFinite(reviewedMs)) {
+    return false;
+  }
+
+  return Math.abs(commenceMs - reviewedMs) <= 36 * 60 * 60 * 1000;
+}
+
+/**
+ * Finds the reviewed PFL event/pair identity for a generic MMA odds event.
+ */
+function findReviewedPflMatch(oddsEvent) {
+  const leftName = oddsEvent.home_team;
+  const rightName = oddsEvent.away_team;
+
+  if (!leftName || !rightName || !oddsEvent.commence_time) {
+    return null;
+  }
+
+  for (const event of PFL_REVIEWED_EVENT_ALLOWLIST) {
+    if (!isWithinReviewedPflEventWindow(oddsEvent.commence_time, event.date)) {
+      continue;
+    }
+
+    const pair = event.pairs.find((candidatePair) =>
+      isReviewedPflPair(leftName, rightName, candidatePair));
+
+    if (pair) {
+      return {
+        event,
+        pair,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Calculates a median decimal price across available current bookmaker outcomes.
+ */
+function getMedianNumber(values) {
+  const sorted = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 1)
+    .sort((left, right) => left - right);
+
+  if (!sorted.length) {
+    return null;
+  }
+
+  const middle = Math.floor(sorted.length / 2);
+
+  return sorted.length % 2
+    ? Number(sorted[middle].toFixed(2))
+    : Number(((sorted[middle - 1] + sorted[middle]) / 2).toFixed(2));
+}
+
+/**
+ * Extracts every matching H2H decimal price for one fighter from The Odds API.
+ */
+function getTheOddsApiOutcomePrices(oddsEvent, fighterName) {
+  const targetNames = getPflNameMatchKeys(fighterName);
+  const prices = [];
+
+  for (const bookmaker of oddsEvent.bookmakers ?? []) {
+    const h2hMarket = (bookmaker.markets ?? []).find((market) => market.key === "h2h");
+
+    for (const outcome of h2hMarket?.outcomes ?? []) {
+      if (Array.from(getPflNameMatchKeys(outcome.name)).some((key) => targetNames.has(key))) {
+        prices.push(Number(outcome.price));
+      }
+    }
+  }
+
+  return prices;
+}
+
+/**
+ * Maps a reviewed current PFL odds event into the shared fight candidate shape.
+ */
+function mapPflFightCandidate(oddsEvent, reviewMatch) {
+  const leftPrice = getMedianNumber(getTheOddsApiOutcomePrices(oddsEvent, oddsEvent.home_team));
+  const rightPrice = getMedianNumber(getTheOddsApiOutcomePrices(oddsEvent, oddsEvent.away_team));
+
+  if (!Number.isFinite(leftPrice) || !Number.isFinite(rightPrice)) {
+    return null;
+  }
+
+  const left = {
+    entrantId: `${oddsEvent.id}:${normalizeName(oddsEvent.home_team)}`,
+    fixedWinPrice: leftPrice,
+    name: oddsEvent.home_team,
+    priceId: null,
+    role: "home",
+  };
+  const right = {
+    entrantId: `${oddsEvent.id}:${normalizeName(oddsEvent.away_team)}`,
+    fixedWinPrice: rightPrice,
+    name: oddsEvent.away_team,
+    priceId: null,
+    role: "away",
+  };
+  const favourite = left.fixedWinPrice <= right.fixedWinPrice ? left : right;
+  const otherFighter = favourite === left ? right : left;
+  const favouriteBucket = createUfcBucketLabel(getPriceBucketStart(favourite.fixedWinPrice));
+  const otherFighterBucket = createUfcBucketLabel(getPriceBucketStart(otherFighter.fixedWinPrice));
+  const priceDifference = Number((otherFighter.fixedWinPrice - favourite.fixedWinPrice).toFixed(2));
+  const priceDifferenceBucket = createUfcBucketLabel(getUfcPriceDifferenceBucketStart(priceDifference));
+  const reviewedEvent = reviewMatch.event;
+
+  return {
+    advertisedStart: oddsEvent.commence_time,
+    cardId: reviewedEvent.id,
+    cardName: reviewedEvent.name,
+    cardSlug: reviewedEvent.id,
+    eventId: oddsEvent.id,
+    fightName: `${oddsEvent.home_team} vs ${oddsEvent.away_team}`,
+    marketId: `${oddsEvent.id}:h2h`,
+    otherFighter: {
+      ...otherFighter,
+      priceBucket: otherFighterBucket,
+    },
+    priceDifference,
+    priceDifferenceBucket,
+    predictedFighter: {
+      ...favourite,
+      impliedWinPercentage: Number(((1 / favourite.fixedWinPrice) * 100).toFixed(2)),
+      priceBucket: favouriteBucket,
+    },
+    raw: {
+      oddsEventId: oddsEvent.id,
+      reviewedEventId: reviewedEvent.id,
+      reviewedEventSources: reviewedEvent.reviewSources,
+    },
+    status: "OPEN",
+  };
+}
+
+/**
+ * Builds one PFL same-card multi recommendation from ranked fight candidates.
+ */
+function createPflMultiRecommendation(card, candidates, modelKey, scopeType, generatedAt, sourceDate) {
+  const rankedCandidates = rankUfcCandidatesForModel(candidates, modelKey);
+
+  if (rankedCandidates.length < UFC_MULTI_MIN_LEGS) {
+    return null;
+  }
+
+  const legs = rankedCandidates.slice(0, UFC_MULTI_MAX_LEGS).map((leg) => ({
+    ...leg,
+    fightName: leg.fightName,
+    otherEntrantId: leg.otherFighter?.entrantId ?? null,
+    otherFighterName: leg.otherFighter?.name ?? null,
+    otherFixedWinPrice: leg.otherFighter?.fixedWinPrice ?? null,
+    predictedEntrantId: leg.predictedFighter?.entrantId ?? null,
+    predictedFighterName: leg.predictedFighter?.name ?? null,
+    predictedFixedWinPrice: leg.predictedFighter?.fixedWinPrice ?? null,
+    signal: leg.modelSignal,
+    sourceEventId: leg.eventId,
+    sourceMarketId: leg.marketId,
+  }));
+  const combinedFixedWinPrice = legs.reduce((total, leg) =>
+    total * Number(leg.predictedFighter.fixedWinPrice ?? 0), 1);
+  const averageWinScore = legs.reduce((total, leg) =>
+    total + Number(leg.modelSignal?.winScore ?? 0), 0) / legs.length;
+  const firstFightStart = getEarliestIsoDate(legs.map((leg) => leg.advertisedStart));
+  const lockCutoffAt = getPredictionFinalisesAt(firstFightStart);
+
+  return {
+    averageWinScore: Number.isFinite(averageWinScore) ? Number(averageWinScore.toFixed(4)) : null,
+    cardId: card.id,
+    cardName: card.name,
+    cardSlug: card.id,
+    combinedFixedWinPrice: Number.isFinite(combinedFixedWinPrice) ? Number(combinedFixedWinPrice.toFixed(2)) : null,
+    firstFightStart,
+    generatedAt,
+    legCount: legs.length,
+    legs,
+    lockCutoffAt,
+    modelKey,
+    predictedAt: generatedAt,
+    recommendationType: "positive",
+    scopeType,
+    source: "reviewed_pfl_current_odds",
+    sourceCardId: card.id,
+    sourceCardName: card.name,
+    sourceCardSlug: card.id,
+    sourceDate,
+    sourceTimeZone: SOURCE_TIME_ZONE,
+  };
+}
+
+/**
+ * Builds PFL single candidates whose strongest model signal clears a threshold.
+ */
+function createPflThresholdSinglePredictionCandidates(card, candidates, threshold) {
+  return candidates
+    .map((candidate) => {
+      const signalEntries = [
+        PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+        PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+        PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+      ]
+        .map((modelKey) => ({
+          modelKey,
+          signal: candidate.modelSignals?.[modelKey] ?? null,
+        }))
+        .filter((entry) =>
+          Number.isFinite(entry.signal?.winScore)
+          && ["neutral", "positive"].includes(entry.signal?.tone)
+          && Number(entry.signal?.winScore) >= threshold);
+      const strongest = signalEntries.sort((left, right) =>
+        Number(right.signal?.winScore ?? -Infinity) - Number(left.signal?.winScore ?? -Infinity))[0];
+
+      return strongest && candidate.predictedFighter?.fixedWinPrice
+        ? {
+            ...candidate,
+            modelSignal: {
+              ...strongest.signal,
+              detail: `${threshold}%+ PFL single from ${strongest.signal.detail}`,
+              label: `${threshold}%+ win-rate single`,
+              sourceModelKey: strongest.modelKey,
+              tone: "positive",
+            },
+          }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const rightScore = right.modelSignal?.winScore ?? -Infinity;
+      const leftScore = left.modelSignal?.winScore ?? -Infinity;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return new Date(left.advertisedStart).valueOf()
+        - new Date(right.advertisedStart).valueOf();
+    })
+    .map((candidate, index) => ({
+      advertisedStart: candidate.advertisedStart,
+      fightName: candidate.fightName,
+      otherEntrantId: candidate.otherFighter?.entrantId ?? null,
+      otherFighterName: candidate.otherFighter?.name ?? null,
+      otherFixedWinPrice: candidate.otherFighter?.fixedWinPrice ?? null,
+      predictedEntrantId: candidate.predictedFighter?.entrantId ?? null,
+      predictedFighterName: candidate.predictedFighter?.name ?? null,
+      predictedFixedWinPrice: candidate.predictedFighter?.fixedWinPrice ?? null,
+      priceDifference: candidate.priceDifference,
+      predictionRank: index + 1,
+      signal: candidate.modelSignal,
+      sourceCardId: card.id,
+      sourceCardName: card.name,
+      sourceCardSlug: card.id,
+      sourceEventId: candidate.eventId,
+      sourceMarketId: candidate.marketId,
+    }));
+}
+
+/**
+ * Loads current MMA H2H odds; PFL filtering happens only after reviewed matching.
+ */
+async function fetchPflCurrentOdds(apiKey) {
+  const url = new URL(`https://api.the-odds-api.com/v4/sports/${PFL_THE_ODDS_API_SPORT_KEY}/odds/`);
+  url.searchParams.set("apiKey", apiKey);
+  url.searchParams.set("regions", "au,us");
+  url.searchParams.set("markets", "h2h");
+  url.searchParams.set("oddsFormat", "decimal");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Current PFL odds fetch failed with HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Generates current PFL prediction models from allow-listed card/fighter matches.
+ */
+async function fetchPflPredictionMultis(apiKey, pflHistoricalStats, generatedAt, sourceDate) {
+  if (!apiKey || !pflHistoricalStats) {
+    return null;
+  }
+
+  const oddsEvents = await fetchPflCurrentOdds(apiKey);
+  const matchedCards = new Map();
+
+  for (const oddsEvent of oddsEvents ?? []) {
+    const reviewMatch = findReviewedPflMatch(oddsEvent);
+
+    if (!reviewMatch) {
+      continue;
+    }
+
+    const candidate = mapPflFightCandidate(oddsEvent, reviewMatch);
+
+    if (!candidate) {
+      continue;
+    }
+
+    const card = reviewMatch.event;
+    const cardResult = matchedCards.get(card.id) ?? {
+      card: {
+        id: card.id,
+        name: card.name,
+      },
+      candidates: [],
+      rawEventCount: 0,
+    };
+
+    cardResult.rawEventCount += 1;
+    cardResult.candidates.push({
+      ...candidate,
+      modelSignals: createPflCandidateSignals(candidate, pflHistoricalStats),
+    });
+    matchedCards.set(card.id, cardResult);
+  }
+
+  const cardResults = Array.from(matchedCards.values());
+  const modelConfigs = [
+    {
+      key: PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+      label: "PFL favourite price",
+      scopeType: "favourite_price_bucket",
+    },
+    {
+      key: PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+      label: "PFL other fighter price",
+      scopeType: "other_fighter_price_bucket",
+    },
+    {
+      key: PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+      label: "PFL price difference",
+      scopeType: "price_difference_bucket",
+    },
+  ];
+  const models = modelConfigs.map((model) => ({
+    ...model,
+    recommendations: cardResults
+      .map(({ card, candidates }) => createPflMultiRecommendation(
+        card,
+        candidates,
+        model.key,
+        model.scopeType,
+        generatedAt,
+        sourceDate,
+      ))
+      .filter(Boolean),
+    singleCandidates: cardResults.flatMap(({ card, candidates }) =>
+      createUfcSinglePredictionCandidates(card, candidates, model.key)),
+  }));
+  const thresholdSingleModels = PFL_SINGLE_THRESHOLD_MODEL_CONFIGS.map((model) => ({
+    description: `Tracks each current PFL favourite whose strongest historical PFL win-percentage signal is at least ${model.threshold}%.`,
+    key: model.key,
+    label: model.label,
+    recommendations: [],
+    singleCandidates: cardResults.flatMap(({ card, candidates }) =>
+      createPflThresholdSinglePredictionCandidates(card, candidates, model.threshold)),
+  }));
+  const allModels = [...models, ...thresholdSingleModels];
+  const firstFightStart = getEarliestIsoDate(
+    allModels.flatMap((model) => [
+      ...model.recommendations.map((recommendation) => recommendation.firstFightStart),
+      ...(model.singleCandidates ?? []).map((candidate) => candidate.advertisedStart),
+    ]),
+  );
+
+  return {
+    errors: [],
+    finalisesAt: getPredictionFinalisesAt(firstFightStart),
+    finalisesAtNz: formatNzDateTimeOrNull(getPredictionFinalisesAt(firstFightStart)),
+    firstFightStart,
+    matchedPflFightCount: cardResults.reduce((total, card) => total + card.candidates.length, 0),
+    modelCount: allModels.length,
+    models: allModels,
+    note: "PFL win percentage candidates are built only from current fixed-win MMA odds that match the reviewed PFL event allow-list by event date and fighter pair.",
+    provider: "Reviewed PFL current odds",
+    reviewedPflEventCount: PFL_REVIEWED_EVENT_ALLOWLIST.length,
+    scannedCompetitionCount: oddsEvents?.length ?? 0,
+    scannedPflCardCount: cardResults.length,
+    source: "reviewed_pfl_current_odds",
   };
 }
 
@@ -4631,7 +5356,10 @@ export async function generateCurrentPredictionPayload({
   generatedAt = new Date(),
   historicalStats,
   includeRacing = true,
+  includePfl = true,
   includeUfc = true,
+  oddsApiKey = null,
+  pflHistoricalStats = null,
   ufcHistoricalStats = null,
 } = {}) {
   if (includeRacing && !historicalStats) {
@@ -4646,6 +5374,9 @@ export async function generateCurrentPredictionPayload({
   const ufcWinPercentageMultis = includeUfc && betchaSource && ufcHistoricalStats
     ? await fetchUfcPredictionMultis(betchaSource, ufcHistoricalStats, generatedAtIso, date)
     : null;
+  const pflWinPercentageMultis = includePfl && oddsApiKey && pflHistoricalStats
+    ? await fetchPflPredictionMultis(oddsApiKey, pflHistoricalStats, generatedAtIso, date)
+    : null;
   const predictionWindow = createPredictionWindowStatus({
     firstRaceStart: betBackCandidates?.firstEligibleRaceStart ?? null,
     generatedAt,
@@ -4655,7 +5386,7 @@ export async function generateCurrentPredictionPayload({
     betBackCandidates,
     generatedAt: generatedAtIso,
     generatedAtNz: formatNzDateTime(generatedAt),
-    note: "Current prediction candidates are generated from public Betcha race cards, UFC fight cards, and stored historical aggregates. Signals are statistical comparisons only, not staking advice or automated wagering instructions.",
+    note: "Current prediction candidates are generated from public racing cards, UFC fight cards, reviewed PFL current odds, and stored historical aggregates. Signals are statistical comparisons only, not staking advice or automated wagering instructions.",
     sourceDate: date,
     sourceTimeZone: SOURCE_TIME_ZONE,
     sources: [],
@@ -4666,6 +5397,10 @@ export async function generateCurrentPredictionPayload({
       otherStartersAveragePriceBucketCount: Object.keys(historicalStats?.byOtherStartersAveragePriceBucket ?? {}).length,
       priceBucketCount: Object.keys(historicalStats?.byPriceBucket ?? {}).length,
       starterBucketCount: Object.keys(historicalStats?.byStarterCount ?? {}).length,
+      pflBasisLabel: pflHistoricalStats?.basisLabel ?? null,
+      pflFavouritePriceBucketCount: Object.keys(pflHistoricalStats?.byFavouritePriceBucket ?? {}).length,
+      pflOtherFighterPriceBucketCount: Object.keys(pflHistoricalStats?.byOtherFighterPriceBucket ?? {}).length,
+      pflPriceDifferenceBucketCount: Object.keys(pflHistoricalStats?.byPriceDifferenceBucket ?? {}).length,
       ufcBasisLabel: ufcHistoricalStats?.basisLabel ?? null,
       ufcFavouritePriceBucketCount: Object.keys(ufcHistoricalStats?.byFavouritePriceBucket ?? {}).length,
       ufcOtherFighterPriceBucketCount: Object.keys(ufcHistoricalStats?.byOtherFighterPriceBucket ?? {}).length,
@@ -4677,11 +5412,18 @@ export async function generateCurrentPredictionPayload({
       raceSpecificPromotions: 0,
       racingPromotions: 0,
       sources: 0,
+      pflRecommendations: pflWinPercentageMultis?.models.reduce(
+        (total, model) => total + model.recommendations.length,
+        0,
+      ) ?? 0,
       ufcRecommendations: ufcWinPercentageMultis?.models.reduce(
         (total, model) => total + model.recommendations.length,
         0,
       ) ?? 0,
     },
+    pflGeneratedAt: pflWinPercentageMultis ? generatedAtIso : null,
+    pflGeneratedAtNz: pflWinPercentageMultis ? formatNzDateTime(generatedAt) : null,
+    pflWinPercentageMultis,
     ufcGeneratedAt: ufcWinPercentageMultis ? generatedAtIso : null,
     ufcGeneratedAtNz: ufcWinPercentageMultis ? formatNzDateTime(generatedAt) : null,
     ufcWinPercentageMultis,

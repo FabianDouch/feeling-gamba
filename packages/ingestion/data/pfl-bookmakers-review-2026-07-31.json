@@ -1,0 +1,131 @@
+{
+  "eventDate": "2026-07-31",
+  "eventName": "PFL New York: Nurmagomedov vs. Colgan",
+  "location": "UBS Arena, Elmont, New York, United States",
+  "priceSource": "bookmakers_review_indexed_page",
+  "priceSourceUrl": "https://www.bookmakersreview.com/odds/pfl/",
+  "priceRegion": "us",
+  "priceSampleAt": "2026-07-31T23:59:00Z",
+  "resultSources": [
+    "https://www.mmafighting.com/fight-results/pfl",
+    "https://pflmena.com/news/complete-pfl-new-york-presented-by-arkham-results",
+    "https://www.sherdog.com/events/Professional-Fighters-League-PFL-New-York-Nurmagomedov-vs-Colgan-113081"
+  ],
+  "fights": [
+    {
+      "fighterOneName": "Levan Khabalaev",
+      "fighterTwoName": "Chamy Delva",
+      "winnerName": "Levan Khabalaev",
+      "finishType": "TKO",
+      "finishDetails": "Knees and punches",
+      "finishRound": 1,
+      "totalFightTimeSeconds": 104,
+      "fighterOneOpeningMoneyline": -600,
+      "fighterTwoOpeningMoneyline": 350,
+      "fighterOneBookmakerMoneylines": [-1080, -750, -1080, -879, -750, -725, -818],
+      "fighterTwoBookmakerMoneylines": [700, 534, 550, 599, 534, 490, 539]
+    },
+    {
+      "fighterOneName": "Omar El Dafrawy",
+      "fighterTwoName": "Jonathan Piersma",
+      "winnerName": "Omar El Dafrawy",
+      "finishType": "Decision",
+      "finishDetails": "Unanimous decision",
+      "finishRound": 3,
+      "totalFightTimeSeconds": 900,
+      "fighterOneOpeningMoneyline": 135,
+      "fighterTwoOpeningMoneyline": -175,
+      "fighterOneBookmakerMoneylines": [149, 129, 140, 139, 130, 129, 139, 131],
+      "fighterTwoBookmakerMoneylines": [-170, -149, -170, -165, -165, -149, -172, -160]
+    },
+    {
+      "fighterOneName": "Archie Colgan",
+      "fighterTwoName": "Usman Nurmagomedov",
+      "winnerName": "Usman Nurmagomedov",
+      "finishType": "TKO",
+      "finishDetails": "Kick and punches",
+      "finishRound": 1,
+      "totalFightTimeSeconds": 222,
+      "fighterOneOpeningMoneyline": 300,
+      "fighterTwoOpeningMoneyline": -500,
+      "fighterOneBookmakerMoneylines": [600, 639, 485, 593, 550, 639, 480, 585],
+      "fighterTwoBookmakerMoneylines": [-900, -950, -900, -847, -900, -950, -725, -916]
+    },
+    {
+      "fighterOneName": "Denise Kielholtz",
+      "fighterTwoName": "Dakota Ditcheva",
+      "winnerName": "Dakota Ditcheva",
+      "finishType": "Decision",
+      "finishDetails": "Unanimous decision",
+      "finishRound": 3,
+      "totalFightTimeSeconds": 900,
+      "fighterOneOpeningMoneyline": 700,
+      "fighterTwoOpeningMoneyline": -1800,
+      "fighterOneBookmakerMoneylines": [2000, 2500, 2000, 1898, 800, 2500, 1462],
+      "fighterTwoBookmakerMoneylines": [-10000, -5000, -10000, -8547, -1600, -5000, -5988]
+    },
+    {
+      "fighterOneName": "Angel Alvarez",
+      "fighterTwoName": "Amru Magomedov",
+      "winnerName": "Amru Magomedov",
+      "finishType": "TKO",
+      "finishDetails": "Punches",
+      "finishRound": 2,
+      "totalFightTimeSeconds": 568,
+      "fighterOneOpeningMoneyline": 700,
+      "fighterTwoOpeningMoneyline": -1800,
+      "fighterOneBookmakerMoneylines": [2500, 2000, 14980, 1344, 2000, 2000, 1311],
+      "fighterTwoBookmakerMoneylines": [-15000, -4000, -15000, -3155, -10000, -4000, -4202]
+    },
+    {
+      "fighterOneName": "Lazaro Dayron",
+      "fighterTwoName": "Raufeon Stots",
+      "winnerName": "Lazaro Dayron",
+      "finishType": "Decision",
+      "finishDetails": "Split decision",
+      "finishRound": 3,
+      "totalFightTimeSeconds": 900,
+      "fighterOneOpeningMoneyline": -150,
+      "fighterTwoOpeningMoneyline": 110,
+      "fighterOneBookmakerMoneylines": [-151, -155, -151, -158, -150, -155, -162, -162],
+      "fighterTwoBookmakerMoneylines": [131, 135, 121, 134, 120, 135, 132, 133]
+    },
+    {
+      "fighterOneName": "Allan Begosso",
+      "fighterTwoName": "Sean Gauci",
+      "winnerName": "Sean Gauci",
+      "finishType": "Decision",
+      "finishDetails": "Unanimous decision",
+      "finishRound": 3,
+      "totalFightTimeSeconds": 900,
+      "fighterOneOpeningMoneyline": 130,
+      "fighterTwoOpeningMoneyline": -170,
+      "fighterOneBookmakerMoneylines": [280, 245, 240, 251, 230, 245, 226, 280],
+      "fighterTwoBookmakerMoneylines": [-350, -300, -310, -307, -310, -300, -290, -365]
+    },
+    {
+      "fighterOneName": "Tatiana Postarnakova",
+      "fighterTwoName": "Montana De La Rosa",
+      "winnerName": "Tatiana Postarnakova",
+      "finishType": "Decision",
+      "finishDetails": "Split decision",
+      "finishRound": 3,
+      "totalFightTimeSeconds": 900,
+      "fighterOneOpeningMoneyline": -290,
+      "fighterTwoOpeningMoneyline": 190,
+      "fighterOneBookmakerMoneylines": [-215, -230, -220, -227, -230, -270, -242],
+      "fighterTwoBookmakerMoneylines": [183, 192, 170, 191, 192, 212, 194]
+    },
+    {
+      "fighterOneName": "Moustapha Diakhate",
+      "fighterTwoName": "Darryl Walker",
+      "winnerName": "Moustapha Diakhate",
+      "finishType": "TKO",
+      "finishDetails": "Punches",
+      "finishRound": 1,
+      "totalFightTimeSeconds": 155,
+      "fighterOneBookmakerMoneylines": [],
+      "fighterTwoBookmakerMoneylines": []
+    }
+  ]
+}

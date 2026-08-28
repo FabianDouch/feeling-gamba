@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -5,6 +6,12 @@ import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import { useAuth } from "../data/authSession";
 import {
   DEFAULT_PREDICTION_MODEL_KEY,
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+  PFL_SINGLE_65_PLUS_MODEL_KEY,
+  PFL_SINGLE_75_PLUS_MODEL_KEY,
+  PFL_SINGLE_85_PLUS_MODEL_KEY,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   SINGLE_WIN_PERCENTAGE_60_PLUS_MODEL_KEY,
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
@@ -15,7 +22,9 @@ import {
   UFC_SINGLE_85_PLUS_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
+  isPflPercentageMultiModel,
   isUfcPercentageMultiModel,
   type PredictionModelKey,
   type WinPercentageMultiModelKey,
@@ -56,6 +65,19 @@ import {
   type LockedUfcMultiRecommendation,
 } from "../data/userLockedUfcMultiRecommendations";
 import {
+  fetchLockedCurrentPrediction,
+  saveLockedCurrentPrediction,
+  type LockedCurrentPrediction,
+} from "../data/userLockedCurrentPredictions";
+import {
+  deleteUserFavouritePredictionModel,
+  fetchUserFavouritePredictionModels,
+  isFavouritePredictionModel,
+  registerPredictionPushToken,
+  saveUserFavouritePredictionModel,
+  type UserFavouritePredictionModel,
+} from "../data/userPredictionNotifications";
+import {
   fetchUserRaceBets,
   formatBookmaker,
   isUserRaceBetLogged,
@@ -65,6 +87,7 @@ import {
 } from "../data/userRaceBets";
 
 const PROMOTION_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
+const PREDICTION_FINALISATION_BUFFER_MS = 15 * 60 * 1000;
 
 type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfigured";
 
@@ -83,10 +106,17 @@ type MultiBetRecommendation = {
   tone: "neutral" | "positive";
 };
 
+type PredictionFinalisationStatus = {
+  finalised: boolean;
+  finalisesAt: string | null;
+  firstStartAt: string | null;
+  sportLabel: string;
+};
+
 const MULTI_BET_MAX_LEGS = 5;
 const WIN_PERCENTAGE_THRESHOLD_MAX_LEGS = 10;
 const PLACING_PERCENTAGE_MAX_LEGS = 8;
-const MULTI_BET_MIN_LEGS = 3;
+const MULTI_BET_MIN_LEGS = 2;
 const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelKey, string>> = {
   [UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "UFC favourite price",
   [UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "UFC other fighter price",
@@ -94,6 +124,12 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
   [UFC_SINGLE_65_PLUS_MODEL_KEY]: "65%+ win",
   [UFC_SINGLE_75_PLUS_MODEL_KEY]: "75%+ win",
   [UFC_SINGLE_85_PLUS_MODEL_KEY]: "85%+ win",
+  [PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "PFL favourite price",
+  [PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "PFL other fighter price",
+  [PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: "PFL price difference",
+  [PFL_SINGLE_65_PLUS_MODEL_KEY]: "65%+ win",
+  [PFL_SINGLE_75_PLUS_MODEL_KEY]: "75%+ win",
+  [PFL_SINGLE_85_PLUS_MODEL_KEY]: "85%+ win",
 };
 
 /**
@@ -127,6 +163,14 @@ export function BetCandidatesSection({
   const [lockedMultiError, setLockedMultiError] = useState<string | null>(null);
   const [isLockingWinPercentageMulti, setIsLockingWinPercentageMulti] = useState(false);
   const [lockingUfcCardId, setLockingUfcCardId] = useState<string | null>(null);
+  const [lockedCurrentPrediction, setLockedCurrentPrediction] = useState<LockedCurrentPrediction | null>(null);
+  const [isLockingCurrentPrediction, setIsLockingCurrentPrediction] = useState(false);
+  const [lockedCurrentPredictionMessage, setLockedCurrentPredictionMessage] = useState<string | null>(null);
+  const [lockedCurrentPredictionError, setLockedCurrentPredictionError] = useState<string | null>(null);
+  const [favouritePredictionModels, setFavouritePredictionModels] = useState<UserFavouritePredictionModel[]>([]);
+  const [isSavingPredictionNotification, setIsSavingPredictionNotification] = useState(false);
+  const [predictionNotificationMessage, setPredictionNotificationMessage] = useState<string | null>(null);
+  const [predictionNotificationError, setPredictionNotificationError] = useState<string | null>(null);
   const [selectedDisciplineCode, setSelectedDisciplineCode] = useState<string | null>(null);
   const betCandidateScan = payload?.betBackCandidates ?? null;
   const selectedModelRun = betCandidateScan?.models?.find((model) => model.key === predictionModelKey) ?? null;
@@ -135,7 +179,10 @@ export function BetCandidatesSection({
   const placingCandidatePool = betCandidateScan?.placingCandidates ?? betCandidates;
   const winPercentageMultiCandidatePool = getWinPercentageMultiCandidatePool(betCandidateScan, betCandidates);
   const isUfcWinPercentageMulti = isUfcPercentageMultiModel(winPercentageMultiModelKey);
+  const isPflWinPercentageModel = isPflPercentageMultiModel(winPercentageMultiModelKey);
   const activeUfcModelRun = payload?.ufcWinPercentageMultis?.models?.find((model) =>
+    model.key === winPercentageMultiModelKey) ?? null;
+  const activePflModelRun = payload?.pflWinPercentageMultis?.models?.find((model) =>
     model.key === winPercentageMultiModelKey) ?? null;
   const candidateGroups = groupBetCandidatesByCountryAndDiscipline(betCandidates, selectedModelKey);
   const multiBetRecommendation = buildMultiBetRecommendation(betCandidates, selectedModelKey);
@@ -144,7 +191,7 @@ export function BetCandidatesSection({
     winPercentageMultiCandidatePool,
     predictionModelKey,
   );
-  const winPercentageMultiRecommendation = isUfcWinPercentageMulti
+  const winPercentageMultiRecommendation = isUfcWinPercentageMulti || isPflWinPercentageModel
     ? null
     : buildPercentageMultiBetRecommendation(
       isPlacingPercentageMultiModel(winPercentageMultiModelKey)
@@ -161,9 +208,54 @@ export function BetCandidatesSection({
   const modelScoreLabel = "Cash avg score";
   const activeSnapshotGeneratedAt = predictionSport === "ufc"
     ? payload?.ufcGeneratedAt ?? snapshotGeneratedAt
+    : predictionSport === "pfl"
+      ? payload?.pflGeneratedAt ?? snapshotGeneratedAt
     : snapshotGeneratedAt;
   const cacheAgeMs = activeSnapshotGeneratedAt ? Date.now() - new Date(activeSnapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
+  const finalisationStatus = getPredictionFinalisationStatus({
+    nrlPredictions,
+    payload,
+    predictionSport,
+  });
+  const currentPredictionModel = getCurrentPredictionModel({
+    nrlSinglePredictionModelKey,
+    predictionFormat,
+    predictionModelKey,
+    predictionSport,
+    predictionType,
+    winPercentageMultiModelKey,
+  });
+  const currentPredictionFavouriteKey = {
+    modelKey: currentPredictionModel,
+    predictionFormat,
+    predictionSport,
+    predictionType,
+  };
+  const currentPredictionNotificationEnabled = isFavouritePredictionModel(
+    favouritePredictionModels,
+    currentPredictionFavouriteKey,
+  );
+  const currentPredictionSourceDate = predictionSport === "nrl"
+    ? nrlPredictions?.sourceDate ?? null
+    : payload?.sourceDate ?? null;
+  const currentPredictionGeneratedAt = predictionSport === "nrl"
+    ? nrlPredictions?.generatedAt ?? null
+    : activeSnapshotGeneratedAt;
+  const currentPredictionGeneratedAtNz = predictionSport === "nrl"
+    ? null
+    : predictionSport === "ufc"
+      ? payload?.ufcGeneratedAtNz ?? payload?.generatedAtNz ?? null
+      : predictionSport === "pfl"
+        ? payload?.pflGeneratedAtNz ?? payload?.generatedAtNz ?? null
+        : payload?.generatedAtNz ?? null;
+  const currentPredictionLockDisabledReason = getCurrentPredictionLockDisabledReason({
+    finalisesAt: finalisationStatus.finalisesAt,
+    hasCurrentView: Boolean(predictionSport === "nrl" ? nrlPredictions : payload),
+    isLocked: Boolean(lockedCurrentPrediction),
+    isSignedIn: Boolean(user),
+    sourceDate: currentPredictionSourceDate,
+  });
   const sourceDate = payload?.sourceDate ?? null;
   const racingLockCutoffAt = getRacingLockCutoffAt(payload);
   const candidatesAreStale = Boolean(payload)
@@ -184,6 +276,70 @@ export function BetCandidatesSection({
     predictionSport,
     predictionType,
   });
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadFavouritePredictionModels() {
+      if (!user) {
+        setFavouritePredictionModels([]);
+        return;
+      }
+
+      try {
+        const favourites = await fetchUserFavouritePredictionModels();
+
+        if (isActive) {
+          setFavouritePredictionModels(favourites);
+        }
+      } catch (error) {
+        if (isActive) {
+          setPredictionNotificationError(error instanceof Error ? error.message : "Prediction notification favourites failed to load.");
+        }
+      }
+    }
+
+    loadFavouritePredictionModels();
+
+    return () => {
+      isActive = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    setPredictionNotificationMessage(null);
+    setPredictionNotificationError(null);
+  }, [currentPredictionModel, predictionFormat, predictionSport, predictionType]);
+
+  async function toggleCurrentPredictionNotification() {
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+
+    try {
+      setIsSavingPredictionNotification(true);
+      setPredictionNotificationError(null);
+      setPredictionNotificationMessage(null);
+
+      if (currentPredictionNotificationEnabled) {
+        await deleteUserFavouritePredictionModel(currentPredictionFavouriteKey);
+        setFavouritePredictionModels((current) => current.filter((favourite) =>
+          !isFavouritePredictionModel([favourite], currentPredictionFavouriteKey)));
+        setPredictionNotificationMessage("Finalised notification removed for this model.");
+        return;
+      }
+
+      await registerPredictionPushToken();
+      await saveUserFavouritePredictionModel(currentPredictionFavouriteKey);
+      setFavouritePredictionModels(await fetchUserFavouritePredictionModels());
+      setPredictionNotificationMessage("You will be notified when this model finalises with an active prediction.");
+    } catch (error) {
+      setPredictionNotificationError(error instanceof Error ? error.message : "Could not update prediction notifications.");
+    } finally {
+      setIsSavingPredictionNotification(false);
+    }
+  }
 
   useEffect(() => {
     let isActive = true;
@@ -255,7 +411,7 @@ export function BetCandidatesSection({
 
         if (!latestSnapshot && hasPredictionRefreshEndpoint) {
           setIsRequestingRefresh(true);
-          setRefreshMessage("Requesting today's pre-race bet candidates.");
+          setRefreshMessage("Requesting today's pre-finalisation bet candidates.");
           let refreshedPayload: RecommendationPayload | null = null;
 
           try {
@@ -362,7 +518,7 @@ export function BetCandidatesSection({
     let isActive = true;
 
     async function loadLockedWinPercentageMulti() {
-      if (!user || !sourceDate || isUfcWinPercentageMulti) {
+      if (!user || !sourceDate || predictionSport !== "racing") {
         setLockedWinPercentageMulti(null);
         return;
       }
@@ -385,7 +541,7 @@ export function BetCandidatesSection({
     return () => {
       isActive = false;
     };
-  }, [isUfcWinPercentageMulti, sourceDate, user, winPercentageMultiModelKey]);
+  }, [predictionSport, sourceDate, user, winPercentageMultiModelKey]);
 
   useEffect(() => {
     let isActive = true;
@@ -421,6 +577,48 @@ export function BetCandidatesSection({
     };
   }, [activeUfcModelRun, isUfcWinPercentageMulti, sourceDate, user, winPercentageMultiModelKey]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadLockedCurrentPrediction() {
+      if (!user || !currentPredictionSourceDate) {
+        setLockedCurrentPrediction(null);
+        return;
+      }
+
+      try {
+        const locked = await fetchLockedCurrentPrediction({
+          predictionFormat,
+          predictionModel: currentPredictionModel,
+          predictionSport,
+          predictionType,
+          sourceDate: currentPredictionSourceDate,
+        });
+
+        if (isActive) {
+          setLockedCurrentPrediction(locked);
+        }
+      } catch (error) {
+        if (isActive) {
+          setLockedCurrentPredictionError(error instanceof Error ? error.message : "Locked current prediction failed to load.");
+        }
+      }
+    }
+
+    loadLockedCurrentPrediction();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    currentPredictionModel,
+    currentPredictionSourceDate,
+    predictionFormat,
+    predictionSport,
+    predictionType,
+    user,
+  ]);
+
   async function refreshCandidates() {
     if (!hasSupabasePredictionCacheConfig) {
       setRefreshMessage("Supabase is not configured for bet candidates.");
@@ -429,7 +627,11 @@ export function BetCandidatesSection({
 
     try {
       setIsRequestingRefresh(true);
-      setRefreshMessage(predictionSport === "ufc" ? "Requesting fresh UFC multis." : "Requesting fresh bet candidates.");
+      setRefreshMessage(predictionSport === "ufc"
+        ? "Requesting fresh UFC multis."
+        : predictionSport === "pfl"
+          ? "Requesting fresh PFL predictions."
+          : "Requesting fresh bet candidates.");
       setLoadError(null);
       let refreshError: Error | null = null;
       let refreshedPayload: RecommendationPayload | null = null;
@@ -469,16 +671,69 @@ export function BetCandidatesSection({
       setStatus("supabase");
       setRefreshMessage(latestSnapshot.sourceTable === "current_promotion_snapshots"
         ? "Prediction cache table is not deployed yet. Showing latest promotion snapshot temporarily."
-        : refreshError
-          ? `Prediction refresh failed, but cached candidates loaded: ${refreshError.message}`
-          : hasPredictionRefreshEndpoint
-            ? predictionSport === "ufc" ? "Fresh UFC multis loaded." : "Fresh bet candidates loaded."
+          : refreshError
+            ? `Prediction refresh failed, but cached candidates loaded: ${refreshError.message}`
+            : hasPredictionRefreshEndpoint
+            ? predictionSport === "ufc"
+              ? "Fresh UFC multis loaded."
+              : predictionSport === "pfl"
+                ? "Fresh PFL predictions loaded."
+                : "Fresh bet candidates loaded."
             : "Supabase cache rechecked. Configure EXPO_PUBLIC_PREDICTION_REFRESH_URL to generate new candidates from the app.");
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Could not refresh bet candidates.");
       setStatus("error");
     } finally {
       setIsRequestingRefresh(false);
+    }
+  }
+
+  async function lockCurrentPredictionView() {
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+
+    if (lockedCurrentPrediction) {
+      setLockedCurrentPredictionMessage(`Current view locked from ${formatDateTime(lockedCurrentPrediction.lockedAt)}.`);
+      return;
+    }
+
+    const payloadToLock = predictionSport === "nrl" ? nrlPredictions : payload;
+
+    if (!payloadToLock) {
+      setLockedCurrentPredictionError("No current prediction view is available to lock.");
+      return;
+    }
+
+    if (!isBeforeLockCutoff(finalisationStatus.finalisesAt)) {
+      setLockedCurrentPredictionError("Prediction locking has closed for this sport.");
+      return;
+    }
+
+    try {
+      setIsLockingCurrentPrediction(true);
+      setLockedCurrentPredictionError(null);
+      setLockedCurrentPredictionMessage(null);
+      const locked = await saveLockedCurrentPrediction({
+        generatedAt: currentPredictionGeneratedAt,
+        generatedAtNz: currentPredictionGeneratedAtNz,
+        lockCutoffAt: finalisationStatus.finalisesAt,
+        payload: payloadToLock,
+        predictionFormat,
+        predictionModel: currentPredictionModel,
+        predictionSport,
+        predictionType,
+        sourceDate: currentPredictionSourceDate,
+        sourceTimeZone: payload?.sourceTimeZone ?? SOURCE_TIME_ZONE,
+      });
+
+      setLockedCurrentPrediction(locked);
+      setLockedCurrentPredictionMessage(`Locked current view from ${formatDateTime(locked.lockedAt)}.`);
+    } catch (error) {
+      setLockedCurrentPredictionError(error instanceof Error ? error.message : "Could not lock current prediction view.");
+    } finally {
+      setIsLockingCurrentPrediction(false);
     }
   }
 
@@ -511,7 +766,7 @@ export function BetCandidatesSection({
     }
 
     if (!isBeforeLockCutoff(racingLockCutoffAt)) {
-      setLockedMultiError("Percentage multi locking closes when the first eligible race starts.");
+      setLockedMultiError("Percentage multi locking closes when predictions finalise.");
       return;
     }
 
@@ -593,6 +848,11 @@ export function BetCandidatesSection({
               {payload?.ufcWinPercentageMultis?.models.reduce((total, model) =>
                 total + model.recommendations.length, 0) ?? 0} card recommendations
             </Text>
+          ) : predictionSport === "pfl" ? (
+            <Text style={styles.sectionNote}>
+              {payload?.pflWinPercentageMultis?.scannedPflCardCount ?? 0} reviewed PFL cards matched ·{" "}
+              {payload?.pflWinPercentageMultis?.matchedPflFightCount ?? 0} priced fights
+            </Text>
           ) : (
             <Text style={styles.sectionNote}>
               {betCandidateScan?.scannedRaceCount ?? 0} current races scanned ·{" "}
@@ -609,15 +869,35 @@ export function BetCandidatesSection({
             <Text style={styles.sectionNote}>
               {isLoadingNrlPredictions ? "Loading NRL predictions" : "Loaded from NRL single prediction rows"}
             </Text>
+          ) : predictionSport === "pfl" ? (
+            <Text style={styles.sectionNote}>
+              {payload?.pflWinPercentageMultis
+                ? "Loaded from reviewed PFL current odds"
+                : "PFL current odds are not in this snapshot yet"}
+            </Text>
           ) : (
             <>
               <Text style={styles.sectionNote}>{statusLabel}</Text>
               <Text style={styles.sectionNote}>
                 Snapshot age {formatCacheAge(cacheAgeMs)}
-                {predictionWindowClosedNow ? " · pre-race snapshot locked" : " · refresh before first race"}
+                {predictionWindowClosedNow ? " · prediction finalised" : " · refresh before finalisation"}
               </Text>
             </>
           )}
+          <PredictionFinalisationNotice status={finalisationStatus} />
+          <CurrentPredictionLockControl
+            disabledReason={currentPredictionLockDisabledReason}
+            isLocked={Boolean(lockedCurrentPrediction)}
+            isLocking={isLockingCurrentPrediction}
+            lockedAt={lockedCurrentPrediction?.lockedAt ?? null}
+            onLock={lockCurrentPredictionView}
+          />
+          <PredictionNotificationControl
+            enabled={currentPredictionNotificationEnabled}
+            isSaving={isSavingPredictionNotification || isSigningIn}
+            onToggle={toggleCurrentPredictionNotification}
+            userIsSignedIn={Boolean(user)}
+          />
         </View>
         {predictionSport === "nrl" ? null : (
           <Pressable
@@ -635,10 +915,10 @@ export function BetCandidatesSection({
         )}
       </View>
 
-      {predictionSport !== "nrl" && candidatesAreStale ? (
+      {predictionSport !== "nrl" && predictionSport !== "pfl" && candidatesAreStale ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
-            Bet candidates were captured before the first eligible race, but prices may have changed. Refresh before the first race starts.
+            Bet candidates were captured before finalisation, but prices may still change while the window is open. Refresh before predictions finalise.
           </Text>
           {!hasPredictionRefreshEndpoint ? (
             <Text style={styles.staleStateText}>
@@ -649,10 +929,10 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionSport !== "nrl" && predictionWindowClosedNow ? (
+      {predictionSport !== "nrl" && predictionSport !== "pfl" && predictionWindowClosedNow ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
-            Prediction window is closed for today. Showing the stored pre-race snapshot captured before {payload?.predictionWindow?.firstRaceStartNz ?? "the first eligible race"}.
+            Prediction window is closed for today. Showing the stored snapshot captured before {payload?.predictionWindow?.finalisesAtNz ?? payload?.predictionWindow?.finalisesAt ?? "finalisation"}.
           </Text>
         </View>
       ) : null}
@@ -669,12 +949,46 @@ export function BetCandidatesSection({
       ) : lockedMultiMessage ? (
         <Text style={styles.contextText}>{lockedMultiMessage}</Text>
       ) : null}
+      {lockedCurrentPredictionError ? (
+        <Text style={styles.errorText}>{lockedCurrentPredictionError}</Text>
+      ) : lockedCurrentPredictionMessage ? (
+        <Text style={styles.contextText}>{lockedCurrentPredictionMessage}</Text>
+      ) : null}
+      {predictionNotificationError ? (
+        <Text style={styles.errorText}>{predictionNotificationError}</Text>
+      ) : predictionNotificationMessage ? (
+        <Text style={styles.contextText}>{predictionNotificationMessage}</Text>
+      ) : null}
 
       {predictionSport === "racing" && predictionType === "cash" ? (
         <SignalGuide modelKey={selectedModelKey} modelLabel={selectedModelRun?.label ?? "Global bucket blend"} />
       ) : null}
 
-      {predictionSport === "nrl" ? (
+      {predictionSport === "pfl" ? (
+        predictionType === "win_percentage" ? (
+          predictionFormat === "singles" ? (
+            <UfcWinPercentageSinglesPanel
+              modelKey={winPercentageMultiModelKey}
+              modelRun={activePflModelRun}
+              sportLabel="PFL"
+            />
+          ) : (
+            <UfcWinPercentageMultiRecommendationsPanel
+              isSigningIn={false}
+              lockedMultis={{}}
+              lockingCardId={null}
+              locksEnabled={false}
+              modelKey={winPercentageMultiModelKey}
+              modelRun={activePflModelRun}
+              onLock={() => undefined}
+              sportLabel="PFL"
+              userIsSignedIn={false}
+            />
+          )
+        ) : (
+          <StateMessage text={unsupportedBranchMessage ?? "No PFL models are tracked for this branch yet."} />
+        )
+      ) : predictionSport === "nrl" ? (
         predictionFormat === "singles" && predictionType === "win_percentage" ? (
           <NrlSinglePredictionsPanel
             errorMessage={nrlPredictionError}
@@ -693,6 +1007,7 @@ export function BetCandidatesSection({
           <UfcWinPercentageSinglesPanel
             modelKey={winPercentageMultiModelKey}
             modelRun={activeUfcModelRun}
+            sportLabel="UFC"
           />
         ) : predictionFormat === "singles" ? (
           <WinPercentageSinglesPanel
@@ -707,6 +1022,7 @@ export function BetCandidatesSection({
             modelKey={winPercentageMultiModelKey}
             modelRun={activeUfcModelRun}
             onLock={lockUfcPercentageMulti}
+            sportLabel="UFC"
             userIsSignedIn={Boolean(user)}
           />
         ) : (
@@ -919,6 +1235,10 @@ function getUnsupportedPredictionBranchMessage({
     return `No UFC ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
 
+  if (predictionSport === "pfl" && predictionType !== "win_percentage") {
+    return `No PFL ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
+  }
+
   if (predictionSport === "nrl" && (predictionFormat !== "singles" || predictionType !== "win_percentage")) {
     return `No NRL ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
@@ -1031,16 +1351,19 @@ type WinPercentageMultiRecommendationPanelProps = {
 type UfcWinPercentageMultiRecommendationsPanelProps = {
   isSigningIn: boolean;
   lockedMultis: Record<string, LockedUfcMultiRecommendation>;
+  locksEnabled?: boolean;
   lockingCardId: string | null;
   modelKey: WinPercentageMultiModelKey;
   modelRun: UfcWinPercentageMultiModelRun | null;
   onLock: (recommendation: UfcMultiRecommendation) => void;
+  sportLabel?: "PFL" | "UFC";
   userIsSignedIn: boolean;
 };
 
 type UfcWinPercentageSinglesPanelProps = {
   modelKey: WinPercentageMultiModelKey;
   modelRun: UfcWinPercentageMultiModelRun | null;
+  sportLabel?: "PFL" | "UFC";
 };
 
 /**
@@ -1325,10 +1648,12 @@ function WinPercentageMultiRecommendationPanel({
 function UfcWinPercentageMultiRecommendationsPanel({
   isSigningIn,
   lockedMultis,
+  locksEnabled = true,
   lockingCardId,
   modelKey,
   modelRun,
   onLock,
+  sportLabel = "UFC",
   userIsSignedIn,
 }: UfcWinPercentageMultiRecommendationsPanelProps) {
   const recommendations = modelRun?.recommendations ?? [];
@@ -1340,19 +1665,21 @@ function UfcWinPercentageMultiRecommendationsPanel({
           <Text style={styles.multiTitle}>{getPercentageMultiDisplayLabel(modelKey)} recommendation</Text>
           <Text style={styles.multiContext}>
             {recommendations.length
-              ? `${recommendations.length} UFC fight card${recommendations.length === 1 ? "" : "s"} with same-card H2H legs`
-              : "Needs at least 3 fully priced Head to Head fights on the same UFC card"}
+              ? `${recommendations.length} ${sportLabel} fight card${recommendations.length === 1 ? "" : "s"} with same-card H2H legs`
+              : `Needs at least ${MULTI_BET_MIN_LEGS} fully priced Head to Head fights on the same ${sportLabel} card`}
           </Text>
         </View>
       </View>
 
       {recommendations.length ? recommendations.map((recommendation) => {
         const locked = lockedMultis[recommendation.sourceCardId] ?? null;
-        const disabledReason = getUfcLockDisabledReason({
-          isLocked: Boolean(locked),
-          isSignedIn: userIsSignedIn,
-          recommendation,
-        });
+        const disabledReason = locksEnabled
+          ? getUfcLockDisabledReason({
+              isLocked: Boolean(locked),
+              isSignedIn: userIsSignedIn,
+              recommendation,
+            })
+          : null;
         const isLocking = lockingCardId === recommendation.sourceCardId || isSigningIn;
         const isLockDisabled = Boolean(locked) || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
 
@@ -1362,7 +1689,7 @@ function UfcWinPercentageMultiRecommendationsPanel({
               <View style={styles.headerText}>
                 <Text style={styles.multiTitle}>{recommendation.sourceCardName}</Text>
                 <Text style={styles.multiContext}>
-                  First fight {formatDateTime(recommendation.firstFightStart)}
+                  First fight {recommendation.firstFightStart ? formatDateTime(recommendation.firstFightStart) : "unknown"}
                 </Text>
               </View>
               <View style={styles.multiActions}>
@@ -1371,26 +1698,30 @@ function UfcWinPercentageMultiRecommendationsPanel({
                     {recommendation.recommendationType === "positive" ? "Positive multi" : "Neutral multi"}
                   </Text>
                 </View>
-                <Pressable
-                  disabled={isLockDisabled}
-                  onPress={() => onLock(recommendation)}
-                  style={[
-                    styles.lockButton,
-                    locked ? styles.lockButtonLocked : null,
-                    isLockDisabled ? styles.lockButtonDisabled : null,
-                  ]}
-                >
-                  <Text style={[
-                    styles.lockButtonText,
-                    locked ? styles.lockButtonTextLocked : null,
-                  ]}
-                  >
-                    {locked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
-                  </Text>
-                </Pressable>
-                <Text style={styles.lockCutoffText}>
-                  {formatLockCutoffLabel(recommendation.lockCutoffAt)}
-                </Text>
+                {locksEnabled ? (
+                  <>
+                    <Pressable
+                      disabled={isLockDisabled}
+                      onPress={() => onLock(recommendation)}
+                      style={[
+                        styles.lockButton,
+                        locked ? styles.lockButtonLocked : null,
+                        isLockDisabled ? styles.lockButtonDisabled : null,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.lockButtonText,
+                        locked ? styles.lockButtonTextLocked : null,
+                      ]}
+                      >
+                        {locked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock"}
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.lockCutoffText}>
+                      {formatLockCutoffLabel(recommendation.lockCutoffAt)}
+                    </Text>
+                  </>
+                ) : null}
               </View>
             </View>
             {locked ? (
@@ -1433,7 +1764,7 @@ function UfcWinPercentageMultiRecommendationsPanel({
         );
       }) : (
         <Text style={styles.multiFooter}>
-          UFC same-card multis will appear here once Betcha has an eligible upcoming UFC card with at least 3 fully priced H2H fights.
+          {sportLabel} same-card multis will appear here once an eligible upcoming {sportLabel} card has at least {MULTI_BET_MIN_LEGS} fully priced H2H fights.
         </Text>
       )}
     </View>
@@ -1446,6 +1777,7 @@ function UfcWinPercentageMultiRecommendationsPanel({
 function UfcWinPercentageSinglesPanel({
   modelKey,
   modelRun,
+  sportLabel = "UFC",
 }: UfcWinPercentageSinglesPanelProps) {
   const candidates = getUfcSinglePredictionCandidates(modelRun);
 
@@ -1455,7 +1787,7 @@ function UfcWinPercentageSinglesPanel({
         <View style={styles.headerText}>
           <Text style={styles.multiTitle}>{getPercentageMultiDisplayLabel(modelKey)} singles</Text>
           <Text style={styles.multiContext}>
-            Each listed UFC favourite is shown as a separate current single from the selected historical bucket model.
+            Each listed {sportLabel} favourite is shown as a separate current single from the selected historical bucket model.
           </Text>
         </View>
       </View>
@@ -1492,7 +1824,7 @@ function UfcWinPercentageSinglesPanel({
         </View>
       ) : (
         <Text style={styles.multiFooter}>
-          UFC single candidates will appear here once the current snapshot has eligible fully priced Head to Head fights for this model.
+          {sportLabel} single candidates will appear here once the current snapshot has eligible fully priced Head to Head fights for this model.
         </Text>
       )}
     </View>
@@ -1641,7 +1973,9 @@ function buildPercentageMultiBetRecommendation(
     return buildPlacingPercentageMultiBetRecommendation(candidates);
   }
 
-  const eligibleCandidates = getUniquePricedWinPercentageCandidates(candidates);
+  const eligibleCandidates = getUniquePricedWinPercentageCandidates(
+    candidates.map((candidate) => applyWinPercentageMultiModel(candidate, modelKey)),
+  );
   const threshold = getWinPercentageMultiThreshold(modelKey);
 
   if (threshold !== null) {
@@ -1672,6 +2006,40 @@ function buildPercentageMultiBetRecommendation(
 }
 
 /**
+ * Derives alternate Win % model scores without changing the base snapshot signal.
+ */
+function applyWinPercentageMultiModel(candidate: BetCandidate, modelKey: WinPercentageMultiModelKey): BetCandidate {
+  if (modelKey !== WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY || !candidate.winPercentageMultiCandidate) {
+    return candidate;
+  }
+
+  const baseSignal = candidate.winPercentageMultiCandidate;
+  const winScore = weightedAverage([
+    {
+      value: baseSignal.priceBucketWinPercentage ?? undefined,
+      weight: 0.5,
+    },
+    {
+      value: baseSignal.starterBucketWinPercentage ?? undefined,
+      weight: 0.5,
+    },
+  ]);
+  const signal = createWinPercentageMultiSignal(winScore, baseSignal.sampleSize);
+
+  return {
+    ...candidate,
+    winPercentageMultiCandidate: {
+      ...baseSignal,
+      cashAverageScore: winScore,
+      detail: signal.detail,
+      label: signal.label,
+      tone: signal.tone,
+      winScore,
+    },
+  };
+}
+
+/**
  * Builds a placing-percentage multi from the strongest current place-rate signals.
  */
 function buildPlacingPercentageMultiBetRecommendation(candidates: BetCandidate[]): MultiBetRecommendation | null {
@@ -1696,6 +2064,10 @@ function getWinPercentageMultiThreshold(modelKey: WinPercentageMultiModelKey) {
     return 65;
   }
 
+  if (modelKey === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY) {
+    return 65;
+  }
+
   return null;
 }
 
@@ -1716,6 +2088,14 @@ function getPercentageMultiDisplayLabel(modelKey: WinPercentageMultiModelKey) {
 
   if (isUfcPercentageMultiModel(modelKey)) {
     return WIN_PERCENTAGE_MULTI_MODEL_LABELS[modelKey] ?? "UFC win percentage multi";
+  }
+
+  if (isPflPercentageMultiModel(modelKey)) {
+    return WIN_PERCENTAGE_MULTI_MODEL_LABELS[modelKey] ?? "PFL win percentage multi";
+  }
+
+  if (modelKey === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY) {
+    return "50/50 65%+ win percentage multi";
   }
 
   const threshold = getWinPercentageMultiThreshold(modelKey);
@@ -2018,8 +2398,9 @@ function createMultiBetRecommendation(
   candidates: BetCandidate[],
   tone: MultiBetRecommendation["tone"],
   maxLegs = MULTI_BET_MAX_LEGS,
+  minLegs = MULTI_BET_MIN_LEGS,
 ): MultiBetRecommendation | null {
-  if (candidates.length < MULTI_BET_MIN_LEGS) {
+  if (candidates.length < minLegs) {
     return null;
   }
 
@@ -2326,6 +2707,121 @@ function createSnapshotFromPayload(payload: RecommendationPayload) {
   };
 }
 
+function PredictionFinalisationNotice({ status }: { status: PredictionFinalisationStatus }) {
+  const label = status.finalisesAt
+    ? `Prediction ${status.finalised ? "finalised" : "finalises"} before ${formatDateTime(status.finalisesAt)}`
+    : `${status.sportLabel} prediction finalisation time unavailable`;
+
+  const detail = status.firstStartAt
+    ? `15 minutes before first ${getSportStartLabel(status.sportLabel)} at ${formatDateTime(status.firstStartAt)}`
+    : "Finalisation uses the first race, fight, or match once start times are available.";
+
+  return (
+    <View style={[
+      styles.finalisationNotice,
+      status.finalised ? styles.finalisationNoticeClosed : null,
+    ]}>
+      <Text style={styles.finalisationTitle}>{label}</Text>
+      <Text style={styles.finalisationText}>{detail}</Text>
+    </View>
+  );
+}
+
+function CurrentPredictionLockControl({
+  disabledReason,
+  isLocked,
+  isLocking,
+  lockedAt,
+  onLock,
+}: {
+  disabledReason: string | null;
+  isLocked: boolean;
+  isLocking: boolean;
+  lockedAt: string | null;
+  onLock: () => void;
+}) {
+  const isDisabled = isLocked || isLocking || Boolean(disabledReason && disabledReason !== "Sign in to lock");
+
+  return (
+    <View style={styles.currentLockRow}>
+      <Pressable
+        disabled={isDisabled}
+        onPress={onLock}
+        style={[
+          styles.lockButton,
+          isLocked ? styles.lockButtonLocked : null,
+          isDisabled ? styles.lockButtonDisabled : null,
+        ]}
+      >
+        <Text style={[
+          styles.lockButtonText,
+          isLocked ? styles.lockButtonTextLocked : null,
+        ]}
+        >
+          {isLocked ? "Locked" : isLocking ? "Locking" : disabledReason === "Sign in to lock" ? "Sign in to lock" : "Lock current view"}
+        </Text>
+      </Pressable>
+      <Text style={styles.currentLockText}>
+        {isLocked && lockedAt
+          ? `Locked ${formatDateTime(lockedAt)}`
+          : disabledReason ?? "Save this exact prediction view before it finalises."}
+      </Text>
+    </View>
+  );
+}
+
+function PredictionNotificationControl({
+  enabled,
+  isSaving,
+  onToggle,
+  userIsSignedIn,
+}: {
+  enabled: boolean;
+  isSaving: boolean;
+  onToggle: () => void;
+  userIsSignedIn: boolean;
+}) {
+  const iconName = enabled ? "notifications" : "notifications-outline";
+
+  return (
+    <View style={styles.currentLockRow}>
+      <Pressable
+        disabled={isSaving}
+        onPress={onToggle}
+        style={[
+          styles.notificationButton,
+          enabled ? styles.notificationButtonEnabled : null,
+          isSaving ? styles.lockButtonDisabled : null,
+        ]}
+      >
+        <Ionicons
+          color={enabled ? "#166534" : "#344054"}
+          name={iconName}
+          size={15}
+        />
+        <Text style={[
+          styles.notificationButtonText,
+          enabled ? styles.notificationButtonTextEnabled : null,
+        ]}
+        >
+          {isSaving
+            ? "Saving"
+            : enabled
+              ? "Notifications on"
+              : userIsSignedIn
+                ? "Notify when finalised"
+                : "Sign in for alerts"}
+        </Text>
+      </Pressable>
+      <Text style={styles.currentLockText}>
+        {enabled
+          ? "This model will notify once it finalises with an active prediction."
+          : "Favourite this model to get a mobile alert after finalisation."}
+      </Text>
+    </View>
+  );
+}
+
 function getUnavailableMessage(status: BetCandidateStatus) {
   if (status === "loading") {
     return "Checking Supabase for the latest candidate snapshot.";
@@ -2342,6 +2838,42 @@ function getUnavailableMessage(status: BetCandidateStatus) {
   return "Bet candidates could not be loaded from Supabase.";
 }
 
+function getCurrentPredictionLockDisabledReason({
+  finalisesAt,
+  hasCurrentView,
+  isLocked,
+  isSignedIn,
+  sourceDate,
+}: {
+  finalisesAt: string | null;
+  hasCurrentView: boolean;
+  isLocked: boolean;
+  isSignedIn: boolean;
+  sourceDate: string | null;
+}) {
+  if (isLocked) {
+    return "Already locked";
+  }
+
+  if (!hasCurrentView || !sourceDate) {
+    return "Load current predictions before locking";
+  }
+
+  if (!isSignedIn) {
+    return "Sign in to lock";
+  }
+
+  if (!finalisesAt) {
+    return "Finalisation time unavailable";
+  }
+
+  if (!isBeforeLockCutoff(finalisesAt)) {
+    return "Locking closed for this sport";
+  }
+
+  return null;
+}
+
 function isSnapshotStale(value: string | null) {
   if (!value) {
     return true;
@@ -2353,7 +2885,7 @@ function isSnapshotStale(value: string | null) {
 }
 
 /**
- * Treats server-closed windows and locally elapsed first starts as locked snapshots.
+ * Treats server-closed windows and locally elapsed finalisation times as locked snapshots.
  */
 function isPredictionWindowClosedNow(window: RecommendationPayload["predictionWindow"] | undefined) {
   if (!window) {
@@ -2364,13 +2896,165 @@ function isPredictionWindowClosedNow(window: RecommendationPayload["predictionWi
     return true;
   }
 
-  if (!window.firstRaceStart) {
+  const finalisesAt = window.finalisesAt ?? getPredictionFinalisesAt(window.firstRaceStart);
+
+  if (!finalisesAt) {
     return false;
   }
 
-  const firstRaceStart = new Date(window.firstRaceStart).valueOf();
+  const finalisesAtTime = new Date(finalisesAt).valueOf();
 
-  return Number.isFinite(firstRaceStart) && Date.now() >= firstRaceStart;
+  return Number.isFinite(finalisesAtTime) && Date.now() >= finalisesAtTime;
+}
+
+/**
+ * Calculates the visible finalisation status for the selected sport's current data.
+ */
+function getPredictionFinalisationStatus({
+  nrlPredictions,
+  payload,
+  predictionSport,
+}: {
+  nrlPredictions: NrlSinglePredictionsResult | null;
+  payload: RecommendationPayload | null;
+  predictionSport: PredictionSport;
+}): PredictionFinalisationStatus {
+  const sportLabel = getSportLabel(predictionSport);
+
+  if (predictionSport === "racing") {
+    const firstStartAt = payload?.predictionWindow?.firstRaceStart
+      ?? payload?.betBackCandidates?.firstEligibleRaceStart
+      ?? null;
+    const finalisesAt = payload?.predictionWindow?.finalisesAt
+      ?? getPredictionFinalisesAt(firstStartAt);
+
+    return {
+      finalised: isFinalised(finalisesAt),
+      finalisesAt,
+      firstStartAt,
+      sportLabel,
+    };
+  }
+
+  if (predictionSport === "ufc" || predictionSport === "pfl") {
+    const fightPayload = predictionSport === "ufc"
+      ? payload?.ufcWinPercentageMultis
+      : payload?.pflWinPercentageMultis;
+    const firstStartAt = fightPayload?.firstFightStart
+      ?? getEarliestIsoDate((fightPayload?.models ?? []).flatMap((model) => [
+        ...model.recommendations.map((recommendation) => recommendation.firstFightStart),
+        ...(model.singleCandidates ?? []).map((candidate) => candidate.advertisedStart),
+      ]));
+    const finalisesAt = fightPayload?.finalisesAt ?? getPredictionFinalisesAt(firstStartAt);
+
+    return {
+      finalised: isFinalised(finalisesAt),
+      finalisesAt,
+      firstStartAt,
+      sportLabel,
+    };
+  }
+
+  const firstStartAt = getEarliestIsoDate(nrlPredictions?.predictions.map((prediction) =>
+    prediction.advertisedStartAt) ?? []);
+  const finalisesAt = getPredictionFinalisesAt(firstStartAt);
+
+  return {
+    finalised: isFinalised(finalisesAt),
+    finalisesAt,
+    firstStartAt,
+    sportLabel,
+  };
+}
+
+function getCurrentPredictionModel({
+  nrlSinglePredictionModelKey,
+  predictionFormat,
+  predictionModelKey,
+  predictionSport,
+  predictionType,
+  winPercentageMultiModelKey,
+}: {
+  nrlSinglePredictionModelKey: NrlSinglePredictionModelKey;
+  predictionFormat: PredictionFormat;
+  predictionModelKey: PredictionModelKey;
+  predictionSport: PredictionSport;
+  predictionType: CurrentPredictionType;
+  winPercentageMultiModelKey: WinPercentageMultiModelKey;
+}) {
+  if (predictionSport === "nrl") {
+    return nrlSinglePredictionModelKey;
+  }
+
+  if (predictionSport === "ufc" || predictionSport === "pfl") {
+    return winPercentageMultiModelKey;
+  }
+
+  if (predictionFormat === "multis" || predictionType === "placing") {
+    return winPercentageMultiModelKey;
+  }
+
+  return predictionModelKey;
+}
+
+function getPredictionFinalisesAt(firstStart: string | null | undefined) {
+  if (!firstStart) {
+    return null;
+  }
+
+  const startTime = new Date(firstStart).valueOf();
+
+  if (!Number.isFinite(startTime)) {
+    return null;
+  }
+
+  return new Date(startTime - PREDICTION_FINALISATION_BUFFER_MS).toISOString();
+}
+
+function getEarliestIsoDate(values: (string | null | undefined)[]) {
+  const timestamps = values
+    .map((value) => value ? new Date(value).valueOf() : Number.NaN)
+    .filter((value) => Number.isFinite(value));
+
+  return timestamps.length ? new Date(Math.min(...timestamps)).toISOString() : null;
+}
+
+function isFinalised(finalisesAt: string | null) {
+  if (!finalisesAt) {
+    return false;
+  }
+
+  const finalisesAtTime = new Date(finalisesAt).valueOf();
+
+  return Number.isFinite(finalisesAtTime) && Date.now() >= finalisesAtTime;
+}
+
+function getSportLabel(sport: PredictionSport) {
+  if (sport === "ufc") {
+    return "UFC";
+  }
+
+  if (sport === "pfl") {
+    return "PFL";
+  }
+
+  if (sport === "nrl") {
+    return "NRL";
+  }
+
+  return "Racing";
+}
+
+function getSportStartLabel(sportLabel: string) {
+  if (sportLabel === "Racing") {
+    return "race";
+  }
+
+  if (sportLabel === "NRL") {
+    return "match";
+  }
+
+  return "fight";
 }
 
 function formatCacheAge(value: number | null) {
@@ -2551,11 +3235,11 @@ function getWinPercentageLockDisabledReason({
   }
 
   if (!lockCutoffAt) {
-    return "Locking requires a first eligible race start";
+    return "Locking requires a prediction finalisation time";
   }
 
   if (!isBeforeLockCutoff(lockCutoffAt)) {
-    return "Locking closed at the first eligible race";
+    return "Locking closed when predictions finalised";
   }
 
   return null;
@@ -2607,8 +3291,9 @@ function formatLockCutoffLabel(value: string | null) {
  * Uses the snapshot's racing prediction window as the manual lock cutoff.
  */
 function getRacingLockCutoffAt(payload: RecommendationPayload | null) {
-  return payload?.predictionWindow?.firstRaceStart
-    ?? payload?.betBackCandidates?.firstEligibleRaceStart
+  return payload?.predictionWindow?.finalisesAt
+    ?? getPredictionFinalisesAt(payload?.predictionWindow?.firstRaceStart)
+    ?? getPredictionFinalisesAt(payload?.betBackCandidates?.firstEligibleRaceStart)
     ?? null;
 }
 
@@ -2826,6 +3511,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
   },
+  currentLockRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  currentLockText: {
+    color: "#667085",
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  finalisationNotice: {
+    backgroundColor: "#ecfeff",
+    borderColor: "#99f6e4",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 3,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  finalisationNoticeClosed: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#d0d5dd",
+  },
+  finalisationText: {
+    color: "#475467",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  finalisationTitle: {
+    color: "#0f766e",
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
   candidateHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
@@ -2953,6 +3676,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     textAlign: "right",
+  },
+  notificationButton: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#d0d5dd",
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  notificationButtonEnabled: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#86efac",
+  },
+  notificationButtonText: {
+    color: "#344054",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  notificationButtonTextEnabled: {
+    color: "#166534",
   },
   multiActions: {
     alignItems: "flex-end",

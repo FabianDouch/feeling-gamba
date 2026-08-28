@@ -6,6 +6,32 @@ const DEFAULT_DATE_WINDOW_SIZE = 14;
 export const DEFAULT_UFC_ROW_LIMIT = 20;
 
 type NullableNumber = number | string | null;
+type CombatSport = "pfl" | "ufc";
+
+const COMBAT_SPORT_CONFIG = {
+  pfl: {
+    dateLabel: "PFL",
+    defaultEmptyDateLabel: "No PFL dates",
+    fightLabel: "PFL",
+    fightTable: "pfl_fight_entries",
+    insightTable: "pfl_insight_aggregates",
+    leftFighterColumn: "fighter_one_name",
+    metadataEmptyLabel: "No PFL dates loaded from Supabase.",
+    overallScopeKey: "pfl:overall",
+    rightFighterColumn: "fighter_two_name",
+  },
+  ufc: {
+    dateLabel: "UFC",
+    defaultEmptyDateLabel: "No UFC dates",
+    fightLabel: "UFC",
+    fightTable: "ufc_fight_entries",
+    insightTable: "ufc_insight_aggregates",
+    leftFighterColumn: "red_fighter_name",
+    metadataEmptyLabel: "No UFC dates loaded from Supabase.",
+    overallScopeKey: "ufc:overall",
+    rightFighterColumn: "blue_fighter_name",
+  },
+} as const;
 
 export type UfcHistoricalFilters = {
   fromDate: string;
@@ -51,17 +77,17 @@ export type UfcInsightsData = {
 };
 
 type UfcFightEntryRow = {
-  blue_fighter_name: string;
   event_date: string;
   favourite_name: string | null;
   favourite_price: NullableNumber;
   favourite_win_return: NullableNumber;
   id: string;
+  left_fighter_name: string;
   other_fighter_price: NullableNumber;
   price_difference: NullableNumber;
   price_match_status: string;
   price_source: string;
-  red_fighter_name: string;
+  right_fighter_name: string;
   result_status: string;
   winner_name: string | null;
 };
@@ -95,12 +121,25 @@ type UfcInsightScopeType =
 export const hasSupabaseUfcConfig = Boolean(
   publicEnv.supabaseUrl && publicEnv.supabaseKey,
 );
+export const hasSupabasePflConfig = hasSupabaseUfcConfig;
 
 /**
  * Reads UFC Historical Data metadata used to build the date filters.
  */
 export async function fetchUfcHistoricalMetadata(): Promise<UfcHistoricalMetadata> {
-  const dateRows = await supabaseSelectAll<{ event_date: string }>("ufc_fight_entries", {
+  return fetchCombatHistoricalMetadata("ufc");
+}
+
+/**
+ * Reads PFL Historical Data metadata used to build the date filters.
+ */
+export async function fetchPflHistoricalMetadata(): Promise<UfcHistoricalMetadata> {
+  return fetchCombatHistoricalMetadata("pfl");
+}
+
+async function fetchCombatHistoricalMetadata(sport: CombatSport): Promise<UfcHistoricalMetadata> {
+  const config = COMBAT_SPORT_CONFIG[sport];
+  const dateRows = await supabaseSelectAll<{ event_date: string }>(config.fightTable, {
     order: "event_date.desc",
     select: "event_date",
   });
@@ -120,10 +159,10 @@ export async function fetchUfcHistoricalMetadata(): Promise<UfcHistoricalMetadat
     },
     latestWindowLabel: dates.length
       ? `${formatLongDateLabel(dates[0])} - ${formatLongDateLabel(dates.at(-1) ?? dates[0])}`
-      : "No UFC dates",
+      : config.defaultEmptyDateLabel,
     latestWindowRangeLabel: from
-      ? `Default shows latest ${DEFAULT_UFC_ROW_LIMIT} fights. Date reset covers latest ${latestDates.length} event dates: ${formatLongDateLabel(from)} - ${formatLongDateLabel(to)}`
-      : "No UFC dates loaded from Supabase.",
+      ? `Default shows latest ${DEFAULT_UFC_ROW_LIMIT} fights. Date reset covers latest ${latestDates.length} ${config.dateLabel} event dates: ${formatLongDateLabel(from)} - ${formatLongDateLabel(to)}`
+      : config.metadataEmptyLabel,
   };
 }
 
@@ -134,13 +173,32 @@ export async function fetchUfcHistoricalEntries(
   filters: UfcHistoricalFilters,
   options: { limit?: number } = {},
 ): Promise<UfcHistoricalQueryResult> {
+  return fetchCombatHistoricalEntries("ufc", filters, options);
+}
+
+/**
+ * Fetches PFL historical fight rows from Supabase for the selected date range.
+ */
+export async function fetchPflHistoricalEntries(
+  filters: UfcHistoricalFilters,
+  options: { limit?: number } = {},
+): Promise<UfcHistoricalQueryResult> {
+  return fetchCombatHistoricalEntries("pfl", filters, options);
+}
+
+async function fetchCombatHistoricalEntries(
+  sport: CombatSport,
+  filters: UfcHistoricalFilters,
+  options: { limit?: number } = {},
+): Promise<UfcHistoricalQueryResult> {
+  const config = COMBAT_SPORT_CONFIG[sport];
   const params: Record<string, string> = {
-    order: "event_date.desc,red_fighter_name.asc",
+    order: `event_date.desc,${config.leftFighterColumn}.asc`,
     select: [
       "id",
       "event_date",
-      "red_fighter_name",
-      "blue_fighter_name",
+      `left_fighter_name:${config.leftFighterColumn}`,
+      `right_fighter_name:${config.rightFighterColumn}`,
       "winner_name",
       "result_status",
       "price_match_status",
@@ -158,11 +216,11 @@ export async function fetchUfcHistoricalEntries(
   }
 
   const { count, rows } = options.limit
-    ? await supabaseSelectLimitedWithCount<UfcFightEntryRow>("ufc_fight_entries", params, options.limit)
-    : await supabaseSelectAllWithCount<UfcFightEntryRow>("ufc_fight_entries", params);
+    ? await supabaseSelectLimitedWithCount<UfcFightEntryRow>(config.fightTable, params, options.limit)
+    : await supabaseSelectAllWithCount<UfcFightEntryRow>(config.fightTable, params);
 
   return {
-    fights: rows.map(mapUfcFightEntryToSummary),
+    fights: rows.map((row) => mapCombatFightEntryToSummary(row, sport)),
     totalCount: count ?? rows.length,
   };
 }
@@ -181,14 +239,26 @@ export function createDefaultUfcHistoricalFilters(metadata: UfcHistoricalMetadat
  * Reads the stored UFC aggregate rows shown in the UFC Insights view.
  */
 export async function fetchUfcInsights(): Promise<UfcInsightsData> {
+  return fetchCombatInsights("ufc");
+}
+
+/**
+ * Reads the stored PFL aggregate rows shown in the PFL Insights view.
+ */
+export async function fetchPflInsights(): Promise<UfcInsightsData> {
+  return fetchCombatInsights("pfl");
+}
+
+async function fetchCombatInsights(sport: CombatSport): Promise<UfcInsightsData> {
+  const config = COMBAT_SPORT_CONFIG[sport];
   const [overallRows, favouritePriceRows, otherFighterPriceRows, priceDifferenceRows] = await Promise.all([
-    supabaseSelectAll<UfcInsightAggregateRow>("ufc_insight_aggregates", {
-      scope_key: "eq.ufc:overall",
+    supabaseSelectAll<UfcInsightAggregateRow>(config.insightTable, {
+      scope_key: `eq.${config.overallScopeKey}`,
       select: UFC_INSIGHT_SELECT,
     }),
-    fetchUfcBucketRows("favourite_price_bucket"),
-    fetchUfcBucketRows("other_fighter_price_bucket"),
-    fetchUfcBucketRows("price_difference_bucket"),
+    fetchCombatBucketRows(sport, "favourite_price_bucket"),
+    fetchCombatBucketRows(sport, "other_fighter_price_bucket"),
+    fetchCombatBucketRows(sport, "price_difference_bucket"),
   ]);
   const overall = overallRows[0] ?? null;
 
@@ -219,8 +289,11 @@ const UFC_INSIGHT_SELECT = [
   "total_stake",
 ].join(",");
 
-function fetchUfcBucketRows(scopeType: Exclude<UfcInsightScopeType, "overall" | "price_match_status">) {
-  return supabaseSelectAll<UfcInsightAggregateRow>("ufc_insight_aggregates", {
+function fetchCombatBucketRows(
+  sport: CombatSport,
+  scopeType: Exclude<UfcInsightScopeType, "overall" | "price_match_status">,
+) {
+  return supabaseSelectAll<UfcInsightAggregateRow>(COMBAT_SPORT_CONFIG[sport].insightTable, {
     order: "price_bucket_start.asc",
     scope_type: `eq.${scopeType}`,
     select: UFC_INSIGHT_SELECT,
@@ -228,9 +301,9 @@ function fetchUfcBucketRows(scopeType: Exclude<UfcInsightScopeType, "overall" | 
 }
 
 /**
- * Maps one UFC fight entry to the compact Historical Data row shape.
+ * Maps one fight entry to the compact Historical Data row shape.
  */
-function mapUfcFightEntryToSummary(row: UfcFightEntryRow): UfcFightSummary {
+function mapCombatFightEntryToSummary(row: UfcFightEntryRow, sport: CombatSport): UfcFightSummary {
   const favouritePrice = numericOrNull(row.favourite_price);
   const favouriteReturn = numericOrNull(row.favourite_win_return);
 
@@ -240,11 +313,11 @@ function mapUfcFightEntryToSummary(row: UfcFightEntryRow): UfcFightSummary {
     favourite: row.favourite_name ?? "No clear favourite",
     favouritePrice: favouritePrice === null ? "Missing" : formatReturn(favouritePrice),
     fightId: row.id,
-    fighters: `${row.red_fighter_name} vs ${row.blue_fighter_name}`,
+    fighters: `${row.left_fighter_name} vs ${row.right_fighter_name}`,
     otherFighterPrice: formatNullableReturn(row.other_fighter_price),
     payout: favouriteReturn === null ? "Excluded from return stats" : `Fav return ${formatReturn(favouriteReturn)}`,
     priceDifference: formatNullableReturn(row.price_difference),
-    priceSource: formatPriceSource(row.price_match_status, row.price_source),
+    priceSource: formatPriceSource(row.price_match_status, row.price_source, sport),
     result: describeFavouriteResult(row.favourite_name, row.winner_name),
     status: row.result_status === "settled" ? "Final" : "Non-standard",
     winner: row.winner_name ?? "No settled winner",
@@ -416,7 +489,15 @@ function formatPercentage(value: number) {
   return `${value.toFixed(2)}%`;
 }
 
-function formatPriceSource(matchStatus: string, source: string) {
+function formatPriceSource(matchStatus: string, source: string, sport: CombatSport) {
+  if (sport === "pfl" && matchStatus === "bookmakers_review_priced") {
+    return "Priced odds";
+  }
+
+  if (sport === "pfl" && matchStatus === "current_snapshot") {
+    return "Current snapshot";
+  }
+
   if (matchStatus === "master_priced") {
     return "Master odds";
   }

@@ -14,7 +14,14 @@ import {
   fetchUfcPredictionHistoryMetadata,
   getPredictionHistoryCourseOptions,
   hasSupabasePredictionsConfig,
+  isPflPercentageMultiModel,
   isUfcPercentageMultiModel,
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+  PFL_SINGLE_65_PLUS_MODEL_KEY,
+  PFL_SINGLE_75_PLUS_MODEL_KEY,
+  PFL_SINGLE_85_PLUS_MODEL_KEY,
   PLACING_PERCENTAGE_MULTI_MODEL_KEY,
   SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY,
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
@@ -25,6 +32,7 @@ import {
   UFC_SINGLE_85_PLUS_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_MULTI_MODEL_VARIANTS,
   WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS,
@@ -84,12 +92,12 @@ const PERFORMANCE_SIGNAL_OPTIONS = [
   { label: "Positive only", value: "positive_only" },
   { label: "Neutral or better", value: "neutral_or_better" },
 ] satisfies { label: string; value: PredictionPerformanceSignalFilter }[];
-const MIN_PERCENTAGE_MULTI_RANK = 3;
 type PredictionHistoryType = "cash_multis" | "placing" | "singles" | "win_percentage_multis";
 const RACING_WIN_PERCENTAGE_MULTI_KEYS = [
   WIN_PERCENTAGE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
+  WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
 ] satisfies WinPercentageMultiModelKey[];
 const UFC_WIN_PERCENTAGE_MULTI_KEYS = [
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
@@ -103,6 +111,19 @@ const UFC_WIN_PERCENTAGE_SINGLE_KEYS = [
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const PFL_WIN_PERCENTAGE_MULTI_KEYS = [
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+] satisfies WinPercentageMultiModelKey[];
+const PFL_WIN_PERCENTAGE_SINGLE_KEYS = [
+  PFL_SINGLE_65_PLUS_MODEL_KEY,
+  PFL_SINGLE_75_PLUS_MODEL_KEY,
+  PFL_SINGLE_85_PLUS_MODEL_KEY,
+  PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY,
+  PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
 ] satisfies WinPercentageMultiModelKey[];
 
 /**
@@ -156,6 +177,7 @@ export function PredictionHistoryScreen() {
     ?? WIN_PERCENTAGE_MULTI_MODEL_VARIANTS[0];
   const isPlacePercentageMultiModel = activeWinPercentageMultiModelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY;
   const isUfcWinPercentageMultiModel = isUfcPercentageMultiModel(activeWinPercentageMultiModelKey);
+  const isPflWinPercentageMultiModel = isPflPercentageMultiModel(activeWinPercentageMultiModelKey);
   const isUfcHistory = activeSport === "ufc";
   const winPercentageMultiRankOptions = useMemo(() =>
     buildPercentageMultiRankOptions(activeWinPercentageMultiModelKey), [activeWinPercentageMultiModelKey]);
@@ -330,7 +352,13 @@ export function PredictionHistoryScreen() {
       if (!isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
         setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
       }
+    } else if (activeSport === "pfl") {
+      if (!isPflPercentageMultiModel(activeWinPercentageMultiModelKey)) {
+        setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      }
     } else if (isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
+      setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+    } else if (isPflPercentageMultiModel(activeWinPercentageMultiModelKey)) {
       setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
     }
   }, [activeSport, activeWinPercentageMultiModelKey]);
@@ -359,6 +387,13 @@ export function PredictionHistoryScreen() {
       return;
     }
 
+    if (value === "pfl") {
+      setActiveFormat("multis");
+      setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+      return;
+    }
+
     setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
   }
 
@@ -370,6 +405,11 @@ export function PredictionHistoryScreen() {
       setActiveWinPercentageMultiModelKey(UFC_SINGLE_65_PLUS_MODEL_KEY);
     } else if (activeSport === "ufc" && value === "multis") {
       setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
+    } else if (activeSport === "pfl" && value === "singles") {
+      setActivePredictionType("win_percentage");
+      setActiveWinPercentageMultiModelKey(PFL_SINGLE_65_PLUS_MODEL_KEY);
+    } else if (activeSport === "pfl" && value === "multis") {
+      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
     }
   }
 
@@ -379,6 +419,8 @@ export function PredictionHistoryScreen() {
     if (value === "win_percentage") {
       setActiveWinPercentageMultiModelKey(activeSport === "ufc"
         ? activeFormat === "singles" ? UFC_SINGLE_65_PLUS_MODEL_KEY : UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
+        : activeSport === "pfl"
+          ? activeFormat === "singles" ? PFL_SINGLE_65_PLUS_MODEL_KEY : PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY
         : WIN_PERCENTAGE_MULTI_MODEL_KEY);
     } else if (value === "placing") {
       setActiveWinPercentageMultiModelKey(PLACING_PERCENTAGE_MULTI_MODEL_KEY);
@@ -525,6 +567,24 @@ export function PredictionHistoryScreen() {
         />
       ) : null}
 
+      {activeSport === "pfl" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
+        <WinPercentageMultiModelTabs
+          activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={PFL_WIN_PERCENTAGE_MULTI_KEYS}
+          onChange={setActiveWinPercentageMultiModelKey}
+          sport={activeSport}
+        />
+      ) : null}
+
+      {activeSport === "pfl" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <WinPercentageMultiModelTabs
+          activeModelKey={activeWinPercentageMultiModelKey}
+          includeModelKeys={PFL_WIN_PERCENTAGE_SINGLE_KEYS}
+          onChange={setActiveWinPercentageMultiModelKey}
+          sport={activeSport}
+        />
+      ) : null}
+
       <View style={styles.modelInfo}>
         <Text style={styles.modelInfoTitle}>{activeModelInfo.label}</Text>
         <Text style={styles.modelInfoText}>{activeModelInfo.description}</Text>
@@ -644,6 +704,8 @@ export function PredictionHistoryScreen() {
               <Text style={styles.historyBreakdownHeading}>
                 {isUfcWinPercentageMultiModel
                   ? "UFC win percentage multi performance"
+                  : isPflWinPercentageMultiModel
+                    ? "PFL win percentage multi performance"
                   : isPlacePercentageMultiModel
                     ? "Multi-bet place percentage performance"
                     : "Multi-bet win percentage performance"}
@@ -661,6 +723,8 @@ export function PredictionHistoryScreen() {
               ) : (
                 <StateMessage text={isUfcWinPercentageMultiModel
                   ? "No UFC win-percentage multi performance is available yet."
+                  : isPflWinPercentageMultiModel
+                    ? "No PFL win-percentage multi performance is available yet."
                   : isPlacePercentageMultiModel
                     ? "No place-percentage multi-bet performance is available yet."
                     : "No win-percentage multi-bet performance is available yet."}
@@ -1126,6 +1190,12 @@ function getUnsupportedHistoryBranchMessage({
     return `No UFC ${activeFormat === "singles" ? "single" : "multi"} ${activePredictionType} history is tracked yet.`;
   }
 
+  if (activeSport === "pfl") {
+    return activePredictionType === "win_percentage"
+      ? "PFL prediction history is not tracked yet. The UFC-shaped PFL model tabs are in place for future PFL data."
+      : `No PFL ${activeFormat === "singles" ? "single" : "multi"} ${activePredictionType} history is tracked yet.`;
+  }
+
   if (activeSport === "nrl") {
     return "NRL prediction history is not tracked yet. Current NRL single predictions are available on the Predictions tab.";
   }
@@ -1149,7 +1219,7 @@ function getActiveHistoryModelInfo({
     return {
       description: "This branch is reserved for future model history.",
       detail: "The controls are present so each sport can use the same Singles and Multis history structure as models are added.",
-      label: `${activeSport === "ufc" ? "UFC" : activeSport === "nrl" ? "NRL" : "Racing"} ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+      label: `${getPredictionSportLabel(activeSport)} ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
     };
   }
 
@@ -1168,6 +1238,14 @@ function getActiveHistoryModelInfo({
       return {
         description: activeWinPercentageModel.description.replace("Builds a UFC same-card multi", "Tracks UFC single candidates"),
         detail: `${activeWinPercentageModel.detail} Each eligible fight is stored as a separate $1 single outcome.`,
+        label: activeWinPercentageModel.label,
+      };
+    }
+
+    if (activeSport === "pfl") {
+      return {
+        description: activeWinPercentageModel.description,
+        detail: `${activeWinPercentageModel.detail} PFL history storage is not deployed yet.`,
         label: activeWinPercentageModel.label,
       };
     }
@@ -1213,6 +1291,25 @@ function getPredictionTypeLabel(type: CurrentPredictionType) {
 }
 
 /**
+ * Formats sport labels used in model cards and empty states.
+ */
+function getPredictionSportLabel(sport: PredictionSport) {
+  if (sport === "ufc") {
+    return "UFC";
+  }
+
+  if (sport === "nrl") {
+    return "NRL";
+  }
+
+  if (sport === "pfl") {
+    return "PFL";
+  }
+
+  return "Racing";
+}
+
+/**
  * Builds only the rank filters that can exist for the selected percentage multi model.
  */
 function buildPercentageMultiRankOptions(modelKey: WinPercentageMultiModelKey) {
@@ -1221,7 +1318,7 @@ function buildPercentageMultiRankOptions(modelKey: WinPercentageMultiModelKey) {
     { label: "All legs", value: "all" },
   ];
 
-  for (let rank = MIN_PERCENTAGE_MULTI_RANK; rank <= maxRank; rank += 1) {
+  for (let rank = 2; rank <= maxRank; rank += 1) {
     options.push({
       label: `Top ${rank}`,
       value: String(rank) as WinPercentageMultiRankFilter,
@@ -1230,7 +1327,6 @@ function buildPercentageMultiRankOptions(modelKey: WinPercentageMultiModelKey) {
 
   return options;
 }
-
 /**
  * Mirrors the stored recommendation caps so history filters do not offer impossible ranks.
  */
@@ -1238,11 +1334,16 @@ function getPercentageMultiMaxLegs(modelKey: WinPercentageMultiModelKey) {
   if (
     modelKey === WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY
     || modelKey === WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY
+    || modelKey === WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY
   ) {
     return 10;
   }
 
-  if (modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY || isUfcPercentageMultiModel(modelKey)) {
+  if (
+    modelKey === PLACING_PERCENTAGE_MULTI_MODEL_KEY
+    || isUfcPercentageMultiModel(modelKey)
+    || isPflPercentageMultiModel(modelKey)
+  ) {
     return 8;
   }
 
