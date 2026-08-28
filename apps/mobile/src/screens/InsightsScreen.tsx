@@ -53,14 +53,14 @@ const emptyUfcInsights: UfcInsightsData = {
 };
 
 const emptyNrlInsights: NrlInsightsData = {
+  fixedWinPriceBreakdown: [],
   fixedWinRoundBreakdown: [],
   fixedWinSelectionBreakdown: [],
   fixedWinSummaryStats: [],
-  fixedWinTeamBreakdown: [],
   sameGameRoundBreakdown: [],
   sameGameSummaryStats: [],
-  sameGameTeamBreakdown: [],
   tryScorerPlayerBreakdown: [],
+  tryScorerPriceBreakdown: [],
   tryScorerSummaryStats: [],
   tryScorerTeamBreakdown: [],
 };
@@ -127,13 +127,13 @@ export function InsightsScreen() {
     || ufcInsights.priceDifferenceBreakdown.length > 0;
   const hasNrlInsightRows = nrlInsights.fixedWinSummaryStats.length > 0
     || nrlInsights.fixedWinSelectionBreakdown.length > 0
-    || nrlInsights.fixedWinTeamBreakdown.length > 0
+    || nrlInsights.fixedWinPriceBreakdown.length > 0
     || nrlInsights.fixedWinRoundBreakdown.length > 0
     || nrlInsights.sameGameSummaryStats.length > 0
-    || nrlInsights.sameGameTeamBreakdown.length > 0
     || nrlInsights.sameGameRoundBreakdown.length > 0
     || nrlInsights.tryScorerSummaryStats.length > 0
     || nrlInsights.tryScorerPlayerBreakdown.length > 0
+    || nrlInsights.tryScorerPriceBreakdown.length > 0
     || nrlInsights.tryScorerTeamBreakdown.length > 0;
 
   useEffect(() => {
@@ -543,7 +543,6 @@ type UfcInsightsPanelProps = {
  */
 function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
   const hasSameGameRows = insights.sameGameSummaryStats.length > 0
-    || insights.sameGameTeamBreakdown.length > 0
     || insights.sameGameRoundBreakdown.length > 0;
 
   return (
@@ -561,7 +560,6 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
             ))}
           </View>
 
-          <NrlBreakdown title="Same game by team" rows={insights.sameGameTeamBreakdown} />
           <NrlBreakdown title="Same game by round" rows={insights.sameGameRoundBreakdown} />
         </>
       ) : null}
@@ -578,7 +576,7 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
       </View>
 
       <NrlBreakdown title="Fixed win by selection" rows={insights.fixedWinSelectionBreakdown} />
-      <NrlBreakdown title="Fixed win by team" rows={insights.fixedWinTeamBreakdown} />
+      <NrlBreakdown title="Fixed win price breakdown" rows={insights.fixedWinPriceBreakdown} />
       <NrlBreakdown title="Fixed win by round" rows={insights.fixedWinRoundBreakdown} />
 
       <Text style={styles.subheading}>Try scorer percentage</Text>
@@ -592,6 +590,7 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
         ))}
       </View>
 
+      <NrlBreakdown title="Try scorer price breakdown" rows={insights.tryScorerPriceBreakdown} />
       <NrlBreakdown title="Try scorer by player" rows={insights.tryScorerPlayerBreakdown} />
       <NrlBreakdown title="Try scorer by team" rows={insights.tryScorerTeamBreakdown} />
     </>

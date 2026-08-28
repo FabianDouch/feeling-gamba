@@ -19,14 +19,14 @@ export type NrlInsightBreakdown = {
 };
 
 export type NrlInsightsData = {
+  fixedWinPriceBreakdown: NrlInsightBreakdown[];
   fixedWinRoundBreakdown: NrlInsightBreakdown[];
   fixedWinSelectionBreakdown: NrlInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
-  fixedWinTeamBreakdown: NrlInsightBreakdown[];
   sameGameRoundBreakdown: NrlInsightBreakdown[];
   sameGameSummaryStats: FavouriteStat[];
-  sameGameTeamBreakdown: NrlInsightBreakdown[];
   tryScorerPlayerBreakdown: NrlInsightBreakdown[];
+  tryScorerPriceBreakdown: NrlInsightBreakdown[];
   tryScorerSummaryStats: FavouriteStat[];
   tryScorerTeamBreakdown: NrlInsightBreakdown[];
 };
@@ -40,6 +40,9 @@ type NrlInsightAggregateRow = {
   net_return: NullableNumber;
   pending_count: number;
   player_name: string | null;
+  price_bucket_end: NullableNumber;
+  price_bucket_label: string | null;
+  price_bucket_start: NullableNumber;
   roi_percentage: NullableNumber;
   round_number: number | null;
   scope_key: string;
@@ -60,6 +63,7 @@ type NrlInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_s
 
 type NrlInsightScopeType =
   | "overall"
+  | "price_bucket"
   | "selection_type"
   | "team"
   | "season"
@@ -76,6 +80,9 @@ const NRL_INSIGHT_SELECT = [
   "net_return",
   "pending_count",
   "player_name",
+  "price_bucket_end",
+  "price_bucket_label",
+  "price_bucket_start",
   "roi_percentage",
   "round_number",
   "scope_key",
@@ -102,33 +109,28 @@ export const hasSupabaseNrlConfig = Boolean(
 export async function fetchNrlInsights(): Promise<NrlInsightsData> {
   const [
     fixedWinOverallRows,
+    fixedWinPriceRows,
     fixedWinSelectionRows,
-    fixedWinTeamRows,
     fixedWinRoundRows,
     sameGameOverallRows,
-    sameGameTeamRows,
     sameGameRoundRows,
     tryScorerOverallRows,
     tryScorerPlayerRows,
+    tryScorerPriceRows,
     tryScorerTeamRows,
   ] = await Promise.all([
     fetchNrlAggregateRows("fixed_win_single", "overall", {
       scope_key: "eq.nrl:fixed_win_single:overall:favourite",
     }),
-    fetchNrlAggregateRows("fixed_win_single", "selection_type"),
-    fetchNrlAggregateRows("fixed_win_single", "team", {
-      limit: "12",
-      order: "selection_count.desc,team_name.asc",
+    fetchNrlAggregateRows("fixed_win_single", "price_bucket", {
+      order: "price_bucket_start.asc",
     }),
+    fetchNrlAggregateRows("fixed_win_single", "selection_type"),
     fetchNrlAggregateRows("fixed_win_single", "season_round", {
       order: "season.desc,round_number.desc",
     }),
     fetchNrlAggregateRows("same_game_multi_percentage", "overall", {
       scope_key: "eq.nrl:same_game_multi_percentage:overall:favourite_top2_try_scorers",
-    }),
-    fetchNrlAggregateRows("same_game_multi_percentage", "team", {
-      limit: "12",
-      order: "selection_count.desc,team_name.asc",
     }),
     fetchNrlAggregateRows("same_game_multi_percentage", "season_round", {
       order: "season.desc,round_number.desc",
@@ -137,6 +139,9 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     fetchNrlAggregateRows("try_scorer_percentage", "player", {
       limit: "12",
       order: "win_percentage.desc,selection_count.desc,player_name.asc",
+    }),
+    fetchNrlAggregateRows("try_scorer_percentage", "price_bucket", {
+      order: "price_bucket_start.asc",
     }),
     fetchNrlAggregateRows("try_scorer_percentage", "team", {
       order: "win_percentage.desc,team_name.asc",
@@ -147,14 +152,14 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
   const tryScorerOverall = tryScorerOverallRows[0] ?? null;
 
   return {
+    fixedWinPriceBreakdown: fixedWinPriceRows.map(mapFixedWinBreakdown),
     fixedWinRoundBreakdown: fixedWinRoundRows.map(mapFixedWinBreakdown),
     fixedWinSelectionBreakdown: fixedWinSelectionRows.map(mapFixedWinBreakdown),
     fixedWinSummaryStats: fixedWinOverall ? mapFixedWinSummaryStats(fixedWinOverall) : [],
-    fixedWinTeamBreakdown: fixedWinTeamRows.map(mapFixedWinBreakdown),
     sameGameRoundBreakdown: sameGameRoundRows.map(mapSameGameBreakdown),
     sameGameSummaryStats: sameGameOverall ? mapSameGameSummaryStats(sameGameOverall) : [],
-    sameGameTeamBreakdown: sameGameTeamRows.map(mapSameGameBreakdown),
     tryScorerPlayerBreakdown: tryScorerPlayerRows.map(mapTryScorerBreakdown),
+    tryScorerPriceBreakdown: tryScorerPriceRows.map(mapTryScorerBreakdown),
     tryScorerSummaryStats: tryScorerOverall ? mapTryScorerSummaryStats(tryScorerOverall) : [],
     tryScorerTeamBreakdown: tryScorerTeamRows.map(mapTryScorerBreakdown),
   };
@@ -267,6 +272,21 @@ function mapFixedWinBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown 
  * Maps a try-scorer aggregate row to the generic NRL breakdown display model.
  */
 function mapTryScorerBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown {
+  if (row.scope_type === "price_bucket") {
+    return {
+      averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
+      detail: `${row.win_count} scored from ${row.selection_count} settled priced selections`,
+      label: getNrlAggregateLabel(row),
+      netReturn: formatCurrency(numeric(row.net_return)),
+      pending: `${row.pending_count} pending · ${row.unmatched_count} unmatched`,
+      roi: formatPercentage(numeric(row.roi_percentage)),
+      selections: `${row.selection_count} selections`,
+      totalReturned: formatCurrency(numeric(row.total_return)),
+      totalStaked: formatCurrency(numeric(row.total_stake)),
+      winRate: formatPercentage(numeric(row.win_percentage)),
+    };
+  }
+
   return {
     averageReturn: "No prices",
     detail: `${row.total_tries} tries from ${row.selection_count} settled appearances`,
@@ -303,6 +323,10 @@ function mapSameGameBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown 
  * Builds the most useful display label from a sport-specific aggregate row.
  */
 function getNrlAggregateLabel(row: NrlInsightAggregateRow) {
+  if (row.scope_type === "price_bucket" && row.price_bucket_label) {
+    return row.price_bucket_label;
+  }
+
   if (row.scope_type === "selection_type" && row.selection_type) {
     return formatSelectionType(row.selection_type);
   }

@@ -365,6 +365,20 @@ function isWithinMatchWindow(snapshotStart, matchKickoff) {
 }
 
 /**
+ * Prevents market rows from being captured after the advertised kickoff.
+ */
+function isBeforeAdvertisedStart(event, generatedAt) {
+  const start = new Date(event?.advertisedStart);
+  const snapshot = new Date(generatedAt);
+
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(snapshot.valueOf())) {
+    return false;
+  }
+
+  return snapshot.valueOf() < start.valueOf();
+}
+
+/**
  * Checks whether the market event teams match an official NRL fixture.
  */
 function sameTeams(eventContext, match) {
@@ -787,6 +801,17 @@ function buildSnapshotRows(events, officialMatches, appearances) {
   for (const event of events) {
     const eventContext = getEventContext(event);
     const tryScorerMarkets = findTryScorerMarkets(event);
+
+    if (!isBeforeAdvertisedStart(event, generatedAt)) {
+      eventSummaries.push({
+        eventName: event?.name ?? null,
+        reason: "advertised_start_passed",
+        sourceEventId: getEventSourceId(event),
+        tryScorerMarketCount: tryScorerMarkets.length,
+        writtenRows: 0,
+      });
+      continue;
+    }
 
     if (!eventContext) {
       eventSummaries.push({

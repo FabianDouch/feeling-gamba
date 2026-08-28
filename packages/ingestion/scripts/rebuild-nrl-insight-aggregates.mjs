@@ -238,6 +238,9 @@ function createAggregateBucket({
   date,
   playerName = null,
   playerSourceId = null,
+  priceBucketEnd = null,
+  priceBucketLabel = null,
+  priceBucketStart = null,
   roundNumber = null,
   season = null,
   selectionType = null,
@@ -256,6 +259,9 @@ function createAggregateBucket({
     pending_count: 0,
     player_name: playerName,
     player_source_id: playerSourceId,
+    price_bucket_end: priceBucketEnd,
+    price_bucket_label: priceBucketLabel,
+    price_bucket_start: priceBucketStart,
     roi_percentage: 0,
     round_number: roundNumber,
     scope_key: scopeKey,
@@ -342,6 +348,31 @@ function addTryScorerAppearance(bucket, record) {
 }
 
 /**
+ * Adds one priced player try-scorer market selection to an aggregate bucket.
+ */
+function addTryScorerMarketSelection(bucket, record) {
+  addEvent(bucket, record);
+
+  if (record.outcomeStatus === "missing_price") {
+    bucket.missing_price_count += 1;
+    return;
+  }
+
+  if (record.outcomeStatus !== "settled") {
+    return;
+  }
+
+  bucket.selection_count += 1;
+  bucket.total_stake += 1;
+  bucket.total_tries += record.tryCount;
+
+  if (record.tryCount > 0) {
+    bucket.win_count += 1;
+    bucket.total_return += record.returnValue;
+  }
+}
+
+/**
  * Adds one same-game multi result to an aggregate bucket.
  */
 function addSameGameMultiSelection(bucket, record) {
@@ -408,6 +439,26 @@ function addToBucket(buckets, bucketConfig, record, addRecord) {
 }
 
 /**
+ * Creates the same 50c decimal-price buckets used by racing insights.
+ */
+function getPriceBucket(price) {
+  const value = Number(price);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  const start = Math.max(1, Math.floor(value / 0.5) * 0.5);
+  const end = start + 0.49;
+
+  return {
+    end,
+    label: `$${start.toFixed(2)} - $${end.toFixed(2)}`,
+    start,
+  };
+}
+
+/**
  * Builds selection-level records from home, away, and favourite fixed-win rows.
  */
 function buildFixedWinRecords(results, matchesById) {
@@ -465,7 +516,7 @@ function buildFixedWinRecords(results, matchesById) {
 }
 
 /**
- * Builds fixed-win aggregate rows across side, team, season, and round.
+ * Builds fixed-win aggregate rows across side, price bucket, season, and round.
  */
 function buildFixedWinAggregates(results, matchesById) {
   const buckets = new Map();
@@ -513,16 +564,19 @@ function buildFixedWinAggregates(results, matchesById) {
   }
 
   for (const record of sideRecords) {
-    if (!record.teamName) {
+    const priceBucket = getPriceBucket(record.price);
+
+    if (!priceBucket) {
       continue;
     }
 
     addToBucket(buckets, {
       insightType: "fixed_win_single",
-      scopeKey: `nrl:fixed_win_single:team:${record.teamSourceId ?? record.teamName}`,
-      scopeType: "team",
-      teamName: record.teamName,
-      teamSourceId: record.teamSourceId,
+      priceBucketEnd: priceBucket.end,
+      priceBucketLabel: priceBucket.label,
+      priceBucketStart: priceBucket.start,
+      scopeKey: `nrl:fixed_win_single:price_bucket:${priceBucket.start.toFixed(2)}`,
+      scopeType: "price_bucket",
     }, record, addFixedWinSelection);
 
   }
@@ -561,11 +615,57 @@ function buildTryScorerRecords(appearances, tryScorers, matchesBySourceKey) {
 }
 
 /**
- * Builds try-scorer percentage aggregate rows from player appearances.
+ * Builds priced try-scorer market records with official NRL settlement.
  */
-function buildTryScorerAggregates(appearances, tryScorers, matchesBySourceKey) {
+function buildTryScorerMarketRecords(tryScorerPrices, tryScorers, matchesById) {
+  const tryCounts = new Map();
+
+  for (const row of tryScorers) {
+    const key = `${row.source}:${row.source_match_id}:${row.source_player_id}`;
+    tryCounts.set(key, (tryCounts.get(key) ?? 0) + 1);
+  }
+
+  return tryScorerPrices.map((row) => {
+    const match = row.matched_nrl_match_id ? matchesById.get(row.matched_nrl_match_id) : null;
+    const tryKey = match && row.player_source_id
+      ? `${match.source}:${match.source_match_id}:${row.player_source_id}`
+      : null;
+    const tryCount = tryKey ? tryCounts.get(tryKey) ?? 0 : 0;
+    const price = numeric(row.fixed_win_price);
+    let outcomeStatus = match?.result_status ?? "unmatched";
+
+    if (outcomeStatus === "settled" && !row.player_source_id) {
+      outcomeStatus = "unmatched";
+    } else if (outcomeStatus === "settled" && !hasPrice(row.fixed_win_price)) {
+      outcomeStatus = "missing_price";
+    } else if (outcomeStatus !== "pending" && outcomeStatus !== "settled" && outcomeStatus !== "unmatched") {
+      outcomeStatus = "missing_result";
+    }
+
+    return {
+      date: getMatchDate(match, row.advertised_start_at ?? row.snapshot_at),
+      outcomeStatus,
+      playerName: row.player_name,
+      playerSourceId: row.player_source_id,
+      price,
+      returnValue: tryCount > 0 ? price : 0,
+      roundNumber: match?.round_number ?? null,
+      season: match?.season ?? null,
+      source: row.source,
+      teamName: row.team_name,
+      teamSourceId: row.team_source_id,
+      tryCount,
+    };
+  });
+}
+
+/**
+ * Builds try-scorer aggregate rows from official appearances and captured prices.
+ */
+function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesBySourceKey, tryScorerPrices) {
   const buckets = new Map();
   const records = buildTryScorerRecords(appearances, tryScorers, matchesBySourceKey);
+  const marketRecords = buildTryScorerMarketRecords(tryScorerPrices, tryScorers, matchesById);
 
   for (const record of records) {
     addToBucket(buckets, {
@@ -632,6 +732,23 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesBySourceKey) {
     }
   }
 
+  for (const record of marketRecords) {
+    const priceBucket = getPriceBucket(record.price);
+
+    if (!priceBucket) {
+      continue;
+    }
+
+    addToBucket(buckets, {
+      insightType: "try_scorer_percentage",
+      priceBucketEnd: priceBucket.end,
+      priceBucketLabel: priceBucket.label,
+      priceBucketStart: priceBucket.start,
+      scopeKey: `nrl:try_scorer_percentage:price_bucket:${priceBucket.start.toFixed(2)}`,
+      scopeType: "price_bucket",
+    }, record, addTryScorerMarketSelection);
+  }
+
   return finalizeAggregates(buckets);
 }
 
@@ -662,17 +779,6 @@ function buildSameGameMultiAggregates(results) {
       selectionType: "favourite",
     }, record, addSameGameMultiSelection);
 
-    if (record.teamName) {
-      addToBucket(buckets, {
-        insightType: "same_game_multi_percentage",
-        scopeKey: `nrl:same_game_multi_percentage:team:${record.teamSourceId ?? record.teamName}`,
-        scopeType: "team",
-        selectionType: "favourite",
-        teamName: record.teamName,
-        teamSourceId: record.teamSourceId,
-      }, record, addSameGameMultiSelection);
-    }
-
     if (record.season) {
       addToBucket(buckets, {
         insightType: "same_game_multi_percentage",
@@ -702,7 +808,7 @@ function buildSameGameMultiAggregates(results) {
  * Loads all source rows needed for NRL insight rebuilds.
  */
 async function readSourceRows(supabase) {
-  const [fixedWinResults, matches, appearances, tryScorers, sameGameMultiResults] = await Promise.all([
+  const [fixedWinResults, matches, appearances, tryScorers, tryScorerPrices, sameGameMultiResults] = await Promise.all([
     supabase.selectAll("nrl_fixed_win_snapshot_results", {
       order: "snapshot_at.asc",
       select: [
@@ -759,6 +865,21 @@ async function readSourceRows(supabase) {
         "source_player_id",
       ].join(","),
     }),
+    supabase.selectAll("nrl_try_scorer_market_snapshots", {
+      order: "snapshot_at.asc,fixed_win_price.asc",
+      select: [
+        "source",
+        "source_event_id",
+        "matched_nrl_match_id",
+        "snapshot_at",
+        "advertised_start_at",
+        "player_source_id",
+        "player_name",
+        "team_source_id",
+        "team_name",
+        "fixed_win_price",
+      ].join(","),
+    }),
     supabase.selectAll("nrl_same_game_multi_results", {
       order: "advertised_start_at.asc",
       select: [
@@ -780,6 +901,7 @@ async function readSourceRows(supabase) {
     fixedWinResults,
     matches,
     sameGameMultiResults,
+    tryScorerPrices,
     tryScorers,
   };
 }
@@ -822,6 +944,7 @@ function summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows) {
     nrlAppearances: sourceRows.appearances.length,
     nrlMatches: sourceRows.matches.length,
     nrlSameGameMultiResults: sourceRows.sameGameMultiResults.length,
+    nrlTryScorerMarketSnapshots: sourceRows.tryScorerPrices.length,
     nrlTryScorers: sourceRows.tryScorers.length,
     sameGameMultiAggregateRows: sameGameMultiRows.length,
     tryScorerAggregateRows: tryScorerRows.length,
@@ -864,7 +987,9 @@ async function main() {
   const tryScorerRows = buildTryScorerAggregates(
     sourceRows.appearances,
     sourceRows.tryScorers,
+    matchesById,
     matchesBySourceKey,
+    sourceRows.tryScorerPrices,
   );
   const sameGameMultiRows = buildSameGameMultiAggregates(sourceRows.sameGameMultiResults);
   const rows = [...fixedWinRows, ...tryScorerRows, ...sameGameMultiRows];

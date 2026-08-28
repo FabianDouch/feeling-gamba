@@ -60,6 +60,11 @@ fixed-win snapshot result/status rows for settled return tracking.
 `supabase/migrations/202608250003_nrl_insight_aggregates.sql` adds NRL player
 match appearances plus `nrl_insight_aggregates`, so Insights can show
 fixed-win single aggregates and official try-scorer percentage aggregates.
+As of `2026-08-28`,
+`supabase/migrations/202608280002_nrl_price_bucket_insights.sql` adds NRL
+price-bucket aggregate fields so Insights can show fixed-win and anytime
+try-scorer likelihood by 50c decimal price bucket without team-specific
+breakdowns.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.
@@ -1186,7 +1191,7 @@ Key fields:
 - `insight_type text` - `fixed_win_single`, `try_scorer_percentage`, or
   `same_game_multi_percentage`
 - `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
-  `team`, `season`, `season_round`, `player`, or `player_team`
+  `price_bucket`, `team`, `season`, `season_round`, `player`, or `player_team`
 - `source text`
 - `selection_type text` - `home`, `away`, or `favourite`
 - `season int`
@@ -1195,6 +1200,9 @@ Key fields:
 - `team_name text`
 - `player_source_id text`
 - `player_name text`
+- `price_bucket_label text`
+- `price_bucket_start numeric`
+- `price_bucket_end numeric`
 - `date_from date`
 - `date_to date`
 - `event_count int`
@@ -1216,17 +1224,26 @@ Rules:
 
 - Fixed-win aggregates use current `Match Betting` prices reconciled through
   `nrl_fixed_win_snapshot_results`.
-- The overall fixed-win row tracks favourites only. Team rows track home/away
-  fixed-win selections for each team without double-counting the favourite.
+- The overall fixed-win row tracks favourites only. The source data can support
+  team rows, but the app-facing rebuild now omits fixed-win team scopes in
+  favour of price buckets.
 - Provider-specific fixed-win rows are intentionally not generated for the
   app-facing Insights view.
+- Fixed-win price-bucket rows use both home and away fixed-win selections, not
+  team-specific buckets, so the row answers whether any team paying that price
+  won.
 - Try-scorer percentage rows use one settled player appearance as one
   selection and count a win when that player scored at least one official try.
-- Try-scorer rows store counts and percentages only; cash fields remain zero
-  until source-backed player try-scorer prices are added.
+- Try-scorer overall/player/team rows store counts and percentages from official
+  appearances. Try-scorer price-bucket rows use captured `Anytime Try Scorer`
+  market prices and official scorer settlement, so return fields are populated
+  when the priced player selection has settled.
 - Same-game multi percentage rows read `nrl_same_game_multi_results`, count one
   `$1` selection per settled row, and record estimated returns only from the
   documented multiplied-leg basis.
+- App-facing NRL Insights no longer need fixed-win team or same-game team
+  sections; price buckets are the preferred non-team-specific breakdown for
+  those models.
 - Public RLS read access is allowed because rows contain app-facing aggregate
   facts only.
 

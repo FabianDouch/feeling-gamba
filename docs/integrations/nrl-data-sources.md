@@ -53,13 +53,19 @@ captured before the match closed.
 The regular pre-match current-market flow is
 `packages/ingestion/scripts/refresh-nrl-current-markets.mjs`, exposed through
 `refresh:nrl-current-markets` and scheduled by
-`.github/workflows/nrl-market-refresh.yml` every 30 minutes during the usual
+`.github/workflows/nrl-market-refresh.yml` every 15 minutes during the usual
 NRL match window. Manual dispatch can pass `season` and `round` to preload
 official fixture/player rows before market capture.
 The first combined live run on 2026-08-28 wrote 6 fixed-win market snapshots,
 238 try-scorer market snapshots, 38 fixed-win result/status rows, 8 same-game
 multi result rows, 1,155 NRL insight aggregate rows, and 49 current NRL single
 prediction rows.
+The follow-up 2026-08-28 NRL bucket update moved the scheduled market workflow
+to every 15 minutes during the usual NRL match window and made both fixed-win
+and try-scorer market snapshot writers refuse post-advertised-start captures.
+NRL Insights now prefer 50c decimal price-bucket breakdowns for fixed-win and
+try-scorer market selections, while fixed-win team and same-game team sections
+are omitted from the app-facing aggregate rebuild.
 After the completed 2026 rounds 1-25 backfill, the NRL insight rebuild wrote
 1,135 `nrl_insight_aggregates` rows: 46 fixed-win rows and 1,089 try-scorer
 percentage rows from 7,143 official player appearances and 1,570 official try

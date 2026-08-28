@@ -312,6 +312,20 @@ function isWithinMatchWindow(snapshotStart, matchKickoff) {
   return Math.abs(snapshotDate.valueOf() - matchDate.valueOf()) <= MATCH_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
+/**
+ * Prevents fixed-win market rows from being captured after advertised kickoff.
+ */
+function isBeforeAdvertisedStart(event, generatedAt) {
+  const start = new Date(event?.advertisedStart);
+  const snapshot = new Date(generatedAt);
+
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(snapshot.valueOf())) {
+    return false;
+  }
+
+  return snapshot.valueOf() < start.valueOf();
+}
+
 function namesMatch(left, right) {
   const leftName = normalizeName(left);
   const rightName = normalizeName(right);
@@ -340,6 +354,10 @@ function matchExistingNrlMatch(snapshot, matches) {
 }
 
 function mapSnapshot(source, event, generatedAt, officialMatches) {
+  if (!isBeforeAdvertisedStart(event, generatedAt)) {
+    return null;
+  }
+
   const market = findFixedWinMarket(event);
 
   if (!market) {

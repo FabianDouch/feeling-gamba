@@ -27,6 +27,10 @@ that reads fixed-win single and try-scorer percentage rows from
 show Same Game % rows for the favourite team plus the two shortest-priced
 favourite-team try scorers once player try-scorer prices are captured, with the
 Same Game % section shown before the NRL singles sections. It was
+updated again on 2026-08-28 so NRL Insights replaces fixed-win and same-game
+team breakdowns with 50c fixed-win and try-scorer price bucket breakdowns.
+Rendered IA outputs should be regenerated from the YAML before being treated as
+current. It was
 updated on 2026-08-24 so
 Predictions and Prediction History use
 the same Sport -> Singles/Multis -> Signal type -> Model structure, including
@@ -222,8 +226,9 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
-- For NRL, show fixed-win single aggregates, official try-scorer percentage
-  aggregates, and Same Game % aggregate rows from `nrl_insight_aggregates`.
+- For NRL, show fixed-win single aggregates, try-scorer percentage aggregates,
+  fixed-win and try-scorer price bucket aggregates, and Same Game % aggregate
+  rows from `nrl_insight_aggregates`.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
@@ -264,11 +269,12 @@ Main content:
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
 - UFC favourite price, other fighter price, and price-difference breakdowns.
-- NRL fixed-win favourite, home/away, team, and round breakdowns.
-- NRL try-scorer percentage summaries by player and team. Cash try-scorer
-  metrics stay empty until source-backed player try-scorer prices are captured.
-- NRL Same Game % summaries by favourite team and round for the favourite-team
-  plus top-two try-scorer model. Rows stay empty or `missing_price` until
+- NRL fixed-win favourite, home/away, 50c fixed-win price bucket, and round
+  breakdowns.
+- NRL try-scorer percentage summaries by player, team, and 50c captured
+  try-scorer price bucket.
+- NRL Same Game % summary and round breakdowns for the favourite-team plus
+  top-two try-scorer model. Rows stay empty or `missing_price` until
   source-backed player try-scorer prices are captured. Show this section before
   the NRL fixed-win and try-scorer singles sections.
 - MarketMover outcomes where available.
