@@ -970,6 +970,12 @@ Initial mode:
   fails, treat the run as a source failure and skip racing snapshot,
   prediction-row, and multi-row writes. This prevents an empty candidate payload
   from replacing the current usable prediction snapshot.
+- Local historical racing collection records individual race-card detail
+  failures in the generated fixture and keeps the rest of the date. It uses the
+  current `BlackbookRaceEntrantInfo` race detail operation and adapts that
+  source shape back to the stored race-card fixture shape. Rows whose race-card
+  detail fails are stored without derived runner/result data so one empty
+  source response does not block every other race from that date.
 - The prediction refresh stores Betcha bet-back candidate predictions in
   `promotion_predictions`. The unique key is
   `(prediction_model, source, source_race_card_id)` so model variations can run
