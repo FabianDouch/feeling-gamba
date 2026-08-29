@@ -20,6 +20,7 @@ import {
   UFC_SINGLE_65_PLUS_MODEL_KEY,
   UFC_SINGLE_75_PLUS_MODEL_KEY,
   UFC_SINGLE_85_PLUS_MODEL_KEY,
+  UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY,
@@ -124,6 +125,7 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
   [UFC_SINGLE_65_PLUS_MODEL_KEY]: "65%+ win",
   [UFC_SINGLE_75_PLUS_MODEL_KEY]: "75%+ win",
   [UFC_SINGLE_85_PLUS_MODEL_KEY]: "85%+ win",
+  [UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY]: "Price diff 75%+",
   [PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY]: "PFL favourite price",
   [PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY]: "PFL other fighter price",
   [PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: "PFL price difference",
@@ -1780,6 +1782,7 @@ function UfcWinPercentageSinglesPanel({
   sportLabel = "UFC",
 }: UfcWinPercentageSinglesPanelProps) {
   const candidates = getUfcSinglePredictionCandidates(modelRun);
+  const candidateGroups = groupUfcSinglePredictionCandidatesByCard(candidates);
 
   return (
     <View style={styles.multiPanel}>
@@ -1792,33 +1795,43 @@ function UfcWinPercentageSinglesPanel({
         </View>
       </View>
 
-      {candidates.length ? (
+      {candidateGroups.length ? (
         <View style={styles.multiLegList}>
-          {candidates.map((candidate) => (
-            <View key={`${candidate.sourceCardId}-${candidate.sourceEventId}`} style={styles.multiLeg}>
-              <View style={styles.multiLegIndex}>
-                <Text style={styles.multiLegIndexText}>{candidate.predictionRank}</Text>
-              </View>
-              <View style={styles.multiLegTextBlock}>
-                <View style={styles.multiLegTitleRow}>
-                  <RaceDisciplineIcon code="ufc" size={16} />
-                  <Text style={styles.multiLegTitle}>
-                    {candidate.predictedFighterName} vs {candidate.otherFighterName}
-                  </Text>
-                </View>
-                <Text style={styles.multiLegMeta}>
-                  {candidate.sourceCardName} · {formatDateTime(candidate.advertisedStart)}
-                </Text>
-                <Text style={styles.multiLegMeta}>
-                  Fixed win {formatCurrency(candidate.predictedFixedWinPrice)} · {formatPercentage(candidate.signal.score)} win score
-                </Text>
-                <Text style={styles.multiLegMeta}>
-                  {candidate.signal.bucketLabel ?? "Unknown bucket"} · {candidate.signal.bucketSampleSize} samples · diff {formatCurrency(candidate.priceDifference)}
-                </Text>
-              </View>
-              <Text style={[styles.multiLegSignal, styles[`signalText_${candidate.signal.tone}`]]}>
-                {formatWinPercentageSignalLabel(candidate.signal.tone)}
+          {candidateGroups.map((group) => (
+            <View key={group.sourceCardId} style={styles.ufcSingleCardBlock}>
+              <Text style={styles.ufcSingleCardTitle}>{group.sourceCardName}</Text>
+              <Text style={styles.multiLegMeta}>
+                First fight {formatDateTime(group.firstFightStart)}
               </Text>
+              <View style={styles.ufcSingleCardLegList}>
+                {group.candidates.map((candidate) => (
+                  <View key={`${candidate.sourceCardId}-${candidate.sourceEventId}`} style={styles.multiLeg}>
+                    <View style={styles.multiLegIndex}>
+                      <Text style={styles.multiLegIndexText}>{candidate.predictionRank}</Text>
+                    </View>
+                    <View style={styles.multiLegTextBlock}>
+                      <View style={styles.multiLegTitleRow}>
+                        <RaceDisciplineIcon code="ufc" size={16} />
+                        <Text style={styles.multiLegTitle}>
+                          {candidate.predictedFighterName} vs {candidate.otherFighterName}
+                        </Text>
+                      </View>
+                      <Text style={styles.multiLegMeta}>
+                        {formatDateTime(candidate.advertisedStart)}
+                      </Text>
+                      <Text style={styles.multiLegMeta}>
+                        Fixed win {formatCurrency(candidate.predictedFixedWinPrice)} · {formatPercentage(candidate.signal.score)} win score
+                      </Text>
+                      <Text style={styles.multiLegMeta}>
+                        {candidate.signal.bucketLabel ?? "Unknown bucket"} · {candidate.signal.bucketSampleSize} samples · diff {formatCurrency(candidate.priceDifference)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.multiLegSignal, styles[`signalText_${candidate.signal.tone}`]]}>
+                      {formatWinPercentageSignalLabel(candidate.signal.tone)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           ))}
         </View>
@@ -2286,24 +2299,99 @@ function getUfcSinglePredictionCandidates(modelRun: UfcWinPercentageMultiModelRu
 }
 
 /**
- * Orders UFC singles by model rank, then card and advertised start.
+ * Groups UFC singles by fight night while preserving their model rank labels.
+ */
+function groupUfcSinglePredictionCandidatesByCard(candidates: UfcSinglePredictionCandidate[]) {
+  const groups = new Map<string, {
+    candidates: UfcSinglePredictionCandidate[];
+    firstFightStart: string;
+    sourceCardId: string;
+    sourceCardName: string;
+  }>();
+
+  for (const candidate of candidates) {
+    const existing = groups.get(candidate.sourceCardId);
+
+    if (existing) {
+      existing.candidates.push(candidate);
+
+      if (compareIsoDate(candidate.advertisedStart, existing.firstFightStart) < 0) {
+        existing.firstFightStart = candidate.advertisedStart;
+      }
+
+      continue;
+    }
+
+    groups.set(candidate.sourceCardId, {
+      candidates: [candidate],
+      firstFightStart: candidate.advertisedStart,
+      sourceCardId: candidate.sourceCardId,
+      sourceCardName: candidate.sourceCardName,
+    });
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      candidates: group.candidates.sort(compareUfcSinglePredictionCandidatesWithinCard),
+    }))
+    .sort((left, right) => {
+      const startComparison = compareIsoDate(left.firstFightStart, right.firstFightStart);
+
+      if (startComparison !== 0) {
+        return startComparison;
+      }
+
+      return left.sourceCardName.localeCompare(right.sourceCardName);
+    });
+}
+
+/**
+ * Orders UFC singles by fight night, then advertised start, then model rank.
  */
 function compareUfcSinglePredictionCandidates(
   left: UfcSinglePredictionCandidate,
   right: UfcSinglePredictionCandidate,
 ) {
-  if (left.predictionRank !== right.predictionRank) {
-    return left.predictionRank - right.predictionRank;
-  }
-
   const cardComparison = left.sourceCardName.localeCompare(right.sourceCardName);
 
   if (cardComparison !== 0) {
     return cardComparison;
   }
 
-  return new Date(left.advertisedStart).valueOf()
-    - new Date(right.advertisedStart).valueOf();
+  return compareUfcSinglePredictionCandidatesWithinCard(left, right);
+}
+
+/**
+ * Orders UFC singles inside one fight night by scheduled fight time, then model rank.
+ */
+function compareUfcSinglePredictionCandidatesWithinCard(
+  left: UfcSinglePredictionCandidate,
+  right: UfcSinglePredictionCandidate,
+) {
+  const startComparison = compareIsoDate(left.advertisedStart, right.advertisedStart);
+
+  if (startComparison !== 0) {
+    return startComparison;
+  }
+
+  if (left.predictionRank !== right.predictionRank) {
+    return left.predictionRank - right.predictionRank;
+  }
+
+  return left.fightName.localeCompare(right.fightName);
+}
+
+/**
+ * Compares ISO-ish timestamps while keeping invalid values stable at the end.
+ */
+function compareIsoDate(left: string | null | undefined, right: string | null | undefined) {
+  const leftTime = new Date(left ?? "").valueOf();
+  const rightTime = new Date(right ?? "").valueOf();
+  const safeLeftTime = Number.isFinite(leftTime) ? leftTime : Number.POSITIVE_INFINITY;
+  const safeRightTime = Number.isFinite(rightTime) ? rightTime : Number.POSITIVE_INFINITY;
+
+  return safeLeftTime - safeRightTime;
 }
 
 /**
@@ -3998,5 +4086,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 12,
     padding: 12,
+  },
+  ufcSingleCardBlock: {
+    borderTopColor: "#e4e7ec",
+    borderTopWidth: 1,
+    paddingTop: 10,
+  },
+  ufcSingleCardLegList: {
+    gap: 8,
+    marginTop: 8,
+  },
+  ufcSingleCardTitle: {
+    color: "#18202f",
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 17,
   },
 });

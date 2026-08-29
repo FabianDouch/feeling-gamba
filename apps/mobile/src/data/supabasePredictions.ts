@@ -19,6 +19,7 @@ export const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_
 export const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 export const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
 export const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
+export const UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY = "ufc_single_price_difference_win_percentage_75_plus_v1";
 export const PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY = "pfl_multi_favourite_price_win_percentage_v1";
 export const PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "pfl_multi_other_fighter_price_win_percentage_v1";
 export const PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "pfl_multi_price_difference_win_percentage_v1";
@@ -57,6 +58,7 @@ export type WinPercentageMultiModelKey =
   | typeof UFC_SINGLE_65_PLUS_MODEL_KEY
   | typeof UFC_SINGLE_75_PLUS_MODEL_KEY
   | typeof UFC_SINGLE_85_PLUS_MODEL_KEY
+  | typeof UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY
   | typeof PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY
   | typeof PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
   | typeof PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY
@@ -229,6 +231,13 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     detail: "Each fully priced Head to Head favourite is scored across the UFC favourite-price, other-fighter-price, and price-difference models. The strongest 85%+ signal is tracked as a separate $1 single.",
     key: UFC_SINGLE_85_PLUS_MODEL_KEY,
     label: "85%+ win singles",
+    sport: "ufc",
+  },
+  {
+    description: "Tracks each current UFC favourite whose historical price-difference bucket signal is at least 75%.",
+    detail: "Only the UFC price-difference bucket model is used. Each fully priced Head to Head favourite with a 75%+ price-difference win score is tracked as a separate $1 single.",
+    key: UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY,
+    label: "Price diff 75%+ singles",
     sport: "ufc",
   },
   {
@@ -2665,6 +2674,10 @@ function getUfcWinPercentageSinglePredictionLabel(predictionModel: WinPercentage
     return "UFC 85%+ win singles";
   }
 
+  if (predictionModel === UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY) {
+    return "UFC price difference 75%+ singles";
+  }
+
   if (predictionModel === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY) {
     return "UFC other fighter price singles";
   }
@@ -2682,7 +2695,8 @@ export function isUfcPercentageMultiModel(predictionModel: string | null) {
     || predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
     || predictionModel === UFC_SINGLE_65_PLUS_MODEL_KEY
     || predictionModel === UFC_SINGLE_75_PLUS_MODEL_KEY
-    || predictionModel === UFC_SINGLE_85_PLUS_MODEL_KEY;
+    || predictionModel === UFC_SINGLE_85_PLUS_MODEL_KEY
+    || predictionModel === UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY;
 }
 
 export function isPflPercentageMultiModel(predictionModel: string | null) {

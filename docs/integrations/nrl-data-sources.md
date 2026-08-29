@@ -50,6 +50,11 @@ implemented in
 `packages/ingestion/scripts/refresh-nrl-try-scorer-market-snapshots-from-tab.mjs`;
 older same-game rows remain `missing_price` if no pre-game player prices were
 captured before the match closed.
+Calibration note from 2026-08-29: for Sea Eagles v Dragons on 2026-08-28, the
+stored estimated return for the favourite-team same-game row was `$4.445` from
+multiplying fixed leg prices, while the manually observed actual return was
+`$3.39` per `$1`. Keep collecting these differences before using estimated
+same-game returns as cash performance.
 The regular pre-match current-market flow is
 `packages/ingestion/scripts/refresh-nrl-current-markets.mjs`, exposed through
 `refresh:nrl-current-markets` and scheduled by

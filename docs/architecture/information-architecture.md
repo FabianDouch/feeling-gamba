@@ -417,9 +417,12 @@ Main content:
   legs from one Betcha UFC card.
 - UFC Singles -> Win % shows dedicated `65%+ win singles`, `75%+ win
   singles`, and `85%+ win singles` model tabs alongside the existing UFC favourite-price,
-  other-fighter-price, and price-difference single model tabs. Each threshold
-  model lists fully priced Head to Head favourites whose strongest UFC
-  historical win-percentage signal is at least the selected threshold.
+  other-fighter-price, price-difference, and price-difference 75%+ single model
+  tabs. The broad threshold models list fully priced Head to Head favourites
+  whose strongest UFC historical win-percentage signal is at least the selected
+  threshold; the price-difference 75%+ model uses only the price-difference
+  bucket signal. Current UFC single candidates are grouped by fight night so
+  separate cards do not interleave in the list.
 - UFC exposes the same sport/format/signal hierarchy as Racing. Unsupported
   UFC branches, such as non-Win % signal types, show explicit empty states until
   matching models are added.
@@ -602,9 +605,10 @@ Main content:
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
   racecourse filters. UFC single history includes the bucket models plus the
-  `65%+`, `75%+`, and `85%+` threshold single models. PFL history uses the same
-  visible Singles/Multis -> Win % tab structure as UFC but remains an explicit
-  reserved state until PFL prediction storage/RPCs exist, even though current
+  `65%+`, `75%+`, `85%+`, and price-difference `75%+` threshold single models.
+  PFL history uses the same visible Singles/Multis -> Win % tab structure as
+  UFC but remains an explicit reserved state until PFL prediction storage/RPCs
+  exist, even though current
   PFL predictions can appear in the latest mixed snapshot. NRL history branches
   show explicit empty states until NRL prediction reconciliation and history
   RPCs are added.

@@ -731,6 +731,10 @@ Source rules:
   team fixed win plus the two shortest-priced favourite-team try scorers.
   Returns are estimated by multiplying the three fixed-leg prices and must not
   be labelled as true bookmaker same-game cash.
+- Calibration note from 2026-08-29: Sea Eagles v Dragons on 2026-08-28 stored
+  a `$4.445` estimated return, while the manually observed actual same-game
+  return was `$3.39` per `$1`. Keep these observations as calibration evidence
+  until a quoted same-game payout basis is captured.
 - Pending, unmatched, and missing-result rows are counted for auditability but
   excluded from settled win-rate and return denominators.
 
@@ -925,9 +929,11 @@ Initial mode:
 - UFC current prediction payloads include per-model single candidates for the
   favourite price, other fighter price, and price-difference historical bucket
   models, plus 65%+, 75%+, and 85%+ threshold single models based on each fight's
-  strongest qualifying UFC bucket signal. These singles are persisted to
-  `ufc_single_predictions` so Prediction History can track $1 unit-stake
-  results over time.
+  strongest qualifying UFC bucket signal. The separate
+  `ufc_single_price_difference_win_percentage_75_plus_v1` model keeps only
+  current favourites whose price-difference bucket signal is at least 75%.
+  These singles are persisted to `ufc_single_predictions` so Prediction History
+  can track $1 unit-stake results over time.
 - PFL uses the same visible Singles/Multis -> Win % hierarchy and model tab
   shape as UFC. Current PFL prediction generation reads The Odds API current MMA
   H2H prices only when an odds event matches the reviewed PFL allow-list by
@@ -1318,6 +1324,10 @@ These threshold backfills write `ufc_single_win_percentage_65_plus_v1`,
 `ufc_single_win_percentage_75_plus_v1`, or
 `ufc_single_win_percentage_85_plus_v1` rows and keep the strongest qualifying
 stored UFC multi-leg signal per model/source date/card/event.
+For the price-difference-only 75%+ UFC single model, run
+`npm --workspace @feeling-gamba/ingestion run backfill:ufc-singles-from-multis -- --price-difference-75-plus --require-supabase`.
+That backfill reads only `ufc_multi_price_difference_win_percentage_v1` stored
+legs and writes `ufc_single_price_difference_win_percentage_75_plus_v1`.
 
 Deploy `refresh-race-days-and-insights` after merging changes to the slice
 request body. If the workflow is updated before the Edge Function is redeployed,

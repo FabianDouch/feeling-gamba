@@ -27,6 +27,7 @@ const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_per
 const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
 const UFC_SINGLE_85_PLUS_MODEL_KEY = "ufc_single_win_percentage_85_plus_v1";
+const UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY = "ufc_single_price_difference_win_percentage_75_plus_v1";
 const PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY = "pfl_multi_favourite_price_win_percentage_v1";
 const PFL_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "pfl_multi_other_fighter_price_win_percentage_v1";
 const PFL_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "pfl_multi_price_difference_win_percentage_v1";
@@ -50,6 +51,12 @@ const UFC_SINGLE_THRESHOLD_MODEL_CONFIGS = [
     key: UFC_SINGLE_85_PLUS_MODEL_KEY,
     label: "UFC 85%+ win singles",
     threshold: 85,
+  },
+  {
+    key: UFC_SINGLE_PRICE_DIFFERENCE_75_PLUS_MODEL_KEY,
+    label: "UFC price diff 75%+ singles",
+    sourceModelKey: UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
+    threshold: 75,
   },
 ];
 const PFL_SINGLE_THRESHOLD_MODEL_CONFIGS = [
@@ -4420,14 +4427,18 @@ function createUfcSinglePredictionCandidates(card, candidates, modelKey) {
 /**
  * Builds UFC single candidates whose strongest model signal clears a fixed threshold.
  */
-function createUfcThresholdSinglePredictionCandidates(card, candidates, threshold) {
-  return candidates
-    .map((candidate) => {
-      const signalEntries = [
+function createUfcThresholdSinglePredictionCandidates(card, candidates, model) {
+  const sourceModelKeys = model.sourceModelKey
+    ? [model.sourceModelKey]
+    : [
         UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
         UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
         UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
-      ]
+      ];
+
+  return candidates
+    .map((candidate) => {
+      const signalEntries = sourceModelKeys
         .map((modelKey) => ({
           modelKey,
           signal: candidate.modelSignals?.[modelKey] ?? null,
@@ -4435,7 +4446,7 @@ function createUfcThresholdSinglePredictionCandidates(card, candidates, threshol
         .filter((entry) =>
           Number.isFinite(entry.signal?.winScore)
           && ["neutral", "positive"].includes(entry.signal?.tone)
-          && Number(entry.signal?.winScore) >= threshold);
+          && Number(entry.signal?.winScore) >= model.threshold);
       const strongest = signalEntries.sort((left, right) =>
         Number(right.signal?.winScore ?? -Infinity) - Number(left.signal?.winScore ?? -Infinity))[0];
 
@@ -4444,8 +4455,8 @@ function createUfcThresholdSinglePredictionCandidates(card, candidates, threshol
             ...candidate,
             modelSignal: {
               ...strongest.signal,
-              detail: `${threshold}%+ UFC single from ${strongest.signal.detail}`,
-              label: `${threshold}%+ win-rate single`,
+              detail: `${model.threshold}%+ UFC single from ${strongest.signal.detail}`,
+              label: model.sourceModelKey ? model.label : `${model.threshold}%+ win-rate single`,
               sourceModelKey: strongest.modelKey,
               tone: "positive",
             },
@@ -4569,12 +4580,14 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
       createUfcSinglePredictionCandidates(card, candidates, model.key)),
   }));
   const thresholdSingleModels = UFC_SINGLE_THRESHOLD_MODEL_CONFIGS.map((model) => ({
-    description: `Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least ${model.threshold}%.`,
+    description: model.sourceModelKey === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
+      ? `Tracks each current UFC favourite whose historical UFC price-difference win-percentage signal is at least ${model.threshold}%.`
+      : `Tracks each current UFC favourite whose strongest historical UFC win-percentage signal is at least ${model.threshold}%.`,
     key: model.key,
     label: model.label,
     recommendations: [],
     singleCandidates: cardResults.flatMap(({ card, candidates }) =>
-      createUfcThresholdSinglePredictionCandidates(card, candidates, model.threshold)),
+      createUfcThresholdSinglePredictionCandidates(card, candidates, model)),
   }));
   const allModels = [...models, ...thresholdSingleModels];
   const firstFightStart = getEarliestIsoDate(

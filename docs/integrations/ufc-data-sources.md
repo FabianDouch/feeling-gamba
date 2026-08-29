@@ -160,6 +160,12 @@ result-only settlement source:
 The refresh can settle UFC Prediction History where the Betcha leg fighter pair
 matches a stored ESPN result row. It must not rebuild UFC price aggregates,
 because no ESPN price is source-backed.
+On 2026-08-29, UFC Singles gained a separate
+`ufc_single_price_difference_win_percentage_75_plus_v1` model. It is backed only
+by the UFC price-difference bucket signal at 75%+, unlike
+`ufc_single_win_percentage_75_plus_v1`, which keeps each fight's strongest
+qualifying signal across favourite-price, other-fighter-price, and
+price-difference buckets.
 
 The app-facing model should be sport-neutral before UFC is added to the UI:
 `Race Days` should become `Historical Data`, and sport-specific historical rows

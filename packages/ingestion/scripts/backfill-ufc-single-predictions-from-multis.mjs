@@ -12,27 +12,37 @@ const PAGE_SIZE = 1000;
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
+const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
 const UFC_MODEL_KEYS = [
   "ufc_multi_favourite_price_win_percentage_v1",
   "ufc_multi_other_fighter_price_win_percentage_v1",
-  "ufc_multi_price_difference_win_percentage_v1",
+  UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
 ];
 const UFC_THRESHOLD_MODELS = {
   65: {
     label: "65%+ win-rate single",
+    sourceModelKeys: UFC_MODEL_KEYS,
     targetModel: "ufc_single_win_percentage_65_plus_v1",
     threshold: 65,
   },
   75: {
     label: "75%+ win-rate single",
+    sourceModelKeys: UFC_MODEL_KEYS,
     targetModel: "ufc_single_win_percentage_75_plus_v1",
     threshold: 75,
   },
   85: {
     label: "85%+ win-rate single",
+    sourceModelKeys: UFC_MODEL_KEYS,
     targetModel: "ufc_single_win_percentage_85_plus_v1",
     threshold: 85,
   },
+};
+const UFC_PRICE_DIFFERENCE_75_PLUS_THRESHOLD_MODEL = {
+  label: "Price diff 75%+ win-rate single",
+  sourceModelKeys: [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY],
+  targetModel: "ufc_single_price_difference_win_percentage_75_plus_v1",
+  threshold: 75,
 };
 
 const UFC_SINGLE_PREDICTION_COLUMNS = [
@@ -86,6 +96,7 @@ function parseArgs(argv) {
     requireSupabase: false,
     threshold: null,
     thresholdModel: null,
+    thresholdModelKey: null,
     toDate: null,
   };
 
@@ -96,6 +107,8 @@ function parseArgs(argv) {
       options.replaceExisting = true;
     } else if (arg === "--require-supabase") {
       options.requireSupabase = true;
+    } else if (arg === "--price-difference-75-plus") {
+      options.thresholdModelKey = "price_difference_75_plus";
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
     } else if (arg.startsWith("--from-date=")) {
@@ -124,11 +137,31 @@ function parseArgs(argv) {
   }
 
   if (options.threshold !== null) {
+    if (options.thresholdModelKey) {
+      throw new Error("Pass either --threshold or --price-difference-75-plus, not both.");
+    }
+
     options.thresholdModel = UFC_THRESHOLD_MODELS[options.threshold];
 
     if (!options.thresholdModel) {
       throw new Error("--threshold must be 65, 75, or 85.");
     }
+  }
+
+  if (options.thresholdModelKey === "price_difference_75_plus") {
+    options.thresholdModel = UFC_PRICE_DIFFERENCE_75_PLUS_THRESHOLD_MODEL;
+
+    if (!options.predictionModel) {
+      options.predictionModel = UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY;
+    }
+  }
+
+  if (
+    options.thresholdModel
+    && options.predictionModel
+    && !options.thresholdModel.sourceModelKeys.includes(options.predictionModel)
+  ) {
+    throw new Error(`--prediction-model must be one of ${options.thresholdModel.sourceModelKeys.join(", ")} for this threshold model.`);
   }
 
   return options;
@@ -356,7 +389,7 @@ function mapUfcLegToSinglePrediction(recommendation, leg, thresholdModel = null)
         source_date: recommendation.source_date,
       },
     },
-    signal_detail: thresholdModel ? `${thresholdModel.threshold}%+ UFC single from ${signal.detail ?? leg.signal_label ?? "stored UFC multi leg"}` : signal.detail ?? null,
+    signal_detail: thresholdModel ? `${thresholdModel.label} from ${signal.detail ?? leg.signal_label ?? "stored UFC multi leg"}` : signal.detail ?? null,
     signal_label: thresholdModel?.label ?? leg.signal_label ?? signal.label ?? null,
     signal_tone: thresholdModel ? "positive" : leg.signal_tone ?? signal.tone ?? null,
     source: recommendation.source,
@@ -547,7 +580,8 @@ function prepareRowsForBackfill(rows, options) {
   }
 
   return rankThresholdRows(rows.filter((row) =>
-    Number(row.win_score ?? -Infinity) >= options.thresholdModel.threshold));
+    options.thresholdModel.sourceModelKeys.includes(row.raw?.recommendation?.prediction_model)
+    && Number(row.win_score ?? -Infinity) >= options.thresholdModel.threshold));
 }
 
 /**
@@ -675,6 +709,7 @@ async function main() {
       recommendationRows: recommendations.length,
       sourceLegRows: legs.length,
       threshold: options.thresholdModel?.threshold ?? null,
+      thresholdModelKey: options.thresholdModelKey,
       targetModel: options.thresholdModel?.targetModel ?? null,
       ...writeSummary,
     },

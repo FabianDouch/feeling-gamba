@@ -1035,8 +1035,10 @@ Rules:
   use the same favourite-price, other-fighter-price, and price-difference
   historical bucket signals as UFC multis. Dedicated 65%+, 75%+, and 85%+ single
   threshold models keep each fight's strongest qualifying signal across those
-  UFC bucket models. All UFC singles are persisted separately in
-  `ufc_single_predictions` for $1 unit-stake history.
+  UFC bucket models. A separate price-difference-only 75%+ single model tracks
+  candidates where the UFC price-difference bucket signal alone clears 75%.
+  All UFC singles are persisted separately in `ufc_single_predictions` for $1
+  unit-stake history.
 - Every leg in a UFC multi must come from the same Betcha UFC card and an open
   Head to Head market with two priced fighters.
 - Each model requires at least two eligible fights and can store up to eight
@@ -1087,7 +1089,9 @@ Key fields:
 - `prediction_model text` - one of the UFC percentage model keys, including the
   three UFC same-card bucket models or the `ufc_single_win_percentage_65_plus_v1`,
   `ufc_single_win_percentage_75_plus_v1`, and
-  `ufc_single_win_percentage_85_plus_v1` threshold single models.
+  `ufc_single_win_percentage_85_plus_v1` threshold single models, plus
+  `ufc_single_price_difference_win_percentage_75_plus_v1` for price-difference
+  75%+ singles.
 - `source_date date`, `source_card_id text`, `source_card_name text`
 - `source_event_id text`, `source_market_id text`
 - `advertised_start timestamptz`
@@ -1106,6 +1110,8 @@ Rules:
   during UFC current-prediction refresh and snapshot replay.
 - Threshold single rows use the strongest qualifying UFC bucket-model signal per
   fight and are ranked within the model/source date/card by win score.
+- Price-difference 75%+ single rows use only the UFC price-difference bucket
+  signal and are ranked within the model/source date/card by win score.
 - The unique key is `(prediction_model, source, source_date, source_card_id,
   source_event_id)`, so each model tracks one single candidate per fight.
 - Stale rows for the same source date/model are deleted when a refreshed payload
