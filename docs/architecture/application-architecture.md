@@ -10,7 +10,12 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-08-27 to standardise current prediction
+Note: the YAML was updated on 2026-09-01 so the race-day refresh workflow has
+multiple idempotent morning catch-up schedules for settling yesterday's
+predictions. It was updated on 2026-08-31 so NRL fixed-win Insights include
+other-team fixed-win price and favourite-vs-other price-difference buckets.
+Rendered architecture outputs should be regenerated from the YAML before being
+treated as current. It was updated on 2026-08-27 to standardise current prediction
 finalisation across sports at 15 minutes before the first race, fight, or match
 starts, to add generic current prediction view locks, and to add
 model-finalised mobile notifications for favourited prediction models. Rendered
@@ -750,6 +755,8 @@ repo-root public Supabase env values before Metro bundles the app.
 - NRL Insights are rebuilt manually with
   `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates`.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
+  Fixed-win buckets include selection type, favourite/team price, other-team
+  price, favourite-vs-other price difference, season, and round scopes.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
   try-scorer prices are validated. Same-game multi percentage support uses

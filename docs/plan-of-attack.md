@@ -115,13 +115,13 @@ source-of-truth docs in the same change.
   prediction data is captured even when nobody opens the app.
 - Race Days was observed on 2026-06-24 as only current through `2026-06-21`,
   which left recent prediction outcomes pending. A daily overnight GitHub
-  Actions workflow now invokes `refresh-race-days-and-insights` with a
-  four-day completed-date lookback, chunked into one request per source date,
-  country, and source category, followed by separate final aggregate and
-  reconciliation requests. The final insight rebuild runs locally in the GitHub
-  Actions runner and pages historical `race_day_entries` while accumulating
-  aggregate buckets so the all-history insight job is outside Supabase Edge's
-  CPU limit.
+  Actions workflow now invokes `refresh-race-days-and-insights` with repeated
+  idempotent morning catch-up schedules, a four-day completed-date lookback, and
+  chunks of one request per source date, country, and source category, followed
+  by separate final aggregate and reconciliation requests. The final insight
+  rebuild runs locally in the GitHub Actions runner and pages historical
+  `race_day_entries` while accumulating aggregate buckets so the all-history
+  insight job is outside Supabase Edge's CPU limit.
 
 ## Phase 1: Project Scaffold
 
@@ -277,11 +277,12 @@ source-of-truth docs in the same change.
    - Status: the first production race-day catch-up schedule now uses
      `.github/workflows/overnight-race-refresh.yml` instead of a new database
      migration. It calls the hosted `refresh-race-days-and-insights` Edge
-     Function daily at `18:10` UTC for the latest four completed Auckland dates,
-     chunked into one request per source date, country, and source category, and
-     followed by one aggregate/reconcile-only request. It supports manual
-     catch-up runs up to 14 completed Auckland dates. The Edge Function must be
-     redeployed after slice-body changes.
+     Function daily at `18:10`, `20:10`, and `22:10` UTC for the latest four
+     completed Auckland dates, chunked into one request per source date,
+     country, and source category, and followed by separate aggregate and
+     reconciliation requests. It supports manual catch-up runs up to 14
+     completed Auckland dates. The Edge Function must be redeployed after
+     slice-body changes.
 7. Add operational visibility through `source_fetches`, `ingestion_runs`, and
    debug/admin views.
 8. Add a manual historical backfill path from the initial collection start date

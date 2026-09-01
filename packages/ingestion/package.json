@@ -12,6 +12,7 @@
     "backfill:ufc-singles-from-multis": "node scripts/backfill-ufc-single-predictions-from-multis.mjs",
     "refresh:nrl-current-markets": "node scripts/refresh-nrl-current-markets.mjs",
     "refresh:nrl-market-snapshots": "node scripts/refresh-nrl-market-snapshots-from-tab.mjs",
+    "refresh:nrl-results-and-insights": "node scripts/refresh-nrl-results-and-insights.mjs",
     "refresh:nrl-results": "node scripts/refresh-nrl-results-from-official.mjs",
     "refresh:nrl-try-scorer-market-snapshots": "node scripts/refresh-nrl-try-scorer-market-snapshots-from-tab.mjs",
     "refresh:ufc-results": "node scripts/refresh-ufc-results-from-espn.mjs",

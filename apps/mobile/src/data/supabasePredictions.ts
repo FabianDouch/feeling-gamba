@@ -2245,6 +2245,7 @@ function mapUfcMultiRecommendationHistoryItem(
   const legs = Array.isArray(row.legs) ? row.legs : [];
   const winningLegs = legs.filter((leg) => isSuccessfulUfcMultiLeg(leg)).length;
   const settledLegs = row.outcome_settled_leg_count || legs.filter((leg) => leg.outcomeStatus === "settled").length;
+  const firstFightStart = getEarliestUfcMultiLegStart(legs);
 
   return {
     averageCashScore: formatPercentage(numeric(row.average_win_score)),
@@ -2259,7 +2260,7 @@ function mapUfcMultiRecommendationHistoryItem(
     recommendationLabel: `${row.source_card_name ?? "UFC card"} · ${row.recommendation_type === "positive" ? "Positive multi" : "Neutral multi"}`,
     returnLabel: formatCurrency(numeric(row.outcome_win_return)),
     sourceDate: row.source_date,
-    sourceDateLabel: formatDateLabel(row.source_date),
+    sourceDateLabel: firstFightStart ? formatDateLabelFromDateTime(firstFightStart) : formatDateLabel(row.source_date),
     summaryLabel: `${row.leg_count} fights · ${winningLegs}/${settledLegs || row.leg_count} fights won`,
   };
 }
@@ -2524,6 +2525,24 @@ function formatDateLabel(value: string) {
 }
 
 /**
+ * Formats a timestamp as the local source-date label without showing time.
+ */
+function formatDateLabelFromDateTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.valueOf())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-NZ", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: SOURCE_TIME_ZONE,
+    year: "numeric",
+  }).format(date);
+}
+
+/**
  * Returns yesterday as a source-date string using the app's racing timezone.
  */
 function getYesterdaySourceDate() {
@@ -2574,6 +2593,35 @@ function formatDateTime(value: string) {
     month: "2-digit",
     timeZone: SOURCE_TIME_ZONE,
   }).format(date);
+}
+
+/**
+ * Finds the first scheduled fight time for a UFC same-card multi.
+ */
+function getEarliestUfcMultiLegStart(legs: UfcMultiRecommendationLegRow[]) {
+  const starts = legs
+    .map((leg) => leg.advertisedStart)
+    .filter((value): value is string => Boolean(value))
+    .sort((left, right) => {
+      const leftTime = new Date(left).valueOf();
+      const rightTime = new Date(right).valueOf();
+
+      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+        return 0;
+      }
+
+      if (Number.isNaN(leftTime)) {
+        return 1;
+      }
+
+      if (Number.isNaN(rightTime)) {
+        return -1;
+      }
+
+      return leftTime - rightTime;
+    });
+
+  return starts[0] ?? null;
 }
 
 function formatPrice(value: NullableNumber) {

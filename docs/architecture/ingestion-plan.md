@@ -478,12 +478,20 @@ Initial mode:
 
 - Manual local worker:
   `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --require-supabase`
+- Scheduled recent-result refresh:
+  `.github/workflows/nrl-result-refresh.yml` runs
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results-and-insights -- --require-supabase`
+  daily after the usual weekend match window, discovers recently completed
+  official rounds, refreshes those results, reconciles fixed-win snapshots,
+  rebuilds same-game multi rows, and rebuilds app-facing NRL Insights.
 - Upcoming fixture preload:
   `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=26 --include-fixtures --require-supabase`
 - Dry-run validation:
   `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=25 --dry-run`
 - Multi-round catch-up:
   `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --from-round=1 --to-round=25 --require-supabase`
+- Scheduled dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results-and-insights -- --dry-run --lookback-days=10 --season=2026`
 
 Source rules:
 
@@ -643,7 +651,8 @@ Source rules:
   shells/player appearances have already been loaded for the relevant round.
 - The GitHub Actions schedule runs every 15 minutes during the usual NRL match
   window so current fixed-win and try-scorer prices are captured before
-  advertised kickoff.
+  advertised kickoff. As of 2026-08-31, the UTC window starts at `02:00` so
+  early Sunday NZST kickoffs are not first seen exactly at advertised start.
 - Passing `--season` plus `--round` or `--from-round` / `--to-round` preloads
   official fixture shells before market capture.
 - The job runs fixed-win capture before try-scorer capture, then reconciles and
@@ -1175,7 +1184,7 @@ Proposed recurring jobs:
 | `capture-market-snapshots` | `*/5 * * * *` | `capture-market-snapshots` | The function decides which races need snapshots. |
 | `collect-results` | `*/10 * * * *` | `collect-results` | Runs during and after race windows. |
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
-| `refresh-race-days-and-insights` | active: daily GitHub Actions schedule `10 18 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. |
+| `refresh-race-days-and-insights` | active: daily GitHub Actions schedules `10 18 * * *`, `10 20 * * *`, and `10 22 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. Multiple idempotent morning schedules reduce stale pending prediction outcomes when GitHub cron is delayed or misses a run. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-finalisation prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late refreshes after the selected sport's standard finalisation cutoff has passed. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC/PFL refreshes can refresh fight-card predictions independently before cutoff. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 | `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
@@ -1203,13 +1212,14 @@ confirmed.
 
 The daily race-day refresh is deployed as `refresh-race-days-and-insights` and
 scheduled through `.github/workflows/overnight-race-refresh.yml`. The workflow
-calls the hosted Edge Function at `18:10` UTC, which is early morning in New
-Zealand. The scheduled run uses a 4-day completed Auckland-date lookback, but it
-does not send that as one large Edge Function request. Instead, it loops over
-each completed source date and calls the hosted function with `from` and `to`
-set to that date. Each date is further sliced by country (`NZ`, `AUS`, `HK`)
-and source category (`HORSE`, `HARNESS`, `GREYHOUND`). These source-fetch chunks
-use `refreshRaceData: true`, `rebuildInsights: false`, and
+calls the hosted Edge Function at `18:10`, `20:10`, and `22:10` UTC, which gives
+the same completed Auckland-date window multiple idempotent morning catch-up
+attempts in New Zealand. The scheduled run uses a 4-day completed Auckland-date
+lookback, but it does not send that as one large Edge Function request. Instead,
+it loops over each completed source date and calls the hosted function with
+`from` and `to` set to that date. Each date is further sliced by country (`NZ`,
+`AUS`, `HK`) and source category (`HORSE`, `HARNESS`, `GREYHOUND`). These
+source-fetch chunks use `refreshRaceData: true`, `rebuildInsights: false`, and
 `reconcileOutcomes: false`. After all source slices finish, the workflow
 rebuilds insights locally in the GitHub runner with
 `npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates`,
@@ -1223,7 +1233,10 @@ aggregate/reconcile request started hitting Supabase's 150 second request idle
 timeout as the stored data set grew, and the all-history insight rebuild later
 hit Supabase Edge's CPU limit even after paging memory use. The local insight
 rebuild still pages through stored `race_day_entries` and accumulates aggregate
-buckets incrementally, but runs outside the Edge worker CPU budget. Manual
+buckets incrementally, but runs outside the Edge worker CPU budget. The local
+`refresh:race-days-and-insights` wrapper must use the same Supabase-backed
+insight rebuild path, not the old fixture-backed `--insights-only` backfill, so
+manual missed-date recovery does not fail on absent local fixture files. Manual
 workflow dispatch can use a larger lookback, up to 14 completed Auckland dates,
 for catch-up runs such as recovering data after the app only shows race days
 through `2026-06-21`.

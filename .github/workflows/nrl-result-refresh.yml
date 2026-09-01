@@ -1,0 +1,116 @@
+name: NRL Result Refresh
+
+on:
+  schedule:
+    # 10:30 NZST / 11:30 NZDT. GitHub cron uses UTC.
+    - cron: "30 22 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and summarize recent NRL results without writing
+        required: false
+        default: false
+        type: boolean
+      lookback_days:
+        description: Completed fixture window to discover and refresh
+        required: true
+        default: "10"
+        type: string
+      max_round:
+        description: Highest NRL round number to scan for the selected season
+        required: true
+        default: "35"
+        type: string
+      season:
+        description: NRL season year
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nrl-result-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh NRL Results And Insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days }}
+      MAX_ROUND: ${{ github.event.inputs.max_round }}
+      SEASON: ${{ github.event.inputs.season }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          lookback_days="${LOOKBACK_DAYS:-10}"
+          max_round="${MAX_ROUND:-35}"
+          season="${SEASON:-$(date -u +%Y)}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          for input_name in lookback_days max_round season; do
+            input_value="${!input_name:-}"
+
+            case "$input_value" in
+              ''|*[!0-9]*)
+                echo "${input_name} must be a positive integer"
+                exit 1
+                ;;
+            esac
+          done
+
+          if [ "$lookback_days" -lt 1 ] || [ "$lookback_days" -gt 30 ]; then
+            echo "lookback_days must be between 1 and 30"
+            exit 1
+          fi
+
+          if [ "$max_round" -lt 1 ] || [ "$max_round" -gt 50 ]; then
+            echo "max_round must be between 1 and 50"
+            exit 1
+          fi
+
+          if [ "$season" -lt 2000 ]; then
+            echo "season must be a four-digit year"
+            exit 1
+          fi
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for NRL result writes"
+            exit 1
+          fi
+
+      - name: Refresh recent NRL result rows and insights
+        run: |
+          args=(
+            "--lookback-days=${LOOKBACK_DAYS:-10}"
+            "--max-round=${MAX_ROUND:-35}"
+            "--season=${SEASON:-$(date -u +%Y)}"
+          )
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:nrl-results-and-insights -- "${args[@]}"

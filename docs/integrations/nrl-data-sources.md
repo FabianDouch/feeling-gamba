@@ -50,17 +50,30 @@ implemented in
 `packages/ingestion/scripts/refresh-nrl-try-scorer-market-snapshots-from-tab.mjs`;
 older same-game rows remain `missing_price` if no pre-game player prices were
 captured before the match closed.
-Calibration note from 2026-08-29: for Sea Eagles v Dragons on 2026-08-28, the
-stored estimated return for the favourite-team same-game row was `$4.445` from
-multiplying fixed leg prices, while the manually observed actual return was
-`$3.39` per `$1`. Keep collecting these differences before using estimated
-same-game returns as cash performance.
+Calibration notes from 2026-08-31: user-observed TAB same-game multi prices for
+round 26 confirm the stored multiplied-leg estimate is materially higher than
+quoted SGM prices. These manually observed prices are calibration evidence only
+until quoted same-game prices are ingested from a source-backed feed.
+
+| Match | Stored estimated price | User-observed SGM price | Difference |
+| --- | ---: | ---: | ---: |
+| Manly Sea Eagles vs St George Illawarra Dragons | `$4.445` | `$3.39` | `$1.055` |
+| Penrith Panthers vs Canterbury Bulldogs | `$4.554` | `$3.44` | `$1.114` |
+| Gold Coast Titans vs South Sydney Rabbitohs | `$3.352` | `$2.65` | `$0.702` |
+| Sydney Roosters vs Dolphins | `$5.106` | `$3.53` | `$1.576` |
+
+Across those four matched bets, observed prices totalled `$13.01` against
+`$17.457` of stored estimated prices, so the quoted prices were about `74.5%`
+of the multiplied-leg estimate. Keep collecting these differences before using
+estimated same-game returns as cash performance.
 The regular pre-match current-market flow is
 `packages/ingestion/scripts/refresh-nrl-current-markets.mjs`, exposed through
 `refresh:nrl-current-markets` and scheduled by
 `.github/workflows/nrl-market-refresh.yml` every 15 minutes during the usual
-NRL match window. Manual dispatch can pass `season` and `round` to preload
-official fixture/player rows before market capture.
+NRL match window. As of 2026-08-31, the scheduled UTC window starts at `02:00`
+so early Sunday NZST kickoffs have pre-start capture attempts before the
+writers' advertised-start guard applies. Manual dispatch can pass `season` and
+`round` to preload official fixture/player rows before market capture.
 The first combined live run on 2026-08-28 wrote 6 fixed-win market snapshots,
 238 try-scorer market snapshots, 38 fixed-win result/status rows, 8 same-game
 multi result rows, 1,155 NRL insight aggregate rows, and 49 current NRL single
@@ -70,7 +83,9 @@ to every 15 minutes during the usual NRL match window and made both fixed-win
 and try-scorer market snapshot writers refuse post-advertised-start captures.
 NRL Insights now prefer 50c decimal price-bucket breakdowns for fixed-win and
 try-scorer market selections, while fixed-win team and same-game team sections
-are omitted from the app-facing aggregate rebuild.
+are omitted from the app-facing aggregate rebuild. As of 2026-08-31, fixed-win
+Insights also include UFC-style other-team fixed-win price buckets and
+favourite-vs-other price-difference buckets.
 After the completed 2026 rounds 1-25 backfill, the NRL insight rebuild wrote
 1,135 `nrl_insight_aggregates` rows: 46 fixed-win rows and 1,089 try-scorer
 percentage rows from 7,143 official player appearances and 1,570 official try
@@ -79,6 +94,16 @@ also contained 8 pending round 26 fixture shells.
 The follow-up NRL source simplification removed provider-specific app-facing
 aggregate scopes so Insights show fixed-win favourite, home/away, team, season,
 and round breakdowns without exposing the market provider.
+Settlement finding from 2026-08-31: the scheduled NRL market workflow captured
+the 2026-08-30 same-game source rows, but the app-facing same-game Insights
+remained pending because no scheduled post-match official result refresh ran
+after the Sunday fixtures. `.github/workflows/nrl-result-refresh.yml` now runs
+`refresh:nrl-results-and-insights` daily after the usual weekend match window;
+it discovers recently completed official rounds, refreshes official results,
+reconciles fixed-win snapshots, rebuilds same-game multi rows, and rebuilds NRL
+Insights. A manual round 26 recovery on 2026-08-31 refreshed 8 settled matches,
+305 player appearances, and 76 try-scorer rows, then rebuilt 16 same-game rows
+and 1,149 NRL insight aggregate rows.
 
 NRL current single prediction generation is implemented in
 `packages/ingestion/scripts/generate-nrl-single-predictions.mjs`, with schema

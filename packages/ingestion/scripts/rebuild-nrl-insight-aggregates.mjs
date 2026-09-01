@@ -459,6 +459,26 @@ function getPriceBucket(price) {
 }
 
 /**
+ * Creates 50c buckets for the price gap between favourite and other team.
+ */
+function getPriceDifferenceBucket(priceDifference) {
+  const value = Number(priceDifference);
+
+  if (!Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  const start = Math.floor(value / 0.5) * 0.5;
+  const end = start + 0.49;
+
+  return {
+    end,
+    label: `$${start.toFixed(2)} - $${end.toFixed(2)}`,
+    start,
+  };
+}
+
+/**
  * Builds selection-level records from home, away, and favourite fixed-win rows.
  */
 function buildFixedWinRecords(results, matchesById) {
@@ -495,9 +515,22 @@ function buildFixedWinRecords(results, matchesById) {
     });
 
     if (row.favourite_team_name) {
+      const favouriteIsHome = row.favourite_team_name === row.home_team_name;
+      const favouriteIsAway = row.favourite_team_name === row.away_team_name;
+      const otherPrice = favouriteIsHome
+        ? row.away_fixed_win_price
+        : favouriteIsAway
+          ? row.home_fixed_win_price
+          : null;
+      const priceDifference = hasPrice(row.favourite_fixed_win_price) && hasPrice(otherPrice)
+        ? numeric(otherPrice) - numeric(row.favourite_fixed_win_price)
+        : null;
+
       favouriteRecords.push({
         ...base,
+        otherPrice,
         price: row.favourite_fixed_win_price,
+        priceDifference,
         returnValue: numeric(row.favourite_win_return),
         selectionType: "favourite",
         teamName: row.favourite_team_name,
@@ -579,6 +612,36 @@ function buildFixedWinAggregates(results, matchesById) {
       scopeType: "price_bucket",
     }, record, addFixedWinSelection);
 
+  }
+
+  for (const record of favouriteRecords) {
+    const otherPriceBucket = getPriceBucket(record.otherPrice);
+
+    if (otherPriceBucket) {
+      addToBucket(buckets, {
+        insightType: "fixed_win_single",
+        priceBucketEnd: otherPriceBucket.end,
+        priceBucketLabel: otherPriceBucket.label,
+        priceBucketStart: otherPriceBucket.start,
+        scopeKey: `nrl:fixed_win_single:other_team_price_bucket:${otherPriceBucket.start.toFixed(2)}`,
+        scopeType: "other_team_price_bucket",
+        selectionType: "favourite",
+      }, record, addFixedWinSelection);
+    }
+
+    const differenceBucket = getPriceDifferenceBucket(record.priceDifference);
+
+    if (differenceBucket) {
+      addToBucket(buckets, {
+        insightType: "fixed_win_single",
+        priceBucketEnd: differenceBucket.end,
+        priceBucketLabel: differenceBucket.label,
+        priceBucketStart: differenceBucket.start,
+        scopeKey: `nrl:fixed_win_single:price_difference_bucket:${differenceBucket.start.toFixed(2)}`,
+        scopeType: "price_difference_bucket",
+        selectionType: "favourite",
+      }, record, addFixedWinSelection);
+    }
   }
 
   return finalizeAggregates(buckets);

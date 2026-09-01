@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Application Architecture
-last_updated: "2026-07-24"
+last_updated: "2026-09-01"
 
 purpose:
   summary: >
@@ -604,7 +604,7 @@ derived_views:
       - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
   nrl_insight_aggregates:
     responsibility:
-      - Store fixed-win favourite, source, home/away, team, season, and round aggregate rows.
+      - Store fixed-win favourite, source, home/away, favourite/team price, other-team price, price-difference, season, and round aggregate rows.
       - Store try-scorer percentage rows by player, team, season, and round.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
       - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
@@ -729,9 +729,9 @@ flows:
       - send neutral Expo push notifications and record Expo ticket ids or errors; disable permanently invalid push tokens.
 
   race_day_refresh:
-    trigger: GitHub Actions invokes refresh-race-days-and-insights daily overnight; Supabase Cron remains an optional later scheduler.
+    trigger: GitHub Actions invokes refresh-race-days-and-insights daily overnight with repeated morning catch-up schedules; Supabase Cron remains an optional later scheduler.
     steps:
-      - .github/workflows/overnight-race-refresh.yml invokes the hosted Edge Function at 18:10 UTC, which is early morning in New Zealand.
+      - .github/workflows/overnight-race-refresh.yml invokes the hosted Edge Function at 18:10, 20:10, and 22:10 UTC, giving multiple idempotent morning attempts in New Zealand.
       - Scheduled runs refresh the latest 4 completed Auckland dates, ending yesterday, to catch late results and missed daily runs.
       - The workflow sends one Edge Function request per completed source date, country, and source racing category to avoid Supabase's 150 second request idle timeout.
       - Manual workflow dispatch can refresh 1 to 14 completed Auckland dates for catch-up runs, still chunked into one-day/country/category requests.

@@ -184,11 +184,9 @@ function buildRefreshCommands(options, window) {
 
   if (!options.skipInsights) {
     commands.push(buildCommand("rebuild_all_insight_aggregates", [
-      path.join(SCRIPT_DIR, "backfill-race-fixtures-to-supabase.mjs"),
-      `--from=${options.collectionStart}`,
+      path.join(SCRIPT_DIR, "rebuild-insight-aggregates-from-supabase.mjs"),
       `--to=${window.to}`,
-      "--insights-only",
-      ...sharedCoverageFlags,
+      `--collection-start=${options.collectionStart}`,
       ...sharedBackfillFlags,
     ]));
   }

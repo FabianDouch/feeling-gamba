@@ -65,6 +65,10 @@ As of `2026-08-28`,
 price-bucket aggregate fields so Insights can show fixed-win and anytime
 try-scorer likelihood by 50c decimal price bucket without team-specific
 breakdowns.
+As of `2026-08-31`,
+`supabase/migrations/202608310001_nrl_fixed_win_comparison_bucket_insights.sql`
+adds NRL fixed-win comparison bucket scopes for the other team's fixed-win
+price and the favourite-vs-other price difference.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.
@@ -1197,7 +1201,8 @@ Key fields:
 - `insight_type text` - `fixed_win_single`, `try_scorer_percentage`, or
   `same_game_multi_percentage`
 - `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
-  `price_bucket`, `team`, `season`, `season_round`, `player`, or `player_team`
+  `price_bucket`, `other_team_price_bucket`, `price_difference_bucket`, `team`,
+  `season`, `season_round`, `player`, or `player_team`
 - `source text`
 - `selection_type text` - `home`, `away`, or `favourite`
 - `season int`
@@ -1238,6 +1243,10 @@ Rules:
 - Fixed-win price-bucket rows use both home and away fixed-win selections, not
   team-specific buckets, so the row answers whether any team paying that price
   won.
+- Fixed-win other-team price buckets and price-difference buckets use favourite
+  selections only. They answer whether the favourite won when the opposing
+  team's fixed-win price or the other-minus-favourite price gap sat inside the
+  bucket.
 - Try-scorer percentage rows use one settled player appearance as one
   selection and count a win when that player scored at least one official try.
 - Try-scorer overall/player/team rows store counts and percentages from official

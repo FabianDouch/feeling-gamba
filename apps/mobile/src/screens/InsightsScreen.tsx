@@ -53,6 +53,8 @@ const emptyUfcInsights: UfcInsightsData = {
 };
 
 const emptyNrlInsights: NrlInsightsData = {
+  fixedWinOtherTeamPriceBreakdown: [],
+  fixedWinPriceDifferenceBreakdown: [],
   fixedWinPriceBreakdown: [],
   fixedWinRoundBreakdown: [],
   fixedWinSelectionBreakdown: [],
@@ -577,6 +579,8 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
 
       <NrlBreakdown title="Fixed win by selection" rows={insights.fixedWinSelectionBreakdown} />
       <NrlBreakdown title="Fixed win price breakdown" rows={insights.fixedWinPriceBreakdown} />
+      <NrlBreakdown title="Fixed win other team price breakdown" rows={insights.fixedWinOtherTeamPriceBreakdown} />
+      <NrlBreakdown title="Fixed win price difference breakdown" rows={insights.fixedWinPriceDifferenceBreakdown} />
       <NrlBreakdown title="Fixed win by round" rows={insights.fixedWinRoundBreakdown} />
 
       <Text style={styles.subheading}>Try scorer percentage</Text>

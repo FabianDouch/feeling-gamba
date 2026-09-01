@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-08-27 to show sport-specific current
+Note: the IA was updated on 2026-08-31 so NRL Insights include fixed-win
+other-team price and favourite-vs-other price-difference breakdowns, and UFC
+same-card multi history cards display the fight-card date from the earliest
+advertised leg start while retaining source-date filters and predicted-at
+labels. It was updated on 2026-08-27 to show sport-specific current
 prediction finalisation at 15 minutes before the first race, fight, or match
 starts and to add generic current prediction view locks. Rendered IA outputs
 should be regenerated from the YAML before being treated as current. It was
@@ -227,8 +231,9 @@ Purpose:
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
 - For NRL, show fixed-win single aggregates, try-scorer percentage aggregates,
-  fixed-win and try-scorer price bucket aggregates, and Same Game % aggregate
-  rows from `nrl_insight_aggregates`.
+  fixed-win favourite price, other-team price, price-difference, and try-scorer
+  price bucket aggregates, plus Same Game % aggregate rows from
+  `nrl_insight_aggregates`.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
@@ -568,6 +573,9 @@ Main content:
   count, and open issues.
 - Recent prediction history showing each stored race prediction, predicted
   runner, predicted price, race details, outcome status, and cash/bonus return.
+- UFC same-card multi history cards show the earliest advertised leg start date
+  under the event heading, while date filters continue to use the prediction
+  source date and the footer keeps the predicted-at timestamp.
   Outcome badges should distinguish cash wins from bonus-bet credits: win
   returns use the positive cash style, while 2nd/3rd bonus-credit outcomes use
   a bonus-bet style and should not be labelled as generic value.

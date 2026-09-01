@@ -1,9 +1,15 @@
 import {
   rebuildInsightAggregatesFromSupabase,
 } from "../../../supabase/functions/_shared/race-days-refresh-core.mjs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_COLLECTION_START = "2025-12-15";
 const DEFAULT_BATCH_SIZE = 300;
+const DOT_ENV_FILES = [".env.local", ".env"];
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 
 /**
  * Parses options for rebuilding stored insight aggregates from Supabase rows.
@@ -64,6 +70,31 @@ function normalizeSupabaseProjectUrl(value) {
 }
 
 /**
+ * Loads local env files for manual aggregate rebuilds without overriding shell vars.
+ */
+async function loadDotEnvFiles() {
+  for (const file of DOT_ENV_FILES) {
+    try {
+      const contents = await readFile(path.join(REPO_ROOT, file), "utf8");
+
+      for (const line of contents.split(/\r?\n/)) {
+        const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/);
+
+        if (!match || process.env[match[1]] !== undefined) {
+          continue;
+        }
+
+        process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
  * Reads the service-role write configuration for aggregate rebuilds.
  */
 function getSupabaseWriteConfig() {
@@ -87,6 +118,8 @@ function getSupabaseWriteConfig() {
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  await loadDotEnvFiles();
+
   const summary = {
     batchSize: options.batchSize,
     collectionStart: options.collectionStart,

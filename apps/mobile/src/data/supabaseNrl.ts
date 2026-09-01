@@ -19,6 +19,8 @@ export type NrlInsightBreakdown = {
 };
 
 export type NrlInsightsData = {
+  fixedWinOtherTeamPriceBreakdown: NrlInsightBreakdown[];
+  fixedWinPriceDifferenceBreakdown: NrlInsightBreakdown[];
   fixedWinPriceBreakdown: NrlInsightBreakdown[];
   fixedWinRoundBreakdown: NrlInsightBreakdown[];
   fixedWinSelectionBreakdown: NrlInsightBreakdown[];
@@ -63,7 +65,9 @@ type NrlInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_s
 
 type NrlInsightScopeType =
   | "overall"
+  | "other_team_price_bucket"
   | "price_bucket"
+  | "price_difference_bucket"
   | "selection_type"
   | "team"
   | "season"
@@ -110,6 +114,8 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
   const [
     fixedWinOverallRows,
     fixedWinPriceRows,
+    fixedWinOtherTeamPriceRows,
+    fixedWinPriceDifferenceRows,
     fixedWinSelectionRows,
     fixedWinRoundRows,
     sameGameOverallRows,
@@ -123,6 +129,12 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
       scope_key: "eq.nrl:fixed_win_single:overall:favourite",
     }),
     fetchNrlAggregateRows("fixed_win_single", "price_bucket", {
+      order: "price_bucket_start.asc",
+    }),
+    fetchNrlAggregateRows("fixed_win_single", "other_team_price_bucket", {
+      order: "price_bucket_start.asc",
+    }),
+    fetchNrlAggregateRows("fixed_win_single", "price_difference_bucket", {
       order: "price_bucket_start.asc",
     }),
     fetchNrlAggregateRows("fixed_win_single", "selection_type"),
@@ -152,6 +164,8 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
   const tryScorerOverall = tryScorerOverallRows[0] ?? null;
 
   return {
+    fixedWinOtherTeamPriceBreakdown: fixedWinOtherTeamPriceRows.map(mapFixedWinBreakdown),
+    fixedWinPriceDifferenceBreakdown: fixedWinPriceDifferenceRows.map(mapFixedWinBreakdown),
     fixedWinPriceBreakdown: fixedWinPriceRows.map(mapFixedWinBreakdown),
     fixedWinRoundBreakdown: fixedWinRoundRows.map(mapFixedWinBreakdown),
     fixedWinSelectionBreakdown: fixedWinSelectionRows.map(mapFixedWinBreakdown),
@@ -323,7 +337,7 @@ function mapSameGameBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown 
  * Builds the most useful display label from a sport-specific aggregate row.
  */
 function getNrlAggregateLabel(row: NrlInsightAggregateRow) {
-  if (row.scope_type === "price_bucket" && row.price_bucket_label) {
+  if (isNrlPriceBucketScope(row.scope_type) && row.price_bucket_label) {
     return row.price_bucket_label;
   }
 
@@ -344,6 +358,15 @@ function getNrlAggregateLabel(row: NrlInsightAggregateRow) {
   }
 
   return row.scope_key;
+}
+
+/**
+ * Identifies NRL aggregate scopes that use the shared price bucket fields.
+ */
+function isNrlPriceBucketScope(scopeType: NrlInsightScopeType) {
+  return scopeType === "price_bucket"
+    || scopeType === "other_team_price_bucket"
+    || scopeType === "price_difference_bucket";
 }
 
 /**
