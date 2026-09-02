@@ -5,7 +5,7 @@ const SUPABASE_PAGE_SIZE = 1000;
 
 type NullableNumber = number | string | null;
 
-export type NrlInsightBreakdown = {
+export type NpcInsightBreakdown = {
   averageReturn: string;
   detail: string;
   label: string;
@@ -18,25 +18,25 @@ export type NrlInsightBreakdown = {
   winRate: string;
 };
 
-export type NrlInsightsData = {
-  fixedWinOtherTeamPriceBreakdown: NrlInsightBreakdown[];
-  fixedWinPriceDifferenceBreakdown: NrlInsightBreakdown[];
-  fixedWinPriceBreakdown: NrlInsightBreakdown[];
-  fixedWinRoundBreakdown: NrlInsightBreakdown[];
-  fixedWinSelectionBreakdown: NrlInsightBreakdown[];
+export type NpcInsightsData = {
+  fixedWinOtherTeamPriceBreakdown: NpcInsightBreakdown[];
+  fixedWinPriceDifferenceBreakdown: NpcInsightBreakdown[];
+  fixedWinPriceBreakdown: NpcInsightBreakdown[];
+  fixedWinRoundBreakdown: NpcInsightBreakdown[];
+  fixedWinSelectionBreakdown: NpcInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
-  sameGameRoundBreakdown: NrlInsightBreakdown[];
+  sameGameRoundBreakdown: NpcInsightBreakdown[];
   sameGameSummaryStats: FavouriteStat[];
-  tryScorerPlayerBreakdown: NrlInsightBreakdown[];
-  tryScorerPriceBreakdown: NrlInsightBreakdown[];
+  tryScorerPlayerBreakdown: NpcInsightBreakdown[];
+  tryScorerPriceBreakdown: NpcInsightBreakdown[];
   tryScorerSummaryStats: FavouriteStat[];
-  tryScorerTeamBreakdown: NrlInsightBreakdown[];
+  tryScorerTeamBreakdown: NpcInsightBreakdown[];
 };
 
-type NrlInsightAggregateRow = {
+type NpcInsightAggregateRow = {
   average_return_per_dollar: NullableNumber;
   event_count: number;
-  insight_type: NrlInsightType;
+  insight_type: NpcInsightType;
   missing_price_count: number;
   missing_result_count: number;
   net_return: NullableNumber;
@@ -48,7 +48,7 @@ type NrlInsightAggregateRow = {
   roi_percentage: NullableNumber;
   round_number: number | null;
   scope_key: string;
-  scope_type: NrlInsightScopeType;
+  scope_type: NpcInsightScopeType;
   season: number | null;
   selection_count: number;
   selection_type: string | null;
@@ -61,9 +61,9 @@ type NrlInsightAggregateRow = {
   win_percentage: NullableNumber;
 };
 
-type NrlInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_scorer_percentage";
+type NpcInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_scorer_percentage";
 
-type NrlInsightScopeType =
+type NpcInsightScopeType =
   | "overall"
   | "other_team_price_bucket"
   | "favourite_venue"
@@ -76,7 +76,7 @@ type NrlInsightScopeType =
   | "player"
   | "player_team";
 
-const NRL_INSIGHT_SELECT = [
+const NPC_INSIGHT_SELECT = [
   "average_return_per_dollar",
   "event_count",
   "insight_type",
@@ -112,14 +112,14 @@ const FIXED_WIN_SELECTION_ORDER: Record<string, number> = {
   favourite_away: 4,
 };
 
-export const hasSupabaseNrlConfig = Boolean(
+export const hasSupabaseNpcConfig = Boolean(
   publicEnv.supabaseUrl && publicEnv.supabaseKey,
 );
 
 /**
- * Reads the stored NRL aggregate rows shown in the NRL Insights view.
+ * Reads the stored NPC aggregate rows shown in the NPC Insights view.
  */
-export async function fetchNrlInsights(): Promise<NrlInsightsData> {
+export async function fetchNpcInsights(): Promise<NpcInsightsData> {
   const [
     fixedWinOverallRows,
     fixedWinPriceRows,
@@ -135,38 +135,38 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
     tryScorerPriceRows,
     tryScorerTeamRows,
   ] = await Promise.all([
-    fetchNrlAggregateRows("fixed_win_single", "overall", {
-      scope_key: "eq.nrl:fixed_win_single:overall:favourite",
+    fetchNpcAggregateRows("fixed_win_single", "overall", {
+      scope_key: "eq.npc:fixed_win_single:overall:favourite",
     }),
-    fetchNrlAggregateRows("fixed_win_single", "price_bucket", {
+    fetchNpcAggregateRows("fixed_win_single", "price_bucket", {
       order: "price_bucket_start.asc",
     }),
-    fetchNrlAggregateRows("fixed_win_single", "other_team_price_bucket", {
+    fetchNpcAggregateRows("fixed_win_single", "other_team_price_bucket", {
       order: "price_bucket_start.asc",
     }),
-    fetchNrlAggregateRows("fixed_win_single", "price_difference_bucket", {
+    fetchNpcAggregateRows("fixed_win_single", "price_difference_bucket", {
       order: "price_bucket_start.asc",
     }),
-    fetchNrlAggregateRows("fixed_win_single", "favourite_venue"),
-    fetchNrlAggregateRows("fixed_win_single", "selection_type"),
-    fetchNrlAggregateRows("fixed_win_single", "season_round", {
+    fetchNpcAggregateRows("fixed_win_single", "favourite_venue"),
+    fetchNpcAggregateRows("fixed_win_single", "selection_type"),
+    fetchNpcAggregateRows("fixed_win_single", "season_round", {
       order: "season.desc,round_number.desc",
     }),
-    fetchNrlAggregateRows("same_game_multi_percentage", "overall", {
-      scope_key: "eq.nrl:same_game_multi_percentage:overall:favourite_top2_try_scorers",
+    fetchNpcAggregateRows("same_game_multi_percentage", "overall", {
+      scope_key: "eq.npc:same_game_multi_percentage:overall:favourite_top2_try_scorers",
     }),
-    fetchNrlAggregateRows("same_game_multi_percentage", "season_round", {
+    fetchNpcAggregateRows("same_game_multi_percentage", "season_round", {
       order: "season.desc,round_number.desc",
     }),
-    fetchNrlAggregateRows("try_scorer_percentage", "overall"),
-    fetchNrlAggregateRows("try_scorer_percentage", "player", {
+    fetchNpcAggregateRows("try_scorer_percentage", "overall"),
+    fetchNpcAggregateRows("try_scorer_percentage", "player", {
       limit: "12",
       order: "win_percentage.desc,selection_count.desc,player_name.asc",
     }),
-    fetchNrlAggregateRows("try_scorer_percentage", "price_bucket", {
+    fetchNpcAggregateRows("try_scorer_percentage", "price_bucket", {
       order: "price_bucket_start.asc",
     }),
-    fetchNrlAggregateRows("try_scorer_percentage", "team", {
+    fetchNpcAggregateRows("try_scorer_percentage", "team", {
       order: "win_percentage.desc,team_name.asc",
     }),
   ]);
@@ -198,7 +198,7 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
 /**
  * Maps the overall same-game multi row to KPI cards.
  */
-function mapSameGameSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
+function mapSameGameSummaryStats(row: NpcInsightAggregateRow): FavouriteStat[] {
   return [
     {
       detail: `${row.win_count} of ${row.selection_count} settled favourite-team multis landed`,
@@ -219,17 +219,17 @@ function mapSameGameSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
 }
 
 /**
- * Reads one NRL aggregate scope from Supabase.
+ * Reads one NPC aggregate scope from Supabase.
  */
-async function fetchNrlAggregateRows(
-  insightType: NrlInsightType,
-  scopeType: NrlInsightScopeType,
+async function fetchNpcAggregateRows(
+  insightType: NpcInsightType,
+  scopeType: NpcInsightScopeType,
   extraParams: Record<string, string> = {},
 ) {
-  return supabaseSelectAll<NrlInsightAggregateRow>("nrl_insight_aggregates", {
+  return supabaseSelectAll<NpcInsightAggregateRow>("npc_insight_aggregates", {
     insight_type: `eq.${insightType}`,
     scope_type: `eq.${scopeType}`,
-    select: NRL_INSIGHT_SELECT,
+    select: NPC_INSIGHT_SELECT,
     ...extraParams,
   });
 }
@@ -237,7 +237,7 @@ async function fetchNrlAggregateRows(
 /**
  * Maps the overall fixed-win favourite row to KPI cards.
  */
-function mapFixedWinSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
+function mapFixedWinSummaryStats(row: NpcInsightAggregateRow): FavouriteStat[] {
   return [
     {
       detail: `${row.win_count} of ${row.selection_count} settled favourite selections`,
@@ -260,7 +260,7 @@ function mapFixedWinSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
 /**
  * Maps the overall try-scorer row to KPI cards.
  */
-function mapTryScorerSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
+function mapTryScorerSummaryStats(row: NpcInsightAggregateRow): FavouriteStat[] {
   return [
     {
       detail: `${row.win_count} of ${row.selection_count} settled player appearances included a try`,
@@ -268,7 +268,7 @@ function mapTryScorerSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] 
       value: formatPercentage(numeric(row.win_percentage)),
     },
     {
-      detail: `${row.total_tries} tries from official NRL timeline rows`,
+      detail: `${row.total_tries} tries from official NPC timeline rows`,
       label: "Recorded tries",
       value: String(row.total_tries),
     },
@@ -281,13 +281,13 @@ function mapTryScorerSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] 
 }
 
 /**
- * Maps a fixed-win aggregate row to the generic NRL breakdown display model.
+ * Maps a fixed-win aggregate row to the generic NPC breakdown display model.
  */
-function mapFixedWinBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown {
+function mapFixedWinBreakdown(row: NpcInsightAggregateRow): NpcInsightBreakdown {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     detail: `${row.win_count} wins from ${row.selection_count} settled selections`,
-    label: getNrlAggregateLabel(row),
+    label: getNpcAggregateLabel(row),
     netReturn: formatCurrency(numeric(row.net_return)),
     pending: `${row.pending_count} pending`,
     roi: formatPercentage(numeric(row.roi_percentage)),
@@ -299,14 +299,14 @@ function mapFixedWinBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown 
 }
 
 /**
- * Maps a try-scorer aggregate row to the generic NRL breakdown display model.
+ * Maps a try-scorer aggregate row to the generic NPC breakdown display model.
  */
-function mapTryScorerBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown {
+function mapTryScorerBreakdown(row: NpcInsightAggregateRow): NpcInsightBreakdown {
   if (row.scope_type === "price_bucket") {
     return {
       averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
       detail: `${row.win_count} scored from ${row.selection_count} settled priced selections`,
-      label: getNrlAggregateLabel(row),
+      label: getNpcAggregateLabel(row),
       netReturn: formatCurrency(numeric(row.net_return)),
       pending: `${row.pending_count} pending · ${row.unmatched_count} unmatched`,
       roi: formatPercentage(numeric(row.roi_percentage)),
@@ -320,7 +320,7 @@ function mapTryScorerBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown
   return {
     averageReturn: "No prices",
     detail: `${row.total_tries} tries from ${row.selection_count} settled appearances`,
-    label: getNrlAggregateLabel(row),
+    label: getNpcAggregateLabel(row),
     netReturn: "No prices",
     pending: `${row.pending_count} pending`,
     roi: "No prices",
@@ -332,13 +332,13 @@ function mapTryScorerBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown
 }
 
 /**
- * Maps a same-game multi aggregate row to the generic NRL breakdown display model.
+ * Maps a same-game multi aggregate row to the generic NPC breakdown display model.
  */
-function mapSameGameBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown {
+function mapSameGameBreakdown(row: NpcInsightAggregateRow): NpcInsightBreakdown {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     detail: `${row.win_count} wins from ${row.selection_count} settled estimated multis`,
-    label: getNrlAggregateLabel(row),
+    label: getNpcAggregateLabel(row),
     netReturn: formatCurrency(numeric(row.net_return)),
     pending: `${row.pending_count} pending · ${row.missing_price_count} missing prices`,
     roi: formatPercentage(numeric(row.roi_percentage)),
@@ -352,8 +352,8 @@ function mapSameGameBreakdown(row: NrlInsightAggregateRow): NrlInsightBreakdown 
 /**
  * Builds the most useful display label from a sport-specific aggregate row.
  */
-function getNrlAggregateLabel(row: NrlInsightAggregateRow) {
-  if (isNrlPriceBucketScope(row.scope_type) && row.price_bucket_label) {
+function getNpcAggregateLabel(row: NpcInsightAggregateRow) {
+  if (isNpcPriceBucketScope(row.scope_type) && row.price_bucket_label) {
     return row.price_bucket_label;
   }
 
@@ -377,16 +377,16 @@ function getNrlAggregateLabel(row: NrlInsightAggregateRow) {
 }
 
 /**
- * Identifies NRL aggregate scopes that use the shared price bucket fields.
+ * Identifies NPC aggregate scopes that use the shared price bucket fields.
  */
-function isNrlPriceBucketScope(scopeType: NrlInsightScopeType) {
+function isNpcPriceBucketScope(scopeType: NpcInsightScopeType) {
   return scopeType === "price_bucket"
     || scopeType === "other_team_price_bucket"
     || scopeType === "price_difference_bucket";
 }
 
 /**
- * Formats home/away/favourite selection labels for NRL fixed-win rows.
+ * Formats home/away/favourite selection labels for NPC fixed-win rows.
  */
 function formatSelectionType(value: string) {
   if (value === "home") {
@@ -411,7 +411,7 @@ function formatSelectionType(value: string) {
 /**
  * Keeps the fixed-win role breakdown in a stable human reading order.
  */
-function compareFixedWinSelectionRows(left: NrlInsightAggregateRow, right: NrlInsightAggregateRow) {
+function compareFixedWinSelectionRows(left: NpcInsightAggregateRow, right: NpcInsightAggregateRow) {
   const leftOrder = left.selection_type ? FIXED_WIN_SELECTION_ORDER[left.selection_type] : undefined;
   const rightOrder = right.selection_type ? FIXED_WIN_SELECTION_ORDER[right.selection_type] : undefined;
 

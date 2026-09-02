@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Application Architecture
-last_updated: "2026-09-01"
+last_updated: "2026-09-02"
 
 purpose:
   summary: >
@@ -110,6 +110,7 @@ systems:
         - Let signed-in users manually track visible promo races they have bet on, scoped to TAB or Betcha.
         - Let signed-in users lock the selected current prediction view before that sport's 15-minute-before-first-start finalisation cutoff, while existing percentage multi locks continue to preserve history-specific snapshots.
         - Let signed-in users favourite exact prediction model branches and enable neutral mobile notifications when those models finalise with active current predictions.
+        - Show NPC rugby as a first-class Insights and Predictions sport, reading fixed-win current-market rows from NPC-specific Supabase tables.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -288,6 +289,21 @@ systems:
         - nrl_try_scorers
       writes_to:
         - nrl_insight_aggregates
+
+    derive_npc_statistics:
+      type: scheduled_job
+      responsibility:
+        - Rebuild NPC fixed-win single aggregate rows from reconciled TAB Match Betting snapshots.
+        - Treat drawn final scores as settled non-paying losses for both fixed-win team selections.
+        - Keep NPC try-scorer and same-game aggregate rows empty until official player events and TAB player markets are source-validated.
+      reads_from:
+        - npc_fixed_win_snapshot_results
+        - npc_same_game_multi_results
+        - npc_matches
+        - npc_player_match_appearances
+        - npc_try_scorers
+      writes_to:
+        - npc_insight_aggregates
 
     fetch_current_promotions:
       type: edge_function_or_manual_worker
@@ -584,6 +600,9 @@ data_model:
     nrl_insight_aggregates:
       purpose: Stored app-facing NRL insight rows for fixed-win singles, try-scorer percentages, and same-game multi percentages.
       key: scope_key
+    npc_insight_aggregates:
+      purpose: Stored app-facing NPC rugby insight rows for fixed-win singles plus scaffolded try-scorer and same-game percentage scopes.
+      key: scope_key
     pfl_insight_aggregates:
       purpose: Stored app-facing PFL fixed-win insight rows for favourite, other fighter, and price-difference buckets.
       key: scope_key
@@ -604,10 +623,16 @@ derived_views:
       - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
   nrl_insight_aggregates:
     responsibility:
-      - Store fixed-win favourite, source, home/away, favourite/team price, other-team price, price-difference, season, and round aggregate rows.
+      - Store fixed-win favourite, source, home/away, favourite-venue, favourite/team price, other-team price, price-difference, season, and round aggregate rows.
       - Store try-scorer percentage rows by player, team, season, and round.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
       - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
+  npc_insight_aggregates:
+    responsibility:
+      - Store NPC fixed-win favourite, home/away, favourite-venue, price, other-team price, price-difference, season, and round aggregate rows.
+      - Count drawn fixed-win outcomes as settled losses for team selections because fixed-win team bets do not pay on a draw.
+      - Keep NPC Insights on stored Supabase aggregates instead of calculating rates in the app.
+      - Keep NPC try-scorer and Same Game rows scaffolded until player market and official scorer sources are validated.
   pfl_insight_aggregates:
     responsibility:
       - Store PFL favourite fixed-win performance by favourite price, other fighter price, and price-difference buckets.
@@ -705,6 +730,11 @@ flows:
         remain reserved until current PFL fight-card capture and prediction
         storage/RPCs exist.
       - >
+        expose NPC as an NRL-shaped prediction branch with Singles -> Win %
+        tabs reading `npc_single_predictions`; unsupported NPC branches and
+        Prediction History remain explicit empty states until official result
+        settlement and NPC history RPCs are added.
+      - >
         build a multi_place_percentage_v1 tracked percentage multi from current
         placing candidates with active place markets, ranked by blended
         historical place score, requiring at least two legs and storing up to
@@ -724,6 +754,7 @@ flows:
       - send_prediction_finalised_notifications reads enabled user_favourite_prediction_models and user_push_tokens with the service role.
       - find the current Auckland source date and inspect current_prediction_snapshots for Racing, UFC, and PFL active current predictions.
       - read nrl_single_predictions for NRL active current single predictions until NRL is folded into the mixed current snapshot.
+      - read npc_single_predictions for NPC active current single predictions until NPC is folded into the mixed current snapshot.
       - create or reuse a prediction_notification_events row once the selected sport/model finalisation timestamp has passed and at least one active prediction exists.
       - create user_prediction_notifications rows before sending so retries remain idempotent.
       - send neutral Expo push notifications and record Expo ticket ids or errors; disable permanently invalid push tokens.
@@ -759,6 +790,7 @@ flows:
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
+      - NPC Insights reads npc_insight_aggregates and NPC Predictions reads npc_single_predictions for Singles -> Win % rows.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.
@@ -766,6 +798,7 @@ flows:
       - Account reads user_favourite_tracks, user_race_bets, user_balance_accounts, and user_balance_events through owner-only RLS, supports removals where available, calculates bookmaker-scoped personal settled-row unit-return stats, and shows a manual balance ledger graph.
       - Account balance events are manual tracking only and must not feed stake sizing, bankroll guidance, account scraping, or automated wagering.
       - Predictions reads current bet candidates from current_prediction_snapshots for the current Auckland source date, split into Cash, Win %, and Placing prediction types.
+      - Predictions shows NPC as a persisted team-sport branch: fixed-win Singles -> Win % rows read npc_single_predictions, and refresh controls are hidden until NPC is folded into refresh-current-predictions.
       - Prediction History reads model-filtered prediction_aggregates from Supabase for metrics, recent model-filtered promotion_predictions rows for date, country, discipline, and course filtered itemised history, and tracked multi bet recommendations from multi_bet_recommendations plus multi_bet_recommendation_legs.
       - For signed-in users, Racing Win % multi history checks authenticated user_locked_multi_recommendations summary/history RPCs for the selected percentage model first; matching locked rows are shown as the user's personal settled multi history, with outcomes derived from stored race/result rows.
       - Predictions tags model tabs that have at least one tracked multi-bet prediction row for the current Auckland source date.

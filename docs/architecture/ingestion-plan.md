@@ -122,6 +122,33 @@ The bundled local fixture range contains 183 daily JSON files from
 which is one reason the runtime app should move to Supabase-backed read models
 before more AU data is added.
 
+## NPC Rugby Current Market Capture
+
+The first NPC rugby slice mirrors the NRL pipeline with separate `npc_*` tables
+instead of a generic team-sport schema. As of 2026-09-02, TAB current markets
+are validated at `RUGBY_UNION` / `new-zealand-npc`, with two-runner `Match
+Betting` entries for home and away teams.
+
+Implemented scripts:
+
+- `refresh:npc-market-snapshots`: captures current TAB fixed-win Match Betting
+  prices into `npc_market_snapshots`.
+- `reconcile:npc-fixed-win`: derives `npc_fixed_win_snapshot_results` from any
+  matched official NPC rows.
+- `rebuild:npc-insight-aggregates`: rebuilds app-facing `npc_insight_aggregates`.
+- `generate:npc-single-predictions`: writes current `npc_single_predictions`.
+- `refresh:npc-current-markets`: runs the current-market capture, reconciliation,
+  insight rebuild, and prediction generation steps in order.
+
+Drawn final scores are counted as settled fixed-win losses for both team
+selections because the team selection would not pay out. Official
+Provincial Rugby results, player appearances, try-scorer events, and Same Game %
+rows remain gated until the underlying Opta/widget payload is validated.
+
+The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
+current-market wrapper every 15 minutes during typical NPC match windows. Do not
+add a result-refresh schedule until the official NPC result adapter exists.
+
 Local fixture validation now has a first automated test suite at
 `apps/mobile/test/fixturePipeline.test.mjs`, run with
 `npm --workspace @feeling-gamba/mobile test`. It reads the bundled saved JSON

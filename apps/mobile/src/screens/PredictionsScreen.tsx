@@ -36,6 +36,11 @@ import {
   NRL_SINGLE_PREDICTION_MODEL_VARIANTS,
   type NrlSinglePredictionModelKey,
 } from "../data/supabaseNrlPredictions";
+import {
+  NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  NPC_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type NpcSinglePredictionModelKey,
+} from "../data/supabaseNpcPredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionFormatTabs,
@@ -91,6 +96,8 @@ export function PredictionsScreen() {
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
   const [activeNrlSingleModelKey, setActiveNrlSingleModelKey] =
     useState<NrlSinglePredictionModelKey>(NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeNpcSingleModelKey, setActiveNpcSingleModelKey] =
+    useState<NpcSinglePredictionModelKey>(NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
@@ -103,6 +110,9 @@ export function PredictionsScreen() {
   const activeNrlSingleModel = NRL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
     model.key === activeNrlSingleModelKey)
     ?? NRL_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeNpcSingleModel = NPC_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeNpcSingleModelKey)
+    ?? NPC_SINGLE_PREDICTION_MODEL_VARIANTS[0];
   const activeCashModel = CASH_PREDICTION_MODEL_VARIANTS.find((model) => model.key === activeCashModelKey)
     ?? CASH_PREDICTION_MODEL_VARIANTS[0];
   const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
@@ -114,6 +124,7 @@ export function PredictionsScreen() {
   const activeModelInfo = getActiveModelInfo({
     activeCashModel,
     activeFormat,
+    activeNpcSingleModel,
     activeNrlSingleModel,
     activePredictionType,
     activeSingleWinPercentageModel,
@@ -131,7 +142,7 @@ export function PredictionsScreen() {
       return;
     }
 
-    if (value === "nrl") {
+    if (value === "nrl" || value === "npc") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -253,6 +264,14 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "npc" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeNpcSingleModelKey}
+          models={NPC_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveNpcSingleModelKey}
+        />
+      ) : null}
+
       {activeSport === "racing" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
         <WinPercentageMultiModelTabs
           activeModelKey={activeWinPercentageMultiModelKey}
@@ -320,6 +339,7 @@ export function PredictionsScreen() {
       ) : null}
 
       <BetCandidatesSection
+        npcSinglePredictionModelKey={activeNpcSingleModelKey}
         nrlSinglePredictionModelKey={activeNrlSingleModelKey}
         predictionFormat={activeFormat}
         predictionModelKey={activePredictionType === "cash" ? activeCashModelKey : activeSingleModelKey}
@@ -334,6 +354,11 @@ export function PredictionsScreen() {
 type ActiveModelInfoInput = {
   activeCashModel: PredictionModelVariant;
   activeFormat: PredictionFormat;
+  activeNpcSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
   activeNrlSingleModel: {
     description: string;
     detail: string;
@@ -355,6 +380,7 @@ type ActiveModelInfoInput = {
 function getActiveModelInfo({
   activeCashModel,
   activeFormat,
+  activeNpcSingleModel,
   activeNrlSingleModel,
   activePredictionType,
   activeSingleWinPercentageModel,
@@ -375,6 +401,23 @@ function getActiveModelInfo({
       description: activeNrlSingleModel.description,
       detail: activeNrlSingleModel.detail,
       label: activeNrlSingleModel.label,
+    };
+  }
+
+  if (activeSport === "npc" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future NPC prediction models.",
+      detail: "NPC cash and same-game branches need more source-backed prices and same-game market validation before they can be tracked.",
+      empty: `No NPC ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `NPC ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "npc") {
+    return {
+      description: activeNpcSingleModel.description,
+      detail: activeNpcSingleModel.detail,
+      label: activeNpcSingleModel.label,
     };
   }
 

@@ -1,0 +1,85 @@
+name: NPC Market Refresh
+
+on:
+  schedule:
+    # Afternoon/evening NZST/NZDT windows across typical NPC match days. GitHub cron uses UTC.
+    - cron: "*/15 0-9 * * 4,5,6,0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and summarize NPC markets without writing
+        required: false
+        default: false
+        type: boolean
+      event_count:
+        description: Number of open NPC payload events to scan
+        required: true
+        default: "20"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npc-market-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh NPC Current Markets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      EVENT_COUNT: ${{ github.event.inputs.event_count }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          event_count="${EVENT_COUNT:-20}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          case "$event_count" in
+            ''|*[!0-9]*)
+              echo "event_count must be a positive integer"
+              exit 1
+              ;;
+          esac
+
+          if [ "$event_count" -lt 1 ]; then
+            echo "event_count must be a positive integer"
+            exit 1
+          fi
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for NPC market writes"
+            exit 1
+          fi
+
+      - name: Refresh current NPC market data
+        run: |
+          args=("--event-count=${EVENT_COUNT:-20}")
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:npc-current-markets -- "${args[@]}"

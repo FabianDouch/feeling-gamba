@@ -9,7 +9,7 @@ const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
 
 /**
- * Parses NRL aggregate rebuild options.
+ * Parses NPC aggregate rebuild options.
  */
 function parseArgs(argv) {
   const options = {
@@ -104,7 +104,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for NRL aggregate rebuilds.
+ * Minimal Supabase REST client for NPC aggregate rebuilds.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -221,7 +221,7 @@ function roundNumber(value, digits = 3) {
 }
 
 /**
- * Gets the official match date used for NRL aggregate date ranges.
+ * Gets the official match date used for NPC aggregate date ranges.
  */
 function getMatchDate(match, fallbackTimestamp) {
   const value = match?.kickoff_at ?? fallbackTimestamp;
@@ -486,7 +486,7 @@ function buildFixedWinRecords(results, matchesById) {
   const favouriteRecords = [];
 
   for (const row of results) {
-    const match = row.matched_nrl_match_id ? matchesById.get(row.matched_nrl_match_id) : null;
+    const match = row.matched_npc_match_id ? matchesById.get(row.matched_npc_match_id) : null;
     const base = {
       date: getMatchDate(match, row.advertised_start_at ?? row.snapshot_at),
       outcomeStatus: row.outcome_status,
@@ -565,7 +565,7 @@ function buildFixedWinAggregates(results, matchesById) {
   for (const record of favouriteRecords) {
     addToBucket(buckets, {
       insightType: "fixed_win_single",
-      scopeKey: "nrl:fixed_win_single:overall:favourite",
+      scopeKey: "npc:fixed_win_single:overall:favourite",
       scopeType: "overall",
       selectionType: "favourite",
     }, record, addFixedWinSelection);
@@ -573,7 +573,7 @@ function buildFixedWinAggregates(results, matchesById) {
     if (record.season) {
       addToBucket(buckets, {
         insightType: "fixed_win_single",
-        scopeKey: `nrl:fixed_win_single:season:${record.season}:favourite`,
+        scopeKey: `npc:fixed_win_single:season:${record.season}:favourite`,
         scopeType: "season",
         season: record.season,
         selectionType: "favourite",
@@ -584,7 +584,7 @@ function buildFixedWinAggregates(results, matchesById) {
       addToBucket(buckets, {
         insightType: "fixed_win_single",
         roundNumber: record.roundNumber,
-        scopeKey: `nrl:fixed_win_single:season_round:${record.season}:${record.roundNumber}:favourite`,
+        scopeKey: `npc:fixed_win_single:season_round:${record.season}:${record.roundNumber}:favourite`,
         scopeType: "season_round",
         season: record.season,
         selectionType: "favourite",
@@ -595,7 +595,7 @@ function buildFixedWinAggregates(results, matchesById) {
   for (const record of allRecords) {
     addToBucket(buckets, {
       insightType: "fixed_win_single",
-      scopeKey: `nrl:fixed_win_single:selection_type:${record.selectionType}`,
+      scopeKey: `npc:fixed_win_single:selection_type:${record.selectionType}`,
       scopeType: "selection_type",
       selectionType: record.selectionType,
     }, record, addFixedWinSelection);
@@ -609,7 +609,7 @@ function buildFixedWinAggregates(results, matchesById) {
 
     addToBucket(buckets, {
       insightType: "fixed_win_single",
-      scopeKey: `nrl:fixed_win_single:favourite_venue:${record.favouriteVenueSelectionType}`,
+      scopeKey: `npc:fixed_win_single:favourite_venue:${record.favouriteVenueSelectionType}`,
       scopeType: "favourite_venue",
       selectionType: record.favouriteVenueSelectionType,
     }, record, addFixedWinSelection);
@@ -627,7 +627,7 @@ function buildFixedWinAggregates(results, matchesById) {
       priceBucketEnd: priceBucket.end,
       priceBucketLabel: priceBucket.label,
       priceBucketStart: priceBucket.start,
-      scopeKey: `nrl:fixed_win_single:price_bucket:${priceBucket.start.toFixed(2)}`,
+      scopeKey: `npc:fixed_win_single:price_bucket:${priceBucket.start.toFixed(2)}`,
       scopeType: "price_bucket",
     }, record, addFixedWinSelection);
 
@@ -642,7 +642,7 @@ function buildFixedWinAggregates(results, matchesById) {
         priceBucketEnd: otherPriceBucket.end,
         priceBucketLabel: otherPriceBucket.label,
         priceBucketStart: otherPriceBucket.start,
-        scopeKey: `nrl:fixed_win_single:other_team_price_bucket:${otherPriceBucket.start.toFixed(2)}`,
+        scopeKey: `npc:fixed_win_single:other_team_price_bucket:${otherPriceBucket.start.toFixed(2)}`,
         scopeType: "other_team_price_bucket",
         selectionType: "favourite",
       }, record, addFixedWinSelection);
@@ -656,7 +656,7 @@ function buildFixedWinAggregates(results, matchesById) {
         priceBucketEnd: differenceBucket.end,
         priceBucketLabel: differenceBucket.label,
         priceBucketStart: differenceBucket.start,
-        scopeKey: `nrl:fixed_win_single:price_difference_bucket:${differenceBucket.start.toFixed(2)}`,
+        scopeKey: `npc:fixed_win_single:price_difference_bucket:${differenceBucket.start.toFixed(2)}`,
         scopeType: "price_difference_bucket",
         selectionType: "favourite",
       }, record, addFixedWinSelection);
@@ -697,7 +697,7 @@ function buildTryScorerRecords(appearances, tryScorers, matchesBySourceKey) {
 }
 
 /**
- * Builds priced try-scorer market records with official NRL settlement.
+ * Builds priced try-scorer market records with official NPC settlement.
  */
 function buildTryScorerMarketRecords(tryScorerPrices, tryScorers, matchesById) {
   const tryCounts = new Map();
@@ -708,7 +708,7 @@ function buildTryScorerMarketRecords(tryScorerPrices, tryScorers, matchesById) {
   }
 
   return tryScorerPrices.map((row) => {
-    const match = row.matched_nrl_match_id ? matchesById.get(row.matched_nrl_match_id) : null;
+    const match = row.matched_npc_match_id ? matchesById.get(row.matched_npc_match_id) : null;
     const tryKey = match && row.player_source_id
       ? `${match.source}:${match.source_match_id}:${row.player_source_id}`
       : null;
@@ -752,7 +752,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
   for (const record of records) {
     addToBucket(buckets, {
       insightType: "try_scorer_percentage",
-      scopeKey: "nrl:try_scorer_percentage:overall",
+      scopeKey: "npc:try_scorer_percentage:overall",
       scopeType: "overall",
       source: record.source,
     }, record, addTryScorerAppearance);
@@ -760,7 +760,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
     if (record.teamName) {
       addToBucket(buckets, {
         insightType: "try_scorer_percentage",
-        scopeKey: `nrl:try_scorer_percentage:team:${record.teamSourceId ?? record.teamName}`,
+        scopeKey: `npc:try_scorer_percentage:team:${record.teamSourceId ?? record.teamName}`,
         scopeType: "team",
         source: record.source,
         teamName: record.teamName,
@@ -773,7 +773,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
         insightType: "try_scorer_percentage",
         playerName: record.playerName,
         playerSourceId: record.playerSourceId,
-        scopeKey: `nrl:try_scorer_percentage:player:${record.playerSourceId}`,
+        scopeKey: `npc:try_scorer_percentage:player:${record.playerSourceId}`,
         scopeType: "player",
         source: record.source,
       }, record, addTryScorerAppearance);
@@ -784,7 +784,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
         insightType: "try_scorer_percentage",
         playerName: record.playerName,
         playerSourceId: record.playerSourceId,
-        scopeKey: `nrl:try_scorer_percentage:player_team:${record.teamSourceId}:${record.playerSourceId}`,
+        scopeKey: `npc:try_scorer_percentage:player_team:${record.teamSourceId}:${record.playerSourceId}`,
         scopeType: "player_team",
         source: record.source,
         teamName: record.teamName,
@@ -795,7 +795,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
     if (record.season) {
       addToBucket(buckets, {
         insightType: "try_scorer_percentage",
-        scopeKey: `nrl:try_scorer_percentage:season:${record.season}`,
+        scopeKey: `npc:try_scorer_percentage:season:${record.season}`,
         scopeType: "season",
         season: record.season,
         source: record.source,
@@ -806,7 +806,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
       addToBucket(buckets, {
         insightType: "try_scorer_percentage",
         roundNumber: record.roundNumber,
-        scopeKey: `nrl:try_scorer_percentage:season_round:${record.season}:${record.roundNumber}`,
+        scopeKey: `npc:try_scorer_percentage:season_round:${record.season}:${record.roundNumber}`,
         scopeType: "season_round",
         season: record.season,
         source: record.source,
@@ -826,7 +826,7 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
       priceBucketEnd: priceBucket.end,
       priceBucketLabel: priceBucket.label,
       priceBucketStart: priceBucket.start,
-      scopeKey: `nrl:try_scorer_percentage:price_bucket:${priceBucket.start.toFixed(2)}`,
+      scopeKey: `npc:try_scorer_percentage:price_bucket:${priceBucket.start.toFixed(2)}`,
       scopeType: "price_bucket",
     }, record, addTryScorerMarketSelection);
   }
@@ -856,7 +856,7 @@ function buildSameGameMultiAggregates(results) {
 
     addToBucket(buckets, {
       insightType: "same_game_multi_percentage",
-      scopeKey: "nrl:same_game_multi_percentage:overall:favourite_top2_try_scorers",
+      scopeKey: "npc:same_game_multi_percentage:overall:favourite_top2_try_scorers",
       scopeType: "overall",
       selectionType: "favourite",
     }, record, addSameGameMultiSelection);
@@ -864,7 +864,7 @@ function buildSameGameMultiAggregates(results) {
     if (record.season) {
       addToBucket(buckets, {
         insightType: "same_game_multi_percentage",
-        scopeKey: `nrl:same_game_multi_percentage:season:${record.season}:favourite_top2_try_scorers`,
+        scopeKey: `npc:same_game_multi_percentage:season:${record.season}:favourite_top2_try_scorers`,
         scopeType: "season",
         season: record.season,
         selectionType: "favourite",
@@ -875,7 +875,7 @@ function buildSameGameMultiAggregates(results) {
       addToBucket(buckets, {
         insightType: "same_game_multi_percentage",
         roundNumber: record.roundNumber,
-        scopeKey: `nrl:same_game_multi_percentage:season_round:${record.season}:${record.roundNumber}:favourite_top2_try_scorers`,
+        scopeKey: `npc:same_game_multi_percentage:season_round:${record.season}:${record.roundNumber}:favourite_top2_try_scorers`,
         scopeType: "season_round",
         season: record.season,
         selectionType: "favourite",
@@ -887,15 +887,15 @@ function buildSameGameMultiAggregates(results) {
 }
 
 /**
- * Loads all source rows needed for NRL insight rebuilds.
+ * Loads all source rows needed for NPC insight rebuilds.
  */
 async function readSourceRows(supabase) {
   const [fixedWinResults, matches, appearances, tryScorers, tryScorerPrices, sameGameMultiResults] = await Promise.all([
-    supabase.selectAll("nrl_fixed_win_snapshot_results", {
+    supabase.selectAll("npc_fixed_win_snapshot_results", {
       order: "snapshot_at.asc",
       select: [
         "source",
-        "matched_nrl_match_id",
+        "matched_npc_match_id",
         "snapshot_at",
         "advertised_start_at",
         "home_team_name",
@@ -913,7 +913,7 @@ async function readSourceRows(supabase) {
         "outcome_status",
       ].join(","),
     }),
-    supabase.selectAll("nrl_matches", {
+    supabase.selectAll("npc_matches", {
       order: "kickoff_at.asc",
       select: [
         "id",
@@ -927,7 +927,7 @@ async function readSourceRows(supabase) {
         "away_team_source_id",
       ].join(","),
     }),
-    supabase.selectAll("nrl_player_match_appearances", {
+    supabase.selectAll("npc_player_match_appearances", {
       order: "source_match_id.asc,player_name.asc",
       select: [
         "source",
@@ -939,7 +939,7 @@ async function readSourceRows(supabase) {
         "result_status",
       ].join(","),
     }),
-    supabase.selectAll("nrl_try_scorers", {
+    supabase.selectAll("npc_try_scorers", {
       order: "source_match_id.asc,game_seconds.asc",
       select: [
         "source",
@@ -947,12 +947,12 @@ async function readSourceRows(supabase) {
         "source_player_id",
       ].join(","),
     }),
-    supabase.selectAll("nrl_try_scorer_market_snapshots", {
+    supabase.selectAll("npc_try_scorer_market_snapshots", {
       order: "snapshot_at.asc,fixed_win_price.asc",
       select: [
         "source",
         "source_event_id",
-        "matched_nrl_match_id",
+        "matched_npc_match_id",
         "snapshot_at",
         "advertised_start_at",
         "player_source_id",
@@ -962,7 +962,7 @@ async function readSourceRows(supabase) {
         "fixed_win_price",
       ].join(","),
     }),
-    supabase.selectAll("nrl_same_game_multi_results", {
+    supabase.selectAll("npc_same_game_multi_results", {
       order: "advertised_start_at.asc",
       select: [
         "source",
@@ -989,10 +989,10 @@ async function readSourceRows(supabase) {
 }
 
 /**
- * Removes previous NRL insight rows before replacing the rebuild output.
+ * Removes previous NPC insight rows before replacing the rebuild output.
  */
 async function clearExistingAggregates(supabase) {
-  await supabase.request("nrl_insight_aggregates", {
+  await supabase.request("npc_insight_aggregates", {
     expectJson: false,
     method: "DELETE",
     prefer: "return=minimal",
@@ -1003,14 +1003,14 @@ async function clearExistingAggregates(supabase) {
 }
 
 /**
- * Writes NRL insight aggregate rows to Supabase.
+ * Writes NPC insight aggregate rows to Supabase.
  */
 async function writeAggregates(supabase, rows) {
   await clearExistingAggregates(supabase);
-  await supabase.upsert("nrl_insight_aggregates", rows, "scope_key");
+  await supabase.upsert("npc_insight_aggregates", rows, "scope_key");
 
   return {
-    nrlInsightAggregates: rows.length,
+    npcInsightAggregates: rows.length,
     ok: true,
     skipped: false,
   };
@@ -1023,18 +1023,18 @@ function summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows) {
   return {
     fixedWinAggregateRows: fixedWinRows.length,
     fixedWinSnapshots: sourceRows.fixedWinResults.length,
-    nrlAppearances: sourceRows.appearances.length,
-    nrlMatches: sourceRows.matches.length,
-    nrlSameGameMultiResults: sourceRows.sameGameMultiResults.length,
-    nrlTryScorerMarketSnapshots: sourceRows.tryScorerPrices.length,
-    nrlTryScorers: sourceRows.tryScorers.length,
+    npcAppearances: sourceRows.appearances.length,
+    npcMatches: sourceRows.matches.length,
+    npcSameGameMultiResults: sourceRows.sameGameMultiResults.length,
+    npcTryScorerMarketSnapshots: sourceRows.tryScorerPrices.length,
+    npcTryScorers: sourceRows.tryScorers.length,
     sameGameMultiAggregateRows: sameGameMultiRows.length,
     tryScorerAggregateRows: tryScorerRows.length,
   };
 }
 
 /**
- * Runs the local NRL insight aggregate rebuild workflow.
+ * Runs the local NPC insight aggregate rebuild workflow.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));

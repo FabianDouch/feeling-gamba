@@ -10,7 +10,11 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-01 so the race-day refresh workflow has
+Note: the YAML was updated on 2026-09-02 so NPC rugby has a first narrow
+NRL-style fixed-win pipeline with `npc_*` tables, scheduled TAB current-market
+capture, app-facing Insights/Predictions tabs, and drawn fixed-win outcomes
+counted as settled losses. It was updated on 2026-09-02 so NRL fixed-win Insights include
+favourite-at-home and favourite-away selection buckets. It was updated on 2026-09-01 so the race-day refresh workflow has
 multiple idempotent morning catch-up schedules for settling yesterday's
 predictions. It was updated on 2026-08-31 so NRL fixed-win Insights include
 other-team fixed-win price and favourite-vs-other price-difference buckets.
@@ -605,7 +609,9 @@ repo-root public Supabase env values before Metro bundles the app.
   filters. PFL reads `pfl_insight_aggregates`. UFC reads
   `ufc_insight_aggregates`. NRL reads
   `nrl_insight_aggregates` for fixed-win singles and try-scorer percentage
-  rows. When one racing track and one racing discipline are selected, the app
+  rows. NPC reads `npc_insight_aggregates` with the same NRL-shaped fixed-win
+  breakdowns; try-scorer and Same Game sections stay empty until NPC player
+  market capture and official scorer settlement are validated. When one racing track and one racing discipline is selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
   races at the selected track, store an audit row in
   `track_race_odds_requests`, and show the response for manual comparison with
@@ -666,7 +672,9 @@ repo-root public Supabase env values before Metro bundles the app.
   UFC-specific history tables. NRL reads current Singles -> Win % rows from
   `nrl_single_predictions`, with fixed-win percentage candidates sourced from
   current market favourites and try-scorer percentage candidates sourced
-  from official historical player/team try rates. PFL uses the same
+  from official historical player/team try rates. NPC reads current Singles ->
+  Win % rows from `npc_single_predictions`; the fixed-win path is implemented,
+  while try-scorer rows remain gated by official player/source validation. PFL uses the same
   Singles/Multis -> Win % model tabs as UFC and reads current fixed-win MMA odds
   only when a current odds event matches the reviewed PFL event allow-list by
   event date and unordered fighter pair. PFL-specific prediction storage/RPCs
@@ -709,7 +717,9 @@ repo-root public Supabase env values before Metro bundles the app.
   single summary and history RPCs, including 65%+, 75%+, and 85%+ single-threshold
   models based on each fight's strongest UFC bucket signal. NRL prediction
   history is intentionally empty until NRL single prediction reconciliation and
-  history RPCs are added. PFL prediction history is also intentionally empty:
+  history RPCs are added. NPC prediction history is intentionally empty until
+  official NPC result refresh and NPC history RPCs are added. PFL prediction
+  history is also intentionally empty:
   the app shows the same PFL Win % tab shape as UFC, but does not read UFC
   tables because they do not distinguish PFL rows.
   Sport is selected first. Racing then shows the history type selector and the
@@ -755,8 +765,9 @@ repo-root public Supabase env values before Metro bundles the app.
 - NRL Insights are rebuilt manually with
   `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates`.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
-  Fixed-win buckets include selection type, favourite/team price, other-team
-  price, favourite-vs-other price difference, season, and round scopes.
+  Fixed-win buckets include selection type, favourite-venue, favourite/team
+  price, other-team price, favourite-vs-other price difference, season, and
+  round scopes.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
   try-scorer prices are validated. Same-game multi percentage support uses

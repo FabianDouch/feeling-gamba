@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-08-31 so NRL Insights include fixed-win
+Note: the IA was updated on 2026-09-02 so NPC rugby appears in Insights,
+Predictions, and Prediction History as an NRL-shaped branch backed by `npc_*`
+tables; drawn fixed-win outcomes are counted as settled losses, and NPC
+Prediction History remains an explicit empty state until official result
+settlement exists. It was updated on 2026-08-31 so NRL Insights include fixed-win
 other-team price and favourite-vs-other price-difference breakdowns, and UFC
 same-card multi history cards display the fight-card date from the earliest
 advertised leg start while retaining source-date filters and predicted-at
@@ -32,9 +36,11 @@ show Same Game % rows for the favourite team plus the two shortest-priced
 favourite-team try scorers once player try-scorer prices are captured, with the
 Same Game % section shown before the NRL singles sections. It was
 updated again on 2026-08-28 so NRL Insights replaces fixed-win and same-game
-team breakdowns with 50c fixed-win and try-scorer price bucket breakdowns.
-Rendered IA outputs should be regenerated from the YAML before being treated as
-current. It was
+team breakdowns with 50c fixed-win and try-scorer price bucket breakdowns. It
+was updated on 2026-09-02 so the NRL fixed-win selection breakdown also shows
+favourite-at-home and favourite-away rows derived from stored home/away match
+roles through a separate `favourite_venue` aggregate scope. Rendered IA outputs
+should be regenerated from the YAML before being treated as current. It was
 updated on 2026-08-24 so
 Predictions and Prediction History use
 the same Sport -> Singles/Multis -> Signal type -> Model structure, including
@@ -211,7 +217,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, PFL, and UFC insight views.
+- Toggle between Racing, NRL, NPC, PFL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -230,10 +236,13 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
-- For NRL, show fixed-win single aggregates, try-scorer percentage aggregates,
-  fixed-win favourite price, other-team price, price-difference, and try-scorer
-  price bucket aggregates, plus Same Game % aggregate rows from
-  `nrl_insight_aggregates`.
+- For NRL, show fixed-win single aggregates by home team, away team, favourite,
+  favourite at home, favourite away, favourite price, other-team price,
+  price-difference, and round, plus try-scorer percentage aggregates and Same
+  Game % aggregate rows from `nrl_insight_aggregates`.
+- For NPC, show the same fixed-win aggregate shape from
+  `npc_insight_aggregates`; try-scorer and Same Game rows remain empty until
+  player markets and official scorer settlement are validated.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
@@ -241,7 +250,7 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing, NRL, PFL, or UFC.
+- Sport selector: Racing, NRL, NPC, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -282,6 +291,8 @@ Main content:
   top-two try-scorer model. Rows stay empty or `missing_price` until
   source-backed player try-scorer prices are captured. Show this section before
   the NRL fixed-win and try-scorer singles sections.
+- NPC fixed-win favourite, home/away, favourite-at-home/away, 50c fixed-win
+  price bucket, other-team price, price-difference, and round breakdowns.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
@@ -370,7 +381,7 @@ Purpose:
 
 Main content:
 
-- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `NRL`, `UFC`);
+- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `NRL`, `NPC`, `PFL`, `UFC`);
   Level 2 format tabs (`Singles`, `Multis`); Level 3 signal tabs (`Cash`,
   `Win %`, `Placing`); Level 4 model tabs filtered to the selected
   sport/format/signal.
@@ -401,12 +412,16 @@ Main content:
   use current market favourites; try-scorer percentage rows use official
   historical player/team try rates and are labelled as historical roster
   candidates until current lineups are validated.
+- NPC Singles -> Win % reads `npc_single_predictions` and shows fixed-win
+  percentage and try-scorer percentage model tabs. Fixed-win rows use current
+  TAB `Match Betting` favourites; try-scorer rows stay empty until NPC player
+  markets and official player data are validated.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing, NRL, PFL, or UFC.
+- Sport selector for current Predictions: Racing, NRL, NPC, PFL, or UFC.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   two-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
@@ -436,6 +451,9 @@ Main content:
   odds match the reviewed PFL event allow-list by event date and fighter pair;
   unsupported PFL signal types remain explicit empty states.
 - NRL exposes the same sport/format/signal hierarchy as Racing. Unsupported NRL
+  branches, such as cash, placing, and multis, show explicit empty states until
+  matching cash or same-game models are added.
+- NPC exposes the same sport/format/signal hierarchy as NRL. Unsupported NPC
   branches, such as cash, placing, and multis, show explicit empty states until
   matching cash or same-game models are added.
 - The current Predictions refresh button refreshes only the active sport:
@@ -547,7 +565,7 @@ Purpose:
 Main content:
 
 - Shared prediction hierarchy matching the current Predictions page: Level 1
-  sport tabs (`Racing`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
+  sport tabs (`Racing`, `NRL`, `NPC`, `PFL`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
   Level 3 signal tabs (`Cash`, `Win %`, `Placing`); Level 4 model tabs filtered
   to the selected sport/format/signal.
 - Model selectors sit beneath the sport/format/signal controls: cash prediction
@@ -608,7 +626,7 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing, NRL, PFL, or UFC. UFC uses the same
+- Prediction History sport selector: Racing, NRL, NPC, PFL, or UFC. UFC uses the same
   hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
@@ -619,7 +637,8 @@ Main content:
   exist, even though current
   PFL predictions can appear in the latest mixed snapshot. NRL history branches
   show explicit empty states until NRL prediction reconciliation and history
-  RPCs are added.
+  RPCs are added. NPC history branches show explicit empty states until official
+  NPC result settlement and history RPCs are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 2-5 for the

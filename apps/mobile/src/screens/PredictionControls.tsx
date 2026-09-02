@@ -9,7 +9,7 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "nrl" | "pfl" | "racing" | "ufc";
+export type PredictionSport = "npc" | "nrl" | "pfl" | "racing" | "ufc";
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
@@ -21,6 +21,10 @@ const PREDICTION_SPORT_OPTIONS = [
   {
     label: "NRL",
     value: "nrl",
+  },
+  {
+    label: "NPC",
+    value: "npc",
   },
   {
     label: "PFL",

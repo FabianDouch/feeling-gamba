@@ -17,6 +17,11 @@ import {
   type NrlInsightsData,
 } from "../data/supabaseNrl";
 import {
+  fetchNpcInsights,
+  hasSupabaseNpcConfig,
+  type NpcInsightsData,
+} from "../data/supabaseNpc";
+import {
   fetchPflInsights,
   fetchUfcInsights,
   hasSupabasePflConfig,
@@ -43,7 +48,7 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "pfl" | "racing" | "nrl" | "ufc";
+type InsightSport = "npc" | "pfl" | "racing" | "nrl" | "ufc";
 
 const emptyUfcInsights: UfcInsightsData = {
   favouritePriceBreakdown: [],
@@ -80,6 +85,7 @@ export function InsightsScreen() {
   const [metadata, setMetadata] = useState<InsightMetadata | null>(null);
   const [insights, setInsights] = useState<InsightsData>(emptyInsights);
   const [nrlInsights, setNrlInsights] = useState<NrlInsightsData>(emptyNrlInsights);
+  const [npcInsights, setNpcInsights] = useState<NpcInsightsData>(emptyNrlInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
@@ -87,6 +93,7 @@ export function InsightsScreen() {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isLoadingNrlInsights, setIsLoadingNrlInsights] = useState(false);
+  const [isLoadingNpcInsights, setIsLoadingNpcInsights] = useState(false);
   const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,6 +144,16 @@ export function InsightsScreen() {
     || nrlInsights.tryScorerPlayerBreakdown.length > 0
     || nrlInsights.tryScorerPriceBreakdown.length > 0
     || nrlInsights.tryScorerTeamBreakdown.length > 0;
+  const hasNpcInsightRows = npcInsights.fixedWinSummaryStats.length > 0
+    || npcInsights.fixedWinSelectionBreakdown.length > 0
+    || npcInsights.fixedWinPriceBreakdown.length > 0
+    || npcInsights.fixedWinRoundBreakdown.length > 0
+    || npcInsights.sameGameSummaryStats.length > 0
+    || npcInsights.sameGameRoundBreakdown.length > 0
+    || npcInsights.tryScorerSummaryStats.length > 0
+    || npcInsights.tryScorerPlayerBreakdown.length > 0
+    || npcInsights.tryScorerPriceBreakdown.length > 0
+    || npcInsights.tryScorerTeamBreakdown.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -252,6 +269,46 @@ export function InsightsScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadNpcInsights() {
+      if (sport !== "npc") {
+        return;
+      }
+
+      if (!hasSupabaseNpcConfig) {
+        setErrorMessage("Supabase is not configured for NPC Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingNpcInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchNpcInsights();
+
+        if (!cancelled) {
+          setNpcInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "NPC Insights failed to load.");
+          setNpcInsights(emptyNrlInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingNpcInsights(false);
+        }
+      }
+    }
+
+    loadNpcInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadUfcInsights() {
       if (sport !== "pfl" && sport !== "ufc") {
         return;
@@ -295,7 +352,7 @@ export function InsightsScreen() {
   }, [sport]);
 
   function updateSport(value: string) {
-    if (value === "pfl" || value === "racing" || value === "nrl" || value === "ufc") {
+    if (value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "ufc") {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -385,6 +442,8 @@ export function InsightsScreen() {
           ? "Showing UFC favourite price, other fighter price, and price-difference signals"
           : sport === "pfl"
             ? "Showing PFL favourite price, other fighter price, and price-difference signals"
+          : sport === "npc"
+            ? "Showing NPC fixed-win favourite signals"
           : sport === "nrl"
             ? "Showing NRL fixed-win favourite and try-scorer percentage signals"
           : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
@@ -396,6 +455,7 @@ export function InsightsScreen() {
         options={[
           { label: "Racing", value: "racing" },
           { label: "NRL", value: "nrl" },
+          { label: "NPC", value: "npc" },
           { label: "PFL", value: "pfl" },
           { label: "UFC", value: "ufc" },
         ]}
@@ -458,6 +518,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored NRL insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={nrlInsights} />
+        )
+      ) : sport === "npc" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingNpcInsights ? (
+          <StateMessage text="Loading stored NPC insight aggregates from Supabase." />
+        ) : !hasNpcInsightRows ? (
+          <StateMessage text="No stored NPC insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={npcInsights} />
         )
       ) : sport === "pfl" || sport === "ufc" ? (
         errorMessage ? (

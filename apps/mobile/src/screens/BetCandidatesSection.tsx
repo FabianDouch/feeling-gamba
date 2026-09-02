@@ -55,6 +55,14 @@ import {
   type NrlSinglePredictionsResult,
 } from "../data/supabaseNrlPredictions";
 import {
+  fetchCurrentNpcSinglePredictions,
+  hasSupabaseNpcPredictionsConfig,
+  NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  type NpcSinglePredictionItem,
+  type NpcSinglePredictionModelKey,
+  type NpcSinglePredictionsResult,
+} from "../data/supabaseNpcPredictions";
+import {
   fetchLockedWinPercentageMulti,
   saveLockedWinPercentageMulti,
   type LockedWinPercentageMultiRecommendation,
@@ -93,6 +101,7 @@ const PREDICTION_FINALISATION_BUFFER_MS = 15 * 60 * 1000;
 type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfigured";
 
 type BetCandidatesSectionProps = {
+  npcSinglePredictionModelKey?: NpcSinglePredictionModelKey;
   nrlSinglePredictionModelKey?: NrlSinglePredictionModelKey;
   predictionFormat?: PredictionFormat;
   predictionModelKey?: PredictionModelKey;
@@ -138,6 +147,7 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
  * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
+  npcSinglePredictionModelKey = NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   nrlSinglePredictionModelKey = NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   predictionFormat = "singles",
   predictionModelKey = DEFAULT_PREDICTION_MODEL_KEY,
@@ -161,6 +171,9 @@ export function BetCandidatesSection({
   const [nrlPredictions, setNrlPredictions] = useState<NrlSinglePredictionsResult | null>(null);
   const [nrlPredictionError, setNrlPredictionError] = useState<string | null>(null);
   const [isLoadingNrlPredictions, setIsLoadingNrlPredictions] = useState(false);
+  const [npcPredictions, setNpcPredictions] = useState<NpcSinglePredictionsResult | null>(null);
+  const [npcPredictionError, setNpcPredictionError] = useState<string | null>(null);
+  const [isLoadingNpcPredictions, setIsLoadingNpcPredictions] = useState(false);
   const [lockedMultiMessage, setLockedMultiMessage] = useState<string | null>(null);
   const [lockedMultiError, setLockedMultiError] = useState<string | null>(null);
   const [isLockingWinPercentageMulti, setIsLockingWinPercentageMulti] = useState(false);
@@ -216,11 +229,13 @@ export function BetCandidatesSection({
   const cacheAgeMs = activeSnapshotGeneratedAt ? Date.now() - new Date(activeSnapshotGeneratedAt).valueOf() : null;
   const predictionWindowClosedNow = isPredictionWindowClosedNow(payload?.predictionWindow);
   const finalisationStatus = getPredictionFinalisationStatus({
+    npcPredictions,
     nrlPredictions,
     payload,
     predictionSport,
   });
   const currentPredictionModel = getCurrentPredictionModel({
+    npcSinglePredictionModelKey,
     nrlSinglePredictionModelKey,
     predictionFormat,
     predictionModelKey,
@@ -240,20 +255,26 @@ export function BetCandidatesSection({
   );
   const currentPredictionSourceDate = predictionSport === "nrl"
     ? nrlPredictions?.sourceDate ?? null
+    : predictionSport === "npc"
+      ? npcPredictions?.sourceDate ?? null
     : payload?.sourceDate ?? null;
   const currentPredictionGeneratedAt = predictionSport === "nrl"
     ? nrlPredictions?.generatedAt ?? null
+    : predictionSport === "npc"
+      ? npcPredictions?.generatedAt ?? null
     : activeSnapshotGeneratedAt;
   const currentPredictionGeneratedAtNz = predictionSport === "nrl"
     ? null
-    : predictionSport === "ufc"
-      ? payload?.ufcGeneratedAtNz ?? payload?.generatedAtNz ?? null
-      : predictionSport === "pfl"
-        ? payload?.pflGeneratedAtNz ?? payload?.generatedAtNz ?? null
-        : payload?.generatedAtNz ?? null;
+    : predictionSport === "npc"
+      ? null
+      : predictionSport === "ufc"
+        ? payload?.ufcGeneratedAtNz ?? payload?.generatedAtNz ?? null
+        : predictionSport === "pfl"
+          ? payload?.pflGeneratedAtNz ?? payload?.generatedAtNz ?? null
+          : payload?.generatedAtNz ?? null;
   const currentPredictionLockDisabledReason = getCurrentPredictionLockDisabledReason({
     finalisesAt: finalisationStatus.finalisesAt,
-    hasCurrentView: Boolean(predictionSport === "nrl" ? nrlPredictions : payload),
+    hasCurrentView: Boolean(predictionSport === "nrl" ? nrlPredictions : predictionSport === "npc" ? npcPredictions : payload),
     isLocked: Boolean(lockedCurrentPrediction),
     isSignedIn: Boolean(user),
     sourceDate: currentPredictionSourceDate,
@@ -383,6 +404,47 @@ export function BetCandidatesSection({
       isActive = false;
     };
   }, [nrlSinglePredictionModelKey, predictionSport]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadNpcPredictions() {
+      if (predictionSport !== "npc") {
+        return;
+      }
+
+      if (!hasSupabaseNpcPredictionsConfig) {
+        setNpcPredictions(null);
+        setNpcPredictionError("Supabase is not configured for NPC predictions.");
+        return;
+      }
+
+      try {
+        setIsLoadingNpcPredictions(true);
+        setNpcPredictionError(null);
+        const nextPredictions = await fetchCurrentNpcSinglePredictions(npcSinglePredictionModelKey);
+
+        if (isActive) {
+          setNpcPredictions(nextPredictions);
+        }
+      } catch (error) {
+        if (isActive) {
+          setNpcPredictions(null);
+          setNpcPredictionError(error instanceof Error ? error.message : "NPC predictions failed to load.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingNpcPredictions(false);
+        }
+      }
+    }
+
+    loadNpcPredictions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [npcSinglePredictionModelKey, predictionSport]);
 
   useEffect(() => {
     let isActive = true;
@@ -641,7 +703,7 @@ export function BetCandidatesSection({
       if (hasPredictionRefreshEndpoint) {
         try {
           refreshedPayload = await requestPredictionRefresh<RecommendationPayload>({
-            sport: predictionSport === "nrl" ? "racing" : predictionSport,
+            sport: predictionSport === "nrl" || predictionSport === "npc" ? "racing" : predictionSport,
           });
         } catch (error) {
           refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
@@ -701,7 +763,11 @@ export function BetCandidatesSection({
       return;
     }
 
-    const payloadToLock = predictionSport === "nrl" ? nrlPredictions : payload;
+    const payloadToLock = predictionSport === "nrl"
+      ? nrlPredictions
+      : predictionSport === "npc"
+        ? npcPredictions
+        : payload;
 
     if (!payloadToLock) {
       setLockedCurrentPredictionError("No current prediction view is available to lock.");
@@ -844,6 +910,11 @@ export function BetCandidatesSection({
               {nrlPredictions?.totalCount ?? 0} stored NRL predictions · source date{" "}
               {nrlPredictions?.sourceDate ?? "not generated"}
             </Text>
+          ) : predictionSport === "npc" ? (
+            <Text style={styles.sectionNote}>
+              {npcPredictions?.totalCount ?? 0} stored NPC predictions · source date{" "}
+              {npcPredictions?.sourceDate ?? "not generated"}
+            </Text>
           ) : predictionSport === "ufc" ? (
             <Text style={styles.sectionNote}>
               {payload?.ufcWinPercentageMultis?.scannedUfcCardCount ?? 0} UFC cards scanned ·{" "}
@@ -870,6 +941,10 @@ export function BetCandidatesSection({
           {predictionSport === "nrl" ? (
             <Text style={styles.sectionNote}>
               {isLoadingNrlPredictions ? "Loading NRL predictions" : "Loaded from NRL single prediction rows"}
+            </Text>
+          ) : predictionSport === "npc" ? (
+            <Text style={styles.sectionNote}>
+              {isLoadingNpcPredictions ? "Loading NPC predictions" : "Loaded from NPC single prediction rows"}
             </Text>
           ) : predictionSport === "pfl" ? (
             <Text style={styles.sectionNote}>
@@ -901,7 +976,7 @@ export function BetCandidatesSection({
             userIsSignedIn={Boolean(user)}
           />
         </View>
-        {predictionSport === "nrl" ? null : (
+        {predictionSport === "nrl" || predictionSport === "npc" ? null : (
           <Pressable
             disabled={isRequestingRefresh}
             onPress={refreshCandidates}
@@ -917,7 +992,7 @@ export function BetCandidatesSection({
         )}
       </View>
 
-      {predictionSport !== "nrl" && predictionSport !== "pfl" && candidatesAreStale ? (
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "pfl" && candidatesAreStale ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Bet candidates were captured before finalisation, but prices may still change while the window is open. Refresh before predictions finalise.
@@ -931,7 +1006,7 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionSport !== "nrl" && predictionSport !== "pfl" && predictionWindowClosedNow ? (
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "pfl" && predictionWindowClosedNow ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Prediction window is closed for today. Showing the stored snapshot captured before {payload?.predictionWindow?.finalisesAtNz ?? payload?.predictionWindow?.finalisesAt ?? "finalisation"}.
@@ -939,8 +1014,8 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionSport !== "nrl" && loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
-      {predictionSport !== "nrl" && refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
+      {predictionSport !== "nrl" && predictionSport !== "npc" && loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
+      {predictionSport !== "nrl" && predictionSport !== "npc" && refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
       {trackedBetError ? (
         <Text style={styles.errorText}>{trackedBetError}</Text>
       ) : trackedBetMessage ? (
@@ -992,13 +1067,25 @@ export function BetCandidatesSection({
         )
       ) : predictionSport === "nrl" ? (
         predictionFormat === "singles" && predictionType === "win_percentage" ? (
-          <NrlSinglePredictionsPanel
+          <TeamSportSinglePredictionsPanel
             errorMessage={nrlPredictionError}
             isLoading={isLoadingNrlPredictions}
             result={nrlPredictions}
+            sportLabel="NRL"
           />
         ) : (
           <StateMessage text={unsupportedBranchMessage ?? "No NRL models are tracked for this branch yet."} />
+        )
+      ) : predictionSport === "npc" ? (
+        predictionFormat === "singles" && predictionType === "win_percentage" ? (
+          <TeamSportSinglePredictionsPanel
+            errorMessage={npcPredictionError}
+            isLoading={isLoadingNpcPredictions}
+            result={npcPredictions}
+            sportLabel="NPC"
+          />
+        ) : (
+          <StateMessage text={unsupportedBranchMessage ?? "No NPC models are tracked for this branch yet."} />
         )
       ) : !payload ? (
         <StateMessage text={getUnavailableMessage(status)} />
@@ -1245,6 +1332,10 @@ function getUnsupportedPredictionBranchMessage({
     return `No NRL ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
 
+  if (predictionSport === "npc" && (predictionFormat !== "singles" || predictionType !== "win_percentage")) {
+    return `No NPC ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
+  }
+
   return null;
 }
 
@@ -1253,22 +1344,27 @@ type MultiBetRecommendationPanelProps = {
   recommendation: MultiBetRecommendation | null;
 };
 
-type NrlSinglePredictionsPanelProps = {
+type TeamSportSinglePredictionItem = NrlSinglePredictionItem | NpcSinglePredictionItem;
+type TeamSportSinglePredictionsResult = NrlSinglePredictionsResult | NpcSinglePredictionsResult;
+
+type TeamSportSinglePredictionsPanelProps = {
   errorMessage: string | null;
   isLoading: boolean;
-  result: NrlSinglePredictionsResult | null;
+  result: TeamSportSinglePredictionsResult | null;
+  sportLabel: string;
 };
 
 /**
- * Shows current persisted NRL single prediction rows for the selected percentage model.
+ * Shows current persisted team-sport single prediction rows for the selected percentage model.
  */
-function NrlSinglePredictionsPanel({
+function TeamSportSinglePredictionsPanel({
   errorMessage,
   isLoading,
+  sportLabel,
   result,
-}: NrlSinglePredictionsPanelProps) {
+}: TeamSportSinglePredictionsPanelProps) {
   if (isLoading) {
-    return <StateMessage text="Loading stored NRL single predictions." />;
+    return <StateMessage text={`Loading stored ${sportLabel} single predictions.`} />;
   }
 
   if (errorMessage) {
@@ -1276,26 +1372,26 @@ function NrlSinglePredictionsPanel({
   }
 
   if (!result || !result.predictions.length) {
-    return <StateMessage text="No NRL single predictions have been generated yet." />;
+    return <StateMessage text={`No ${sportLabel} single predictions have been generated yet.`} />;
   }
 
   return (
     <View style={styles.candidateGroup}>
       {result.predictions.map((prediction) => (
-        <NrlSinglePredictionCard key={prediction.id} prediction={prediction} />
+        <TeamSportSinglePredictionCard key={prediction.id} prediction={prediction} />
       ))}
     </View>
   );
 }
 
-type NrlSinglePredictionCardProps = {
-  prediction: NrlSinglePredictionItem;
+type TeamSportSinglePredictionCardProps = {
+  prediction: TeamSportSinglePredictionItem;
 };
 
 /**
- * Renders one stored NRL single prediction row.
+ * Renders one stored team-sport single prediction row.
  */
-function NrlSinglePredictionCard({ prediction }: NrlSinglePredictionCardProps) {
+function TeamSportSinglePredictionCard({ prediction }: TeamSportSinglePredictionCardProps) {
   return (
     <View style={styles.candidateCard}>
       <View style={styles.candidateHeader}>
@@ -2999,10 +3095,12 @@ function isPredictionWindowClosedNow(window: RecommendationPayload["predictionWi
  * Calculates the visible finalisation status for the selected sport's current data.
  */
 function getPredictionFinalisationStatus({
+  npcPredictions,
   nrlPredictions,
   payload,
   predictionSport,
 }: {
+  npcPredictions: NpcSinglePredictionsResult | null;
   nrlPredictions: NrlSinglePredictionsResult | null;
   payload: RecommendationPayload | null;
   predictionSport: PredictionSport;
@@ -3043,7 +3141,8 @@ function getPredictionFinalisationStatus({
     };
   }
 
-  const firstStartAt = getEarliestIsoDate(nrlPredictions?.predictions.map((prediction) =>
+  const teamSportPredictions = predictionSport === "npc" ? npcPredictions : nrlPredictions;
+  const firstStartAt = getEarliestIsoDate(teamSportPredictions?.predictions.map((prediction) =>
     prediction.advertisedStartAt) ?? []);
   const finalisesAt = getPredictionFinalisesAt(firstStartAt);
 
@@ -3056,6 +3155,7 @@ function getPredictionFinalisationStatus({
 }
 
 function getCurrentPredictionModel({
+  npcSinglePredictionModelKey,
   nrlSinglePredictionModelKey,
   predictionFormat,
   predictionModelKey,
@@ -3063,6 +3163,7 @@ function getCurrentPredictionModel({
   predictionType,
   winPercentageMultiModelKey,
 }: {
+  npcSinglePredictionModelKey: NpcSinglePredictionModelKey;
   nrlSinglePredictionModelKey: NrlSinglePredictionModelKey;
   predictionFormat: PredictionFormat;
   predictionModelKey: PredictionModelKey;
@@ -3072,6 +3173,10 @@ function getCurrentPredictionModel({
 }) {
   if (predictionSport === "nrl") {
     return nrlSinglePredictionModelKey;
+  }
+
+  if (predictionSport === "npc") {
+    return npcSinglePredictionModelKey;
   }
 
   if (predictionSport === "ufc" || predictionSport === "pfl") {
@@ -3130,6 +3235,10 @@ function getSportLabel(sport: PredictionSport) {
     return "NRL";
   }
 
+  if (sport === "npc") {
+    return "NPC";
+  }
+
   return "Racing";
 }
 
@@ -3138,7 +3247,7 @@ function getSportStartLabel(sportLabel: string) {
     return "race";
   }
 
-  if (sportLabel === "NRL") {
+  if (sportLabel === "NRL" || sportLabel === "NPC") {
     return "match";
   }
 

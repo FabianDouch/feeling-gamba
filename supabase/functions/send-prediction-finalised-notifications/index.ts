@@ -31,7 +31,7 @@ type FavouriteModelRow = {
   model_key: string;
   prediction_format: "singles" | "multis";
   prediction_type: string;
-  sport: "nrl" | "pfl" | "racing" | "ufc";
+  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
   user_id: string;
 };
 
@@ -57,7 +57,7 @@ type NotificationEventRow = {
   prediction_key: string;
   prediction_type: string;
   source_date: string;
-  sport: "nrl" | "pfl" | "racing" | "ufc";
+  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
 };
 
 type DeliveryRow = {
@@ -76,7 +76,7 @@ type ActivePredictionEvent = {
   predictionType: string;
   sourceDate: string;
   sourceTimeZone: string;
-  sport: "nrl" | "pfl" | "racing" | "ufc";
+  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
 };
 
 type ExpoTicket = {
@@ -276,16 +276,17 @@ async function findActivePredictionEvents(
   sourceDate: string,
 ) {
   const events: ActivePredictionEvent[] = [];
-  const snapshot = favourites.some((favourite) => favourite.sport !== "nrl")
+  const snapshot = favourites.some((favourite) =>
+    favourite.sport !== "nrl" && favourite.sport !== "npc")
     ? await fetchCurrentPredictionSnapshot(config, sourceDate)
     : null;
 
   for (const favourite of uniqueFavouriteKeys(favourites)) {
-    if (favourite.sport === "nrl") {
-      const nrlEvent = await findNrlActivePredictionEvent(config, favourite, sourceDate);
+    if (favourite.sport === "nrl" || favourite.sport === "npc") {
+      const teamSportEvent = await findTeamSportActivePredictionEvent(config, favourite, sourceDate);
 
-      if (nrlEvent) {
-        events.push(nrlEvent);
+      if (teamSportEvent) {
+        events.push(teamSportEvent);
       }
       continue;
     }
@@ -360,9 +361,9 @@ function findSnapshotActivePredictionEvent(
 }
 
 /**
- * Finds an active NRL single-prediction notification event from persisted prediction rows.
+ * Finds an active team-sport single-prediction notification event from persisted prediction rows.
  */
-async function findNrlActivePredictionEvent(
+async function findTeamSportActivePredictionEvent(
   config: SupabaseConfig,
   favourite: FavouriteModelRow,
   sourceDate: string,
@@ -371,7 +372,8 @@ async function findNrlActivePredictionEvent(
     return null;
   }
 
-  const url = new URL("/rest/v1/nrl_single_predictions", config.url);
+  const tableName = favourite.sport === "npc" ? "npc_single_predictions" : "nrl_single_predictions";
+  const url = new URL(`/rest/v1/${tableName}`, config.url);
   url.searchParams.set("select", "source_date,source_time_zone,advertised_start_at,predicted_at");
   url.searchParams.set("source_date", `eq.${sourceDate}`);
   url.searchParams.set("prediction_model", `eq.${favourite.model_key}`);
@@ -399,7 +401,7 @@ async function findNrlActivePredictionEvent(
     payload: {
       generatedAt: rows[0]?.predicted_at ?? null,
       modelKey: favourite.model_key,
-      source: "nrl_single_predictions",
+      source: tableName,
     },
     predictionFormat: favourite.prediction_format,
     predictionKey: "",
@@ -1011,7 +1013,7 @@ function chunk<T>(items: T[], size: number) {
 }
 
 function getSportLabel(sport: string) {
-  if (sport === "ufc" || sport === "pfl" || sport === "nrl") {
+  if (sport === "ufc" || sport === "pfl" || sport === "nrl" || sport === "npc") {
     return sport.toUpperCase();
   }
 

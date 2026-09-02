@@ -335,7 +335,7 @@ Key fields:
 - `user_id uuid references auth.users(id) on delete cascade`
 - `source_date date`
 - `source_time_zone text`
-- `prediction_sport text` - `racing`, `ufc`, `pfl`, or `nrl`
+- `prediction_sport text` - `racing`, `ufc`, `pfl`, `nrl`, or `npc`
 - `prediction_format text` - `singles` or `multis`
 - `prediction_type text` - `cash`, `win_percentage`, or `placing`
 - `prediction_model text`
@@ -401,7 +401,7 @@ Key fields:
 
 - `id uuid primary key`
 - `user_id uuid references auth.users(id) on delete cascade`
-- `sport text` - `racing`, `ufc`, `pfl`, or `nrl`
+- `sport text` - `racing`, `ufc`, `pfl`, `nrl`, or `npc`
 - `prediction_format text` - `singles` or `multis`
 - `prediction_type text`
 - `model_key text`
@@ -1201,10 +1201,12 @@ Key fields:
 - `insight_type text` - `fixed_win_single`, `try_scorer_percentage`, or
   `same_game_multi_percentage`
 - `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
-  `price_bucket`, `other_team_price_bucket`, `price_difference_bucket`, `team`,
-  `season`, `season_round`, `player`, or `player_team`
+  `favourite_venue`, `price_bucket`, `other_team_price_bucket`,
+  `price_difference_bucket`, `team`, `season`, `season_round`, `player`, or
+  `player_team`
 - `source text`
-- `selection_type text` - `home`, `away`, or `favourite`
+- `selection_type text` - `home`, `away`, `favourite`, `favourite_home`,
+  or `favourite_away`
 - `season int`
 - `round_number int`
 - `team_source_id text`
@@ -1243,6 +1245,11 @@ Rules:
 - Fixed-win price-bucket rows use both home and away fixed-win selections, not
   team-specific buckets, so the row answers whether any team paying that price
   won.
+- Fixed-win selection-type rows include raw venue roles (`home`, `away`) and
+  the favourite regardless of venue (`favourite`). Fixed-win favourite-venue
+  rows use the `favourite_venue` scope with `selection_type` values
+  `favourite_home` and `favourite_away`, so older app builds that only fetch
+  `selection_type` rows do not mislabel the new rows.
 - Fixed-win other-team price buckets and price-difference buckets use favourite
   selections only. They answer whether the favourite won when the opposing
   team's fixed-win price or the other-minus-favourite price gap sat inside the
@@ -1386,6 +1393,49 @@ Rules:
   source-backed player try-scorer prices are captured.
 - Public RLS read access is allowed because rows contain app-facing current
   predictions and derived outcomes only.
+
+### NPC rugby tables
+
+Implemented sport-specific NPC rugby tables for the first narrow NRL-style
+fixed-win pipeline:
+
+- `npc_teams`: source-specific team identities.
+- `npc_players`: source-specific player identities for future official player
+  data.
+- `npc_matches`: official Provincial Rugby match shells/results once the
+  official structured payload is validated.
+- `npc_try_scorers`: future official try events.
+- `npc_player_match_appearances`: future official player/team appearance
+  denominator rows.
+- `npc_market_snapshots`: TAB `RUGBY_UNION` / `new-zealand-npc` `Match Betting`
+  fixed-win snapshots.
+- `npc_fixed_win_snapshot_results`: one outcome/status row per fixed-win
+  snapshot, including pending, unmatched, missing-result, settled, and
+  non-standard states.
+- `npc_try_scorer_market_snapshots`: scaffolded source-backed player try-scorer
+  price rows, not populated until NPC player-market entrant matching is
+  validated.
+- `npc_same_game_multi_results`: scaffolded favourite-team plus top-two
+  try-scorer tracking rows, not populated until NPC try-scorer capture and
+  settlement are source-backed.
+- `npc_insight_aggregates`: stored app-facing NPC aggregate rows mirroring the
+  NRL fixed-win, try-scorer, and same-game insight shape.
+- `npc_single_predictions`: persisted current NPC Singles -> Win % rows for
+  fixed-win percentage and future try-scorer percentage models.
+
+Rules:
+
+- TAB market rows are stored with `source = 'tab'`.
+- Official match/player rows should use `source = 'official_provincial_rugby'`
+  after the Provincial Rugby/Opta payload is validated.
+- NPC fixed-win calibration treats a drawn final score as a settled non-paying
+  loss for both team selections; `npc_fixed_win_snapshot_results` intentionally
+  has no separate `draw` outcome status.
+- Current NPC single predictions use `npc_fixed_win_percentage_single_v1` and
+  `npc_try_scorer_percentage_single_v1`. Try-scorer rows remain empty until
+  official player data and TAB try-scorer markets are validated.
+- Public RLS read access is allowed because rows contain app-facing aggregate,
+  current prediction, and source market facts only.
 
 ### `promotion_recommendations`
 

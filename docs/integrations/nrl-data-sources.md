@@ -85,12 +85,16 @@ NRL Insights now prefer 50c decimal price-bucket breakdowns for fixed-win and
 try-scorer market selections, while fixed-win team and same-game team sections
 are omitted from the app-facing aggregate rebuild. As of 2026-08-31, fixed-win
 Insights also include UFC-style other-team fixed-win price buckets and
-favourite-vs-other price-difference buckets.
-After the completed 2026 rounds 1-25 backfill, the NRL insight rebuild wrote
-1,135 `nrl_insight_aggregates` rows: 46 fixed-win rows and 1,089 try-scorer
-percentage rows from 7,143 official player appearances and 1,570 official try
-events. The aggregate source read included 196 NRL matches because the database
-also contained 8 pending round 26 fixture shells.
+favourite-vs-other price-difference buckets. As of 2026-09-02, the fixed-win
+selection breakdown also includes favourite-at-home and favourite-away rows
+derived from stored home/away market roles through a separate `favourite_venue`
+aggregate scope.
+After the 2026-09-02 favourite-venue backfill, the NRL insight rebuild wrote
+1,163 `nrl_insight_aggregates` rows: 27 fixed-win rows, 3 same-game multi rows,
+and 1,133 try-scorer percentage rows from 7,482 official player appearances and
+1,651 official try events. The rebuilt fixed-win selection rows included 26
+favourite-at-home selections with 20 wins and 16 favourite-away selections with
+8 wins.
 The follow-up NRL source simplification removed provider-specific app-facing
 aggregate scopes so Insights show fixed-win favourite, home/away, team, season,
 and round breakdowns without exposing the market provider.

@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-08-31"
+last_updated: "2026-09-02"
 
 purpose:
   summary: >
@@ -134,7 +134,7 @@ navigation:
         audience: app_user
         purpose:
           - Act as the default app landing page.
-          - Toggle between Racing, NRL, PFL, and UFC insight views.
+          - Toggle between Racing, NRL, NPC, PFL, and UFC insight views.
           - Summarise favourite and MarketMover outcomes.
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
@@ -147,7 +147,8 @@ navigation:
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
-          - For NRL, show fixed-win single aggregate rows by favourite, home/away, 50c fixed-win price bucket, other-team fixed-win price bucket, favourite-vs-other price-difference bucket, and round, official try-scorer percentage rows by player, team, and 50c captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
+          - For NRL, show fixed-win single aggregate rows by home team, away team, favourite, favourite at home, favourite away, 50c fixed-win price bucket, other-team fixed-win price bucket, favourite-vs-other price-difference bucket, and round, official try-scorer percentage rows by player, team, and 50c captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
+          - For NPC, show the same NRL-shaped fixed-win aggregate rows from npc_insight_aggregates; keep try-scorer and Same Game rows empty until player markets and official scorer settlement are validated.
           - Show the NRL Same Game % section before the NRL fixed-win and try-scorer singles sections.
           - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates.
           - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates.
@@ -249,7 +250,7 @@ navigation:
           - Show current ranked sport-specific prediction signals from the latest stored current prediction source.
           - Split current prediction branches into Sport, Singles/Multis format, Cash/Win %/Placing signal type, and model tabs so different signal families are not mixed together.
           - Keep current candidates separate from Prediction History so today's snapshot is not confused with settled outcomes.
-          - Show shared Sport tabs for Racing, NRL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
+          - Show shared Sport tabs for Racing, NRL, NPC, PFL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
           - Show the same cash prediction model list under Racing Singles -> Cash and Racing Multis -> Cash: Global bucket blend, Global cash bucket blend, Global cash 50/50 blend, Global cash price only, Global cash starters only, Other starters avg price, Country + discipline blend, and Distance + condition blend.
           - Show the cash prediction model selector and method summary only for cash-model branches.
           - Show horse, harness, and greyhound cash candidates in discipline tabs so the mobile page does not become a long stacked list.
@@ -285,8 +286,10 @@ navigation:
           - Show PFL favourite-price, other-fighter-price, price-difference, 65%+, 75%+, and 85%+ Win % model tabs under the same PFL Singles/Multis hierarchy as UFC, with explicit reserved empty states until PFL historical aggregates, current fight-card collection, and PFL-specific persistence are added.
           - Show the UFC same-card percentage model selector under UFC Multis -> Win %, using favourite price, other fighter price, and price-difference bucket models.
           - Show NRL fixed-win percentage and try-scorer percentage model tabs under NRL Singles -> Win %, reading current rows from nrl_single_predictions.
+          - Show NPC fixed-win percentage and try-scorer percentage model tabs under NPC Singles -> Win %, reading current rows from npc_single_predictions. Fixed-win rows use current TAB Match Betting favourites; try-scorer rows stay empty until player markets and official player data are validated.
           - UFC non-Win % branches should remain selectable but show explicit empty states until matching models are added.
           - NRL Multis -> Same Game % should expose the favourite-team plus top-two try-scorer model once same-game multi result rows exist; other unsupported NRL branches should remain selectable but show explicit empty states until matching cash or same-game models are added.
+          - NPC unsupported branches should remain selectable but show explicit empty states until matching cash, placing, or same-game models are added.
           - Show a visible Prediction finalises before timestamp near the top of Predictions, calculated as 15 minutes before the selected sport's first race, fight, or match starts.
           - Let signed-in users lock the current selected sport/format/type/model prediction view before that sport's finalisation cutoff; existing percentage multi locks continue to show user-owned snapshots instead of later live recommendation changes for the current source date/model.
           - Show lock cutoff context near every lock action.
@@ -364,11 +367,12 @@ navigation:
           - Include place cash average, place cash net, and missing place-dividend counts in Placing prediction performance.
           - Show selected-model all-time tracked Multi-bet prediction performance inside Stored model performance, with multi-bet prediction count, settled/pending count, win rate, cash average, cash net, and open issues.
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
-          - Show shared Sport tabs for Racing, NRL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
+          - Show shared Sport tabs for Racing, NRL, NPC, PFL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
           - Show cash model tabs for Racing Cash singles and multis, 60%+ and 65%+ win singles models for Racing Singles -> Win %, percentage multi model tabs including the 50/50 65%+ model for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, UFC 65%+, 75%+, and 85%+ threshold model tabs for UFC Singles -> Win %, UFC same-card model tabs for UFC Multis -> Win %, and matching reserved PFL Win % model tabs.
           - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, including the 65%+, 75%+, and 85%+ threshold single models, with racing-only country, discipline, and racecourse filters hidden.
           - PFL Prediction History shows the UFC-shaped PFL Win % model hierarchy as a reserved empty state until PFL prediction storage and RPCs are added.
           - NRL history branches remain explicit empty states until NRL prediction reconciliation and history RPCs are added.
+          - NPC history branches remain explicit empty states until official NPC result settlement and NPC history RPCs are added.
           - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, 50/50 65%+, and place percentage models can be reviewed independently.
           - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 2-5 for the original win-percentage model, top 2-10 for the racing threshold win-percentage models including multi_win_percentage_50_50_65_plus_v1, top 2-8 for multi_place_percentage_v1, and top 2-8 for UFC percentage multi models.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.

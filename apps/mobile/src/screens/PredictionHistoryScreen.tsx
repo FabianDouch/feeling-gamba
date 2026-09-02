@@ -313,7 +313,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport === "nrl" ? undefined : activeSport,
+          activeSport === "nrl" || activeSport === "npc" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -383,7 +383,7 @@ export function PredictionHistoryScreen() {
       return;
     }
 
-    if (value === "nrl") {
+    if (value === "nrl" || value === "npc") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -1202,6 +1202,10 @@ function getUnsupportedHistoryBranchMessage({
     return "NRL prediction history is not tracked yet. Current NRL single predictions are available on the Predictions tab.";
   }
 
+  if (activeSport === "npc") {
+    return "NPC prediction history is not tracked yet. Current NPC single predictions are available on the Predictions tab.";
+  }
+
   return null;
 }
 
@@ -1302,6 +1306,10 @@ function getPredictionSportLabel(sport: PredictionSport) {
 
   if (sport === "nrl") {
     return "NRL";
+  }
+
+  if (sport === "npc") {
+    return "NPC";
   }
 
   if (sport === "pfl") {
