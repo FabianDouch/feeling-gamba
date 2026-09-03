@@ -641,7 +641,8 @@ Source rules:
 
 - Query open NRL `MATCH` events through the retained TAB market adapter.
 - Use `marketsConnection(first: 500)` by default because smaller pages can miss
-  the exact player try-scorer market.
+  the exact `Match Betting` or player try-scorer market on TAB events with many
+  prop markets.
 - Refuse to store rows when the generated snapshot time is at or after the
   event's advertised start.
 - Require the event to expose `Match Betting` so home/away teams can be matched
@@ -1226,8 +1227,8 @@ Proposed recurring jobs:
 | `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
 | `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
 | `refresh-nrl-results` | manual only until NRL model generation exists | `refresh:nrl-results` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for an explicit season/round or round range. |
-| `refresh-nrl-current-markets` | active: GitHub Actions `*/15 4-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
-| `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`. |
+| `refresh-nrl-current-markets` | active: GitHub Actions `*/15 2-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
+| `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`; requests 500 open TAB markets per event by default because high-market events can expose the match market late in the connection. |
 | `validate-nrl-try-scorer-markets` | manual validation only | `validate:nrl-try-scorer-markets` | Read-only probe for TAB NRL `Anytime Try Scorer` markets and priced player entrants before adding write ingestion. |
 | `refresh-nrl-try-scorer-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-try-scorer-market-snapshots` | Captures current NRL `Anytime Try Scorer` player prices and matches them to official player appearances. |
 | `reconcile-nrl-fixed-win` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `reconcile:nrl-fixed-win` | Converts NRL fixed-win snapshots into explicit result/status rows once official NRL fixture rows are available. |

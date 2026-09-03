@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_EVENT_COUNT = 20;
+const DEFAULT_MARKETS_FIRST = 500;
 
 /**
  * Parses the NPC current-market refresh orchestration options.
@@ -14,6 +15,7 @@ function parseArgs(argv) {
     batchSize: null,
     dryRun: false,
     eventCount: DEFAULT_EVENT_COUNT,
+    marketsFirst: DEFAULT_MARKETS_FIRST,
     requireSupabase: false,
     skipFixedWin: false,
     skipInsights: false,
@@ -38,11 +40,17 @@ function parseArgs(argv) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
     } else if (arg.startsWith("--event-count=")) {
       options.eventCount = Number(arg.slice("--event-count=".length));
+    } else if (arg.startsWith("--markets-first=")) {
+      options.marketsFirst = Number(arg.slice("--markets-first=".length));
     }
   }
 
   if (!isPositiveInteger(options.eventCount)) {
     throw new Error("--event-count must be a positive integer.");
+  }
+
+  if (!isPositiveInteger(options.marketsFirst)) {
+    throw new Error("--markets-first must be a positive integer.");
   }
 
   if (options.batchSize !== null && !isPositiveInteger(options.batchSize)) {
@@ -95,6 +103,7 @@ function buildRefreshCommands(options) {
   if (!options.skipFixedWin) {
     commands.push(buildCommand("capture_npc_fixed_win_markets", "refresh-npc-market-snapshots-from-tab.mjs", [
       `--event-count=${options.eventCount}`,
+      `--markets-first=${options.marketsFirst}`,
       ...writeFlags,
     ]));
   }

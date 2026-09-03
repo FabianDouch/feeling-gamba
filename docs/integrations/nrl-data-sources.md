@@ -74,6 +74,9 @@ NRL match window. As of 2026-08-31, the scheduled UTC window starts at `02:00`
 so early Sunday NZST kickoffs have pre-start capture attempts before the
 writers' advertised-start guard applies. Manual dispatch can pass `season` and
 `round` to preload official fixture/player rows before market capture.
+As of 2026-09-03, fixed-win capture also requests 500 open markets per event by
+default, matching the try-scorer adapter, because wide TAB event pages can place
+`Match Betting` after the first 240 markets.
 The first combined live run on 2026-08-28 wrote 6 fixed-win market snapshots,
 238 try-scorer market snapshots, 38 fixed-win result/status rows, 8 same-game
 multi result rows, 1,155 NRL insight aggregate rows, and 49 current NRL single

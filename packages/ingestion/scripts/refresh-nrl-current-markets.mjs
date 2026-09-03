@@ -174,7 +174,10 @@ function buildRefreshCommands(options) {
   }
 
   if (!options.skipFixedWin) {
-    commands.push(buildCommand("capture_nrl_fixed_win_markets", "refresh-nrl-market-snapshots-from-tab.mjs", marketFlags));
+    commands.push(buildCommand("capture_nrl_fixed_win_markets", "refresh-nrl-market-snapshots-from-tab.mjs", [
+      ...marketFlags,
+      `--markets-first=${options.marketsFirst}`,
+    ]));
   }
 
   if (!options.skipTryScorers) {

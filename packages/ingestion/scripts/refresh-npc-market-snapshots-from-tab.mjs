@@ -7,6 +7,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_EVENT_COUNT = 20;
+const DEFAULT_MARKETS_FIRST = 500;
 const MATCH_WINDOW_HOURS = 4;
 const NPC_CATEGORY = "RUGBY_UNION";
 const NPC_COMPETITION_SLUG = "new-zealand-npc";
@@ -21,6 +22,7 @@ const NPC_COMPETITION_QUERY = `
   query SportingCompetitionScreen(
     $category: SportingCategory!
     $competitionSlug: String!
+    $marketsFirst: Int
     $upcomingEventsCount: Int
   ) {
     league: sportingCompetitionBySlug(
@@ -49,7 +51,7 @@ const NPC_COMPETITION_QUERY = `
           bettingStatus
           status
           markets: marketsConnection(
-            first: 240
+            first: $marketsFirst
             status: [OPEN]
             excludeSuspended: true
           ) {
@@ -91,6 +93,7 @@ function parseArgs(argv) {
     batchSize: DEFAULT_BATCH_SIZE,
     dryRun: false,
     eventCount: DEFAULT_EVENT_COUNT,
+    marketsFirst: DEFAULT_MARKETS_FIRST,
     requireSupabase: false,
     source: "tab",
   };
@@ -104,6 +107,8 @@ function parseArgs(argv) {
       options.source = arg.slice("--source=".length);
     } else if (arg.startsWith("--event-count=")) {
       options.eventCount = Number(arg.slice("--event-count=".length));
+    } else if (arg.startsWith("--markets-first=")) {
+      options.marketsFirst = Number(arg.slice("--markets-first=".length));
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
     }
@@ -115,6 +120,10 @@ function parseArgs(argv) {
 
   if (!Number.isInteger(options.eventCount) || options.eventCount < 1) {
     throw new Error("--event-count must be a positive integer.");
+  }
+
+  if (!Number.isInteger(options.marketsFirst) || options.marketsFirst < 1) {
+    throw new Error("--markets-first must be a positive integer.");
   }
 
   if (!Number.isInteger(options.batchSize) || options.batchSize < 1) {
@@ -436,6 +445,7 @@ async function fetchSnapshots(options, officialMatches) {
     const response = await graphql(source, "SportingCompetitionScreen", NPC_COMPETITION_QUERY, {
       category: NPC_CATEGORY,
       competitionSlug: NPC_COMPETITION_SLUG,
+      marketsFirst: options.marketsFirst,
       upcomingEventsCount: options.eventCount,
     });
     const events = response.data?.upcomingEvents?.events?.nodes ?? [];

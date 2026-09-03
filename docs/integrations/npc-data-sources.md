@@ -48,6 +48,10 @@ The scheduled wrapper is:
 npm --workspace @feeling-gamba/ingestion run refresh:npc-current-markets -- --require-supabase
 ```
 
+As of 2026-09-03, NPC fixed-win capture requests 500 open markets per event by
+default to keep it aligned with NRL and avoid missing `Match Betting` when TAB
+adds a large prop-market set.
+
 ## Settlement Rule
 
 For NPC fixed-win calibration, a drawn final score is treated as a settled

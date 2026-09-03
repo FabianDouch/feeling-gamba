@@ -16,6 +16,11 @@ on:
         required: true
         default: "20"
         type: string
+      markets_first:
+        description: Open markets to request per event
+        required: true
+        default: "500"
+        type: string
 
 permissions:
   contents: read
@@ -34,6 +39,7 @@ jobs:
       DRY_RUN: ${{ github.event.inputs.dry_run }}
       EVENT_COUNT: ${{ github.event.inputs.event_count }}
       FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      MARKETS_FIRST: ${{ github.event.inputs.markets_first }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
@@ -53,19 +59,24 @@ jobs:
 
           dry_run="${DRY_RUN:-false}"
           event_count="${EVENT_COUNT:-20}"
+          markets_first="${MARKETS_FIRST:-500}"
           supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
 
-          case "$event_count" in
-            ''|*[!0-9]*)
-              echo "event_count must be a positive integer"
-              exit 1
-              ;;
-          esac
+          for input_name in event_count markets_first; do
+            input_value="${!input_name:-}"
 
-          if [ "$event_count" -lt 1 ]; then
-            echo "event_count must be a positive integer"
-            exit 1
-          fi
+            case "$input_value" in
+              ''|*[!0-9]*)
+                echo "${input_name} must be a positive integer"
+                exit 1
+                ;;
+            esac
+
+            if [ "$input_value" -lt 1 ]; then
+              echo "${input_name} must be a positive integer"
+              exit 1
+            fi
+          done
 
           if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
             echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for NPC market writes"
@@ -74,7 +85,10 @@ jobs:
 
       - name: Refresh current NPC market data
         run: |
-          args=("--event-count=${EVENT_COUNT:-20}")
+          args=(
+            "--event-count=${EVENT_COUNT:-20}"
+            "--markets-first=${MARKETS_FIRST:-500}"
+          )
 
           if [ "${DRY_RUN:-false}" = "true" ]; then
             args+=("--dry-run")
