@@ -204,6 +204,11 @@ function isSettledFixture(fixture) {
   return fixture?.matchState === "FullTime" || fixture?.matchMode === "Post";
 }
 
+function isRequestedDrawRound(payload, season, round) {
+  return toNullableInteger(payload?.selectedSeasonId) === season
+    && toNullableInteger(payload?.selectedRoundId) === round;
+}
+
 function getMatchDataUrl(fixture) {
   const matchCentreUrl = fixture?.matchCentreUrl;
 
@@ -224,6 +229,24 @@ async function fetchSettlementPayloads(options) {
 
   for (let round = options.fromRound; round <= options.toRound; round += 1) {
     const drawPayload = await fetchDrawRound(options.season, round);
+    const selectedRoundId = toNullableInteger(drawPayload.selectedRoundId);
+    const selectedSeasonId = toNullableInteger(drawPayload.selectedSeasonId);
+
+    if (!isRequestedDrawRound(drawPayload, options.season, round)) {
+      rounds.push({
+        completedFixtures: 0,
+        fixtureCount: 0,
+        ignored: true,
+        reason: "official_round_payload_mismatch",
+        selectedFixtures: 0,
+        round,
+        selectedCompetitionId: drawPayload.selectedCompetitionId ?? null,
+        selectedRoundId,
+        selectedSeasonId,
+      });
+      continue;
+    }
+
     const fixtures = drawPayload.fixtures ?? [];
     const completedFixtures = fixtures.filter(isSettledFixture);
     const selectedFixtures = options.includeFixtures ? fixtures : completedFixtures;
@@ -234,8 +257,8 @@ async function fetchSettlementPayloads(options) {
       selectedFixtures: selectedFixtures.length,
       round,
       selectedCompetitionId: drawPayload.selectedCompetitionId ?? null,
-      selectedRoundId: drawPayload.selectedRoundId ?? null,
-      selectedSeasonId: drawPayload.selectedSeasonId ?? null,
+      selectedRoundId,
+      selectedSeasonId,
     });
 
     for (const fixture of selectedFixtures) {

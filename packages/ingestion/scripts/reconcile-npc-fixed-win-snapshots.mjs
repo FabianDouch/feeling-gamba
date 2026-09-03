@@ -7,6 +7,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
+const MATCH_WINDOW_HOURS = 4;
 
 /**
  * Parses NPC fixed-win snapshot reconciliation options.
@@ -212,6 +213,40 @@ function namesMatch(left, right) {
   }
 
   return leftName.endsWith(` ${rightName}`) || rightName.endsWith(` ${leftName}`);
+}
+
+function addHours(isoString, hours) {
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.valueOf())) {
+    return null;
+  }
+
+  date.setUTCHours(date.getUTCHours() + hours);
+  return date.toISOString();
+}
+
+function isWithinMatchWindow(snapshotStart, matchKickoff) {
+  const snapshotDate = new Date(snapshotStart);
+  const matchDate = new Date(matchKickoff);
+
+  if (Number.isNaN(snapshotDate.valueOf()) || Number.isNaN(matchDate.valueOf())) {
+    return false;
+  }
+
+  return Math.abs(snapshotDate.valueOf() - matchDate.valueOf()) <= MATCH_WINDOW_HOURS * 60 * 60 * 1000;
+}
+
+function sameTeams(snapshot, match) {
+  return namesMatch(snapshot.home_team_name, match.home_team_name)
+    && namesMatch(snapshot.away_team_name, match.away_team_name);
+}
+
+function matchExistingNpcMatch(snapshot, matches) {
+  const candidates = matches.filter((match) =>
+    sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
+
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 /**
@@ -446,26 +481,34 @@ function selectCanonicalSnapshots(snapshots) {
 }
 
 /**
- * Loads official NPC matches referenced by the selected snapshots.
+ * Loads official NPC matches in the selected snapshot kickoff window.
  */
 async function readMatches(supabase, snapshots) {
-  const matchIds = Array.from(new Set(
-    snapshots
-      .map((snapshot) => snapshot.matched_npc_match_id)
-      .filter(Boolean),
-  ));
+  const starts = snapshots
+    .map((snapshot) => snapshot.advertised_start_at)
+    .filter(Boolean)
+    .sort();
 
-  if (!matchIds.length) {
-    return new Map();
+  if (!starts.length) {
+    return [];
   }
 
-  const rows = await supabase.request("npc_matches", {
+  const from = addHours(starts[0], -MATCH_WINDOW_HOURS);
+  const to = addHours(starts[starts.length - 1], MATCH_WINDOW_HOURS);
+
+  if (!from || !to) {
+    return [];
+  }
+
+  return await supabase.request("npc_matches", {
     search: {
-      id: `in.(${matchIds.join(",")})`,
+      and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
+      order: "kickoff_at.asc",
       select: [
         "id",
         "source",
         "source_match_id",
+        "kickoff_at",
         "result_status",
         "home_team_name",
         "away_team_name",
@@ -476,10 +519,44 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
+      source: "eq.official_provincial_rugby",
     },
   });
+}
 
-  return new Map(rows.map((row) => [row.id, row]));
+/**
+ * Backfills match links for previously captured snapshots after official rows arrive.
+ */
+function resolveSnapshotMatches(snapshots, officialMatches) {
+  const matchesById = new Map(officialMatches.map((row) => [row.id, row]));
+  const updates = [];
+  const resolvedSnapshots = snapshots.map((snapshot) => {
+    if (snapshot.matched_npc_match_id && matchesById.has(snapshot.matched_npc_match_id)) {
+      return snapshot;
+    }
+
+    const match = matchExistingNpcMatch(snapshot, officialMatches);
+
+    if (!match) {
+      return snapshot;
+    }
+
+    updates.push({
+      id: snapshot.id,
+      matched_npc_match_id: match.id,
+    });
+
+    return {
+      ...snapshot,
+      matched_npc_match_id: match.id,
+    };
+  });
+
+  return {
+    matchesById,
+    resolvedSnapshots,
+    updates,
+  };
 }
 
 /**
@@ -517,7 +594,27 @@ function reconcileSnapshots(snapshots, matchesById) {
 /**
  * Persists fixed-win snapshot outcome/status rows.
  */
-async function writeRows(supabase, rows) {
+async function writeSnapshotMatchUpdates(supabase, updates) {
+  for (const update of updates) {
+    await supabase.request("npc_market_snapshots", {
+      body: {
+        matched_npc_match_id: update.matched_npc_match_id,
+      },
+      method: "PATCH",
+      prefer: "return=minimal",
+      search: {
+        id: `eq.${update.id}`,
+      },
+      expectJson: false,
+    });
+  }
+}
+
+/**
+ * Persists fixed-win snapshot outcome/status rows.
+ */
+async function writeRows(supabase, rows, snapshotMatchUpdates) {
+  await writeSnapshotMatchUpdates(supabase, snapshotMatchUpdates);
   await supabase.upsert(
     "npc_fixed_win_snapshot_results",
     rows,
@@ -571,9 +668,13 @@ async function main() {
 
   const supabase = createSupabaseRestClient(config, options.batchSize);
   const snapshots = await readSnapshots(supabase, options);
-  const matchesById = await readMatches(supabase, snapshots);
-  const reconciliation = reconcileSnapshots(snapshots, matchesById);
-  const summary = summarize(snapshots, matchesById, reconciliation);
+  const officialMatches = await readMatches(supabase, snapshots);
+  const resolution = resolveSnapshotMatches(snapshots, officialMatches);
+  const reconciliation = reconcileSnapshots(resolution.resolvedSnapshots, resolution.matchesById);
+  const summary = {
+    ...summarize(resolution.resolvedSnapshots, resolution.matchesById, reconciliation),
+    snapshotMatchUpdates: resolution.updates.length,
+  };
 
   if (options.dryRun) {
     console.log(JSON.stringify({
@@ -594,7 +695,7 @@ async function main() {
     return;
   }
 
-  const supabaseWrite = await writeRows(supabase, reconciliation.rows);
+  const supabaseWrite = await writeRows(supabase, reconciliation.rows, resolution.updates);
 
   console.log(JSON.stringify({
     summary,

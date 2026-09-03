@@ -119,6 +119,12 @@ reconciles fixed-win snapshots, rebuilds same-game multi rows, and rebuilds NRL
 Insights. A manual round 26 recovery on 2026-08-31 refreshed 8 settled matches,
 305 player appearances, and 76 try-scorer rows, then rebuilt 16 same-game rows
 and 1,149 NRL insight aggregate rows.
+Settlement finding from 2026-09-04: before the 10:30 NZST result refresh ran,
+the 2026-09-03 Bulldogs/Broncos fixed-win snapshot was present but still
+`pending`. The official NRL discovery dry-run also showed that requesting
+future rounds beyond the current round can return the current round payload, so
+the result scanner now ignores payloads whose selected round/season do not match
+the requested round before deciding which rounds to refresh.
 
 NRL current single prediction generation is implemented in
 `packages/ingestion/scripts/generate-nrl-single-predictions.mjs`, with schema

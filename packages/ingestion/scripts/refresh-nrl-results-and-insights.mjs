@@ -128,6 +128,20 @@ function isCompletedFixture(fixture) {
   return fixture?.matchState === "FullTime" || fixture?.matchMode === "Post";
 }
 
+function toNullableInteger(value) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function isRequestedDrawRound(payload, season, round) {
+  return toNullableInteger(payload?.selectedSeasonId) === season
+    && toNullableInteger(payload?.selectedRoundId) === round;
+}
+
 function isWithinLookback(isoString, cutoff, now) {
   const date = new Date(isoString);
 
@@ -149,6 +163,22 @@ async function discoverRecentCompletedRounds(options) {
 
   for (let round = 1; round <= options.maxRound; round += 1) {
     const payload = await fetchDrawRound(options.season, round);
+    const selectedRoundId = toNullableInteger(payload?.selectedRoundId);
+    const selectedSeasonId = toNullableInteger(payload?.selectedSeasonId);
+
+    if (!isRequestedDrawRound(payload, options.season, round)) {
+      scannedRounds.push({
+        completedInWindow: 0,
+        fixtureCount: 0,
+        ignored: true,
+        reason: "official_round_payload_mismatch",
+        round,
+        selectedRoundId,
+        selectedSeasonId,
+      });
+      continue;
+    }
+
     const fixtures = payload.fixtures ?? [];
     const completedInWindow = fixtures.filter((fixture) =>
       isCompletedFixture(fixture) && isWithinLookback(getFixtureKickoff(fixture), cutoff, now));
@@ -157,6 +187,8 @@ async function discoverRecentCompletedRounds(options) {
       completedInWindow: completedInWindow.length,
       fixtureCount: fixtures.length,
       round,
+      selectedRoundId,
+      selectedSeasonId,
     });
 
     if (completedInWindow.length > 0) {

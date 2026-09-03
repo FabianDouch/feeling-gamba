@@ -16,6 +16,11 @@ on:
         required: true
         default: "20"
         type: string
+      entrants_first:
+        description: Try-scorer entrants to request per market
+        required: true
+        default: "60"
+        type: string
       markets_first:
         description: Open markets to request per event
         required: true
@@ -37,6 +42,7 @@ jobs:
 
     env:
       DRY_RUN: ${{ github.event.inputs.dry_run }}
+      ENTRANTS_FIRST: ${{ github.event.inputs.entrants_first }}
       EVENT_COUNT: ${{ github.event.inputs.event_count }}
       FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
       MARKETS_FIRST: ${{ github.event.inputs.markets_first }}
@@ -58,11 +64,12 @@ jobs:
           test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
 
           dry_run="${DRY_RUN:-false}"
+          entrants_first="${ENTRANTS_FIRST:-60}"
           event_count="${EVENT_COUNT:-20}"
           markets_first="${MARKETS_FIRST:-500}"
           supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
 
-          for input_name in event_count markets_first; do
+          for input_name in entrants_first event_count markets_first; do
             input_value="${!input_name:-}"
 
             case "$input_value" in
@@ -87,6 +94,7 @@ jobs:
         run: |
           args=(
             "--event-count=${EVENT_COUNT:-20}"
+            "--entrants-first=${ENTRANTS_FIRST:-60}"
             "--markets-first=${MARKETS_FIRST:-500}"
           )
 

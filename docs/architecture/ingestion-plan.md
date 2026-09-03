@@ -131,25 +131,42 @@ Betting` entries for home and away teams.
 
 Implemented scripts:
 
+- `refresh:npc-results`: loads official Provincial Rugby/Opta RU1 fixture and
+  result rows into `npc_teams` and `npc_matches`, then loads RU7 per-match
+  player appearances and try events into `npc_players`,
+  `npc_player_match_appearances`, and `npc_try_scorers`.
 - `refresh:npc-market-snapshots`: captures current TAB fixed-win Match Betting
   prices into one canonical `npc_market_snapshots` row per source event.
+- `refresh:npc-try-scorer-market-snapshots`: captures current TAB `Anytime Try
+  Scorer` prices into `npc_try_scorer_market_snapshots`, excluding `Penalty
+  Try` and only matching player-name variants to official RU7 rows when there
+  is one clear same-team candidate.
 - `reconcile:npc-fixed-win`: derives `npc_fixed_win_snapshot_results` from any
   matched official NPC rows, using one canonical fixed-win row per source event.
+  It also rematches previously captured snapshots by kickoff window and
+  home/away team names after official fixture rows arrive.
+- `rebuild:npc-same-game-multis`: derives favourite-team top-two try-scorer
+  same-game rows from fixed-win favourites and captured try-scorer prices.
 - `rebuild:npc-insight-aggregates`: rebuilds app-facing `npc_insight_aggregates`.
 - `generate:npc-single-predictions`: writes current `npc_single_predictions`.
 - `refresh:npc-current-markets`: runs the current-market capture, reconciliation,
-  insight rebuild, and prediction generation steps in order.
+  same-game rebuild, insight rebuild, and prediction generation steps in order.
+- `refresh:npc-results-and-insights`: runs the official fixture/result/player
+  refresh, fixed-win reconciliation, same-game rebuild, Insight rebuild, and
+  prediction generation steps in order.
 
 Drawn final scores are counted as settled fixed-win losses for both team
-selections because the team selection would not pay out. Official
-Provincial Rugby results, player appearances, try-scorer events, and Same Game %
-rows remain gated until the underlying Opta/widget payload is validated.
+selections because the team selection would not pay out. Try-scorer and Same
+Game % rows are now source-backed from official Opta RU7 player/event rows plus
+captured TAB `Anytime Try Scorer` prices.
 
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
 current-market wrapper every 15 minutes during typical NPC match windows.
 Repeated pre-kickoff captures update the same source-event row instead of
-creating additional calibration selections. Do not add a result-refresh schedule
-until the official NPC result adapter exists.
+creating additional calibration selections. As of 2026-09-04,
+`.github/workflows/npc-result-refresh.yml` runs the official result wrapper
+daily after the usual match window and includes future fixtures so upcoming TAB
+market snapshots can match official NPC rows.
 
 Local fixture validation now has a first automated test suite at
 `apps/mobile/test/fixturePipeline.test.mjs`, run with
@@ -513,6 +530,10 @@ Initial mode:
   daily after the usual weekend match window, discovers recently completed
   official rounds, refreshes those results, reconciles fixed-win snapshots,
   rebuilds same-game multi rows, and rebuilds app-facing NRL Insights.
+  As of 2026-09-04, the discovery/import scripts ignore official NRL draw
+  payloads whose selected season or selected round does not match the requested
+  round, because the public endpoint can fall back to the current round for
+  future round numbers.
 - Upcoming fixture preload:
   `npm --workspace @feeling-gamba/ingestion run refresh:nrl-results -- --season=2026 --round=26 --include-fixtures --require-supabase`
 - Dry-run validation:
@@ -542,6 +563,49 @@ Expected writes:
 - `nrl_player_match_appearances`
 - `nrl_matches`
 - `nrl_try_scorers`
+
+### `refresh-npc-results`
+
+Purpose:
+
+- Load NPC fixture and result rows from the official Provincial Rugby Opta
+  widget feed.
+- Store source-specific NPC teams and matches for TAB fixed-win snapshot
+  matching and settlement.
+- Provide official fixture shells for upcoming NPC prediction generation.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run refresh:npc-results -- --season=2026 --include-fixtures --require-supabase`
+- Scheduled post-match refresh:
+  `.github/workflows/npc-result-refresh.yml` runs
+  `npm --workspace @feeling-gamba/ingestion run refresh:npc-results-and-insights -- --require-supabase`
+  daily after the usual match window. It refreshes official fixture/result
+  rows, reconciles fixed-win snapshots, rebuilds app-facing NPC Insights, and
+  regenerates current NPC predictions.
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run refresh:npc-results -- --season=2026 --dry-run --include-fixtures`
+
+Source rules:
+
+- Use official Provincial Rugby's Opta Rugby Union `ru1` season feed with
+  competition id `208`.
+- Use Opta season `2027` for the app's 2026 NPC season; the importer defaults
+  to `season + 1` and accepts `--opta-season=N` as an override.
+- Store official NPC rows with `source = 'official_provincial_rugby'`.
+- Store upcoming fixture shells as `result_status = 'pending'`.
+- Skip placeholder TBC finals rows until the source assigns real teams.
+- Treat drawn final scores as settled non-paying losses during fixed-win
+  reconciliation.
+
+Expected writes:
+
+- `npc_teams`
+- `npc_matches`
+- `npc_fixed_win_snapshot_results`
+- `npc_insight_aggregates`
+- `npc_single_predictions`
 
 ### `refresh-nrl-market-snapshots`
 
@@ -1226,13 +1290,17 @@ Proposed recurring jobs:
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-finalisation prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late refreshes after the selected sport's standard finalisation cutoff has passed. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC/PFL refreshes can refresh fight-card predictions independently before cutoff. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 | `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
 | `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
-| `refresh-nrl-results` | manual only until NRL model generation exists | `refresh:nrl-results` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for an explicit season/round or round range. |
+| `refresh-nrl-results` | active: daily GitHub Actions schedule `30 22 * * *` UTC | `refresh:nrl-results-and-insights` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for recently completed rounds, reconciles NRL fixed-win snapshots, rebuilds same-game rows and NRL Insights. |
+| `refresh-npc-results` | active: daily GitHub Actions schedule `45 22 * * *` UTC | `refresh:npc-results-and-insights` | Loads official Provincial Rugby/Opta NPC fixture, result, player appearance, and try-scorer rows, rematches/reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
 | `refresh-nrl-current-markets` | active: GitHub Actions `*/15 2-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
+| `refresh-npc-current-markets` | active: GitHub Actions `*/15 0-9 * * 4,5,6,0` UTC during usual NPC match windows | `refresh:npc-current-markets` | Captures open NPC fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
 | `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`; requests 500 open TAB markets per event by default because high-market events can expose the match market late in the connection. |
 | `validate-nrl-try-scorer-markets` | manual validation only | `validate:nrl-try-scorer-markets` | Read-only probe for TAB NRL `Anytime Try Scorer` markets and priced player entrants before adding write ingestion. |
 | `refresh-nrl-try-scorer-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-try-scorer-market-snapshots` | Captures current NRL `Anytime Try Scorer` player prices and matches them to official player appearances. |
+| `refresh-npc-try-scorer-market-snapshots` | called by `refresh-npc-current-markets`; manual diagnostics remain available | `refresh:npc-try-scorer-market-snapshots` | Captures current NPC `Anytime Try Scorer` player prices, excludes non-player `Penalty Try` selections, and matches TAB entrants to official RU7 player appearances where there is a single safe same-team match. |
 | `reconcile-nrl-fixed-win` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `reconcile:nrl-fixed-win` | Converts NRL fixed-win snapshots into explicit result/status rows once official NRL fixture rows are available. |
 | `rebuild-nrl-same-game-multis` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `rebuild:nrl-same-game-multis` | Builds NRL favourite-team same-game multi result rows from fixed-win favourites plus source-backed top-two try-scorer prices. |
+| `rebuild-npc-same-game-multis` | called by `refresh-npc-current-markets` and `refresh-npc-results-and-insights`; manual diagnostics remain available | `rebuild:npc-same-game-multis` | Builds NPC favourite-team same-game multi result rows from fixed-win favourites plus source-backed top-two try-scorer prices. |
 | `rebuild-nrl-insight-aggregates` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `rebuild:nrl-insight-aggregates` | Rebuilds NRL fixed-win single, try-scorer percentage, and same-game percentage aggregate rows for the NRL Insights sport toggle. |
 | `generate-nrl-single-predictions` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `generate:nrl-single-predictions` | Generates current NRL fixed-win percentage and try-scorer percentage single prediction rows for Predictions. |
 

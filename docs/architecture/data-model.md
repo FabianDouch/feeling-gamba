@@ -1405,24 +1405,24 @@ Implemented sport-specific NPC rugby tables for the first narrow NRL-style
 fixed-win pipeline:
 
 - `npc_teams`: source-specific team identities.
-- `npc_players`: source-specific player identities for future official player
-  data.
-- `npc_matches`: official Provincial Rugby match shells/results once the
-  official structured payload is validated.
-- `npc_try_scorers`: future official try events.
-- `npc_player_match_appearances`: future official player/team appearance
+- `npc_players`: source-specific player identities from official Opta RU7
+  match-detail payloads.
+- `npc_matches`: official Provincial Rugby match shells/results from the Opta
+  RU1 season feed.
+- `npc_try_scorers`: official Opta RU7 try events with player/team IDs.
+- `npc_player_match_appearances`: official Opta RU7 player/team appearance
   denominator rows.
 - `npc_market_snapshots`: one canonical TAB `RUGBY_UNION` /
   `new-zealand-npc` `Match Betting` fixed-win market row per source event.
 - `npc_fixed_win_snapshot_results`: one outcome/status row per fixed-win source
   event, including pending, unmatched, missing-result, settled, and
   non-standard states.
-- `npc_try_scorer_market_snapshots`: scaffolded source-backed player try-scorer
-  price rows, not populated until NPC player-market entrant matching is
-  validated.
-- `npc_same_game_multi_results`: scaffolded favourite-team plus top-two
-  try-scorer tracking rows, not populated until NPC try-scorer capture and
-  settlement are source-backed.
+- `npc_try_scorer_market_snapshots`: source-backed TAB `Anytime Try Scorer`
+  player price rows. TAB `Penalty Try` pseudo selections are excluded because
+  they cannot settle to an official player.
+- `npc_same_game_multi_results`: favourite-team plus top-two try-scorer
+  tracking rows from fixed-win favourites and source-backed TAB try-scorer
+  prices.
 - `npc_insight_aggregates`: stored app-facing NPC aggregate rows mirroring the
   NRL fixed-win, try-scorer, and same-game insight shape.
 - `npc_single_predictions`: persisted current NPC Singles -> Win % rows for
@@ -1445,8 +1445,9 @@ Rules:
   price`, so home/away buckets can be negative when that venue side was the
   longer-priced team.
 - Current NPC single predictions use `npc_fixed_win_percentage_single_v1` and
-  `npc_try_scorer_percentage_single_v1`. Try-scorer rows remain empty until
-  official player data and TAB try-scorer markets are validated.
+  `npc_try_scorer_percentage_single_v1`. Try-scorer predictions are backed by
+  official Opta RU7 appearance/try rows and current TAB `Anytime Try Scorer`
+  prices where entrant-to-player matching is safe.
 - Public RLS read access is allowed because rows contain app-facing aggregate,
   current prediction, and source market facts only.
 

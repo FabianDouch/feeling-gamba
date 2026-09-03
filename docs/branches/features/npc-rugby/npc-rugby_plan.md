@@ -7,7 +7,7 @@ app with the same user-facing coverage shape as NRL: Insights, Predictions,
 Prediction History, current prediction locks, and finalised-model notification
 support.
 
-Point-in-time source notes from 2026-09-02:
+Point-in-time source notes from 2026-09-02, updated 2026-09-04:
 
 - Official Provincial Rugby pages expose current NPC fixtures/results and
   historical fixtures/results for the competition.
@@ -16,9 +16,13 @@ Point-in-time source notes from 2026-09-02:
 - TAB NPC market access is validated for current fixed-win capture:
   `RUGBY_UNION`, `new-zealand-npc`, `New Zealand NPC`, and two-runner `Match
   Betting` entries.
-- Official Provincial Rugby result/player data appears to be rendered through
-  Opta widgets; the result importer remains blocked until the underlying
-  structured payload is validated.
+- Official Provincial Rugby fixture/result data is source-backed through the
+  page's Opta Rugby Union `ru1` season feed. The validated 2026 feed uses
+  competition id `208` and Opta season id `2027`.
+- Official per-match player/event ingestion is source-backed through Opta RU7
+  match-detail payloads. TAB `Anytime Try Scorer` entrant mapping is validated
+  for current NPC markets, with `Penalty Try` excluded and ambiguous player
+  variants left unmatched.
 
 ## Scope
 
@@ -75,8 +79,9 @@ Point-in-time source notes from 2026-09-02:
   selections treat a drawn final score as a settled non-paying loss for both
   teams. Draws stay in the denominator because the team selection would not pay
   out.
-- Player try-scorer predictions should be labelled as historical roster/team
-  context until current NPC lineups are source-validated.
+- Player try-scorer predictions use official RU7 match rosters and try events
+  plus current TAB `Anytime Try Scorer` prices. Entrant name variants are
+  matched only when the same-team official roster has a single safe candidate.
 
 ## Plan
 
@@ -119,10 +124,10 @@ Point-in-time source notes from 2026-09-02:
 
 3. Ingestion
 
-- Add `refresh-npc-results-from-official.mjs` after the official
-  Provincial Rugby/Opta payload is validated.
+- Add `refresh-npc-results-from-official.mjs` for official Provincial
+  Rugby/Opta RU1 fixtures/results and RU7 player appearances/try events.
 - Add `refresh-npc-market-snapshots-from-tab.mjs`.
-- Add `refresh-npc-try-scorer-market-snapshots-from-tab.mjs` only after player
+- Add `refresh-npc-try-scorer-market-snapshots-from-tab.mjs` after player
   entrant matching is validated.
 - Add `reconcile-npc-fixed-win-snapshots.mjs`.
 - Add `rebuild-npc-same-game-multis.mjs` after NPC try-scorer market capture is
@@ -147,11 +152,12 @@ Point-in-time source notes from 2026-09-02:
   - avoid cash labels until enough settled price-backed rows exist
 - Try-scorer model:
   - rank player candidates by official player/team try rate
-  - label lineup status clearly until current lineups are validated
+  - use RU7 match rosters as the official current-lineup/player denominator
 - Same Game %:
   - use favourite fixed-win plus two shortest-priced favourite-team try scorers
   - label returns as estimated unless quoted SGM prices are captured
-  - keep hidden/scaffolded until player try-scorer price capture is validated
+  - keep rows source-backed through captured TAB try-scorer prices and official
+    RU7 try settlement
 
 5. App UI
 
@@ -167,8 +173,8 @@ Point-in-time source notes from 2026-09-02:
 
 - Backfill official NPC fixtures/results for current and historical seasons once
   the source adapter is validated.
-- Backfill player appearances and try scorers only when the official source
-  provides a reliable denominator.
+- Backfill player appearances and try scorers from official Opta RU7 match
+  details for retained NPC fixture rows.
 - Rebuild `npc_insight_aggregates` after each official backfill.
 - Do not backfill historical fixed-win prices unless a source-backed historical
   odds feed is validated.
@@ -178,17 +184,23 @@ Point-in-time source notes from 2026-09-02:
 ## Implementation Checkpoints
 
 - Source validation doc created with current TAB market payload evidence and
-  official-result source caveats.
+  official-result source evidence.
 - Supabase migrations applied locally and remotely.
 - TAB fixed-win market dry-run captures pre-kickoff NPC prices.
 - Fixed-win reconciliation produces settled/pending/unmatched/missing-result
-  rows, with drawn final scores counted as settled losses.
+  rows, with drawn final scores counted as settled losses. As of 2026-09-04 it
+  also rematches existing TAB snapshots after official fixture rows arrive.
 - Insights rebuild writes app-facing NPC fixed-win rows.
 - App shows NPC Insights without changing NRL behavior.
 - Predictions generation writes current NPC rows.
-- Prediction History remains an explicit empty state until official NPC result
-  refresh and NPC history RPCs are added.
+- Prediction History remains incomplete until NPC history RPCs/read models are
+  added.
 - Scheduled market workflow runs successfully for one NPC weekend.
+- Scheduled result workflow added at `.github/workflows/npc-result-refresh.yml`.
+- As of 2026-09-04, live backfill wrote 1,932 NPC player appearances, 464
+  players, and 329 official try rows for the 2026 season; current TAB capture
+  wrote 180 real player try-scorer prices for six open events, with 177 matched
+  to official player IDs and three left unmatched.
 
 ## Key Paths
 
@@ -205,15 +217,13 @@ Point-in-time source notes from 2026-09-02:
 - `apps/mobile/src/screens/PredictionsScreen.tsx`
 - `apps/mobile/src/screens/PredictionHistoryScreen.tsx`
 - `.github/workflows/npc-market-refresh.yml`
+- `.github/workflows/npc-result-refresh.yml`
 
 ## Risks / Unknowns
 
-- Official NPC site may expose fixtures/results as rendered page data rather
-  than stable JSON APIs.
-- Player appearances and try-scorer events may not be structured enough for
-  source-backed try-scorer denominators.
-- TAB may use a Rugby Union competition slug or market labels that differ from
-  NRL.
+- Some TAB player names may differ from official Opta names. The matcher only
+  applies conservative same-team single-candidate joins; unmatched rows stay
+  auditable instead of guessed.
 - Drawn fixed-win outcomes are deliberately counted as settled losses for NPC
   team selections.
 - NPC team naming has macrons, sponsor names, and aliases that can make source
@@ -226,14 +236,25 @@ Point-in-time source notes from 2026-09-02:
 Planned checks:
 
 - `node --check packages/ingestion/scripts/refresh-npc-market-snapshots-from-tab.mjs`
+- `node --check packages/ingestion/scripts/refresh-npc-results-from-official.mjs`
+- `node --check packages/ingestion/scripts/refresh-npc-results-and-insights.mjs`
 - `node --check packages/ingestion/scripts/reconcile-npc-fixed-win-snapshots.mjs`
 - `node --check packages/ingestion/scripts/rebuild-npc-insight-aggregates.mjs`
 - `node --check packages/ingestion/scripts/generate-npc-single-predictions.mjs`
 - `npm --workspace @feeling-gamba/ingestion run typecheck`
 - `npm --workspace @feeling-gamba/mobile run typecheck`
-- dry-run official completed-week refresh
+- dry-run official NPC fixture/result refresh
 - dry-run TAB current-market capture before kickoff
 - production readback for `npc_insight_aggregates` and `npc_single_predictions`
+
+2026-09-04 validation:
+
+- `refresh:npc-results -- --season=2026 --dry-run --include-fixtures` mapped 70
+  non-placeholder official matches and 14 teams from Opta RU1.
+- `refresh:npc-results-and-insights -- --season=2026 --require-supabase` wrote
+  70 `npc_matches`, rematched 7 of 7 existing TAB market snapshots, rebuilt 54
+  `npc_insight_aggregates`, and generated 6 current fixed-win
+  `npc_single_predictions`.
 
 Deferred checks / reason:
 
@@ -244,6 +265,7 @@ Deferred checks / reason:
 
 ## Release Notes
 
-- Planned: add NPC rugby as a sport with NRL-equivalent Insights, Predictions,
-  and Prediction History where source-backed fixture, result, market, and player
-  data supports the model.
+- Added official NPC fixture/result ingestion, scheduled result refresh, fixed
+  win snapshot rematching, NPC Insight rebuild, and current fixed-win prediction
+  regeneration. Player-event, try-scorer, same-game, and history read-model
+  work remains source-gated.

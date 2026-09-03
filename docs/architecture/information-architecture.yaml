@@ -148,7 +148,7 @@ navigation:
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
           - For NRL, show fixed-win single aggregate rows by home team, away team, favourite, favourite at home, favourite away, Favourite/Home/Away toggles for 50c fixed-win price bucket, other-team fixed-win price bucket, and price-difference bucket rows, plus round, official try-scorer percentage rows by player, team, and 50c captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
-          - For NPC, show the same NRL-shaped fixed-win aggregate rows and Favourite/Home/Away fixed-win price toggles from npc_insight_aggregates; keep try-scorer and Same Game rows empty until player markets and official scorer settlement are validated.
+          - For NPC, show the same NRL-shaped fixed-win aggregate rows and Favourite/Home/Away fixed-win price toggles from npc_insight_aggregates, plus source-backed try-scorer percentage rows and Same Game % rows from official RU7 player events and captured TAB try-scorer prices.
           - Show the NRL Same Game % section before the NRL fixed-win and try-scorer singles sections.
           - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates.
           - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates.
@@ -286,7 +286,7 @@ navigation:
           - Show PFL favourite-price, other-fighter-price, price-difference, 65%+, 75%+, and 85%+ Win % model tabs under the same PFL Singles/Multis hierarchy as UFC, with explicit reserved empty states until PFL historical aggregates, current fight-card collection, and PFL-specific persistence are added.
           - Show the UFC same-card percentage model selector under UFC Multis -> Win %, using favourite price, other fighter price, and price-difference bucket models.
           - Show NRL fixed-win percentage and try-scorer percentage model tabs under NRL Singles -> Win %, reading current rows from nrl_single_predictions.
-          - Show NPC fixed-win percentage and try-scorer percentage model tabs under NPC Singles -> Win %, reading current rows from npc_single_predictions. Fixed-win rows use current TAB Match Betting favourites; try-scorer rows stay empty until player markets and official player data are validated.
+          - Show NPC fixed-win percentage and try-scorer percentage model tabs under NPC Singles -> Win %, reading current rows from npc_single_predictions. Fixed-win rows use current TAB Match Betting favourites; try-scorer rows use official RU7 player/team try rates and current TAB Anytime Try Scorer prices where entrants match official player IDs.
           - UFC non-Win % branches should remain selectable but show explicit empty states until matching models are added.
           - NRL Multis -> Same Game % should expose the favourite-team plus top-two try-scorer model once same-game multi result rows exist; other unsupported NRL branches should remain selectable but show explicit empty states until matching cash or same-game models are added.
           - NPC unsupported branches should remain selectable but show explicit empty states until matching cash, placing, or same-game models are added.

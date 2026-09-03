@@ -1,39 +1,38 @@
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const DOT_ENV_FILES = [".env.local", ".env"];
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
-const DEFAULT_EVENT_COUNT = 20;
-const DEFAULT_ENTRANTS_FIRST = 60;
-const DEFAULT_MARKETS_FIRST = 500;
+const DEFAULT_BATCH_SIZE = 300;
 
 /**
- * Parses the NPC current-market refresh orchestration options.
+ * Parses the scheduled NPC post-match settlement options.
  */
 function parseArgs(argv) {
+  const now = new Date();
   const options = {
-    batchSize: null,
+    batchSize: DEFAULT_BATCH_SIZE,
     dryRun: false,
-    entrantsFirst: DEFAULT_ENTRANTS_FIRST,
-    eventCount: DEFAULT_EVENT_COUNT,
-    marketsFirst: DEFAULT_MARKETS_FIRST,
+    includeFixtures: true,
+    optaSeason: null,
     requireSupabase: false,
-    skipFixedWin: false,
+    season: now.getUTCFullYear(),
     skipInsights: false,
     skipPredictions: false,
     skipReconcile: false,
     skipSameGameMultis: false,
-    skipTryScorers: false,
   };
 
   for (const arg of argv) {
     if (arg === "--dry-run") {
       options.dryRun = true;
+    } else if (arg === "--no-include-fixtures") {
+      options.includeFixtures = false;
     } else if (arg === "--require-supabase") {
       options.requireSupabase = true;
-    } else if (arg === "--skip-fixed-win") {
-      options.skipFixedWin = true;
     } else if (arg === "--skip-insights") {
       options.skipInsights = true;
     } else if (arg === "--skip-predictions") {
@@ -42,33 +41,25 @@ function parseArgs(argv) {
       options.skipReconcile = true;
     } else if (arg === "--skip-same-game-multis") {
       options.skipSameGameMultis = true;
-    } else if (arg === "--skip-try-scorers") {
-      options.skipTryScorers = true;
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
-    } else if (arg.startsWith("--entrants-first=")) {
-      options.entrantsFirst = Number(arg.slice("--entrants-first=".length));
-    } else if (arg.startsWith("--event-count=")) {
-      options.eventCount = Number(arg.slice("--event-count=".length));
-    } else if (arg.startsWith("--markets-first=")) {
-      options.marketsFirst = Number(arg.slice("--markets-first=".length));
+    } else if (arg.startsWith("--opta-season=")) {
+      options.optaSeason = Number(arg.slice("--opta-season=".length));
+    } else if (arg.startsWith("--season=")) {
+      options.season = Number(arg.slice("--season=".length));
     }
   }
 
-  if (!isPositiveInteger(options.entrantsFirst)) {
-    throw new Error("--entrants-first must be a positive integer.");
-  }
-
-  if (!isPositiveInteger(options.eventCount)) {
-    throw new Error("--event-count must be a positive integer.");
-  }
-
-  if (!isPositiveInteger(options.marketsFirst)) {
-    throw new Error("--markets-first must be a positive integer.");
-  }
-
-  if (options.batchSize !== null && !isPositiveInteger(options.batchSize)) {
+  if (!isPositiveInteger(options.batchSize)) {
     throw new Error("--batch-size must be a positive integer.");
+  }
+
+  if (!Number.isInteger(options.season) || options.season < 2000) {
+    throw new Error("--season must be a four-digit year.");
+  }
+
+  if (options.optaSeason !== null && !isPositiveInteger(options.optaSeason)) {
+    throw new Error("--opta-season must be a positive integer.");
   }
 
   return options;
@@ -76,6 +67,31 @@ function parseArgs(argv) {
 
 function isPositiveInteger(value) {
   return Number.isInteger(value) && value > 0;
+}
+
+/**
+ * Loads local env files for manual ingestion runs without overriding shell vars.
+ */
+async function loadDotEnvFiles() {
+  for (const file of DOT_ENV_FILES) {
+    try {
+      const contents = await readFile(path.join(REPO_ROOT, file), "utf8");
+
+      for (const line of contents.split(/\r?\n/)) {
+        const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/);
+
+        if (!match || process.env[match[1]] !== undefined) {
+          continue;
+        }
+
+        process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
 }
 
 function buildCommand(label, scriptName, args) {
@@ -90,7 +106,9 @@ function buildCommand(label, scriptName, args) {
  * Builds the shared Supabase/write flags used by the child NPC workers.
  */
 function getWriteFlags(options) {
-  const flags = [];
+  const flags = [
+    `--batch-size=${options.batchSize}`,
+  ];
 
   if (options.dryRun) {
     flags.push("--dry-run");
@@ -100,36 +118,29 @@ function getWriteFlags(options) {
     flags.push("--require-supabase");
   }
 
-  if (options.batchSize !== null) {
-    flags.push(`--batch-size=${options.batchSize}`);
-  }
-
   return flags;
 }
 
 /**
- * Builds the ordered NPC current-market refresh command list.
+ * Builds child refresh commands for official NPC settlement and read models.
  */
 function buildRefreshCommands(options) {
   const commands = [];
   const writeFlags = getWriteFlags(options);
+  const resultFlags = [
+    `--season=${options.season}`,
+    ...writeFlags,
+  ];
 
-  if (!options.skipFixedWin) {
-    commands.push(buildCommand("capture_npc_fixed_win_markets", "refresh-npc-market-snapshots-from-tab.mjs", [
-      `--event-count=${options.eventCount}`,
-      `--markets-first=${options.marketsFirst}`,
-      ...writeFlags,
-    ]));
+  if (options.includeFixtures) {
+    resultFlags.push("--include-fixtures");
   }
 
-  if (!options.skipTryScorers) {
-    commands.push(buildCommand("capture_npc_try_scorer_markets", "refresh-npc-try-scorer-market-snapshots-from-tab.mjs", [
-      `--entrants-first=${options.entrantsFirst}`,
-      `--event-count=${options.eventCount}`,
-      `--markets-first=${options.marketsFirst}`,
-      ...writeFlags,
-    ]));
+  if (options.optaSeason !== null) {
+    resultFlags.push(`--opta-season=${options.optaSeason}`);
   }
+
+  commands.push(buildCommand("refresh_official_npc_results", "refresh-npc-results-from-official.mjs", resultFlags));
 
   if (!options.skipReconcile) {
     commands.push(buildCommand("reconcile_npc_fixed_win", "reconcile-npc-fixed-win-snapshots.mjs", writeFlags));
@@ -174,21 +185,33 @@ async function runCommand(command) {
 }
 
 /**
- * Runs the NPC current-market capture and derived read-model refresh pipeline.
+ * Runs official NPC settlement and app-facing derived read-model rebuilds.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  await loadDotEnvFiles();
+
   const commands = buildRefreshCommands(options);
 
+  console.log(JSON.stringify({
+    dryRun: options.dryRun,
+    includeFixtures: options.includeFixtures,
+    season: options.season,
+    steps: commands.map((command) => ({
+      args: command.args,
+      command: command.command,
+      label: command.label,
+    })),
+  }, null, 2));
+
   for (const command of commands) {
-    console.log(`[${command.label}] ${command.command} ${command.args.join(" ")}`);
     await runCommand(command);
   }
 
   console.log(JSON.stringify({
-    dryRun: options.dryRun,
     ok: true,
-    steps: commands.map((command) => command.label),
+    season: options.season,
+    stepsCompleted: commands.length,
   }, null, 2));
 }
 

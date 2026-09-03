@@ -1,0 +1,117 @@
+name: NPC Result Refresh
+
+on:
+  schedule:
+    # 10:45 NZST / 11:45 NZDT. GitHub cron uses UTC.
+    - cron: "45 22 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and summarize NPC results without writing
+        required: false
+        default: false
+        type: boolean
+      include_fixtures:
+        description: Include future fixtures so market snapshots can match upcoming NPC matches
+        required: false
+        default: true
+        type: boolean
+      opta_season:
+        description: Opta season id, defaults to season + 1 for NPC
+        required: false
+        type: string
+      season:
+        description: NPC season year
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npc-result-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh NPC Results And Insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      INCLUDE_FIXTURES: ${{ github.event.inputs.include_fixtures }}
+      NPC_OPTA_OMO_PASSWORD: ${{ secrets.NPC_OPTA_OMO_PASSWORD }}
+      NPC_OPTA_OMO_USERNAME: ${{ secrets.NPC_OPTA_OMO_USERNAME }}
+      OPTA_SEASON: ${{ github.event.inputs.opta_season }}
+      SEASON: ${{ github.event.inputs.season }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          opta_season="${OPTA_SEASON:-}"
+          season="${SEASON:-$(date -u +%Y)}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          case "$season" in
+            ''|*[!0-9]*)
+              echo "season must be a positive integer"
+              exit 1
+              ;;
+          esac
+
+          if [ "$season" -lt 2000 ]; then
+            echo "season must be a four-digit year"
+            exit 1
+          fi
+
+          if [ -n "$opta_season" ]; then
+            case "$opta_season" in
+              *[!0-9]*)
+                echo "opta_season must be a positive integer"
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for NPC result writes"
+            exit 1
+          fi
+
+      - name: Refresh recent NPC result rows and insights
+        run: |
+          args=(
+            "--season=${SEASON:-$(date -u +%Y)}"
+          )
+
+          if [ -n "${OPTA_SEASON:-}" ]; then
+            args+=("--opta-season=${OPTA_SEASON}")
+          fi
+
+          if [ "${INCLUDE_FIXTURES:-true}" != "true" ]; then
+            args+=("--no-include-fixtures")
+          fi
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:npc-results-and-insights -- "${args[@]}"

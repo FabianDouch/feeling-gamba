@@ -1,15 +1,26 @@
 # NPC Rugby Data Source Validation
 
-Checked on 2026-09-02.
+Checked on 2026-09-02. Updated on 2026-09-04 after validating the official
+Provincial Rugby Opta feed.
 
 ## Implementation Status
 
 The first NPC slice uses sport-specific `npc_*` tables and mirrors the narrow
 NRL fixed-win path. Current fixed-win market capture, fixed-win reconciliation,
 stored Insight aggregate rebuilds, current single prediction generation, and
-the app-facing NPC Insights/Predictions toggles are implemented. Official result
-and player-event ingestion remains blocked until the Provincial Rugby/Opta
-payload is validated.
+the app-facing NPC Insights/Predictions toggles are implemented.
+
+As of 2026-09-04, official NPC fixture/result/player ingestion is implemented
+through the Provincial Rugby page's Opta feeds. The importer writes RU1
+fixture/result rows plus RU7 per-match player appearances and try events into
+`npc_players`, `npc_player_match_appearances`, and `npc_try_scorers`.
+
+The same date validated TAB `Anytime Try Scorer` markets for current NPC
+matches and enabled source-backed `npc_try_scorer_market_snapshots` plus
+`npc_same_game_multi_results`. TAB `Penalty Try` selections are excluded from
+player try-scorer snapshots because they cannot map to an official player.
+TAB/Opta player-name variants are matched only when the same-team official
+match roster has a single clear candidate; otherwise the row remains unmatched.
 
 As of 2026-09-03, NPC fixed-win price, other-team price, and price-difference
 Insight buckets mirror NRL by storing separate `favourite`, `home`, and `away`
@@ -30,6 +41,7 @@ Validated current NPC market access:
 - Competition slug: `new-zealand-npc`
 - Competition label: `New Zealand NPC`
 - Fixed-win market label: `Match Betting`
+- Try-scorer market label: `Anytime Try Scorer`
 
 The observed `Match Betting` market has two team entrants with `HOME` and
 `AWAY` roles. A draw entrant was not present in that market. Draw/three-way style
@@ -40,6 +52,12 @@ NPC market capture is implemented in:
 
 ```sh
 npm --workspace @feeling-gamba/ingestion run refresh:npc-market-snapshots -- --dry-run --event-count=5
+```
+
+NPC try-scorer market capture is implemented in:
+
+```sh
+npm --workspace @feeling-gamba/ingestion run refresh:npc-try-scorer-market-snapshots -- --dry-run --event-count=6 --markets-first=500 --entrants-first=60
 ```
 
 The scheduled wrapper is:
@@ -69,19 +87,44 @@ The public Provincial Rugby NPC fixtures/results page is:
 
 `https://www.provincial.rugby/npc/fixtures-and-results`
 
-The page currently renders fixture/result data through Opta widgets and linked
-widget scripts rather than a simple static JSON payload. Do not ingest official
-results, player appearances, or try-scorer events from inferred HTML text.
-Validate the underlying Opta/API payload first, then add an
-`official_provincial_rugby` adapter.
+The page renders fixture/result data through Opta widgets. On 2026-09-04, the
+page was validated with:
+
+- Opta subscription id: `2f855a3f8d6d28e2e93c26a562f334a9`
+- Opta competition id: `208`
+- Opta season id for the 2026 NPC season: `2027`
+- Public widget timezone: `Pacific/Auckland`
+- Season fixture/result feed: OMO Rugby Union `ru1`
+- Per-match player/event feed: OMO Rugby Union `ru7` via match endpoint
+  `https://omo.akamai.opta.net/auth/?feed_type=ru7&game_id={source_match_id}`
+
+`refresh-npc-results-from-official.mjs` now calls RU1 for fixtures/results and
+RU7 for each retained fixture's player stats/events. It writes
+`source = 'official_provincial_rugby'` rows to `npc_teams`, `npc_matches`,
+`npc_players`, `npc_player_match_appearances`, and `npc_try_scorers`.
+For the 2026 season validation run, the feed returned 70 non-placeholder
+matches, split into 36 settled and 34 pending matches, with 1,932 match
+appearance rows, 464 players, and 329 try rows. Placeholder TBC finals fixtures
+are skipped until real teams are assigned by the source.
+
+The scheduled post-match wrapper is:
+
+```sh
+npm --workspace @feeling-gamba/ingestion run refresh:npc-results-and-insights -- --require-supabase --season=2026
+```
+
+It refreshes official fixture/result/player rows, rematches existing TAB market
+snapshots to official fixtures, reconciles fixed-win outcomes, rebuilds
+same-game multi results, rebuilds NPC Insight aggregates, and regenerates
+current NPC fixed-win and try-scorer predictions.
 
 ## Current Gaps
 
 - Historical NPC fixed-win prices are not available from the current TAB market
   source, so price-backed calibration starts from prospective snapshots.
-- Current NPC try-scorer market entrant shape still needs validation before
-  writing `npc_try_scorer_market_snapshots`.
-- Same Game % remains scaffolded only until favourite-team try-scorer prices and
-  official scorer settlement are source-backed.
-- Prediction History remains an explicit app empty state until NPC prediction
-  rows can be reconciled against official results and history RPCs are added.
+- Historical NPC try-scorer prices are not available from the current TAB market
+  source, so price-backed try-scorer and same-game calibration starts from
+  prospective snapshots.
+- Prediction History remains incomplete until NPC history RPCs/read models are
+  added, even though fixed-win prediction rows can now be reconciled against
+  official match results.

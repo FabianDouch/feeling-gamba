@@ -246,8 +246,9 @@ Purpose:
   percentage aggregates and Same Game % aggregate rows from
   `nrl_insight_aggregates`.
 - For NPC, show the same fixed-win aggregate shape from
-  `npc_insight_aggregates`; try-scorer and Same Game rows remain empty until
-  player markets and official scorer settlement are validated.
+  `npc_insight_aggregates`, plus source-backed try-scorer percentage and Same
+  Game % rows from official RU7 player events and captured TAB try-scorer
+  prices.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
@@ -421,8 +422,9 @@ Main content:
   candidates until current lineups are validated.
 - NPC Singles -> Win % reads `npc_single_predictions` and shows fixed-win
   percentage and try-scorer percentage model tabs. Fixed-win rows use current
-  TAB `Match Betting` favourites; try-scorer rows stay empty until NPC player
-  markets and official player data are validated.
+  TAB `Match Betting` favourites; try-scorer rows use official RU7 player/team
+  try rates and current TAB `Anytime Try Scorer` prices where entrants match
+  official player IDs.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket

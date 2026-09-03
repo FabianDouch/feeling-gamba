@@ -780,6 +780,12 @@ repo-root public Supabase env values before Metro bundles the app.
   `nrl_same_game_multi_results` for the favourite team plus the two
   shortest-priced favourite-team try scorers, with estimated multiplied-leg
   returns only after source-backed player try-scorer prices are captured.
+- NPC Insights use the same stored aggregate shape as NRL. Fixed-win cash
+  metrics come from reconciled TAB `Match Betting` snapshots; try-scorer
+  percentage rows come from official Opta RU7 player appearances and try events;
+  Same Game % rows use the favourite fixed-win team plus the two shortest-priced
+  favourite-team TAB `Anytime Try Scorer` selections where those entrants are
+  matched to official player IDs.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.
