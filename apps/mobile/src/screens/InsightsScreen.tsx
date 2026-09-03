@@ -13,6 +13,7 @@ import {
 import {
   fetchNrlInsights,
   hasSupabaseNrlConfig,
+  type NrlFixedWinPriceRole,
   type NrlInsightBreakdown,
   type NrlInsightsData,
 } from "../data/supabaseNrl";
@@ -57,10 +58,16 @@ const emptyUfcInsights: UfcInsightsData = {
   summaryStats: [],
 };
 
+const emptyFixedWinPriceBreakdowns = {
+  away: [],
+  favourite: [],
+  home: [],
+};
+
 const emptyNrlInsights: NrlInsightsData = {
-  fixedWinOtherTeamPriceBreakdown: [],
-  fixedWinPriceDifferenceBreakdown: [],
-  fixedWinPriceBreakdown: [],
+  fixedWinOtherTeamPriceBreakdown: emptyFixedWinPriceBreakdowns,
+  fixedWinPriceDifferenceBreakdown: emptyFixedWinPriceBreakdowns,
+  fixedWinPriceBreakdown: emptyFixedWinPriceBreakdowns,
   fixedWinRoundBreakdown: [],
   fixedWinSelectionBreakdown: [],
   fixedWinSummaryStats: [],
@@ -71,6 +78,12 @@ const emptyNrlInsights: NrlInsightsData = {
   tryScorerSummaryStats: [],
   tryScorerTeamBreakdown: [],
 };
+
+const FIXED_WIN_PRICE_ROLE_OPTIONS: { label: string; value: NrlFixedWinPriceRole }[] = [
+  { label: "Favourite", value: "favourite" },
+  { label: "Home", value: "home" },
+  { label: "Away", value: "away" },
+];
 
 /**
  * Shows sport-specific favourite-performance insights.
@@ -136,7 +149,9 @@ export function InsightsScreen() {
     || ufcInsights.priceDifferenceBreakdown.length > 0;
   const hasNrlInsightRows = nrlInsights.fixedWinSummaryStats.length > 0
     || nrlInsights.fixedWinSelectionBreakdown.length > 0
-    || nrlInsights.fixedWinPriceBreakdown.length > 0
+    || hasFixedWinPriceRows(nrlInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(nrlInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(nrlInsights.fixedWinPriceDifferenceBreakdown)
     || nrlInsights.fixedWinRoundBreakdown.length > 0
     || nrlInsights.sameGameSummaryStats.length > 0
     || nrlInsights.sameGameRoundBreakdown.length > 0
@@ -146,7 +161,9 @@ export function InsightsScreen() {
     || nrlInsights.tryScorerTeamBreakdown.length > 0;
   const hasNpcInsightRows = npcInsights.fixedWinSummaryStats.length > 0
     || npcInsights.fixedWinSelectionBreakdown.length > 0
-    || npcInsights.fixedWinPriceBreakdown.length > 0
+    || hasFixedWinPriceRows(npcInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(npcInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(npcInsights.fixedWinPriceDifferenceBreakdown)
     || npcInsights.fixedWinRoundBreakdown.length > 0
     || npcInsights.sameGameSummaryStats.length > 0
     || npcInsights.sameGameRoundBreakdown.length > 0
@@ -554,6 +571,12 @@ export function InsightsScreen() {
   );
 }
 
+function hasFixedWinPriceRows(rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"]) {
+  return rowsByRole.away.length > 0
+    || rowsByRole.favourite.length > 0
+    || rowsByRole.home.length > 0;
+}
+
 function isRaceCode(value: string): value is "horse" | "harness" | "greyhound" {
   return value === "horse" || value === "harness" || value === "greyhound";
 }
@@ -614,6 +637,9 @@ type UfcInsightsPanelProps = {
  * Shows NRL Same Game percentage first, followed by singles breakdowns.
  */
 function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
+  const [selectedPriceRole, setSelectedPriceRole] = useState<NrlFixedWinPriceRole>("favourite");
+  const [selectedOtherTeamPriceRole, setSelectedOtherTeamPriceRole] = useState<NrlFixedWinPriceRole>("favourite");
+  const [selectedPriceDifferenceRole, setSelectedPriceDifferenceRole] = useState<NrlFixedWinPriceRole>("favourite");
   const hasSameGameRows = insights.sameGameSummaryStats.length > 0
     || insights.sameGameRoundBreakdown.length > 0;
 
@@ -648,9 +674,24 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
       </View>
 
       <NrlBreakdown title="Fixed win by selection" rows={insights.fixedWinSelectionBreakdown} />
-      <NrlBreakdown title="Fixed win price breakdown" rows={insights.fixedWinPriceBreakdown} />
-      <NrlBreakdown title="Fixed win other team price breakdown" rows={insights.fixedWinOtherTeamPriceBreakdown} />
-      <NrlBreakdown title="Fixed win price difference breakdown" rows={insights.fixedWinPriceDifferenceBreakdown} />
+      <FixedWinRolePriceBreakdown
+        onRoleChange={setSelectedPriceRole}
+        rowsByRole={insights.fixedWinPriceBreakdown}
+        selectedRole={selectedPriceRole}
+        title="Fixed win price breakdown"
+      />
+      <FixedWinRolePriceBreakdown
+        onRoleChange={setSelectedOtherTeamPriceRole}
+        rowsByRole={insights.fixedWinOtherTeamPriceBreakdown}
+        selectedRole={selectedOtherTeamPriceRole}
+        title="Fixed win other team price breakdown"
+      />
+      <FixedWinRolePriceBreakdown
+        onRoleChange={setSelectedPriceDifferenceRole}
+        rowsByRole={insights.fixedWinPriceDifferenceBreakdown}
+        selectedRole={selectedPriceDifferenceRole}
+        title="Fixed win price difference breakdown"
+      />
       <NrlBreakdown title="Fixed win by round" rows={insights.fixedWinRoundBreakdown} />
 
       <Text style={styles.subheading}>Try scorer percentage</Text>
@@ -671,6 +712,48 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
   );
 }
 
+type FixedWinRolePriceBreakdownProps = {
+  onRoleChange: (value: NrlFixedWinPriceRole) => void;
+  rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"];
+  selectedRole: NrlFixedWinPriceRole;
+  title: string;
+};
+
+/**
+ * Shows role-specific fixed-win price rows under a compact favourite/home/away toggle.
+ */
+function FixedWinRolePriceBreakdown({
+  onRoleChange,
+  rowsByRole,
+  selectedRole,
+  title,
+}: FixedWinRolePriceBreakdownProps) {
+  return (
+    <>
+      <Text style={styles.subheading}>{title}</Text>
+      <View style={styles.modeTabs}>
+        {FIXED_WIN_PRICE_ROLE_OPTIONS.map((option) => {
+          const isActive = option.value === selectedRole;
+
+          return (
+            <Pressable
+              key={`${title}-${option.value}`}
+              onPress={() => onRoleChange(option.value)}
+              style={[styles.modeTab, isActive ? styles.modeTabActive : null]}
+            >
+              <Text style={[styles.modeTabText, isActive ? styles.modeTabTextActive : null]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <NrlBreakdownRows rowKeyPrefix={`${title}-${selectedRole}`} rows={rowsByRole[selectedRole]} />
+    </>
+  );
+}
+
 type NrlBreakdownProps = {
   rows: NrlInsightBreakdown[];
   title: string;
@@ -683,8 +766,24 @@ function NrlBreakdown({ rows, title }: NrlBreakdownProps) {
   return (
     <>
       <Text style={styles.subheading}>{title}</Text>
+      <NrlBreakdownRows rowKeyPrefix={title} rows={rows} />
+    </>
+  );
+}
+
+type NrlBreakdownRowsProps = {
+  rowKeyPrefix: string;
+  rows: NrlInsightBreakdown[];
+};
+
+/**
+ * Renders NRL-shaped aggregate cards without owning the section heading.
+ */
+function NrlBreakdownRows({ rowKeyPrefix, rows }: NrlBreakdownRowsProps) {
+  return (
+    <>
       {rows.length ? rows.map((row) => (
-        <View key={`${title}-${row.label}`} style={styles.breakdownCard}>
+        <View key={`${rowKeyPrefix}-${row.label}`} style={styles.breakdownCard}>
           <View style={styles.breakdownHeader}>
             <View>
               <Text style={styles.breakdownLabel}>{row.label}</Text>

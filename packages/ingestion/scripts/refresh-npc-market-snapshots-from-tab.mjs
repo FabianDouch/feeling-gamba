@@ -261,6 +261,16 @@ function getEventSourceId(event) {
   return String(event?.id ?? "").replace(/^SportingEvent:/, "");
 }
 
+/**
+ * Keeps fixed-win market capture to one mutable row per source event and market.
+ */
+function getSourceSnapshotKey(source, sourceEventId) {
+  return [
+    source.source,
+    sourceEventId,
+  ].join(":");
+}
+
 function findFixedWinMarket(event) {
   return (event.markets?.nodes ?? []).find((market) =>
     normalizeName(market?.name) === NPC_FIXED_WIN_MARKET_NAME);
@@ -375,6 +385,7 @@ function mapSnapshot(source, event, generatedAt, officialMatches) {
 
   const favourite = getFavourite(home.name, homePrice, away.name, awayPrice);
   const sourceEventId = getEventSourceId(event);
+  const sourceMarketId = String(market.id ?? "").replace(/^SportingMarket:/, "") || null;
   const snapshot = {
     advertised_start_at: event.advertisedStart ?? null,
     away_fixed_win_price: awayPrice,
@@ -402,13 +413,8 @@ function mapSnapshot(source, event, generatedAt, officialMatches) {
     source: source.source,
     source_event_id: sourceEventId,
     source_event_url: event.url ?? null,
-    source_market_id: String(market.id ?? "").replace(/^SportingMarket:/, "") || null,
-    source_snapshot_key: [
-      source.source,
-      sourceEventId,
-      String(market.id ?? "match-betting").replace(/^SportingMarket:/, ""),
-      generatedAt,
-    ].join(":"),
+    source_market_id: sourceMarketId,
+    source_snapshot_key: getSourceSnapshotKey(source, sourceEventId),
   };
   const matchedMatch = matchExistingNpcMatch(snapshot, officialMatches);
 

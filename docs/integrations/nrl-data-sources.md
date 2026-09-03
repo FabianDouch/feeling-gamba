@@ -81,6 +81,12 @@ prediction rows.
 The follow-up 2026-08-28 NRL bucket update moved the scheduled market workflow
 to every 15 minutes during the usual NRL match window and made both fixed-win
 and try-scorer market snapshot writers refuse post-advertised-start captures.
+As of 2026-09-03, fixed-win match-market capture stores one canonical row per
+TAB source event instead of one row per cron timestamp. Repeated pre-kickoff
+captures update that event row, and
+`supabase/migrations/202609030001_team_sport_single_fixed_win_market_capture.sql`
+prunes older duplicate source-event rows before adding database uniqueness
+guards.
 NRL Insights now prefer 50c decimal price-bucket breakdowns for fixed-win and
 try-scorer market selections, while fixed-win team and same-game team sections
 are omitted from the app-facing aggregate rebuild. As of 2026-08-31, fixed-win
@@ -88,7 +94,9 @@ Insights also include UFC-style other-team fixed-win price buckets and
 favourite-vs-other price-difference buckets. As of 2026-09-02, the fixed-win
 selection breakdown also includes favourite-at-home and favourite-away rows
 derived from stored home/away market roles through a separate `favourite_venue`
-aggregate scope.
+aggregate scope. As of 2026-09-03, fixed-win price, other-team price, and
+price-difference buckets are rebuilt as role-specific rows for `favourite`,
+`home`, and `away`; the app toggles between those roles under each section.
 After the 2026-09-02 favourite-venue backfill, the NRL insight rebuild wrote
 1,163 `nrl_insight_aggregates` rows: 27 fixed-win rows, 3 same-game multi rows,
 and 1,133 try-scorer percentage rows from 7,482 official player appearances and

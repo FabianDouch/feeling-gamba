@@ -62,8 +62,14 @@ Point-in-time source notes from 2026-09-02:
   This keeps the blast radius low while NPC source reliability is still being
   validated.
 - Use shared helper modules for repeatable sport logic where practical: price
-  buckets, favourite-vs-other price difference, favourite venue labels, outcome
-  settlement math, and generic app display mapping.
+  buckets, opponent-minus-selected price difference, favourite venue labels,
+  outcome settlement math, and generic app display mapping.
+- Keep NRL and NPC fixed-win price, other-team price, and price-difference
+  Insights aligned: each section should expose Favourite/Home/Away toggles
+  backed by role-specific aggregate rows, not app-calculated filters.
+- Fixed-win match-market capture must stay one row per source event. Repeated
+  pre-kickoff cron runs update that row; they must not create repeated
+  calibration selections for the same game.
 - The validated TAB NPC `Match Betting` market is a two-runner team market.
   Draw/three-way result choices appear in other markets, so fixed-win team
   selections treat a drawn final score as a settled non-paying loss for both

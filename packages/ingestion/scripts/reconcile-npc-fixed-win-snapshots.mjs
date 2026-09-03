@@ -416,9 +416,33 @@ async function readSnapshots(supabase, options) {
     search.source = `eq.${options.source}`;
   }
 
-  return await supabase.request("npc_market_snapshots", {
+  const rows = await supabase.request("npc_market_snapshots", {
     search,
   });
+
+  return selectCanonicalSnapshots(rows);
+}
+
+/**
+ * Keeps one fixed-win market snapshot per source event/market for settlement.
+ */
+function selectCanonicalSnapshots(snapshots) {
+  const latestByMarket = new Map();
+
+  for (const snapshot of snapshots) {
+    const key = [
+      snapshot.source,
+      snapshot.source_event_id,
+    ].join(":");
+    const existing = latestByMarket.get(key);
+
+    if (!existing || String(snapshot.snapshot_at ?? "") > String(existing.snapshot_at ?? "")) {
+      latestByMarket.set(key, snapshot);
+    }
+  }
+
+  return Array.from(latestByMarket.values())
+    .sort((left, right) => String(left.snapshot_at ?? "").localeCompare(String(right.snapshot_at ?? "")));
 }
 
 /**

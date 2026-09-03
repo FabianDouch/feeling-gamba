@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-02 so NPC rugby appears in Insights,
+Note: the IA was updated on 2026-09-03 so NRL and NPC fixed-win price,
+other-team price, and price-difference Insights each expose Favourite/Home/Away
+role toggles backed by role-specific aggregate rows. Rendered IA outputs should
+be regenerated from the YAML before being treated as current. It was updated on
+2026-09-02 so NPC rugby appears in Insights,
 Predictions, and Prediction History as an NRL-shaped branch backed by `npc_*`
 tables; drawn fixed-win outcomes are counted as settled losses, and NPC
 Prediction History remains an explicit empty state until official result
@@ -237,9 +241,10 @@ Purpose:
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
 - For NRL, show fixed-win single aggregates by home team, away team, favourite,
-  favourite at home, favourite away, favourite price, other-team price,
-  price-difference, and round, plus try-scorer percentage aggregates and Same
-  Game % aggregate rows from `nrl_insight_aggregates`.
+  favourite at home, favourite away, role-toggled fixed-win price, role-toggled
+  other-team price, role-toggled price-difference, and round, plus try-scorer
+  percentage aggregates and Same Game % aggregate rows from
+  `nrl_insight_aggregates`.
 - For NPC, show the same fixed-win aggregate shape from
   `npc_insight_aggregates`; try-scorer and Same Game rows remain empty until
   player markets and official scorer settlement are validated.
@@ -283,7 +288,8 @@ Main content:
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
 - UFC favourite price, other fighter price, and price-difference breakdowns.
-- NRL fixed-win favourite, home/away, 50c fixed-win price bucket, and round
+- NRL fixed-win favourite, home/away, Favourite/Home/Away toggles for 50c
+  fixed-win price, other-team price, and price-difference buckets, and round
   breakdowns.
 - NRL try-scorer percentage summaries by player, team, and 50c captured
   try-scorer price bucket.
@@ -291,8 +297,9 @@ Main content:
   top-two try-scorer model. Rows stay empty or `missing_price` until
   source-backed player try-scorer prices are captured. Show this section before
   the NRL fixed-win and try-scorer singles sections.
-- NPC fixed-win favourite, home/away, favourite-at-home/away, 50c fixed-win
-  price bucket, other-team price, price-difference, and round breakdowns.
+- NPC fixed-win favourite, home/away, favourite-at-home/away,
+  Favourite/Home/Away toggles for 50c fixed-win price, other-team price, and
+  price-difference buckets, and round breakdowns.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.

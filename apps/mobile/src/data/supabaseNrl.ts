@@ -18,10 +18,14 @@ export type NrlInsightBreakdown = {
   winRate: string;
 };
 
+export type NrlFixedWinPriceRole = "favourite" | "home" | "away";
+
+export type NrlFixedWinPriceBreakdowns = Record<NrlFixedWinPriceRole, NrlInsightBreakdown[]>;
+
 export type NrlInsightsData = {
-  fixedWinOtherTeamPriceBreakdown: NrlInsightBreakdown[];
-  fixedWinPriceDifferenceBreakdown: NrlInsightBreakdown[];
-  fixedWinPriceBreakdown: NrlInsightBreakdown[];
+  fixedWinOtherTeamPriceBreakdown: NrlFixedWinPriceBreakdowns;
+  fixedWinPriceDifferenceBreakdown: NrlFixedWinPriceBreakdowns;
+  fixedWinPriceBreakdown: NrlFixedWinPriceBreakdowns;
   fixedWinRoundBreakdown: NrlInsightBreakdown[];
   fixedWinSelectionBreakdown: NrlInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
@@ -139,13 +143,13 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
       scope_key: "eq.nrl:fixed_win_single:overall:favourite",
     }),
     fetchNrlAggregateRows("fixed_win_single", "price_bucket", {
-      order: "price_bucket_start.asc",
+      order: "selection_type.asc,price_bucket_start.asc",
     }),
     fetchNrlAggregateRows("fixed_win_single", "other_team_price_bucket", {
-      order: "price_bucket_start.asc",
+      order: "selection_type.asc,price_bucket_start.asc",
     }),
     fetchNrlAggregateRows("fixed_win_single", "price_difference_bucket", {
-      order: "price_bucket_start.asc",
+      order: "selection_type.asc,price_bucket_start.asc",
     }),
     fetchNrlAggregateRows("fixed_win_single", "favourite_venue"),
     fetchNrlAggregateRows("fixed_win_single", "selection_type"),
@@ -175,9 +179,9 @@ export async function fetchNrlInsights(): Promise<NrlInsightsData> {
   const tryScorerOverall = tryScorerOverallRows[0] ?? null;
 
   return {
-    fixedWinOtherTeamPriceBreakdown: fixedWinOtherTeamPriceRows.map(mapFixedWinBreakdown),
-    fixedWinPriceDifferenceBreakdown: fixedWinPriceDifferenceRows.map(mapFixedWinBreakdown),
-    fixedWinPriceBreakdown: fixedWinPriceRows.map(mapFixedWinBreakdown),
+    fixedWinOtherTeamPriceBreakdown: mapFixedWinPriceBreakdowns(fixedWinOtherTeamPriceRows),
+    fixedWinPriceDifferenceBreakdown: mapFixedWinPriceBreakdowns(fixedWinPriceDifferenceRows),
+    fixedWinPriceBreakdown: mapFixedWinPriceBreakdowns(fixedWinPriceRows),
     fixedWinRoundBreakdown: fixedWinRoundRows.map(mapFixedWinBreakdown),
     fixedWinSelectionBreakdown: [
       ...fixedWinSelectionRows,
@@ -255,6 +259,25 @@ function mapFixedWinSummaryStats(row: NrlInsightAggregateRow): FavouriteStat[] {
       value: String(row.event_count),
     },
   ];
+}
+
+/**
+ * Groups fixed-win price buckets by selected role for the Insights toggles.
+ */
+function mapFixedWinPriceBreakdowns(rows: NrlInsightAggregateRow[]): NrlFixedWinPriceBreakdowns {
+  const groups: NrlFixedWinPriceBreakdowns = {
+    away: [],
+    favourite: [],
+    home: [],
+  };
+
+  for (const row of rows) {
+    if (row.selection_type === "away" || row.selection_type === "favourite" || row.selection_type === "home") {
+      groups[row.selection_type].push(mapFixedWinBreakdown(row));
+    }
+  }
+
+  return groups;
 }
 
 /**

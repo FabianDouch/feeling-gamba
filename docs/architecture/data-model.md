@@ -1155,10 +1155,10 @@ Implemented sport-specific NRL tables for official result settlement:
   team, game seconds, display minute, and running score when provided.
 - `nrl_player_match_appearances`: official NRL match roster rows used as the
   denominator for player/team anytime try-scorer percentages.
-- `nrl_market_snapshots`: current fixed-win snapshots, kept separate from
-  official NRL result rows.
+- `nrl_market_snapshots`: one canonical current fixed-win market row per source
+  event, kept separate from official NRL result rows.
 - `nrl_fixed_win_snapshot_results`: one outcome/status row per current-market
-  fixed-win snapshot, including pending, unmatched, missing-result, settled,
+  fixed-win source event, including pending, unmatched, missing-result, settled,
   draw, and non-standard states.
 - `nrl_insight_aggregates`: stored app-facing NRL aggregates for fixed-win
   singles, try-scorer percentages, and same-game multi percentages.
@@ -1172,6 +1172,9 @@ Implemented sport-specific NRL tables for official result settlement:
 Rules:
 
 - Official NRL is stored with `source = 'official_nrl'`.
+- TAB fixed-win market rows use a stable `source_snapshot_key` of
+  `source:source_event_id`, so repeated pre-kickoff cron captures update one
+  row per game instead of creating extra calibration selections.
 - Current-market IDs must not be treated as interchangeable with official NRL
   IDs.
 - NRL result and try-scorer rows can support percentage models once prediction
@@ -1242,18 +1245,20 @@ Rules:
   favour of price buckets.
 - Provider-specific fixed-win rows are intentionally not generated for the
   app-facing Insights view.
-- Fixed-win price-bucket rows use both home and away fixed-win selections, not
-  team-specific buckets, so the row answers whether any team paying that price
-  won.
+- Fixed-win `price_bucket`, `other_team_price_bucket`, and
+  `price_difference_bucket` rows are role-specific through `selection_type`.
+  App-facing rows are generated for `favourite`, `home`, and `away` selections
+  so Insights can toggle the same breakdown between favourite, home-team, and
+  away-team calibration views.
 - Fixed-win selection-type rows include raw venue roles (`home`, `away`) and
   the favourite regardless of venue (`favourite`). Fixed-win favourite-venue
   rows use the `favourite_venue` scope with `selection_type` values
   `favourite_home` and `favourite_away`, so older app builds that only fetch
   `selection_type` rows do not mislabel the new rows.
-- Fixed-win other-team price buckets and price-difference buckets use favourite
-  selections only. They answer whether the favourite won when the opposing
-  team's fixed-win price or the other-minus-favourite price gap sat inside the
-  bucket.
+- Fixed-win price-difference buckets use `other team price - selected team
+  price`. Favourite rows preserve the existing favourite-vs-other positive gap;
+  home/away rows can be negative when the selected venue side was longer priced
+  than the opponent.
 - Try-scorer percentage rows use one settled player appearance as one
   selection and count a win when that player scored at least one official try.
 - Try-scorer overall/player/team rows store counts and percentages from official
@@ -1407,10 +1412,10 @@ fixed-win pipeline:
 - `npc_try_scorers`: future official try events.
 - `npc_player_match_appearances`: future official player/team appearance
   denominator rows.
-- `npc_market_snapshots`: TAB `RUGBY_UNION` / `new-zealand-npc` `Match Betting`
-  fixed-win snapshots.
-- `npc_fixed_win_snapshot_results`: one outcome/status row per fixed-win
-  snapshot, including pending, unmatched, missing-result, settled, and
+- `npc_market_snapshots`: one canonical TAB `RUGBY_UNION` /
+  `new-zealand-npc` `Match Betting` fixed-win market row per source event.
+- `npc_fixed_win_snapshot_results`: one outcome/status row per fixed-win source
+  event, including pending, unmatched, missing-result, settled, and
   non-standard states.
 - `npc_try_scorer_market_snapshots`: scaffolded source-backed player try-scorer
   price rows, not populated until NPC player-market entrant matching is
@@ -1426,11 +1431,19 @@ fixed-win pipeline:
 Rules:
 
 - TAB market rows are stored with `source = 'tab'`.
+- TAB fixed-win market rows use a stable `source_snapshot_key` of
+  `source:source_event_id`, so repeated pre-kickoff cron captures update one
+  row per game instead of creating extra calibration selections.
 - Official match/player rows should use `source = 'official_provincial_rugby'`
   after the Provincial Rugby/Opta payload is validated.
 - NPC fixed-win calibration treats a drawn final score as a settled non-paying
   loss for both team selections; `npc_fixed_win_snapshot_results` intentionally
   has no separate `draw` outcome status.
+- NPC fixed-win price, other-team price, and price-difference aggregate rows
+  mirror NRL by storing separate `selection_type` buckets for `favourite`,
+  `home`, and `away`. Price difference means `other team price - selected team
+  price`, so home/away buckets can be negative when that venue side was the
+  longer-priced team.
 - Current NPC single predictions use `npc_fixed_win_percentage_single_v1` and
   `npc_try_scorer_percentage_single_v1`. Try-scorer rows remain empty until
   official player data and TAB try-scorer markets are validated.

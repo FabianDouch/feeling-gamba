@@ -11,6 +11,16 @@ the app-facing NPC Insights/Predictions toggles are implemented. Official result
 and player-event ingestion remains blocked until the Provincial Rugby/Opta
 payload is validated.
 
+As of 2026-09-03, NPC fixed-win price, other-team price, and price-difference
+Insight buckets mirror NRL by storing separate `favourite`, `home`, and `away`
+rows under the same aggregate scopes. The app toggles between those roles under
+each fixed-win price section. Backfill can only use stored `npc_*` market
+snapshot/result rows; historical prices are not inferred.
+The same date corrected fixed-win match-market capture to one canonical row per
+TAB source event, updated by repeated pre-kickoff cron runs. The duplicate
+cleanup/guard migration is
+`supabase/migrations/202609030001_team_sport_single_fixed_win_market_capture.sql`.
+
 ## TAB NZ Market Source
 
 Validated current NPC market access:

@@ -132,9 +132,9 @@ Betting` entries for home and away teams.
 Implemented scripts:
 
 - `refresh:npc-market-snapshots`: captures current TAB fixed-win Match Betting
-  prices into `npc_market_snapshots`.
+  prices into one canonical `npc_market_snapshots` row per source event.
 - `reconcile:npc-fixed-win`: derives `npc_fixed_win_snapshot_results` from any
-  matched official NPC rows.
+  matched official NPC rows, using one canonical fixed-win row per source event.
 - `rebuild:npc-insight-aggregates`: rebuilds app-facing `npc_insight_aggregates`.
 - `generate:npc-single-predictions`: writes current `npc_single_predictions`.
 - `refresh:npc-current-markets`: runs the current-market capture, reconciliation,
@@ -146,8 +146,10 @@ Provincial Rugby results, player appearances, try-scorer events, and Same Game %
 rows remain gated until the underlying Opta/widget payload is validated.
 
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
-current-market wrapper every 15 minutes during typical NPC match windows. Do not
-add a result-refresh schedule until the official NPC result adapter exists.
+current-market wrapper every 15 minutes during typical NPC match windows.
+Repeated pre-kickoff captures update the same source-event row instead of
+creating additional calibration selections. Do not add a result-refresh schedule
+until the official NPC result adapter exists.
 
 Local fixture validation now has a first automated test suite at
 `apps/mobile/test/fixturePipeline.test.mjs`, run with
@@ -547,7 +549,9 @@ Purpose:
 
 - Capture current NRL fixed-win prices from open `Match Betting`
   markets.
-- Store one `nrl_market_snapshots` row per event and snapshot time.
+- Store one canonical `nrl_market_snapshots` row per source event. Repeated
+  pre-kickoff cron captures update that row instead of creating additional
+  calibration selections.
 - Best-effort match snapshots to existing official NRL match rows by home/away
   team names, nickname suffixes, and kickoff time.
 
@@ -719,6 +723,8 @@ Initial mode:
 Source rules:
 
 - Use `nrl_market_snapshots` as the price source of truth.
+- Reconcile only one canonical fixed-win snapshot per source event, using the
+  latest stored pre-kickoff capture when older repeated rows exist.
 - Use official `nrl_matches` rows as the settlement source of truth.
 - Do not infer settled outcomes for snapshots that are not attached to an
   official NRL match row.
@@ -753,6 +759,9 @@ Initial mode:
 Source rules:
 
 - Fixed-win cash metrics use reconciled current-market snapshot rows only.
+- Fixed-win aggregate denominators count one canonical source event, not every
+  pre-kickoff cron snapshot. This keeps calibration aligned with one game as
+  one fixed-win selection.
 - Try-scorer percentages use official NRL appearance rows as the denominator
   and official try events as the numerator.
 - Try-scorer overall/player/team rows remain percentage-only. Try-scorer

@@ -10,7 +10,13 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-02 so NPC rugby has a first narrow
+Note: the YAML was updated on 2026-09-03 so NRL and NPC fixed-win match-market
+capture uses one canonical row per source event instead of repeated cron
+snapshot rows. It was updated on 2026-09-03 so NRL and NPC fixed-win price,
+other-team price, and price-difference aggregate rows are role-specific for
+`favourite`, `home`, and `away`, with app toggles under each fixed-win price
+section. Rendered architecture outputs should be regenerated from the YAML
+before being treated as current. It was updated on 2026-09-02 so NPC rugby has a first narrow
 NRL-style fixed-win pipeline with `npc_*` tables, scheduled TAB current-market
 capture, app-facing Insights/Predictions tabs, and drawn fixed-win outcomes
 counted as settled losses. It was updated on 2026-09-02 so NRL fixed-win Insights include
@@ -765,9 +771,9 @@ repo-root public Supabase env values before Metro bundles the app.
 - NRL Insights are rebuilt manually with
   `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates`.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
-  Fixed-win buckets include selection type, favourite-venue, favourite/team
-  price, other-team price, favourite-vs-other price difference, season, and
-  round scopes.
+  Fixed-win buckets include selection type, favourite-venue,
+  Favourite/Home/Away role-specific selected-team price, other-team price,
+  opponent-minus-selected price difference, season, and round scopes.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
   try-scorer prices are validated. Same-game multi percentage support uses

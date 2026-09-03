@@ -623,13 +623,15 @@ derived_views:
       - Prevent the app from calculating historical insight tables from bundled fixtures at runtime.
   nrl_insight_aggregates:
     responsibility:
-      - Store fixed-win favourite, source, home/away, favourite-venue, favourite/team price, other-team price, price-difference, season, and round aggregate rows.
+      - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
+      - Store fixed-win favourite, source, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
       - Store try-scorer percentage rows by player, team, season, and round.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
       - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
   npc_insight_aggregates:
     responsibility:
-      - Store NPC fixed-win favourite, home/away, favourite-venue, price, other-team price, price-difference, season, and round aggregate rows.
+      - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
+      - Store NPC fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
       - Count drawn fixed-win outcomes as settled losses for team selections because fixed-win team bets do not pay on a draw.
       - Keep NPC Insights on stored Supabase aggregates instead of calculating rates in the app.
       - Keep NPC try-scorer and Same Game rows scaffolded until player market and official scorer sources are validated.

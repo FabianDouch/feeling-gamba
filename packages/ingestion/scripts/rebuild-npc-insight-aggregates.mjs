@@ -439,6 +439,14 @@ function addToBucket(buckets, bucketConfig, record, addRecord) {
 }
 
 /**
+ * Formats signed price bucket boundaries consistently for display rows.
+ */
+function formatPriceBucketBoundary(value) {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}$${Math.abs(value).toFixed(2)}`;
+}
+
+/**
  * Creates the same 50c decimal-price buckets used by racing insights.
  */
 function getPriceBucket(price) {
@@ -453,18 +461,18 @@ function getPriceBucket(price) {
 
   return {
     end,
-    label: `$${start.toFixed(2)} - $${end.toFixed(2)}`,
+    label: `${formatPriceBucketBoundary(start)} - ${formatPriceBucketBoundary(end)}`,
     start,
   };
 }
 
 /**
- * Creates 50c buckets for the price gap between favourite and other team.
+ * Creates 50c buckets for the price gap between selected team and opponent.
  */
 function getPriceDifferenceBucket(priceDifference) {
   const value = Number(priceDifference);
 
-  if (!Number.isFinite(value) || value < 0) {
+  if (!Number.isFinite(value)) {
     return null;
   }
 
@@ -473,9 +481,41 @@ function getPriceDifferenceBucket(priceDifference) {
 
   return {
     end,
-    label: `$${start.toFixed(2)} - $${end.toFixed(2)}`,
+    label: `${formatPriceBucketBoundary(start)} - ${formatPriceBucketBoundary(end)}`,
     start,
   };
+}
+
+/**
+ * Calculates the opponent-minus-selected price gap when both prices are known.
+ */
+function getSelectionPriceDifference(selectedPrice, otherPrice) {
+  return hasPrice(selectedPrice) && hasPrice(otherPrice)
+    ? numeric(otherPrice) - numeric(selectedPrice)
+    : null;
+}
+
+/**
+ * Keeps one fixed-win result row per source event/market for calibration.
+ */
+function selectCanonicalFixedWinResults(results) {
+  const latestByMarket = new Map();
+
+  for (const row of results) {
+    const key = row.source_event_id
+      ? [
+          row.source,
+          row.source_event_id,
+        ].join(":")
+      : `${row.source}:snapshot:${row.source_snapshot_key}`;
+    const existing = latestByMarket.get(key);
+
+    if (!existing || String(row.snapshot_at ?? "") > String(existing.snapshot_at ?? "")) {
+      latestByMarket.set(key, row);
+    }
+  }
+
+  return Array.from(latestByMarket.values());
 }
 
 /**
@@ -497,7 +537,9 @@ function buildFixedWinRecords(results, matchesById) {
 
     sideRecords.push({
       ...base,
+      otherPrice: row.away_fixed_win_price,
       price: row.home_fixed_win_price,
+      priceDifference: getSelectionPriceDifference(row.home_fixed_win_price, row.away_fixed_win_price),
       returnValue: numeric(row.home_win_return),
       selectionType: "home",
       teamName: row.home_team_name,
@@ -506,7 +548,9 @@ function buildFixedWinRecords(results, matchesById) {
     });
     sideRecords.push({
       ...base,
+      otherPrice: row.home_fixed_win_price,
       price: row.away_fixed_win_price,
+      priceDifference: getSelectionPriceDifference(row.away_fixed_win_price, row.home_fixed_win_price),
       returnValue: numeric(row.away_win_return),
       selectionType: "away",
       teamName: row.away_team_name,
@@ -527,15 +571,12 @@ function buildFixedWinRecords(results, matchesById) {
         : favouriteIsAway
           ? row.home_fixed_win_price
           : null;
-      const priceDifference = hasPrice(row.favourite_fixed_win_price) && hasPrice(otherPrice)
-        ? numeric(otherPrice) - numeric(row.favourite_fixed_win_price)
-        : null;
 
       favouriteRecords.push({
         ...base,
         otherPrice,
         price: row.favourite_fixed_win_price,
-        priceDifference,
+        priceDifference: getSelectionPriceDifference(row.favourite_fixed_win_price, otherPrice),
         favouriteVenueSelectionType,
         returnValue: numeric(row.favourite_win_return),
         selectionType: "favourite",
@@ -555,11 +596,12 @@ function buildFixedWinRecords(results, matchesById) {
 }
 
 /**
- * Builds fixed-win aggregate rows across side, price bucket, season, and round.
+ * Builds fixed-win aggregate rows across side, role-specific price buckets, season, and round.
  */
 function buildFixedWinAggregates(results, matchesById) {
   const buckets = new Map();
-  const { favouriteRecords, sideRecords } = buildFixedWinRecords(results, matchesById);
+  const canonicalResults = selectCanonicalFixedWinResults(results);
+  const { favouriteRecords, sideRecords } = buildFixedWinRecords(canonicalResults, matchesById);
   const allRecords = [...sideRecords, ...favouriteRecords];
 
   for (const record of favouriteRecords) {
@@ -615,7 +657,7 @@ function buildFixedWinAggregates(results, matchesById) {
     }, record, addFixedWinSelection);
   }
 
-  for (const record of sideRecords) {
+  for (const record of allRecords) {
     const priceBucket = getPriceBucket(record.price);
 
     if (!priceBucket) {
@@ -627,13 +669,14 @@ function buildFixedWinAggregates(results, matchesById) {
       priceBucketEnd: priceBucket.end,
       priceBucketLabel: priceBucket.label,
       priceBucketStart: priceBucket.start,
-      scopeKey: `npc:fixed_win_single:price_bucket:${priceBucket.start.toFixed(2)}`,
+      scopeKey: `npc:fixed_win_single:price_bucket:${record.selectionType}:${priceBucket.start.toFixed(2)}`,
       scopeType: "price_bucket",
+      selectionType: record.selectionType,
     }, record, addFixedWinSelection);
 
   }
 
-  for (const record of favouriteRecords) {
+  for (const record of allRecords) {
     const otherPriceBucket = getPriceBucket(record.otherPrice);
 
     if (otherPriceBucket) {
@@ -642,9 +685,9 @@ function buildFixedWinAggregates(results, matchesById) {
         priceBucketEnd: otherPriceBucket.end,
         priceBucketLabel: otherPriceBucket.label,
         priceBucketStart: otherPriceBucket.start,
-        scopeKey: `npc:fixed_win_single:other_team_price_bucket:${otherPriceBucket.start.toFixed(2)}`,
+        scopeKey: `npc:fixed_win_single:other_team_price_bucket:${record.selectionType}:${otherPriceBucket.start.toFixed(2)}`,
         scopeType: "other_team_price_bucket",
-        selectionType: "favourite",
+        selectionType: record.selectionType,
       }, record, addFixedWinSelection);
     }
 
@@ -656,9 +699,9 @@ function buildFixedWinAggregates(results, matchesById) {
         priceBucketEnd: differenceBucket.end,
         priceBucketLabel: differenceBucket.label,
         priceBucketStart: differenceBucket.start,
-        scopeKey: `npc:fixed_win_single:price_difference_bucket:${differenceBucket.start.toFixed(2)}`,
+        scopeKey: `npc:fixed_win_single:price_difference_bucket:${record.selectionType}:${differenceBucket.start.toFixed(2)}`,
         scopeType: "price_difference_bucket",
-        selectionType: "favourite",
+        selectionType: record.selectionType,
       }, record, addFixedWinSelection);
     }
   }
@@ -895,6 +938,9 @@ async function readSourceRows(supabase) {
       order: "snapshot_at.asc",
       select: [
         "source",
+        "source_snapshot_key",
+        "source_event_id",
+        "source_market_id",
         "matched_npc_match_id",
         "snapshot_at",
         "advertised_start_at",
