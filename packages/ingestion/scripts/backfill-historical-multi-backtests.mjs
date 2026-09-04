@@ -12,9 +12,10 @@ const MODEL_65_PLUS = "multi_win_percentage_65_plus_v1";
 const MODEL_50_50_65_PLUS = "multi_win_percentage_50_50_65_plus_v1";
 const MODEL_UFC_FAVOURITE = "ufc_multi_favourite_price_win_percentage_v1";
 const MODEL_UFC_OTHER = "ufc_multi_other_fighter_price_win_percentage_v1";
+const MODEL_UFC_OTHER_TOP6 = "ufc_multi_other_fighter_price_win_percentage_top6_v1";
 const MODEL_UFC_DIFFERENCE = "ufc_multi_price_difference_win_percentage_v1";
 const RACING_MODELS = [MODEL_ORIGINAL, MODEL_60_PLUS, MODEL_65_PLUS, MODEL_50_50_65_PLUS];
-const UFC_MODELS = [MODEL_UFC_FAVOURITE, MODEL_UFC_OTHER, MODEL_UFC_DIFFERENCE];
+const UFC_MODELS = [MODEL_UFC_FAVOURITE, MODEL_UFC_OTHER, MODEL_UFC_OTHER_TOP6, MODEL_UFC_DIFFERENCE];
 const MULTI_MIN_LEGS = 2;
 
 /**
@@ -420,12 +421,12 @@ function createUfcCandidate(row, stats, model) {
   const differenceBucketLabel = createPriceBucketLabel(getPriceDifferenceBucketStart(Number(row.price_difference)));
   const bucket = model === MODEL_UFC_FAVOURITE
     ? stats.byFavouriteBucket.get(favouriteBucketLabel)
-    : model === MODEL_UFC_OTHER
+    : isUfcOtherPriceModel(model)
       ? stats.byOtherBucket.get(otherBucketLabel)
       : stats.byDifferenceBucket.get(differenceBucketLabel);
   const bucketLabel = model === MODEL_UFC_FAVOURITE
     ? favouriteBucketLabel
-    : model === MODEL_UFC_OTHER
+    : isUfcOtherPriceModel(model)
       ? otherBucketLabel
       : differenceBucketLabel;
 
@@ -474,11 +475,25 @@ function createUfcRecommendation(date, groupKey, model, candidates) {
     candidates: candidates.filter((candidate) => candidate.winScore >= 40),
     groupKey,
     groupName: groupKey.split(":").slice(1).join(":") || "UFC card",
-    maxLegs: 8,
+    maxLegs: getUfcMultiMaxLegs(model),
     model,
     sourceDate: date,
     sport: "ufc",
   });
+}
+
+/**
+ * Keeps other-fighter bucket models aligned while allowing separate leg caps.
+ */
+function isUfcOtherPriceModel(model) {
+  return model === MODEL_UFC_OTHER || model === MODEL_UFC_OTHER_TOP6;
+}
+
+/**
+ * Mirrors the UFC model caps used by current prediction refresh.
+ */
+function getUfcMultiMaxLegs(model) {
+  return model === MODEL_UFC_OTHER_TOP6 ? 6 : 8;
 }
 
 function getOriginalEligibleCandidates(candidates) {

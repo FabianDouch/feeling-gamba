@@ -69,6 +69,10 @@ As of `2026-08-31`,
 `supabase/migrations/202608310001_nrl_fixed_win_comparison_bucket_insights.sql`
 adds NRL fixed-win comparison bucket scopes for the other team's fixed-win
 price and the favourite-vs-other price difference.
+As of `2026-09-04`,
+`supabase/migrations/202609040001_team_sport_insight_bucket_size.sql` adds a
+`bucket_size` column to NRL and NPC aggregate rows so app-facing price
+breakdowns can be stored in both default 50c and optional 25c decimal buckets.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.
@@ -998,7 +1002,9 @@ Rules:
   hypothetical top-N multis after settlement. The original win-percentage model
   supports top 2-5, the 60%+/65%+ win-percentage models support top 2-10,
   `multi_place_percentage_v1` supports top 2-8, and UFC percentage multi
-  models support top 2-8.
+  models support top 2-8 except
+  `ufc_multi_other_fighter_price_win_percentage_top6_v1`, which supports top
+  2-6.
 
 ### `ufc_multi_recommendations`
 
@@ -1011,7 +1017,8 @@ Key fields:
 
 - `prediction_model text` - one of
   `ufc_multi_favourite_price_win_percentage_v1`,
-  `ufc_multi_other_fighter_price_win_percentage_v1`, or
+  `ufc_multi_other_fighter_price_win_percentage_v1`,
+  `ufc_multi_other_fighter_price_win_percentage_top6_v1`, or
   `ufc_multi_price_difference_win_percentage_v1`.
 - `source_date date`, `source_card_id text`, `source_card_name text`
 - `prediction_signature text`
@@ -1029,6 +1036,10 @@ Rules:
 - Only current Betcha competitions whose name/slug clearly identifies a UFC
   card can create UFC recommendations; non-UFC MMA competitions such as PFL are
   filtered out.
+- `ufc_multi_other_fighter_price_win_percentage_top6_v1` uses the same
+  other-fighter fixed-win price bucket signal as
+  `ufc_multi_other_fighter_price_win_percentage_v1`, but stores at most six
+  ranked legs so its calibration remains separate from the eight-leg baseline.
 - PFL is exposed in Predictions and Prediction History as a UFC-shaped branch.
   Current PFL snapshot generation reads generic current MMA H2H odds only after
   matching the event date and unordered fighter pair to the reviewed PFL
@@ -1219,6 +1230,8 @@ Key fields:
 - `price_bucket_label text`
 - `price_bucket_start numeric`
 - `price_bucket_end numeric`
+- `bucket_size numeric` - `0.50` for the default breakdown and `0.25` for the
+  finer breakdown
 - `date_from date`
 - `date_to date`
 - `event_count int`
@@ -1250,6 +1263,9 @@ Rules:
   App-facing rows are generated for `favourite`, `home`, and `away` selections
   so Insights can toggle the same breakdown between favourite, home-team, and
   away-team calibration views.
+- Price-bucket rows are generated at both `0.50` and `0.25` bucket sizes. The
+  `scope_key` includes the bucket size so historical rows can coexist, and the
+  app defaults to `0.50` while allowing a `0.25` view.
 - Fixed-win selection-type rows include raw venue roles (`home`, `away`) and
   the favourite regardless of venue (`favourite`). Fixed-win favourite-venue
   rows use the `favourite_venue` scope with `selection_type` values
@@ -1444,6 +1460,8 @@ Rules:
   `home`, and `away`. Price difference means `other team price - selected team
   price`, so home/away buckets can be negative when that venue side was the
   longer-priced team.
+- NPC price-bucket aggregate rows use the same `bucket_size` contract as NRL:
+  `0.50` rows are the default app view and `0.25` rows power the finer toggle.
 - Current NPC single predictions use `npc_fixed_win_percentage_single_v1` and
   `npc_try_scorer_percentage_single_v1`. Try-scorer predictions are backed by
   official Opta RU7 appearance/try rows and current TAB `Anytime Try Scorer`

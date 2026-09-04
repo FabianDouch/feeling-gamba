@@ -15,6 +15,7 @@ export const WIN_PERCENTAGE_50_50_65_PLUS_MULTI_MODEL_KEY = "multi_win_percentag
 export const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 export const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 export const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
+export const UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_top6_v1";
 export const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
 export const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 export const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
@@ -54,6 +55,7 @@ export type WinPercentageMultiModelKey =
   | typeof PLACING_PERCENTAGE_MULTI_MODEL_KEY
   | typeof UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
   | typeof UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
+  | typeof UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY
   | typeof UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
   | typeof UFC_SINGLE_65_PLUS_MODEL_KEY
   | typeof UFC_SINGLE_75_PLUS_MODEL_KEY
@@ -203,6 +205,13 @@ export const WIN_PERCENTAGE_MULTI_MODEL_VARIANTS: WinPercentageMultiModelVariant
     detail: "Score = historical UFC favourite win percentage for the other fighter's fixed-win price bucket. Eligible legs must be Head to Head fights on the same UFC card.",
     key: UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
     label: "UFC other price",
+    sport: "ufc",
+  },
+  {
+    description: "Builds a UFC same-card multi from the top six favourites ranked by the opponent's historical price bucket win rate.",
+    detail: "Score = historical UFC favourite win percentage for the other fighter's fixed-win price bucket. Eligible legs must be Head to Head fights on the same UFC card, and this variant stores at most six legs.",
+    key: UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY,
+    label: "UFC other price top 6",
     sport: "ufc",
   },
   {
@@ -2690,6 +2699,10 @@ function getWinPercentageMultiPredictionLabel(predictionModel: WinPercentageMult
     return "UFC other fighter price multis";
   }
 
+  if (predictionModel === UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY) {
+    return "UFC other fighter price top 6 multis";
+  }
+
   if (predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY) {
     return "UFC price difference multis";
   }
@@ -2740,6 +2753,7 @@ function getUfcWinPercentageSinglePredictionLabel(predictionModel: WinPercentage
 export function isUfcPercentageMultiModel(predictionModel: string | null) {
   return predictionModel === UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY
     || predictionModel === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY
+    || predictionModel === UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY
     || predictionModel === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY
     || predictionModel === UFC_SINGLE_65_PLUS_MODEL_KEY
     || predictionModel === UFC_SINGLE_75_PLUS_MODEL_KEY

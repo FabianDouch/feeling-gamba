@@ -627,6 +627,7 @@ derived_views:
     responsibility:
       - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
       - Store fixed-win favourite, source, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store selected-team price, other-team price, price-difference, and try-scorer price bucket rows at both 50c and 25c granularity for the app bucket-size toggle.
       - Store try-scorer percentage rows by player, team, season, and round.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
       - Keep NRL Insights on stored Supabase aggregates instead of calculating rates in the app.
@@ -634,6 +635,7 @@ derived_views:
     responsibility:
       - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
       - Store NPC fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store selected-team price, other-team price, price-difference, and try-scorer price bucket rows at both 50c and 25c granularity for the app bucket-size toggle.
       - Count drawn fixed-win outcomes as settled losses for team selections because fixed-win team bets do not pay on a draw.
       - Store try-scorer percentage rows by player, team, season, round, and captured price bucket from official RU7 player rows and TAB try-scorer prices.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis from captured TAB try-scorer prices and official RU7 try settlement.
@@ -795,6 +797,7 @@ flows:
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
+      - NRL and NPC Insights default price bucket breakdowns to 50c granularity and can switch to 25c stored aggregate rows.
       - NPC Insights reads npc_insight_aggregates and NPC Predictions reads npc_single_predictions for Singles -> Win % rows.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
@@ -814,7 +817,7 @@ flows:
       - Prediction History calls get_prediction_history_summary to show a date-range breakdown for the selected history filters across all matching rows, avoiding aggregate calculations from the paginated visible list.
       - Prediction History calls get_prediction_history_entries for itemised history so wins, 2nd, 3rd, and settled losses are ordered before the visible row limit is applied.
       - Prediction History calls the tracked multi recommendation summary RPC without date filters to show all-time cash-only multi-bet prediction performance for the active prediction model inside Stored model performance.
-      - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with model-aware all-legs/top-N rank filters calculated from persisted leg ranks: top 2-5 for multi_win_percentage_blend_v1, top 2-10 for the 60%+/65%+ win models, top 2-8 for multi_place_percentage_v1, and top 2-8 for UFC percentage multi models. Signed-in Racing users with matching personal locks use the locked-multi RPCs instead of the shared tracked recommendation rows.
+      - Prediction History calls the same tracked multi RPCs for the selected percentage multi-only model to show separate all-time and date-range percentage multi performance/history independent of the selected single-runner prediction model, with model-aware all-legs/top-N rank filters calculated from persisted leg ranks: top 2-5 for multi_win_percentage_blend_v1, top 2-10 for the 60%+/65%+ win models, top 2-8 for multi_place_percentage_v1, top 2-8 for most UFC percentage multi models, and top 2-6 for ufc_multi_other_fighter_price_win_percentage_top6_v1. Signed-in Racing users with matching personal locks use the locked-multi RPCs instead of the shared tracked recommendation rows.
       - Predictions reads user_locked_multi_recommendations for signed-in users and lets them lock the current percentage multi recommendation before racing predictions finalise; a locked snapshot is displayed in place of later live recommendation changes for that user/source date/model.
       - Predictions reads and writes user_locked_current_predictions for signed-in users so the selected sport/format/type/model view can be locked before that sport's standard finalisation cutoff.
       - Predictions reads and writes user_favourite_prediction_models for signed-in users. Enabling a model notification requests Expo notification permission, stores the device token in user_push_tokens, and saves the exact sport/format/type/model branch.

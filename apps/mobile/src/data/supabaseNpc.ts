@@ -4,6 +4,7 @@ import type { FavouriteStat } from "./collectedRaceDay";
 const SUPABASE_PAGE_SIZE = 1000;
 
 type NullableNumber = number | string | null;
+export type NpcPriceBucketSize = "0.25" | "0.50";
 
 export type NpcInsightBreakdown = {
   averageReturn: string;
@@ -21,18 +22,20 @@ export type NpcInsightBreakdown = {
 export type NpcFixedWinPriceRole = "favourite" | "home" | "away";
 
 export type NpcFixedWinPriceBreakdowns = Record<NpcFixedWinPriceRole, NpcInsightBreakdown[]>;
+export type NpcFixedWinPriceBreakdownGroups = Record<NpcPriceBucketSize, NpcFixedWinPriceBreakdowns>;
+export type NpcPriceBreakdownGroups = Record<NpcPriceBucketSize, NpcInsightBreakdown[]>;
 
 export type NpcInsightsData = {
-  fixedWinOtherTeamPriceBreakdown: NpcFixedWinPriceBreakdowns;
-  fixedWinPriceDifferenceBreakdown: NpcFixedWinPriceBreakdowns;
-  fixedWinPriceBreakdown: NpcFixedWinPriceBreakdowns;
+  fixedWinOtherTeamPriceBreakdown: NpcFixedWinPriceBreakdownGroups;
+  fixedWinPriceDifferenceBreakdown: NpcFixedWinPriceBreakdownGroups;
+  fixedWinPriceBreakdown: NpcFixedWinPriceBreakdownGroups;
   fixedWinRoundBreakdown: NpcInsightBreakdown[];
   fixedWinSelectionBreakdown: NpcInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
   sameGameRoundBreakdown: NpcInsightBreakdown[];
   sameGameSummaryStats: FavouriteStat[];
   tryScorerPlayerBreakdown: NpcInsightBreakdown[];
-  tryScorerPriceBreakdown: NpcInsightBreakdown[];
+  tryScorerPriceBreakdown: NpcPriceBreakdownGroups;
   tryScorerSummaryStats: FavouriteStat[];
   tryScorerTeamBreakdown: NpcInsightBreakdown[];
 };
@@ -46,6 +49,7 @@ type NpcInsightAggregateRow = {
   net_return: NullableNumber;
   pending_count: number;
   player_name: string | null;
+  bucket_size: NullableNumber;
   price_bucket_end: NullableNumber;
   price_bucket_label: string | null;
   price_bucket_start: NullableNumber;
@@ -89,6 +93,7 @@ const NPC_INSIGHT_SELECT = [
   "net_return",
   "pending_count",
   "player_name",
+  "bucket_size",
   "price_bucket_end",
   "price_bucket_label",
   "price_bucket_start",
@@ -143,13 +148,13 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
       scope_key: "eq.npc:fixed_win_single:overall:favourite",
     }),
     fetchNpcAggregateRows("fixed_win_single", "price_bucket", {
-      order: "selection_type.asc,price_bucket_start.asc",
+      order: "selection_type.asc,bucket_size.desc,price_bucket_start.asc",
     }),
     fetchNpcAggregateRows("fixed_win_single", "other_team_price_bucket", {
-      order: "selection_type.asc,price_bucket_start.asc",
+      order: "selection_type.asc,bucket_size.desc,price_bucket_start.asc",
     }),
     fetchNpcAggregateRows("fixed_win_single", "price_difference_bucket", {
-      order: "selection_type.asc,price_bucket_start.asc",
+      order: "selection_type.asc,bucket_size.desc,price_bucket_start.asc",
     }),
     fetchNpcAggregateRows("fixed_win_single", "favourite_venue"),
     fetchNpcAggregateRows("fixed_win_single", "selection_type"),
@@ -168,7 +173,7 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
       order: "win_percentage.desc,selection_count.desc,player_name.asc",
     }),
     fetchNpcAggregateRows("try_scorer_percentage", "price_bucket", {
-      order: "price_bucket_start.asc",
+      order: "bucket_size.desc,price_bucket_start.asc",
     }),
     fetchNpcAggregateRows("try_scorer_percentage", "team", {
       order: "win_percentage.desc,team_name.asc",
@@ -193,7 +198,7 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
     sameGameRoundBreakdown: sameGameRoundRows.map(mapSameGameBreakdown),
     sameGameSummaryStats: sameGameOverall ? mapSameGameSummaryStats(sameGameOverall) : [],
     tryScorerPlayerBreakdown: tryScorerPlayerRows.map(mapTryScorerBreakdown),
-    tryScorerPriceBreakdown: tryScorerPriceRows.map(mapTryScorerBreakdown),
+    tryScorerPriceBreakdown: mapPriceBreakdownGroups(tryScorerPriceRows, mapTryScorerBreakdown),
     tryScorerSummaryStats: tryScorerOverall ? mapTryScorerSummaryStats(tryScorerOverall) : [],
     tryScorerTeamBreakdown: tryScorerTeamRows.map(mapTryScorerBreakdown),
   };
@@ -264,20 +269,60 @@ function mapFixedWinSummaryStats(row: NpcInsightAggregateRow): FavouriteStat[] {
 /**
  * Groups fixed-win price buckets by selected role for the Insights toggles.
  */
-function mapFixedWinPriceBreakdowns(rows: NpcInsightAggregateRow[]): NpcFixedWinPriceBreakdowns {
-  const groups: NpcFixedWinPriceBreakdowns = {
-    away: [],
-    favourite: [],
-    home: [],
-  };
+function mapFixedWinPriceBreakdowns(rows: NpcInsightAggregateRow[]): NpcFixedWinPriceBreakdownGroups {
+  const groups = createFixedWinPriceBreakdownGroups();
 
   for (const row of rows) {
     if (row.selection_type === "away" || row.selection_type === "favourite" || row.selection_type === "home") {
-      groups[row.selection_type].push(mapFixedWinBreakdown(row));
+      groups[getBucketSizeKey(row.bucket_size)][row.selection_type].push(mapFixedWinBreakdown(row));
     }
   }
 
   return groups;
+}
+
+/**
+ * Groups non-role price buckets by selected granularity.
+ */
+function mapPriceBreakdownGroups(
+  rows: NpcInsightAggregateRow[],
+  mapRow: (row: NpcInsightAggregateRow) => NpcInsightBreakdown,
+): NpcPriceBreakdownGroups {
+  const groups: NpcPriceBreakdownGroups = {
+    "0.25": [],
+    "0.50": [],
+  };
+
+  for (const row of rows) {
+    groups[getBucketSizeKey(row.bucket_size)].push(mapRow(row));
+  }
+
+  return groups;
+}
+
+/**
+ * Creates empty role groups for each supported price-bucket granularity.
+ */
+function createFixedWinPriceBreakdownGroups(): NpcFixedWinPriceBreakdownGroups {
+  return {
+    "0.25": {
+      away: [],
+      favourite: [],
+      home: [],
+    },
+    "0.50": {
+      away: [],
+      favourite: [],
+      home: [],
+    },
+  };
+}
+
+/**
+ * Normalizes stored numeric bucket sizes to stable app keys.
+ */
+function getBucketSizeKey(value: NullableNumber): NpcPriceBucketSize {
+  return Number(value) === 0.25 ? "0.25" : "0.50";
 }
 
 /**

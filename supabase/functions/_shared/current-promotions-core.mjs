@@ -23,6 +23,7 @@ const SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY = "single_win_percentage_65_plus_v
 const PLACING_PERCENTAGE_MULTI_MODEL_KEY = "multi_place_percentage_v1";
 const UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY = "ufc_multi_favourite_price_win_percentage_v1";
 const UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_v1";
+const UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY = "ufc_multi_other_fighter_price_win_percentage_top6_v1";
 const UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY = "ufc_multi_price_difference_win_percentage_v1";
 const UFC_SINGLE_65_PLUS_MODEL_KEY = "ufc_single_win_percentage_65_plus_v1";
 const UFC_SINGLE_75_PLUS_MODEL_KEY = "ufc_single_win_percentage_75_plus_v1";
@@ -36,6 +37,7 @@ const PFL_SINGLE_75_PLUS_MODEL_KEY = "pfl_single_win_percentage_75_plus_v1";
 const PFL_SINGLE_85_PLUS_MODEL_KEY = "pfl_single_win_percentage_85_plus_v1";
 const UFC_MULTI_MIN_LEGS = 2;
 const UFC_MULTI_MAX_LEGS = 8;
+const UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MAX_LEGS = 6;
 const UFC_SINGLE_THRESHOLD_MODEL_CONFIGS = [
   {
     key: UFC_SINGLE_65_PLUS_MODEL_KEY,
@@ -4121,6 +4123,11 @@ function createUfcCandidateSignals(candidate, ufcHistoricalStats) {
       otherFighterPriceBucket,
       "other fighter price bucket",
     ),
+    [UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY]: createUfcModelSignal(
+      otherBucket,
+      otherFighterPriceBucket,
+      "other fighter price bucket",
+    ),
     [UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY]: createUfcModelSignal(
       differenceBucket,
       candidate.priceDifferenceBucket,
@@ -4317,12 +4324,13 @@ function createUfcRecommendationSignature(recommendation) {
 
 function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, generatedAt, sourceDate) {
   const rankedCandidates = rankUfcCandidatesForModel(candidates, modelKey);
+  const maxLegs = getUfcMultiMaxLegs(modelKey);
 
   if (rankedCandidates.length < UFC_MULTI_MIN_LEGS) {
     return null;
   }
 
-  const legs = rankedCandidates.slice(0, UFC_MULTI_MAX_LEGS).map((leg) => ({
+  const legs = rankedCandidates.slice(0, maxLegs).map((leg) => ({
     ...leg,
     fightName: leg.fightName,
     otherEntrantId: leg.otherFighter?.entrantId ?? null,
@@ -4368,6 +4376,15 @@ function createUfcMultiRecommendation(card, candidates, modelKey, scopeType, gen
     ...recommendation,
     predictionSignature: createUfcRecommendationSignature(recommendation),
   };
+}
+
+/**
+ * Returns the stored leg cap for a UFC multi model.
+ */
+function getUfcMultiMaxLegs(modelKey) {
+  return modelKey === UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY
+    ? UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MAX_LEGS
+    : UFC_MULTI_MAX_LEGS;
 }
 
 /**
@@ -4559,6 +4576,12 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
       scopeType: "other_fighter_price_bucket",
     },
     {
+      includeSingles: false,
+      key: UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY,
+      label: "UFC other fighter price top 6",
+      scopeType: "other_fighter_price_bucket",
+    },
+    {
       key: UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
       label: "UFC price difference",
       scopeType: "price_difference_bucket",
@@ -4576,8 +4599,10 @@ async function fetchUfcPredictionMultis(source, ufcHistoricalStats, generatedAt,
         sourceDate,
       ))
       .filter(Boolean),
-    singleCandidates: cardResults.flatMap(({ card, candidates }) =>
-      createUfcSinglePredictionCandidates(card, candidates, model.key)),
+    singleCandidates: model.includeSingles === false
+      ? []
+      : cardResults.flatMap(({ card, candidates }) =>
+        createUfcSinglePredictionCandidates(card, candidates, model.key)),
   }));
   const thresholdSingleModels = UFC_SINGLE_THRESHOLD_MODEL_CONFIGS.map((model) => ({
     description: model.sourceModelKey === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY

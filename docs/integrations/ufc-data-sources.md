@@ -181,6 +181,13 @@ place:
 - store those snapshots prospectively for future Insights;
 - use public sports promotions only as source-backed promotion context.
 
+As at 2026-09-04, the UFC prediction pipeline also tracks
+`ufc_multi_other_fighter_price_win_percentage_top6_v1`. It uses the same Betcha
+Head to Head source and historical other-fighter fixed-win price bucket signal
+as `ufc_multi_other_fighter_price_win_percentage_v1`, but caps the stored
+same-card multi at six ranked favourite legs so its calibration can be measured
+separately from the eight-leg baseline.
+
 They should not be used for the requested five-year backfill unless a separate
 proof confirms historical UFC event IDs, both fighter fixed prices, price
 timestamps, and settled winners can be fetched without relying on account-only

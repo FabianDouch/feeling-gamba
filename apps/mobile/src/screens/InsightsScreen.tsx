@@ -16,6 +16,7 @@ import {
   type NrlFixedWinPriceRole,
   type NrlInsightBreakdown,
   type NrlInsightsData,
+  type NrlPriceBucketSize,
 } from "../data/supabaseNrl";
 import {
   fetchNpcInsights,
@@ -58,11 +59,43 @@ const emptyUfcInsights: UfcInsightsData = {
   summaryStats: [],
 };
 
-const emptyFixedWinPriceBreakdowns = {
-  away: [],
-  favourite: [],
-  home: [],
-};
+/**
+ * Creates empty favourite/home/away price rows for a fixed-win breakdown.
+ */
+function createEmptyFixedWinPriceBreakdowns() {
+  return {
+    away: [],
+    favourite: [],
+    home: [],
+  };
+}
+
+/**
+ * Creates empty fixed-win price rows for each supported bucket size.
+ */
+function createEmptyFixedWinPriceBreakdownGroups() {
+  return {
+    "0.25": createEmptyFixedWinPriceBreakdowns(),
+    "0.50": createEmptyFixedWinPriceBreakdowns(),
+  };
+}
+
+/**
+ * Creates empty unscoped price rows for each supported bucket size.
+ */
+function createEmptyPriceBreakdownGroups() {
+  return {
+    "0.25": [],
+    "0.50": [],
+  };
+}
+
+const emptyFixedWinPriceBreakdowns = createEmptyFixedWinPriceBreakdownGroups();
+
+const PRICE_BUCKET_SIZE_OPTIONS: { label: string; value: NrlPriceBucketSize }[] = [
+  { label: "50c", value: "0.50" },
+  { label: "25c", value: "0.25" },
+];
 
 const emptyNrlInsights: NrlInsightsData = {
   fixedWinOtherTeamPriceBreakdown: emptyFixedWinPriceBreakdowns,
@@ -74,7 +107,7 @@ const emptyNrlInsights: NrlInsightsData = {
   sameGameRoundBreakdown: [],
   sameGameSummaryStats: [],
   tryScorerPlayerBreakdown: [],
-  tryScorerPriceBreakdown: [],
+  tryScorerPriceBreakdown: createEmptyPriceBreakdownGroups(),
   tryScorerSummaryStats: [],
   tryScorerTeamBreakdown: [],
 };
@@ -157,7 +190,7 @@ export function InsightsScreen() {
     || nrlInsights.sameGameRoundBreakdown.length > 0
     || nrlInsights.tryScorerSummaryStats.length > 0
     || nrlInsights.tryScorerPlayerBreakdown.length > 0
-    || nrlInsights.tryScorerPriceBreakdown.length > 0
+    || hasPriceBreakdownRows(nrlInsights.tryScorerPriceBreakdown)
     || nrlInsights.tryScorerTeamBreakdown.length > 0;
   const hasNpcInsightRows = npcInsights.fixedWinSummaryStats.length > 0
     || npcInsights.fixedWinSelectionBreakdown.length > 0
@@ -169,7 +202,7 @@ export function InsightsScreen() {
     || npcInsights.sameGameRoundBreakdown.length > 0
     || npcInsights.tryScorerSummaryStats.length > 0
     || npcInsights.tryScorerPlayerBreakdown.length > 0
-    || npcInsights.tryScorerPriceBreakdown.length > 0
+    || hasPriceBreakdownRows(npcInsights.tryScorerPriceBreakdown)
     || npcInsights.tryScorerTeamBreakdown.length > 0;
 
   useEffect(() => {
@@ -571,10 +604,24 @@ export function InsightsScreen() {
   );
 }
 
-function hasFixedWinPriceRows(rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"]) {
-  return rowsByRole.away.length > 0
-    || rowsByRole.favourite.length > 0
-    || rowsByRole.home.length > 0;
+/**
+ * Detects whether any fixed-win price bucket has rows for any selectable role.
+ */
+function hasFixedWinPriceRows(rowsByBucketSize: NrlInsightsData["fixedWinPriceBreakdown"]) {
+  return PRICE_BUCKET_SIZE_OPTIONS.some((option) => {
+    const rowsByRole = rowsByBucketSize[option.value];
+
+    return rowsByRole.away.length > 0
+      || rowsByRole.favourite.length > 0
+      || rowsByRole.home.length > 0;
+  });
+}
+
+/**
+ * Detects whether any generic price bucket has rows at any supported granularity.
+ */
+function hasPriceBreakdownRows(rowsByBucketSize: NrlInsightsData["tryScorerPriceBreakdown"]) {
+  return PRICE_BUCKET_SIZE_OPTIONS.some((option) => rowsByBucketSize[option.value].length > 0);
 }
 
 function isRaceCode(value: string): value is "horse" | "harness" | "greyhound" {
@@ -620,6 +667,36 @@ function InsightModeTabs({ onChange, selectedValue }: InsightModeTabsProps) {
   );
 }
 
+type PriceBucketSizeTabsProps = {
+  onChange: (value: NrlPriceBucketSize) => void;
+  selectedValue: NrlPriceBucketSize;
+};
+
+/**
+ * Switches price bucket breakdowns between the supported bucket widths.
+ */
+function PriceBucketSizeTabs({ onChange, selectedValue }: PriceBucketSizeTabsProps) {
+  return (
+    <View style={styles.modeTabs}>
+      {PRICE_BUCKET_SIZE_OPTIONS.map((option) => {
+        const isActive = option.value === selectedValue;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.modeTab, isActive ? styles.modeTabActive : null]}
+          >
+            <Text style={[styles.modeTabText, isActive ? styles.modeTabTextActive : null]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 type InsightsPanelProps = {
   insights: InsightsData;
 };
@@ -640,6 +717,7 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
   const [selectedPriceRole, setSelectedPriceRole] = useState<NrlFixedWinPriceRole>("favourite");
   const [selectedOtherTeamPriceRole, setSelectedOtherTeamPriceRole] = useState<NrlFixedWinPriceRole>("favourite");
   const [selectedPriceDifferenceRole, setSelectedPriceDifferenceRole] = useState<NrlFixedWinPriceRole>("favourite");
+  const [selectedBucketSize, setSelectedBucketSize] = useState<NrlPriceBucketSize>("0.50");
   const hasSameGameRows = insights.sameGameSummaryStats.length > 0
     || insights.sameGameRoundBreakdown.length > 0;
 
@@ -674,21 +752,28 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
       </View>
 
       <NrlBreakdown title="Fixed win by selection" rows={insights.fixedWinSelectionBreakdown} />
+      <PriceBucketSizeTabs
+        onChange={setSelectedBucketSize}
+        selectedValue={selectedBucketSize}
+      />
       <FixedWinRolePriceBreakdown
+        bucketSize={selectedBucketSize}
         onRoleChange={setSelectedPriceRole}
-        rowsByRole={insights.fixedWinPriceBreakdown}
+        rowsByRole={insights.fixedWinPriceBreakdown[selectedBucketSize]}
         selectedRole={selectedPriceRole}
         title="Fixed win price breakdown"
       />
       <FixedWinRolePriceBreakdown
+        bucketSize={selectedBucketSize}
         onRoleChange={setSelectedOtherTeamPriceRole}
-        rowsByRole={insights.fixedWinOtherTeamPriceBreakdown}
+        rowsByRole={insights.fixedWinOtherTeamPriceBreakdown[selectedBucketSize]}
         selectedRole={selectedOtherTeamPriceRole}
         title="Fixed win other team price breakdown"
       />
       <FixedWinRolePriceBreakdown
+        bucketSize={selectedBucketSize}
         onRoleChange={setSelectedPriceDifferenceRole}
-        rowsByRole={insights.fixedWinPriceDifferenceBreakdown}
+        rowsByRole={insights.fixedWinPriceDifferenceBreakdown[selectedBucketSize]}
         selectedRole={selectedPriceDifferenceRole}
         title="Fixed win price difference breakdown"
       />
@@ -705,7 +790,11 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
         ))}
       </View>
 
-      <NrlBreakdown title="Try scorer price breakdown" rows={insights.tryScorerPriceBreakdown} />
+      <NrlBreakdown
+        rowKeyPrefix={`Try scorer price breakdown-${selectedBucketSize}`}
+        title="Try scorer price breakdown"
+        rows={insights.tryScorerPriceBreakdown[selectedBucketSize]}
+      />
       <NrlBreakdown title="Try scorer by player" rows={insights.tryScorerPlayerBreakdown} />
       <NrlBreakdown title="Try scorer by team" rows={insights.tryScorerTeamBreakdown} />
     </>
@@ -713,8 +802,9 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
 }
 
 type FixedWinRolePriceBreakdownProps = {
+  bucketSize: NrlPriceBucketSize;
   onRoleChange: (value: NrlFixedWinPriceRole) => void;
-  rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"];
+  rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"][NrlPriceBucketSize];
   selectedRole: NrlFixedWinPriceRole;
   title: string;
 };
@@ -723,6 +813,7 @@ type FixedWinRolePriceBreakdownProps = {
  * Shows role-specific fixed-win price rows under a compact favourite/home/away toggle.
  */
 function FixedWinRolePriceBreakdown({
+  bucketSize,
   onRoleChange,
   rowsByRole,
   selectedRole,
@@ -749,12 +840,13 @@ function FixedWinRolePriceBreakdown({
         })}
       </View>
 
-      <NrlBreakdownRows rowKeyPrefix={`${title}-${selectedRole}`} rows={rowsByRole[selectedRole]} />
+      <NrlBreakdownRows rowKeyPrefix={`${title}-${bucketSize}-${selectedRole}`} rows={rowsByRole[selectedRole]} />
     </>
   );
 }
 
 type NrlBreakdownProps = {
+  rowKeyPrefix?: string;
   rows: NrlInsightBreakdown[];
   title: string;
 };
@@ -762,11 +854,11 @@ type NrlBreakdownProps = {
 /**
  * Shows one NRL aggregate breakdown list using the shared insight row layout.
  */
-function NrlBreakdown({ rows, title }: NrlBreakdownProps) {
+function NrlBreakdown({ rowKeyPrefix, rows, title }: NrlBreakdownProps) {
   return (
     <>
       <Text style={styles.subheading}>{title}</Text>
-      <NrlBreakdownRows rowKeyPrefix={title} rows={rows} />
+      <NrlBreakdownRows rowKeyPrefix={rowKeyPrefix ?? title} rows={rows} />
     </>
   );
 }

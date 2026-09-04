@@ -159,6 +159,9 @@ Drawn final scores are counted as settled fixed-win losses for both team
 selections because the team selection would not pay out. Try-scorer and Same
 Game % rows are now source-backed from official Opta RU7 player/event rows plus
 captured TAB `Anytime Try Scorer` prices.
+NRL and NPC price-bucket aggregate rebuilds write both default 50c rows and
+finer 25c rows. The app selects between them with a bucket-size toggle instead
+of recalculating buckets client-side.
 
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
 current-market wrapper every 15 minutes during typical NPC match windows.
@@ -598,6 +601,8 @@ Source rules:
 - Skip placeholder TBC finals rows until the source assigns real teams.
 - Treat drawn final scores as settled non-paying losses during fixed-win
   reconciliation.
+- NPC insight rebuilds emit price-bucket rows at both `0.50` and `0.25`
+  `bucket_size` values, matching the NRL app-facing breakdown toggle.
 
 Expected writes:
 
@@ -834,6 +839,10 @@ Source rules:
   $1 return metrics once settled.
 - Fixed-win price-bucket rows use both home and away fixed-win selections, not
   team-specific rows.
+- Fixed-win selected-team price, other-team price, price-difference, and
+  try-scorer price bucket rows are emitted for both `0.50` and `0.25`
+  `bucket_size` values. Existing settled data can be backfilled by rerunning
+  this rebuild after the `bucket_size` migration is applied.
 - Fixed-win team and same-game team scopes are no longer generated for the
   app-facing NRL Insights view.
 - Same-game multi percentage uses the stored model
@@ -1044,6 +1053,10 @@ Initial mode:
   current favourites whose price-difference bucket signal is at least 75%.
   These singles are persisted to `ufc_single_predictions` so Prediction History
   can track $1 unit-stake results over time.
+- UFC current prediction payloads include
+  `ufc_multi_other_fighter_price_win_percentage_top6_v1` as a multi-only model.
+  It reuses the other-fighter price bucket signal but caps stored
+  recommendations at six legs; it does not write duplicate UFC single rows.
 - PFL uses the same visible Singles/Multis -> Win % hierarchy and model tab
   shape as UFC. Current PFL prediction generation reads The Odds API current MMA
   H2H prices only when an odds event matches the reviewed PFL allow-list by

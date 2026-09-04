@@ -3,6 +3,7 @@ import type { FavouriteStat } from "./collectedRaceDay";
 import {
   UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY,
   UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY,
+  UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY,
   UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_60_PLUS_MULTI_MODEL_KEY,
   WIN_PERCENTAGE_65_PLUS_MULTI_MODEL_KEY,
@@ -127,6 +128,10 @@ function getHistoricalBacktestModelLabel(model: string) {
 
   if (model === UFC_OTHER_FIGHTER_PRICE_MULTI_MODEL_KEY) {
     return "UFC other fighter price multis";
+  }
+
+  if (model === UFC_OTHER_FIGHTER_PRICE_TOP6_MULTI_MODEL_KEY) {
+    return "UFC other fighter price top 6 multis";
   }
 
   if (model === UFC_PRICE_DIFFERENCE_MULTI_MODEL_KEY) {

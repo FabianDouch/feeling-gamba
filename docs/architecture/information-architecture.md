@@ -17,7 +17,14 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-03 so NRL and NPC fixed-win price,
+Note: the IA was updated on 2026-09-04 to add the UFC other-fighter price
+top-six multi model under UFC Multis -> Win %, with rank filters capped at top
+6 for that model. Rendered IA outputs should be regenerated from the YAML before
+being treated as current. It was updated on 2026-09-04 so NRL and NPC price-bucket
+Insights can switch between the default 50c buckets and finer 25c buckets for
+fixed-win selected-team price, other-team price, price difference, and
+try-scorer price rows. Rendered IA outputs should be regenerated from the YAML
+before being treated as current. It was updated on 2026-09-03 so NRL and NPC fixed-win price,
 other-team price, and price-difference Insights each expose Favourite/Home/Away
 role toggles backed by role-specific aggregate rows. Rendered IA outputs should
 be regenerated from the YAML before being treated as current. It was updated on
@@ -245,10 +252,15 @@ Purpose:
   other-team price, role-toggled price-difference, and round, plus try-scorer
   percentage aggregates and Same Game % aggregate rows from
   `nrl_insight_aggregates`.
+- For NRL price-bucket sections, default to 50c buckets and allow a 25c bucket
+  view for fixed-win selected-team price, other-team price, price difference,
+  and captured try-scorer price rows.
 - For NPC, show the same fixed-win aggregate shape from
   `npc_insight_aggregates`, plus source-backed try-scorer percentage and Same
   Game % rows from official RU7 player events and captured TAB try-scorer
   prices.
+- For NPC price-bucket sections, use the same 50c/25c bucket-size toggle and
+  Favourite/Home/Away role toggles as NRL where the rows are role-specific.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
@@ -289,18 +301,19 @@ Main content:
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
 - UFC favourite price, other fighter price, and price-difference breakdowns.
-- NRL fixed-win favourite, home/away, Favourite/Home/Away toggles for 50c
+- NRL fixed-win favourite, home/away, Favourite/Home/Away toggles for
   fixed-win price, other-team price, and price-difference buckets, and round
-  breakdowns.
-- NRL try-scorer percentage summaries by player, team, and 50c captured
-  try-scorer price bucket.
+  breakdowns. Price sections default to 50c buckets with a 25c toggle.
+- NRL try-scorer percentage summaries by player, team, and captured try-scorer
+  price bucket using the same 50c/25c bucket-size toggle.
 - NRL Same Game % summary and round breakdowns for the favourite-team plus
   top-two try-scorer model. Rows stay empty or `missing_price` until
   source-backed player try-scorer prices are captured. Show this section before
   the NRL fixed-win and try-scorer singles sections.
 - NPC fixed-win favourite, home/away, favourite-at-home/away,
-  Favourite/Home/Away toggles for 50c fixed-win price, other-team price, and
-  price-difference buckets, and round breakdowns.
+  Favourite/Home/Away toggles for fixed-win price, other-team price, and
+  price-difference buckets, and round breakdowns. Price sections default to
+  50c buckets with a 25c toggle.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.
@@ -441,9 +454,10 @@ Main content:
   of two legs and show up to 10 legs, plus
   `multi_place_percentage_v1` with up to eight place-rate legs.
 - UFC Win percentage model selector with same-card percentage multi models for
-  favourite price bucket, other fighter price bucket, and price-difference
-  bucket signals; each UFC model can show up to eight Head to Head favourite
-  legs from one Betcha UFC card.
+  favourite price bucket, other fighter price bucket, price-difference bucket,
+  and a top-six other-fighter price variant; each UFC model can show up to
+  eight Head to Head favourite legs from one Betcha UFC card except the top-six
+  variant, which stores at most six.
 - UFC Singles -> Win % shows dedicated `65%+ win singles`, `75%+ win
   singles`, and `85%+ win singles` model tabs alongside the existing UFC favourite-price,
   other-fighter-price, price-difference, and price-difference 75%+ single model
@@ -653,8 +667,9 @@ Main content:
   top-N options up to the selected model's configured maximum: top 2-5 for the
   original win-percentage model, top 2-10 for the racing threshold
   win-percentage models including `multi_win_percentage_50_50_65_plus_v1`, top
-  2-8 for `multi_place_percentage_v1`, and top 2-8 for UFC percentage multi
-  models.
+  2-8 for `multi_place_percentage_v1`, top 2-8 for most UFC percentage multi
+  models, and top 2-6 for
+  `ufc_multi_other_fighter_price_win_percentage_top6_v1`.
   Filtered rows should re-aggregate the first ranked percentage multi legs from
   each stored recommendation instead of reusing the full stored multi result.
 - Placing prediction performance in Stored model performance for the selected

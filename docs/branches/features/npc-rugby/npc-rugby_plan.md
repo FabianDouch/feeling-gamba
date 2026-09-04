@@ -71,6 +71,9 @@ Point-in-time source notes from 2026-09-02, updated 2026-09-04:
 - Keep NRL and NPC fixed-win price, other-team price, and price-difference
   Insights aligned: each section should expose Favourite/Home/Away toggles
   backed by role-specific aggregate rows, not app-calculated filters.
+- Keep NRL and NPC price-bucket granularity aligned: app-facing aggregate rows
+  should exist for the default 50c buckets and optional 25c buckets, with the
+  app selecting the stored bucket size.
 - Fixed-win match-market capture must stay one row per source event. Repeated
   pre-kickoff cron runs update that row; they must not create repeated
   calibration selections for the same game.
@@ -176,6 +179,8 @@ Point-in-time source notes from 2026-09-02, updated 2026-09-04:
 - Backfill player appearances and try scorers from official Opta RU7 match
   details for retained NPC fixture rows.
 - Rebuild `npc_insight_aggregates` after each official backfill.
+- Rebuild `npc_insight_aggregates` after the `bucket_size` migration so
+  existing NPC rows are backfilled into both 50c and 25c app views.
 - Do not backfill historical fixed-win prices unless a source-backed historical
   odds feed is validated.
 - Begin current TAB market capture as soon as fixture matching is reliable so

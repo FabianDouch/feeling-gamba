@@ -7,6 +7,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
+const PRICE_BUCKET_SIZES = [0.5, 0.25];
 
 /**
  * Parses NPC aggregate rebuild options.
@@ -238,6 +239,7 @@ function createAggregateBucket({
   date,
   playerName = null,
   playerSourceId = null,
+  bucketSize = 0.5,
   priceBucketEnd = null,
   priceBucketLabel = null,
   priceBucketStart = null,
@@ -259,6 +261,7 @@ function createAggregateBucket({
     pending_count: 0,
     player_name: playerName,
     player_source_id: playerSourceId,
+    bucket_size: bucketSize,
     price_bucket_end: priceBucketEnd,
     price_bucket_label: priceBucketLabel,
     price_bucket_start: priceBucketStart,
@@ -447,19 +450,20 @@ function formatPriceBucketBoundary(value) {
 }
 
 /**
- * Creates the same 50c decimal-price buckets used by racing insights.
+ * Creates decimal-price buckets for the selected display granularity.
  */
-function getPriceBucket(price) {
+function getPriceBucket(price, bucketSize = 0.5) {
   const value = Number(price);
 
   if (!Number.isFinite(value) || value <= 0) {
     return null;
   }
 
-  const start = Math.max(1, Math.floor(value / 0.5) * 0.5);
-  const end = start + 0.49;
+  const start = roundNumber(Math.max(1, Math.floor(value / bucketSize) * bucketSize), 2);
+  const end = roundNumber(start + bucketSize - 0.01, 2);
 
   return {
+    bucketSize,
     end,
     label: `${formatPriceBucketBoundary(start)} - ${formatPriceBucketBoundary(end)}`,
     start,
@@ -467,19 +471,20 @@ function getPriceBucket(price) {
 }
 
 /**
- * Creates 50c buckets for the price gap between selected team and opponent.
+ * Creates buckets for the price gap between selected team and opponent.
  */
-function getPriceDifferenceBucket(priceDifference) {
+function getPriceDifferenceBucket(priceDifference, bucketSize = 0.5) {
   const value = Number(priceDifference);
 
   if (!Number.isFinite(value)) {
     return null;
   }
 
-  const start = Math.floor(value / 0.5) * 0.5;
-  const end = start + 0.49;
+  const start = roundNumber(Math.floor(value / bucketSize) * bucketSize, 2);
+  const end = roundNumber(start + bucketSize - 0.01, 2);
 
   return {
+    bucketSize,
     end,
     label: `${formatPriceBucketBoundary(start)} - ${formatPriceBucketBoundary(end)}`,
     start,
@@ -658,51 +663,58 @@ function buildFixedWinAggregates(results, matchesById) {
   }
 
   for (const record of allRecords) {
-    const priceBucket = getPriceBucket(record.price);
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const priceBucket = getPriceBucket(record.price, bucketSize);
 
-    if (!priceBucket) {
-      continue;
+      if (!priceBucket) {
+        continue;
+      }
+
+      addToBucket(buckets, {
+        bucketSize: priceBucket.bucketSize,
+        insightType: "fixed_win_single",
+        priceBucketEnd: priceBucket.end,
+        priceBucketLabel: priceBucket.label,
+        priceBucketStart: priceBucket.start,
+        scopeKey: `npc:fixed_win_single:price_bucket:${priceBucket.bucketSize.toFixed(2)}:${record.selectionType}:${priceBucket.start.toFixed(2)}`,
+        scopeType: "price_bucket",
+        selectionType: record.selectionType,
+      }, record, addFixedWinSelection);
     }
-
-    addToBucket(buckets, {
-      insightType: "fixed_win_single",
-      priceBucketEnd: priceBucket.end,
-      priceBucketLabel: priceBucket.label,
-      priceBucketStart: priceBucket.start,
-      scopeKey: `npc:fixed_win_single:price_bucket:${record.selectionType}:${priceBucket.start.toFixed(2)}`,
-      scopeType: "price_bucket",
-      selectionType: record.selectionType,
-    }, record, addFixedWinSelection);
 
   }
 
   for (const record of allRecords) {
-    const otherPriceBucket = getPriceBucket(record.otherPrice);
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const otherPriceBucket = getPriceBucket(record.otherPrice, bucketSize);
 
-    if (otherPriceBucket) {
-      addToBucket(buckets, {
-        insightType: "fixed_win_single",
-        priceBucketEnd: otherPriceBucket.end,
-        priceBucketLabel: otherPriceBucket.label,
-        priceBucketStart: otherPriceBucket.start,
-        scopeKey: `npc:fixed_win_single:other_team_price_bucket:${record.selectionType}:${otherPriceBucket.start.toFixed(2)}`,
-        scopeType: "other_team_price_bucket",
-        selectionType: record.selectionType,
-      }, record, addFixedWinSelection);
-    }
+      if (otherPriceBucket) {
+        addToBucket(buckets, {
+          bucketSize: otherPriceBucket.bucketSize,
+          insightType: "fixed_win_single",
+          priceBucketEnd: otherPriceBucket.end,
+          priceBucketLabel: otherPriceBucket.label,
+          priceBucketStart: otherPriceBucket.start,
+          scopeKey: `npc:fixed_win_single:other_team_price_bucket:${otherPriceBucket.bucketSize.toFixed(2)}:${record.selectionType}:${otherPriceBucket.start.toFixed(2)}`,
+          scopeType: "other_team_price_bucket",
+          selectionType: record.selectionType,
+        }, record, addFixedWinSelection);
+      }
 
-    const differenceBucket = getPriceDifferenceBucket(record.priceDifference);
+      const differenceBucket = getPriceDifferenceBucket(record.priceDifference, bucketSize);
 
-    if (differenceBucket) {
-      addToBucket(buckets, {
-        insightType: "fixed_win_single",
-        priceBucketEnd: differenceBucket.end,
-        priceBucketLabel: differenceBucket.label,
-        priceBucketStart: differenceBucket.start,
-        scopeKey: `npc:fixed_win_single:price_difference_bucket:${record.selectionType}:${differenceBucket.start.toFixed(2)}`,
-        scopeType: "price_difference_bucket",
-        selectionType: record.selectionType,
-      }, record, addFixedWinSelection);
+      if (differenceBucket) {
+        addToBucket(buckets, {
+          bucketSize: differenceBucket.bucketSize,
+          insightType: "fixed_win_single",
+          priceBucketEnd: differenceBucket.end,
+          priceBucketLabel: differenceBucket.label,
+          priceBucketStart: differenceBucket.start,
+          scopeKey: `npc:fixed_win_single:price_difference_bucket:${differenceBucket.bucketSize.toFixed(2)}:${record.selectionType}:${differenceBucket.start.toFixed(2)}`,
+          scopeType: "price_difference_bucket",
+          selectionType: record.selectionType,
+        }, record, addFixedWinSelection);
+      }
     }
   }
 
@@ -858,20 +870,23 @@ function buildTryScorerAggregates(appearances, tryScorers, matchesById, matchesB
   }
 
   for (const record of marketRecords) {
-    const priceBucket = getPriceBucket(record.price);
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const priceBucket = getPriceBucket(record.price, bucketSize);
 
-    if (!priceBucket) {
-      continue;
+      if (!priceBucket) {
+        continue;
+      }
+
+      addToBucket(buckets, {
+        bucketSize: priceBucket.bucketSize,
+        insightType: "try_scorer_percentage",
+        priceBucketEnd: priceBucket.end,
+        priceBucketLabel: priceBucket.label,
+        priceBucketStart: priceBucket.start,
+        scopeKey: `npc:try_scorer_percentage:price_bucket:${priceBucket.bucketSize.toFixed(2)}:${priceBucket.start.toFixed(2)}`,
+        scopeType: "price_bucket",
+      }, record, addTryScorerMarketSelection);
     }
-
-    addToBucket(buckets, {
-      insightType: "try_scorer_percentage",
-      priceBucketEnd: priceBucket.end,
-      priceBucketLabel: priceBucket.label,
-      priceBucketStart: priceBucket.start,
-      scopeKey: `npc:try_scorer_percentage:price_bucket:${priceBucket.start.toFixed(2)}`,
-      scopeType: "price_bucket",
-    }, record, addTryScorerMarketSelection);
   }
 
   return finalizeAggregates(buckets);

@@ -10,7 +10,15 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-03 so NRL and NPC fixed-win match-market
+Note: the YAML was updated on 2026-09-04 to add
+`ufc_multi_other_fighter_price_win_percentage_top6_v1`, a UFC other-fighter
+price same-card multi variant capped at six legs. Rendered architecture outputs
+should be regenerated from the YAML before being treated as current. It was
+updated on 2026-09-04 so NRL and NPC price-bucket Insights
+store and display both default 50c and optional 25c bucket-size rows for
+selected-team price, other-team price, price difference, and try-scorer price
+sections. Rendered architecture outputs should be regenerated from the YAML
+before being treated as current. It was updated on 2026-09-03 so NRL and NPC fixed-win match-market
 capture uses one canonical row per source event instead of repeated cron
 snapshot rows. It was updated on 2026-09-03 so NRL and NPC fixed-win price,
 other-team price, and price-difference aggregate rows are role-specific for
@@ -738,8 +746,9 @@ repo-root public Supabase env values before Metro bundles the app.
   `multi_win_percentage_60_plus_v1`, `multi_win_percentage_65_plus_v1`, and
   `multi_win_percentage_50_50_65_plus_v1` support top 2-10,
   `multi_place_percentage_v1` supports top 2-8, and UFC percentage multi models
-  support top 2-8 while hiding racing-only country, discipline, and racecourse
-  filters.
+  support top 2-8 except
+  `ufc_multi_other_fighter_price_win_percentage_top6_v1`, which supports top
+  2-6, while hiding racing-only country, discipline, and racecourse filters.
   The screen presents prediction variations as tabs, tags tabs that have
   tracked multi-bet prediction rows for the current Auckland source date, and
   shows a concise model-method explanation at the top of each variation.
@@ -773,7 +782,8 @@ repo-root public Supabase env values before Metro bundles the app.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
   Fixed-win buckets include selection type, favourite-venue,
   Favourite/Home/Away role-specific selected-team price, other-team price,
-  opponent-minus-selected price difference, season, and round scopes.
+  opponent-minus-selected price difference, season, and round scopes. Price
+  bucket scopes are stored at both 50c and 25c granularity.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
   try-scorer prices are validated. Same-game multi percentage support uses
@@ -785,7 +795,8 @@ repo-root public Supabase env values before Metro bundles the app.
   percentage rows come from official Opta RU7 player appearances and try events;
   Same Game % rows use the favourite fixed-win team plus the two shortest-priced
   favourite-team TAB `Anytime Try Scorer` selections where those entrants are
-  matched to official player IDs.
+  matched to official player IDs. Price-bucket rows use the same 50c/25c
+  granularity contract as NRL.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.
