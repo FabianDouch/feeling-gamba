@@ -31,6 +31,19 @@ round 26 snapshots matched to official fixture shells, and 16 unmatched rows
 from the earlier audit snapshot captured before fixture preload. No settled
 returns are available yet because the matched round 26 fixtures are upcoming.
 
+As of 2026-09-04, NRL half-time/full-time double tracking is implemented with
+`supabase/migrations/202609040002_team_sport_half_time_full_time_double.sql`,
+`packages/ingestion/scripts/refresh-nrl-half-time-full-time-snapshots-from-tab.mjs`,
+and `packages/ingestion/scripts/reconcile-nrl-half-time-full-time-snapshots.mjs`.
+It stores one canonical TAB row per source event for the same-team home/home
+and away/away double, derives the favourite from the shorter same-team double
+price, and settles against official NRL halftime plus final scores. A halftime
+draw or fulltime draw is a settled loss for these tracked same-team selections.
+Cross-team HT/FT outcomes, such as home/away, are also settled losses for both
+same-team selections.
+Historical HT/FT prices are not inferred, so calibration starts from the first
+successful pre-kickoff capture.
+
 NRL Insights support is implemented with
 `supabase/migrations/202608250003_nrl_insight_aggregates.sql` and
 `packages/ingestion/scripts/rebuild-nrl-insight-aggregates.mjs`. Fixed-win
@@ -90,6 +103,8 @@ captures update that event row, and
 `supabase/migrations/202609030001_team_sport_single_fixed_win_market_capture.sql`
 prunes older duplicate source-event rows before adding database uniqueness
 guards.
+As of 2026-09-04, the current-market and result-refresh wrappers also run HT/FT
+capture and reconciliation before rebuilding NRL Insights.
 NRL Insights now prefer 50c decimal price-bucket breakdowns for fixed-win and
 try-scorer market selections, while fixed-win team and same-game team sections
 are omitted from the app-facing aggregate rebuild. As of 2026-08-31, fixed-win
@@ -100,6 +115,9 @@ derived from stored home/away market roles through a separate `favourite_venue`
 aggregate scope. As of 2026-09-03, fixed-win price, other-team price, and
 price-difference buckets are rebuilt as role-specific rows for `favourite`,
 `home`, and `away`; the app toggles between those roles under each section.
+NRL Insights also include a half-time/full-time double section with home,
+away, favourite, favourite-at-home, and favourite-away rows once HT/FT snapshots
+exist.
 After the 2026-09-02 favourite-venue backfill, the NRL insight rebuild wrote
 1,163 `nrl_insight_aggregates` rows: 27 fixed-win rows, 3 same-game multi rows,
 and 1,133 try-scorer percentage rows from 7,482 official player appearances and
@@ -125,6 +143,12 @@ the 2026-09-03 Bulldogs/Broncos fixed-win snapshot was present but still
 future rounds beyond the current round can return the current round payload, so
 the result scanner now ignores payloads whose selected round/season do not match
 the requested round before deciding which rounds to refresh.
+Settlement finding from 2026-09-05: the single daily result-refresh schedule was
+not enough to guarantee the previous evening's NRL rows were settled before the
+app was checked. The NRL result workflow now runs four idempotent morning
+catch-up schedules at `30 18`, `30 20`, `30 22`, and `30 23` UTC, all scanning
+the same recent completed-fixture lookback and rebuilding fixed-win, HT/FT,
+same-game, and Insight rows.
 
 NRL current single prediction generation is implemented in
 `packages/ingestion/scripts/generate-nrl-single-predictions.mjs`, with schema

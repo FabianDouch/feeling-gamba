@@ -722,6 +722,135 @@ function buildFixedWinAggregates(results, matchesById) {
 }
 
 /**
+ * Builds selection-level records from home/home, away/away, and favourite HT/FT rows.
+ */
+function buildHalfTimeFullTimeRecords(results, matchesById) {
+  const sideRecords = [];
+  const favouriteRecords = [];
+
+  for (const row of selectCanonicalFixedWinResults(results)) {
+    const match = row.matched_nrl_match_id ? matchesById.get(row.matched_nrl_match_id) : null;
+    const base = {
+      date: getMatchDate(match, row.advertised_start_at ?? row.snapshot_at),
+      outcomeStatus: row.outcome_status,
+      roundNumber: match?.round_number ?? null,
+      season: match?.season ?? null,
+      source: row.source,
+    };
+
+    sideRecords.push({
+      ...base,
+      price: row.home_home_fixed_win_price,
+      returnValue: numeric(row.home_win_return),
+      selectionType: "home",
+      teamName: row.home_team_name,
+      teamSourceId: match?.home_team_source_id ?? null,
+      won: row.home_team_won === true,
+    });
+    sideRecords.push({
+      ...base,
+      price: row.away_away_fixed_win_price,
+      returnValue: numeric(row.away_win_return),
+      selectionType: "away",
+      teamName: row.away_team_name,
+      teamSourceId: match?.away_team_source_id ?? null,
+      won: row.away_team_won === true,
+    });
+
+    if (row.favourite_team_name) {
+      const favouriteIsHome = row.favourite_team_name === row.home_team_name;
+      const favouriteIsAway = row.favourite_team_name === row.away_team_name;
+      const favouriteVenueSelectionType = favouriteIsHome
+        ? "favourite_home"
+        : favouriteIsAway
+          ? "favourite_away"
+          : null;
+
+      favouriteRecords.push({
+        ...base,
+        favouriteVenueSelectionType,
+        price: row.favourite_fixed_win_price,
+        returnValue: numeric(row.favourite_win_return),
+        selectionType: "favourite",
+        teamName: row.favourite_team_name,
+        teamSourceId: row.favourite_team_name === row.home_team_name
+          ? match?.home_team_source_id ?? null
+          : match?.away_team_source_id ?? null,
+        won: row.favourite_won === true,
+      });
+    }
+  }
+
+  return {
+    favouriteRecords,
+    sideRecords,
+  };
+}
+
+/**
+ * Builds HT/FT double aggregate rows across selection type, favourite venue, season, and round.
+ */
+function buildHalfTimeFullTimeAggregates(results, matchesById) {
+  const buckets = new Map();
+  const { favouriteRecords, sideRecords } = buildHalfTimeFullTimeRecords(results, matchesById);
+  const allRecords = [...sideRecords, ...favouriteRecords];
+
+  for (const record of favouriteRecords) {
+    addToBucket(buckets, {
+      insightType: "half_time_full_time_double",
+      scopeKey: "nrl:half_time_full_time_double:overall:favourite",
+      scopeType: "overall",
+      selectionType: "favourite",
+    }, record, addFixedWinSelection);
+
+    if (record.season) {
+      addToBucket(buckets, {
+        insightType: "half_time_full_time_double",
+        scopeKey: `nrl:half_time_full_time_double:season:${record.season}:favourite`,
+        scopeType: "season",
+        season: record.season,
+        selectionType: "favourite",
+      }, record, addFixedWinSelection);
+    }
+
+    if (record.season && record.roundNumber) {
+      addToBucket(buckets, {
+        insightType: "half_time_full_time_double",
+        roundNumber: record.roundNumber,
+        scopeKey: `nrl:half_time_full_time_double:season_round:${record.season}:${record.roundNumber}:favourite`,
+        scopeType: "season_round",
+        season: record.season,
+        selectionType: "favourite",
+      }, record, addFixedWinSelection);
+    }
+  }
+
+  for (const record of allRecords) {
+    addToBucket(buckets, {
+      insightType: "half_time_full_time_double",
+      scopeKey: `nrl:half_time_full_time_double:selection_type:${record.selectionType}`,
+      scopeType: "selection_type",
+      selectionType: record.selectionType,
+    }, record, addFixedWinSelection);
+  }
+
+  for (const record of favouriteRecords) {
+    if (!record.favouriteVenueSelectionType) {
+      continue;
+    }
+
+    addToBucket(buckets, {
+      insightType: "half_time_full_time_double",
+      scopeKey: `nrl:half_time_full_time_double:favourite_venue:${record.favouriteVenueSelectionType}`,
+      scopeType: "favourite_venue",
+      selectionType: record.favouriteVenueSelectionType,
+    }, record, addFixedWinSelection);
+  }
+
+  return finalizeAggregates(buckets);
+}
+
+/**
  * Builds appearance-level try-scorer records from official rosters and try events.
  */
 function buildTryScorerRecords(appearances, tryScorers, matchesBySourceKey) {
@@ -948,7 +1077,7 @@ function buildSameGameMultiAggregates(results) {
  * Loads all source rows needed for NRL insight rebuilds.
  */
 async function readSourceRows(supabase) {
-  const [fixedWinResults, matches, appearances, tryScorers, tryScorerPrices, sameGameMultiResults] = await Promise.all([
+  const [fixedWinResults, halfTimeFullTimeResults, matches, appearances, tryScorers, tryScorerPrices, sameGameMultiResults] = await Promise.all([
     supabase.selectAll("nrl_fixed_win_snapshot_results", {
       order: "snapshot_at.asc",
       select: [
@@ -963,6 +1092,31 @@ async function readSourceRows(supabase) {
         "away_team_name",
         "home_fixed_win_price",
         "away_fixed_win_price",
+        "favourite_team_name",
+        "favourite_fixed_win_price",
+        "home_team_won",
+        "away_team_won",
+        "favourite_won",
+        "home_win_return",
+        "away_win_return",
+        "favourite_win_return",
+        "outcome_status",
+      ].join(","),
+    }),
+    supabase.selectAll("nrl_half_time_full_time_results", {
+      order: "snapshot_at.asc",
+      select: [
+        "source",
+        "source_snapshot_key",
+        "source_event_id",
+        "source_market_id",
+        "matched_nrl_match_id",
+        "snapshot_at",
+        "advertised_start_at",
+        "home_team_name",
+        "away_team_name",
+        "home_home_fixed_win_price",
+        "away_away_fixed_win_price",
         "favourite_team_name",
         "favourite_fixed_win_price",
         "home_team_won",
@@ -1042,6 +1196,7 @@ async function readSourceRows(supabase) {
   return {
     appearances,
     fixedWinResults,
+    halfTimeFullTimeResults,
     matches,
     sameGameMultiResults,
     tryScorerPrices,
@@ -1058,7 +1213,7 @@ async function clearExistingAggregates(supabase) {
     method: "DELETE",
     prefer: "return=minimal",
     search: {
-      insight_type: "in.(fixed_win_single,try_scorer_percentage,same_game_multi_percentage)",
+      insight_type: "in.(fixed_win_single,try_scorer_percentage,same_game_multi_percentage,half_time_full_time_double)",
     },
   });
 }
@@ -1080,10 +1235,12 @@ async function writeAggregates(supabase, rows) {
 /**
  * Produces a compact summary for dry runs and writes.
  */
-function summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows) {
+function summarize(sourceRows, fixedWinRows, halfTimeFullTimeRows, tryScorerRows, sameGameMultiRows) {
   return {
     fixedWinAggregateRows: fixedWinRows.length,
     fixedWinSnapshots: sourceRows.fixedWinResults.length,
+    halfTimeFullTimeAggregateRows: halfTimeFullTimeRows.length,
+    halfTimeFullTimeResults: sourceRows.halfTimeFullTimeResults.length,
     nrlAppearances: sourceRows.appearances.length,
     nrlMatches: sourceRows.matches.length,
     nrlSameGameMultiResults: sourceRows.sameGameMultiResults.length,
@@ -1127,6 +1284,7 @@ async function main() {
     match,
   ]));
   const fixedWinRows = buildFixedWinAggregates(sourceRows.fixedWinResults, matchesById);
+  const halfTimeFullTimeRows = buildHalfTimeFullTimeAggregates(sourceRows.halfTimeFullTimeResults, matchesById);
   const tryScorerRows = buildTryScorerAggregates(
     sourceRows.appearances,
     sourceRows.tryScorers,
@@ -1135,8 +1293,8 @@ async function main() {
     sourceRows.tryScorerPrices,
   );
   const sameGameMultiRows = buildSameGameMultiAggregates(sourceRows.sameGameMultiResults);
-  const rows = [...fixedWinRows, ...tryScorerRows, ...sameGameMultiRows];
-  const summary = summarize(sourceRows, fixedWinRows, tryScorerRows, sameGameMultiRows);
+  const rows = [...fixedWinRows, ...halfTimeFullTimeRows, ...tryScorerRows, ...sameGameMultiRows];
+  const summary = summarize(sourceRows, fixedWinRows, halfTimeFullTimeRows, tryScorerRows, sameGameMultiRows);
 
   if (options.dryRun) {
     console.log(JSON.stringify({

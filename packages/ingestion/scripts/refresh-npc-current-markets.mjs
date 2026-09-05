@@ -120,6 +120,12 @@ function buildRefreshCommands(options) {
       `--markets-first=${options.marketsFirst}`,
       ...writeFlags,
     ]));
+
+    commands.push(buildCommand("capture_npc_half_time_full_time_markets", "refresh-npc-half-time-full-time-snapshots-from-tab.mjs", [
+      `--event-count=${options.eventCount}`,
+      `--markets-first=${options.marketsFirst}`,
+      ...writeFlags,
+    ]));
   }
 
   if (!options.skipTryScorers) {
@@ -133,6 +139,7 @@ function buildRefreshCommands(options) {
 
   if (!options.skipReconcile) {
     commands.push(buildCommand("reconcile_npc_fixed_win", "reconcile-npc-fixed-win-snapshots.mjs", writeFlags));
+    commands.push(buildCommand("reconcile_npc_half_time_full_time", "reconcile-npc-half-time-full-time-snapshots.mjs", writeFlags));
   }
 
   if (!options.skipSameGameMultis) {

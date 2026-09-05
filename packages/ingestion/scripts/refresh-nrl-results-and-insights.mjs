@@ -239,6 +239,7 @@ function buildRefreshCommands(options, rounds) {
       ...writeFlags,
     ]),
     buildCommand("reconcile_nrl_fixed_win", "reconcile-nrl-fixed-win-snapshots.mjs", writeFlags),
+    buildCommand("reconcile_nrl_half_time_full_time", "reconcile-nrl-half-time-full-time-snapshots.mjs", writeFlags),
     buildCommand("rebuild_nrl_same_game_multis", "rebuild-nrl-same-game-multis.mjs", writeFlags),
     buildCommand("rebuild_nrl_insights", "rebuild-nrl-insight-aggregates.mjs", writeFlags),
   ];

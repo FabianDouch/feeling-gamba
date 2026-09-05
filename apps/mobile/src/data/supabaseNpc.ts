@@ -32,6 +32,8 @@ export type NpcInsightsData = {
   fixedWinRoundBreakdown: NpcInsightBreakdown[];
   fixedWinSelectionBreakdown: NpcInsightBreakdown[];
   fixedWinSummaryStats: FavouriteStat[];
+  halfTimeFullTimeSelectionBreakdown: NpcInsightBreakdown[];
+  halfTimeFullTimeSummaryStats: FavouriteStat[];
   sameGameRoundBreakdown: NpcInsightBreakdown[];
   sameGameSummaryStats: FavouriteStat[];
   tryScorerPlayerBreakdown: NpcInsightBreakdown[];
@@ -69,7 +71,7 @@ type NpcInsightAggregateRow = {
   win_percentage: NullableNumber;
 };
 
-type NpcInsightType = "fixed_win_single" | "same_game_multi_percentage" | "try_scorer_percentage";
+type NpcInsightType = "fixed_win_single" | "half_time_full_time_double" | "same_game_multi_percentage" | "try_scorer_percentage";
 
 type NpcInsightScopeType =
   | "overall"
@@ -137,6 +139,9 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
     fixedWinFavouriteVenueRows,
     fixedWinSelectionRows,
     fixedWinRoundRows,
+    halfTimeFullTimeOverallRows,
+    halfTimeFullTimeFavouriteVenueRows,
+    halfTimeFullTimeSelectionRows,
     sameGameOverallRows,
     sameGameRoundRows,
     tryScorerOverallRows,
@@ -161,6 +166,11 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
     fetchNpcAggregateRows("fixed_win_single", "season_round", {
       order: "season.desc,round_number.desc",
     }),
+    fetchNpcAggregateRows("half_time_full_time_double", "overall", {
+      scope_key: "eq.npc:half_time_full_time_double:overall:favourite",
+    }),
+    fetchNpcAggregateRows("half_time_full_time_double", "favourite_venue"),
+    fetchNpcAggregateRows("half_time_full_time_double", "selection_type"),
     fetchNpcAggregateRows("same_game_multi_percentage", "overall", {
       scope_key: "eq.npc:same_game_multi_percentage:overall:favourite_top2_try_scorers",
     }),
@@ -180,6 +190,7 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
     }),
   ]);
   const fixedWinOverall = fixedWinOverallRows[0] ?? null;
+  const halfTimeFullTimeOverall = halfTimeFullTimeOverallRows[0] ?? null;
   const sameGameOverall = sameGameOverallRows[0] ?? null;
   const tryScorerOverall = tryScorerOverallRows[0] ?? null;
 
@@ -195,6 +206,13 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
       .sort(compareFixedWinSelectionRows)
       .map(mapFixedWinBreakdown),
     fixedWinSummaryStats: fixedWinOverall ? mapFixedWinSummaryStats(fixedWinOverall) : [],
+    halfTimeFullTimeSelectionBreakdown: [
+      ...halfTimeFullTimeSelectionRows,
+      ...halfTimeFullTimeFavouriteVenueRows,
+    ]
+      .sort(compareFixedWinSelectionRows)
+      .map(mapHalfTimeFullTimeBreakdown),
+    halfTimeFullTimeSummaryStats: halfTimeFullTimeOverall ? mapHalfTimeFullTimeSummaryStats(halfTimeFullTimeOverall) : [],
     sameGameRoundBreakdown: sameGameRoundRows.map(mapSameGameBreakdown),
     sameGameSummaryStats: sameGameOverall ? mapSameGameSummaryStats(sameGameOverall) : [],
     tryScorerPlayerBreakdown: tryScorerPlayerRows.map(mapTryScorerBreakdown),
@@ -202,6 +220,29 @@ export async function fetchNpcInsights(): Promise<NpcInsightsData> {
     tryScorerSummaryStats: tryScorerOverall ? mapTryScorerSummaryStats(tryScorerOverall) : [],
     tryScorerTeamBreakdown: tryScorerTeamRows.map(mapTryScorerBreakdown),
   };
+}
+
+/**
+ * Maps the overall HT/FT favourite row to KPI cards.
+ */
+function mapHalfTimeFullTimeSummaryStats(row: NpcInsightAggregateRow): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.win_count} of ${row.selection_count} settled favourite HT/FT doubles landed`,
+      label: "HT/FT favourite rate",
+      value: formatPercentage(numeric(row.win_percentage)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_return))} returned from ${formatCurrency(numeric(row.total_stake))} unit stake`,
+      label: "$1 HT/FT return",
+      value: formatReturn(numeric(row.average_return_per_dollar)),
+    },
+    {
+      detail: `${row.pending_count} pending, ${row.unmatched_count} unmatched, ${row.missing_result_count} missing result`,
+      label: "HT/FT audit",
+      value: String(row.event_count),
+    },
+  ];
 }
 
 /**
@@ -355,6 +396,24 @@ function mapFixedWinBreakdown(row: NpcInsightAggregateRow): NpcInsightBreakdown 
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
     detail: `${row.win_count} wins from ${row.selection_count} settled selections`,
+    label: getNpcAggregateLabel(row),
+    netReturn: formatCurrency(numeric(row.net_return)),
+    pending: `${row.pending_count} pending`,
+    roi: formatPercentage(numeric(row.roi_percentage)),
+    selections: `${row.selection_count} selections`,
+    totalReturned: formatCurrency(numeric(row.total_return)),
+    totalStaked: formatCurrency(numeric(row.total_stake)),
+    winRate: formatPercentage(numeric(row.win_percentage)),
+  };
+}
+
+/**
+ * Maps a half-time/full-time aggregate row to the generic NPC breakdown display model.
+ */
+function mapHalfTimeFullTimeBreakdown(row: NpcInsightAggregateRow): NpcInsightBreakdown {
+  return {
+    averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
+    detail: `${row.win_count} wins from ${row.selection_count} settled HT/FT selections`,
     label: getNpcAggregateLabel(row),
     netReturn: formatCurrency(numeric(row.net_return)),
     pending: `${row.pending_count} pending`,

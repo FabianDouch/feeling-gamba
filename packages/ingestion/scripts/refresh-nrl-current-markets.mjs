@@ -178,6 +178,11 @@ function buildRefreshCommands(options) {
       ...marketFlags,
       `--markets-first=${options.marketsFirst}`,
     ]));
+
+    commands.push(buildCommand("capture_nrl_half_time_full_time_markets", "refresh-nrl-half-time-full-time-snapshots-from-tab.mjs", [
+      ...marketFlags,
+      `--markets-first=${options.marketsFirst}`,
+    ]));
   }
 
   if (!options.skipTryScorers) {
@@ -190,6 +195,7 @@ function buildRefreshCommands(options) {
 
   if (!options.skipReconcile) {
     commands.push(buildCommand("reconcile_nrl_fixed_win", "reconcile-nrl-fixed-win-snapshots.mjs", writeFlags));
+    commands.push(buildCommand("reconcile_nrl_half_time_full_time", "reconcile-nrl-half-time-full-time-snapshots.mjs", writeFlags));
   }
 
   if (!options.skipSameGame) {

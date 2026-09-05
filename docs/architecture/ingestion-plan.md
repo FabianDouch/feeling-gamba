@@ -137,6 +137,9 @@ Implemented scripts:
   `npc_player_match_appearances`, and `npc_try_scorers`.
 - `refresh:npc-market-snapshots`: captures current TAB fixed-win Match Betting
   prices into one canonical `npc_market_snapshots` row per source event.
+- `refresh:npc-half-time-full-time-snapshots`: captures current TAB
+  half-time/full-time same-team double prices into one canonical
+  `npc_half_time_full_time_snapshots` row per source event.
 - `refresh:npc-try-scorer-market-snapshots`: captures current TAB `Anytime Try
   Scorer` prices into `npc_try_scorer_market_snapshots`, excluding `Penalty
   Try` and only matching player-name variants to official RU7 rows when there
@@ -145,6 +148,9 @@ Implemented scripts:
   matched official NPC rows, using one canonical fixed-win row per source event.
   It also rematches previously captured snapshots by kickoff window and
   home/away team names after official fixture rows arrive.
+- `reconcile:npc-half-time-full-time`: derives
+  `npc_half_time_full_time_results` from matched official NPC rows when
+  source-backed halftime and fulltime scores are available.
 - `rebuild:npc-same-game-multis`: derives favourite-team top-two try-scorer
   same-game rows from fixed-win favourites and captured try-scorer prices.
 - `rebuild:npc-insight-aggregates`: rebuilds app-facing `npc_insight_aggregates`.
@@ -159,6 +165,11 @@ Drawn final scores are counted as settled fixed-win losses for both team
 selections because the team selection would not pay out. Try-scorer and Same
 Game % rows are now source-backed from official Opta RU7 player/event rows plus
 captured TAB `Anytime Try Scorer` prices.
+Half-time/full-time double tracking stores only same-team home/home and
+away/away selections, plus the shorter-priced same-team favourite. A halftime
+draw or fulltime draw is settled as a loss for these tracked selections because
+the team/team double would not pay out. Historical HT/FT prices are not
+backfilled unless a pre-kickoff TAB snapshot already exists.
 NRL and NPC price-bucket aggregate rebuilds write both default 50c rows and
 finer 25c rows. The app selects between them with a bucket-size toggle instead
 of recalculating buckets client-side.
@@ -168,8 +179,9 @@ current-market wrapper every 15 minutes during typical NPC match windows.
 Repeated pre-kickoff captures update the same source-event row instead of
 creating additional calibration selections. As of 2026-09-04,
 `.github/workflows/npc-result-refresh.yml` runs the official result wrapper
-daily after the usual match window and includes future fixtures so upcoming TAB
-market snapshots can match official NPC rows.
+with repeated idempotent morning catch-up schedules after the usual match window
+and includes future fixtures so upcoming TAB market snapshots can match
+official NPC rows.
 
 Local fixture validation now has a first automated test suite at
 `apps/mobile/test/fixturePipeline.test.mjs`, run with
@@ -618,6 +630,8 @@ Purpose:
 
 - Capture current NRL fixed-win prices from open `Match Betting`
   markets.
+- Capture current NRL half-time/full-time same-team double prices from open
+  TAB markets when the event exposes a half-time/full-time market.
 - Store one canonical `nrl_market_snapshots` row per source event. Repeated
   pre-kickoff cron captures update that row instead of creating additional
   calibration selections.
@@ -648,6 +662,7 @@ Source rules:
 Expected writes:
 
 - `nrl_market_snapshots`
+- `nrl_half_time_full_time_snapshots`
 
 Current limitation:
 
@@ -655,6 +670,8 @@ Current limitation:
   official NRL row already exists.
 - NRL try-scorer cash and true same-game cash remain blocked until enough
   source-backed player try-scorer price history or quoted SGM prices exist.
+- Historical NRL HT/FT prices are not inferred; the HT/FT calibration history
+  starts from successful pre-kickoff TAB captures.
 
 ### `validate-nrl-try-scorer-markets`
 
@@ -732,8 +749,11 @@ Purpose:
 - Run the regular pre-match NRL market collection flow in one operator command.
 - Capture fixed-win `Match Betting` snapshots and `Anytime Try Scorer` player
   price snapshots from the same open-event window.
-- Reconcile fixed-win rows, rebuild same-game multi tracking rows, rebuild NRL
-  Insights, and regenerate current NRL single predictions.
+- Capture half-time/full-time same-team double prices from the same open-event
+  window when available.
+- Reconcile fixed-win and half-time/full-time rows, rebuild same-game multi
+  tracking rows, rebuild NRL Insights, and regenerate current NRL single
+  predictions.
 
 Initial mode:
 
@@ -756,8 +776,9 @@ Source rules:
   early Sunday NZST kickoffs are not first seen exactly at advertised start.
 - Passing `--season` plus `--round` or `--from-round` / `--to-round` preloads
   official fixture shells before market capture.
-- The job runs fixed-win capture before try-scorer capture, then reconciles and
-  rebuilds the same-game/insight/prediction read models.
+- The job runs fixed-win and half-time/full-time capture before try-scorer
+  capture, then reconciles and rebuilds the same-game/insight/prediction read
+  models.
 - Recurring schedules are useful only while markets are open before kickoff; a
   match that closes before player prices are captured will remain
   `missing_price` in the same-game audit.
@@ -765,8 +786,10 @@ Source rules:
 Expected writes:
 
 - `nrl_market_snapshots`
+- `nrl_half_time_full_time_snapshots`
 - `nrl_try_scorer_market_snapshots`
 - `nrl_fixed_win_snapshot_results`
+- `nrl_half_time_full_time_results`
 - `nrl_same_game_multi_results`
 - `nrl_insight_aggregates`
 - `nrl_single_predictions`
@@ -804,6 +827,42 @@ Expected writes:
 
 - `nrl_fixed_win_snapshot_results`
 
+### `reconcile-nrl-half-time-full-time`
+
+Purpose:
+
+- Convert stored NRL half-time/full-time snapshots into explicit result/status
+  rows.
+- Match snapshots to official NRL result rows through `matched_nrl_match_id`.
+- Store `$1` returns for home/home, away/away, and the shorter-priced same-team
+  favourite once a matched official result has source-backed halftime and final
+  scores.
+
+Initial mode:
+
+- Manual local worker:
+  `npm --workspace @feeling-gamba/ingestion run reconcile:nrl-half-time-full-time -- --require-supabase`
+- Dry-run validation:
+  `npm --workspace @feeling-gamba/ingestion run reconcile:nrl-half-time-full-time -- --dry-run --limit=200`
+
+Source rules:
+
+- Use `nrl_half_time_full_time_snapshots` as the price source of truth.
+- Reconcile only one canonical snapshot per source event, using the latest
+  stored pre-kickoff capture.
+- Use official `nrl_matches.home_half_time_score`,
+  `nrl_matches.away_half_time_score`, `home_score`, and `away_score` as the
+  settlement source of truth.
+- Treat halftime draws and fulltime draws as settled losses for the tracked
+  same-team doubles.
+- Treat cross-team outcomes, such as home leading at halftime and away winning
+  fulltime, as settled losses for both same-team doubles.
+- Keep pending and unresolved rows out of settled return denominators.
+
+Expected writes:
+
+- `nrl_half_time_full_time_results`
+
 ### `rebuild-nrl-insight-aggregates`
 
 Purpose:
@@ -818,6 +877,9 @@ Purpose:
   and official try-scorer settlement.
 - Store same-game multi percentage rows from `nrl_same_game_multi_results` once
   player try-scorer price snapshots exist.
+- Store half-time/full-time double rows from
+  `nrl_half_time_full_time_results` for home, away, favourite, favourite at
+  home, and favourite away.
 
 Initial mode:
 
@@ -829,6 +891,8 @@ Initial mode:
 Source rules:
 
 - Fixed-win cash metrics use reconciled current-market snapshot rows only.
+- Half-time/full-time cash metrics use reconciled HT/FT snapshot rows only and
+  cannot be backfilled before those prices are captured.
 - Fixed-win aggregate denominators count one canonical source event, not every
   pre-kickoff cron snapshot. This keeps calibration aligned with one game as
   one fixed-win selection.
@@ -860,6 +924,17 @@ Source rules:
 Expected writes:
 
 - `nrl_insight_aggregates`
+
+Operational note:
+
+- Settlement finding from 2026-09-05: one daily NRL/NPC result-refresh schedule
+  was not enough to guarantee yesterday's evening matches were reconciled
+  before the app was checked. NRL/NPC result workflows now mirror the racing
+  catch-up pattern with four idempotent morning schedules. NRL runs at `30 18`,
+  `30 20`, `30 22`, and `30 23` UTC; NPC runs at `45 18`, `45 20`, `45 22`,
+  and `45 23` UTC. Each pass scans the same lookback/season source data and
+  rewrites the derived read models, so a delayed source update or missed GitHub
+  cron should be caught by the next run.
 
 ### `rebuild-nrl-same-game-multis`
 
@@ -1303,8 +1378,8 @@ Proposed recurring jobs:
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-finalisation prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late refreshes after the selected sport's standard finalisation cutoff has passed. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC/PFL refreshes can refresh fight-card predictions independently before cutoff. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 | `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
 | `refresh-ufc-results` | active: daily GitHub Actions schedule `30 21 * * *` UTC | `refresh:ufc-results` and `reconcile:ufc-predictions` | Loads completed UFC fight-result rows from ESPN's public UFC scoreboard as result-only rows, then reconciles UFC multi recommendation outcomes against `ufc_fight_entries`. |
-| `refresh-nrl-results` | active: daily GitHub Actions schedule `30 22 * * *` UTC | `refresh:nrl-results-and-insights` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for recently completed rounds, reconciles NRL fixed-win snapshots, rebuilds same-game rows and NRL Insights. |
-| `refresh-npc-results` | active: daily GitHub Actions schedule `45 22 * * *` UTC | `refresh:npc-results-and-insights` | Loads official Provincial Rugby/Opta NPC fixture, result, player appearance, and try-scorer rows, rematches/reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
+| `refresh-nrl-results` | active: GitHub Actions catch-up schedules `30 18 * * *`, `30 20 * * *`, `30 22 * * *`, and `30 23 * * *` UTC | `refresh:nrl-results-and-insights` | Loads completed NRL official fixture, match result, roster, and try-scorer rows for recently completed rounds, reconciles NRL fixed-win and HT/FT snapshots, rebuilds same-game rows and NRL Insights. Multiple idempotent runs reduce stale pending rows when GitHub cron is delayed or the official source settles late. |
+| `refresh-npc-results` | active: GitHub Actions catch-up schedules `45 18 * * *`, `45 20 * * *`, `45 22 * * *`, and `45 23 * * *` UTC | `refresh:npc-results-and-insights` | Loads official Provincial Rugby/Opta NPC fixture, result, player appearance, and try-scorer rows, rematches/reconciles fixed-win and HT/FT snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. Multiple idempotent runs reduce stale pending rows when GitHub cron is delayed or the official source settles late. |
 | `refresh-nrl-current-markets` | active: GitHub Actions `*/15 2-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
 | `refresh-npc-current-markets` | active: GitHub Actions `*/15 0-9 * * 4,5,6,0` UTC during usual NPC match windows | `refresh:npc-current-markets` | Captures open NPC fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
 | `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`; requests 500 open TAB markets per event by default because high-market events can expose the match market late in the connection. |

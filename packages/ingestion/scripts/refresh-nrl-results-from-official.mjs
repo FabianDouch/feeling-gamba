@@ -404,19 +404,59 @@ function getResultStatus(matchPayload) {
   return "unknown";
 }
 
+/**
+ * Derives halftime score from the latest official scoring timeline state before 40:00.
+ */
+function getHalfTimeScore(matchPayload) {
+  if (!Array.isArray(matchPayload?.timeline)) {
+    return {
+      away: null,
+      home: null,
+    };
+  }
+
+  let score = {
+    away: 0,
+    home: 0,
+  };
+
+  const events = [...matchPayload.timeline].sort((left, right) =>
+    (toNullableInteger(left?.gameSeconds) ?? 0) - (toNullableInteger(right?.gameSeconds) ?? 0));
+
+  for (const event of events) {
+    const gameSeconds = toNullableInteger(event?.gameSeconds);
+    const homeScore = toNullableInteger(event?.homeScore);
+    const awayScore = toNullableInteger(event?.awayScore);
+
+    if (gameSeconds === null || gameSeconds > 40 * 60 || homeScore === null || awayScore === null) {
+      continue;
+    }
+
+    score = {
+      away: awayScore,
+      home: homeScore,
+    };
+  }
+
+  return score;
+}
+
 function mapMatch(matchPayload, round) {
   if (!matchPayload?.matchId) {
     return null;
   }
 
   const winner = getWinnerTeam(matchPayload);
+  const halfTimeScore = getHalfTimeScore(matchPayload);
 
   return {
     away_score: toNullableInteger(matchPayload.awayTeam?.score),
+    away_half_time_score: halfTimeScore.away,
     away_team_name: getTeamDisplayName(matchPayload.awayTeam),
     away_team_source_id: matchPayload.awayTeam?.teamId ? String(matchPayload.awayTeam.teamId) : null,
     competition_id: toNullableInteger(matchPayload.competition?.competitionId ?? 111),
     home_score: toNullableInteger(matchPayload.homeTeam?.score),
+    home_half_time_score: halfTimeScore.home,
     home_team_name: getTeamDisplayName(matchPayload.homeTeam),
     home_team_source_id: matchPayload.homeTeam?.teamId ? String(matchPayload.homeTeam.teamId) : null,
     kickoff_at: matchPayload.startTime ?? null,

@@ -2,8 +2,13 @@ name: NPC Result Refresh
 
 on:
   schedule:
-    # 10:45 NZST / 11:45 NZDT. GitHub cron uses UTC.
+    # 06:45, 08:45, 10:45, and 11:45 NZST / 07:45, 09:45, 11:45, and 12:45 NZDT.
+    # GitHub cron can be delayed or skipped; these idempotent catch-up passes
+    # rescan the season feed so yesterday's matches settle.
+    - cron: "45 18 * * *"
+    - cron: "45 20 * * *"
     - cron: "45 22 * * *"
+    - cron: "45 23 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

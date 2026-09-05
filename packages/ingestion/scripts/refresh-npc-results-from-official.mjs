@@ -372,6 +372,29 @@ function getRoundTitle(fixture) {
     || (fixture.round ? `Round ${fixture.round}` : null);
 }
 
+function findNumericAttributeByPattern(object, pattern) {
+  for (const [key, value] of Object.entries(object ?? {})) {
+    if (!pattern.test(key)) {
+      continue;
+    }
+
+    const parsed = toNullableInteger(value);
+
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Reads Opta fixture halftime scores when the RU1 feed exposes a team-level field.
+ */
+function getFixtureHalfTimeScore(team) {
+  return findNumericAttributeByPattern(team, /(?:half|ht).*score|score.*(?:half|ht)/i);
+}
+
 /**
  * Maps one Opta fixture element into the npc_matches write model.
  */
@@ -397,10 +420,12 @@ function mapFixtureMatch(fixture, teams, options) {
 
   return {
     away_score: resultStatus === "settled" ? toNullableInteger(awayTeam.score) : null,
+    away_half_time_score: resultStatus === "settled" ? getFixtureHalfTimeScore(awayTeam) : null,
     away_team_name: awayTeam.teamname ?? null,
     away_team_source_id: awayTeam.team_id ?? null,
     competition_id: toNullableInteger(fixture.comp_id),
     home_score: resultStatus === "settled" ? toNullableInteger(homeTeam.score) : null,
+    home_half_time_score: resultStatus === "settled" ? getFixtureHalfTimeScore(homeTeam) : null,
     home_team_name: homeTeam.teamname ?? null,
     home_team_source_id: homeTeam.team_id ?? null,
     kickoff_at: toIsoTimestamp(fixture.datetime),

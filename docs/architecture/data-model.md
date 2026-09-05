@@ -73,6 +73,16 @@ As of `2026-09-04`,
 `supabase/migrations/202609040001_team_sport_insight_bucket_size.sql` adds a
 `bucket_size` column to NRL and NPC aggregate rows so app-facing price
 breakdowns can be stored in both default 50c and optional 25c decimal buckets.
+As of `2026-09-04`,
+`supabase/migrations/202609040002_team_sport_half_time_full_time_double.sql`
+adds NRL/NPC halftime score fields plus separate
+`*_half_time_full_time_snapshots` and `*_half_time_full_time_results` tables.
+The HT/FT tables track one canonical TAB source-event row for the same-team
+home/home and away/away double, derive the favourite from the shorter same-team
+double price, and feed `half_time_full_time_double` aggregate rows for the same
+selection groups used by fixed win: home, away, favourite, favourite at home,
+and favourite away. Historical HT/FT prices are not inferred; calibration starts
+from captured pre-kickoff market rows.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.

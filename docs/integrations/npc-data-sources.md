@@ -27,6 +27,15 @@ Insight buckets mirror NRL by storing separate `favourite`, `home`, and `away`
 rows under the same aggregate scopes. The app toggles between those roles under
 each fixed-win price section. Backfill can only use stored `npc_*` market
 snapshot/result rows; historical prices are not inferred.
+As of 2026-09-04, NPC half-time/full-time double tracking is implemented with
+`supabase/migrations/202609040002_team_sport_half_time_full_time_double.sql`,
+`packages/ingestion/scripts/refresh-npc-half-time-full-time-snapshots-from-tab.mjs`,
+and `packages/ingestion/scripts/reconcile-npc-half-time-full-time-snapshots.mjs`.
+It stores one canonical TAB row per source event for the same-team home/home
+and away/away double, derives the favourite from the shorter same-team double
+price, and exposes app-facing home, away, favourite, favourite-at-home, and
+favourite-away aggregate rows once source-backed halftime scores are available.
+Historical HT/FT prices are not inferred.
 The same date corrected fixed-win match-market capture to one canonical row per
 TAB source event, updated by repeated pre-kickoff cron runs. The duplicate
 cleanup/guard migration is
@@ -42,6 +51,8 @@ Validated current NPC market access:
 - Competition label: `New Zealand NPC`
 - Fixed-win market label: `Match Betting`
 - Try-scorer market label: `Anytime Try Scorer`
+- Half-time/full-time market label: matched by TAB market names containing
+  `Half Time` and `Full Time`
 
 The observed `Match Betting` market has two team entrants with `HOME` and
 `AWAY` roles. A draw entrant was not present in that market. Draw/three-way style
@@ -58,6 +69,12 @@ NPC try-scorer market capture is implemented in:
 
 ```sh
 npm --workspace @feeling-gamba/ingestion run refresh:npc-try-scorer-market-snapshots -- --dry-run --event-count=6 --markets-first=500 --entrants-first=60
+```
+
+NPC half-time/full-time market capture is implemented in:
+
+```sh
+npm --workspace @feeling-gamba/ingestion run refresh:npc-half-time-full-time-snapshots -- --dry-run --event-count=6 --markets-first=500
 ```
 
 The scheduled wrapper is:
@@ -114,9 +131,13 @@ npm --workspace @feeling-gamba/ingestion run refresh:npc-results-and-insights --
 ```
 
 It refreshes official fixture/result/player rows, rematches existing TAB market
-snapshots to official fixtures, reconciles fixed-win outcomes, rebuilds
-same-game multi results, rebuilds NPC Insight aggregates, and regenerates
-current NPC fixed-win and try-scorer predictions.
+snapshots to official fixtures, reconciles fixed-win and half-time/full-time
+outcomes, rebuilds same-game multi results, rebuilds NPC Insight aggregates,
+and regenerates current NPC fixed-win and try-scorer predictions.
+As of 2026-09-05, the NPC result workflow runs four idempotent morning catch-up
+schedules at `45 18`, `45 20`, `45 22`, and `45 23` UTC. The repeated passes
+rescan the same season feed so a delayed Opta update or missed GitHub cron
+should not leave the previous evening's NPC rows pending until manual refresh.
 
 ## Current Gaps
 
@@ -125,6 +146,8 @@ current NPC fixed-win and try-scorer predictions.
 - Historical NPC try-scorer prices are not available from the current TAB market
   source, so price-backed try-scorer and same-game calibration starts from
   prospective snapshots.
+- NPC HT/FT settlement remains `missing_result` for settled matches unless the
+  Opta fixture feed exposes source-backed halftime score fields.
 - Prediction History remains incomplete until NPC history RPCs/read models are
   added, even though fixed-win prediction rows can now be reconciled against
   official match results.

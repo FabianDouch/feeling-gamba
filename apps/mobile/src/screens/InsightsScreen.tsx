@@ -104,6 +104,8 @@ const emptyNrlInsights: NrlInsightsData = {
   fixedWinRoundBreakdown: [],
   fixedWinSelectionBreakdown: [],
   fixedWinSummaryStats: [],
+  halfTimeFullTimeSelectionBreakdown: [],
+  halfTimeFullTimeSummaryStats: [],
   sameGameRoundBreakdown: [],
   sameGameSummaryStats: [],
   tryScorerPlayerBreakdown: [],
@@ -186,6 +188,8 @@ export function InsightsScreen() {
     || hasFixedWinPriceRows(nrlInsights.fixedWinOtherTeamPriceBreakdown)
     || hasFixedWinPriceRows(nrlInsights.fixedWinPriceDifferenceBreakdown)
     || nrlInsights.fixedWinRoundBreakdown.length > 0
+    || nrlInsights.halfTimeFullTimeSummaryStats.length > 0
+    || nrlInsights.halfTimeFullTimeSelectionBreakdown.length > 0
     || nrlInsights.sameGameSummaryStats.length > 0
     || nrlInsights.sameGameRoundBreakdown.length > 0
     || nrlInsights.tryScorerSummaryStats.length > 0
@@ -198,6 +202,8 @@ export function InsightsScreen() {
     || hasFixedWinPriceRows(npcInsights.fixedWinOtherTeamPriceBreakdown)
     || hasFixedWinPriceRows(npcInsights.fixedWinPriceDifferenceBreakdown)
     || npcInsights.fixedWinRoundBreakdown.length > 0
+    || npcInsights.halfTimeFullTimeSummaryStats.length > 0
+    || npcInsights.halfTimeFullTimeSelectionBreakdown.length > 0
     || npcInsights.sameGameSummaryStats.length > 0
     || npcInsights.sameGameRoundBreakdown.length > 0
     || npcInsights.tryScorerSummaryStats.length > 0
@@ -720,6 +726,8 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
   const [selectedBucketSize, setSelectedBucketSize] = useState<NrlPriceBucketSize>("0.50");
   const hasSameGameRows = insights.sameGameSummaryStats.length > 0
     || insights.sameGameRoundBreakdown.length > 0;
+  const hasHalfTimeFullTimeRows = insights.halfTimeFullTimeSummaryStats.length > 0
+    || insights.halfTimeFullTimeSelectionBreakdown.length > 0;
 
   return (
     <>
@@ -737,6 +745,26 @@ function NrlInsightsPanel({ insights }: NrlInsightsPanelProps) {
           </View>
 
           <NrlBreakdown title="Same game by round" rows={insights.sameGameRoundBreakdown} />
+        </>
+      ) : null}
+
+      {hasHalfTimeFullTimeRows ? (
+        <>
+          <Text style={styles.subheading}>Half-time / full-time double</Text>
+          <View style={styles.statsRow}>
+            {insights.halfTimeFullTimeSummaryStats.map((stat) => (
+              <View key={stat.label} style={styles.stat}>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+                <Text style={styles.statDetail}>{stat.detail}</Text>
+              </View>
+            ))}
+          </View>
+
+          <NrlBreakdown
+            title="Half-time / full-time by selection"
+            rows={insights.halfTimeFullTimeSelectionBreakdown}
+          />
         </>
       ) : null}
 

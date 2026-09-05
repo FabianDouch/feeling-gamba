@@ -2,8 +2,13 @@ name: NRL Result Refresh
 
 on:
   schedule:
-    # 10:30 NZST / 11:30 NZDT. GitHub cron uses UTC.
+    # 06:30, 08:30, 10:30, and 11:30 NZST / 07:30, 09:30, 11:30, and 12:30 NZDT.
+    # GitHub cron can be delayed or skipped; these idempotent catch-up passes
+    # rescan the same completed-fixture lookback so yesterday's matches settle.
+    - cron: "30 18 * * *"
+    - cron: "30 20 * * *"
     - cron: "30 22 * * *"
+    - cron: "30 23 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

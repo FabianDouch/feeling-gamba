@@ -144,6 +144,7 @@ function buildRefreshCommands(options) {
 
   if (!options.skipReconcile) {
     commands.push(buildCommand("reconcile_npc_fixed_win", "reconcile-npc-fixed-win-snapshots.mjs", writeFlags));
+    commands.push(buildCommand("reconcile_npc_half_time_full_time", "reconcile-npc-half-time-full-time-snapshots.mjs", writeFlags));
   }
 
   if (!options.skipSameGameMultis) {
