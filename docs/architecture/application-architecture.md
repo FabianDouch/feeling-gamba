@@ -10,7 +10,12 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-04 to add
+Note: the YAML was updated on 2026-09-07 so UEFA Champions League uses
+sport-specific `ucl_*` tables, TAB `Match Result` fixed-win snapshots, UEFA
+official priced-only result/goal rows, app-facing UCL Insights/Predictions tabs,
+and explicit empty Prediction History branches until UCL history RPCs are
+added. Rendered architecture outputs should be regenerated from the YAML before
+being treated as current. It was updated on 2026-09-04 to add
 `ufc_multi_other_fighter_price_win_percentage_top6_v1`, a UFC other-fighter
 price same-card multi variant capped at six legs. Rendered architecture outputs
 should be regenerated from the YAML before being treated as current. It was
@@ -624,8 +629,10 @@ repo-root public Supabase env values before Metro bundles the app.
   `ufc_insight_aggregates`. NRL reads
   `nrl_insight_aggregates` for fixed-win singles and try-scorer percentage
   rows. NPC reads `npc_insight_aggregates` with the same NRL-shaped fixed-win
-  breakdowns; try-scorer and Same Game sections stay empty until NPC player
-  market capture and official scorer settlement are validated. When one racing track and one racing discipline is selected, the app
+  breakdowns and source-backed try-scorer/Same Game rows. UCL reads
+  `ucl_insight_aggregates` with the same fixed-win role and bucket structure,
+  football goalscorer rows, and draw outcomes counted as settled losses for
+  tracked team selections. When one racing track and one racing discipline is selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
   races at the selected track, store an audit row in
   `track_race_odds_requests`, and show the response for manual comparison with
@@ -687,8 +694,9 @@ repo-root public Supabase env values before Metro bundles the app.
   `nrl_single_predictions`, with fixed-win percentage candidates sourced from
   current market favourites and try-scorer percentage candidates sourced
   from official historical player/team try rates. NPC reads current Singles ->
-  Win % rows from `npc_single_predictions`; the fixed-win path is implemented,
-  while try-scorer rows remain gated by official player/source validation. PFL uses the same
+  Win % rows from `npc_single_predictions`. UCL reads current Singles -> Win %
+  rows from `ucl_single_predictions`, using TAB `Match Result` fixed-win
+  snapshots and UEFA `official_uefa` player/team goal rates. PFL uses the same
   Singles/Multis -> Win % model tabs as UFC and reads current fixed-win MMA odds
   only when a current odds event matches the reviewed PFL event allow-list by
   event date and unordered fighter pair. PFL-specific prediction storage/RPCs
@@ -732,7 +740,9 @@ repo-root public Supabase env values before Metro bundles the app.
   models based on each fight's strongest UFC bucket signal. NRL prediction
   history is intentionally empty until NRL single prediction reconciliation and
   history RPCs are added. NPC prediction history is intentionally empty until
-  official NPC result refresh and NPC history RPCs are added. PFL prediction
+  official NPC result refresh and NPC history RPCs are added. UCL prediction
+  history is intentionally empty until UCL prediction reconciliation and history
+  RPCs are added. PFL prediction
   history is also intentionally empty:
   the app shows the same PFL Win % tab shape as UFC, but does not read UFC
   tables because they do not distinguish PFL rows.
@@ -797,6 +807,14 @@ repo-root public Supabase env values before Metro bundles the app.
   favourite-team TAB `Anytime Try Scorer` selections where those entrants are
   matched to official player IDs. Price-bucket rows use the same 50c/25c
   granularity contract as NRL.
+- UCL Insights use the same stored aggregate shape as NRL/NPC. Fixed-win cash
+  metrics come from reconciled TAB `Match Result` snapshots with home, draw, and
+  away prices captured; draw final scores settle as team-selection losses.
+  Goalscorer percentage rows come from UEFA player appearances and goal events,
+  and Same Game % rows use the favourite fixed-win team plus the two
+  shortest-priced favourite-team TAB `Anytime Goalscorer` selections where
+  those entrants are matched to official player IDs. Official UEFA rows are
+  written only for matches with captured fixed-win prices by default.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

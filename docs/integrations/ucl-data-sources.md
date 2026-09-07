@@ -1,0 +1,75 @@
+# UEFA Champions League Data Source Validation
+
+Checked on 2026-09-07.
+
+## Implementation Status
+
+The first UCL slice uses sport-specific `ucl_*` tables and mirrors the narrow
+NRL/NPC team-sport pipeline. Current fixed-win market capture, official priced
+fixture/result refresh, fixed-win reconciliation, same-game goalscorer rebuilds,
+stored Insight aggregates, current single prediction generation, and the
+app-facing UCL Insights/Predictions toggles are implemented.
+
+Prediction History is exposed as an explicit reserved branch, matching the
+current NRL/NPC app state, until UCL prediction reconciliation/history RPCs are
+added.
+
+## TAB NZ Market Source
+
+Validated current UCL market access:
+
+- Source URL: `https://www.tab.co.nz/sports/soccer/uefa-champions-league`
+- TAB category enum: `SOCCER`
+- Competition slug: `uefa-champions-league`
+- Fixed-win market label: `Match Result`
+- Goalscorer market label: `Anytime Goalscorer`
+
+The observed `Match Result` market is three-way. The UCL snapshot stores home,
+draw, and away prices. Fixed-win Insights and predictions only track team
+selections: home, away, favourite, favourite at home, and favourite away.
+
+Validation dry run on 2026-09-07 captured Club Brugge vs Aston Villa with home
+`$2.60`, draw `$3.60`, and away/favourite `$2.45`.
+
+```sh
+npm --workspace @feeling-gamba/ingestion run refresh:ucl-market-snapshots -- --dry-run --event-count=1 --markets-first=200
+```
+
+## Official UEFA Source
+
+Official UEFA rows use `source = 'official_uefa'`.
+
+Validated public endpoints:
+
+- `https://match.uefa.com/v5/matches?competitionId=1&seasonYear=2026`
+- `https://match.uefa.com/v5/matches/{source_match_id}/lineups`
+- `https://match.uefa.com/v5/matches/{source_match_id}/events?filter=ALL&order=ASC&limit=500&offset=0`
+
+The result importer defaults to `--priced-only`. It reads captured
+`ucl_market_snapshots`, matches UEFA rows by home/away team names and kickoff
+window, then writes only those price-backed official matches. On 2026-09-07,
+the dry run saw 281 UEFA 2026 season matches but retained zero because the UCL
+schema had not been deployed and no UCL fixed-win snapshots existed in
+Supabase.
+
+```sh
+npm --workspace @feeling-gamba/ingestion run refresh:ucl-results -- --dry-run --season=2026 --include-fixtures --priced-only --skip-details
+```
+
+## Settlement Rule
+
+For UCL fixed-win calibration, a drawn final score is a settled non-paying loss
+for home, away, and favourite team selections. `ucl_fixed_win_snapshot_results`
+stores `match_drawn = true`, `home_team_won = false`, `away_team_won = false`,
+`favourite_won = false`, and zero returns for those tracked selections.
+
+## Current Gaps
+
+- Historical TAB fixed-win and goalscorer prices are not available from the
+  current public TAB source, so price-backed calibration starts prospectively.
+- Official UEFA goal-event extraction still needs more live validation for own
+  goals, penalty goals, extra time, penalty shootouts, abandoned matches, and
+  duplicate/variant player names.
+- UCL half-time/full-time double tracking is not implemented in this slice.
+- UCL Prediction History remains incomplete until sport-specific history RPCs
+  and prediction outcome reconciliation are added.

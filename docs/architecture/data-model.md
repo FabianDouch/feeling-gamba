@@ -83,6 +83,15 @@ double price, and feed `half_time_full_time_double` aggregate rows for the same
 selection groups used by fixed win: home, away, favourite, favourite at home,
 and favourite away. Historical HT/FT prices are not inferred; calibration starts
 from captured pre-kickoff market rows.
+As of `2026-09-07`, UEFA Champions League support uses the same narrow
+sport-specific pattern with `ucl_*` tables in
+`supabase/migrations/202609070001_ucl_pipeline.sql`. TAB `Match Result`
+snapshots store home, draw, and away prices, but app-facing fixed-win
+calibration tracks only home/away/favourite team selections. Drawn final scores
+are settled non-paying losses for those team selections. Official UEFA fixture,
+lineup, appearance, and goal-event rows are written only when they match a
+captured TAB fixed-win snapshot; unpriced official-only history is not
+backfilled.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.

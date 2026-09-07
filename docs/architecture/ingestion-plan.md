@@ -174,6 +174,46 @@ NRL and NPC price-bucket aggregate rebuilds write both default 50c rows and
 finer 25c rows. The app selects between them with a bucket-size toggle instead
 of recalculating buckets client-side.
 
+## UEFA Champions League Current Market Capture
+
+The first UCL slice mirrors the NRL/NPC pipeline with separate `ucl_*` tables.
+As of 2026-09-07, TAB current markets are validated at `SOCCER` /
+`uefa-champions-league`, with a three-runner `Match Result` market: home, draw,
+and away. The capture script writes one canonical `ucl_market_snapshots` row per
+TAB source event, including `draw_fixed_win_price` for auditability. UCL
+fixed-win aggregates still track only home, away, favourite, favourite at home,
+and favourite away team selections; a drawn final score is settled as a
+non-paying loss for each of those selections.
+
+Implemented scripts:
+
+- `refresh:ucl-market-snapshots`: captures current TAB `Match Result` prices.
+- `refresh:ucl-goal-scorer-market-snapshots`: captures current TAB `Anytime
+  Goalscorer` prices and excludes `No Goalscorer`.
+- `refresh:ucl-results`: reads UEFA public match, lineup, and event endpoints
+  and writes `official_uefa` rows only for matches with captured TAB fixed-win
+  prices by default.
+- `reconcile:ucl-fixed-win`: derives `ucl_fixed_win_snapshot_results` and treats
+  draws as settled losses for home/away/favourite team selections.
+- `rebuild:ucl-same-game-multis`: derives favourite-team plus top-two
+  goalscorer same-game rows from captured fixed-win and goalscorer prices.
+- `rebuild:ucl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
+  same-game rows in `ucl_insight_aggregates`, including 50c and 25c price
+  buckets.
+- `generate:ucl-single-predictions`: writes current fixed-win and goalscorer
+  single rows to `ucl_single_predictions`.
+- `refresh:ucl-current-markets`: captures TAB market rows, refreshes matching
+  priced UEFA fixtures, reconciles, rebuilds, and regenerates current
+  predictions.
+- `refresh:ucl-results-and-insights`: refreshes priced official UEFA rows,
+  reconciles, rebuilds, and regenerates current predictions.
+
+The GitHub Actions `.github/workflows/ucl-market-refresh.yml` schedule runs the
+current-market wrapper every 15 minutes across the usual European evening UCL
+window. `.github/workflows/ucl-result-refresh.yml` runs repeated post-match
+catch-up passes. Both wrappers are idempotent. Historical UEFA rows are not
+backfilled unless a matching fixed-win price snapshot exists.
+
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
 current-market wrapper every 15 minutes during typical NPC match windows.
 Repeated pre-kickoff captures update the same source-event row instead of

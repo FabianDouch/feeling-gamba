@@ -1,0 +1,99 @@
+name: UCL Result Refresh
+
+on:
+  schedule:
+    # Post-match European evening catch-up passes. GitHub cron uses UTC and may be delayed.
+    - cron: "30 20 * * 1,2,3,4"
+    - cron: "30 22 * * 1,2,3,4"
+    - cron: "30 23 * * 1,2,3,4"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and summarize UCL results without writing
+        required: false
+        default: false
+        type: boolean
+      include_fixtures:
+        description: Include future fixtures so market snapshots can match upcoming UCL matches
+        required: false
+        default: true
+        type: boolean
+      season:
+        description: UCL season year
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ucl-result-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh UCL Results And Insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      INCLUDE_FIXTURES: ${{ github.event.inputs.include_fixtures }}
+      SEASON: ${{ github.event.inputs.season }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          season="${SEASON:-$(date -u +%Y)}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          case "$season" in
+            ''|*[!0-9]*)
+              echo "season must be a positive integer"
+              exit 1
+              ;;
+          esac
+
+          if [ "$season" -lt 2000 ]; then
+            echo "season must be a four-digit year"
+            exit 1
+          fi
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for UCL result writes"
+            exit 1
+          fi
+
+      - name: Refresh recent UCL result rows and insights
+        run: |
+          args=(
+            "--season=${SEASON:-$(date -u +%Y)}"
+            "--priced-only"
+          )
+
+          if [ "${INCLUDE_FIXTURES:-true}" != "true" ]; then
+            args+=("--no-include-fixtures")
+          fi
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:ucl-results-and-insights -- "${args[@]}"

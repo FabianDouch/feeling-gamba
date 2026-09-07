@@ -315,7 +315,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport === "nrl" || activeSport === "npc" ? undefined : activeSport,
+          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -385,7 +385,7 @@ export function PredictionHistoryScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc") {
+    if (value === "nrl" || value === "npc" || value === "ucl") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -1208,6 +1208,10 @@ function getUnsupportedHistoryBranchMessage({
     return "NPC prediction history is not tracked yet. Current NPC single predictions are available on the Predictions tab.";
   }
 
+  if (activeSport === "ucl") {
+    return "UCL prediction history is not tracked yet. Current UCL single predictions are available on the Predictions tab.";
+  }
+
   return null;
 }
 
@@ -1316,6 +1320,10 @@ function getPredictionSportLabel(sport: PredictionSport) {
 
   if (sport === "pfl") {
     return "PFL";
+  }
+
+  if (sport === "ucl") {
+    return "UCL";
   }
 
   return "Racing";

@@ -111,6 +111,7 @@ systems:
         - Let signed-in users lock the selected current prediction view before that sport's 15-minute-before-first-start finalisation cutoff, while existing percentage multi locks continue to preserve history-specific snapshots.
         - Let signed-in users favourite exact prediction model branches and enable neutral mobile notifications when those models finalise with active current predictions.
         - Show NPC rugby as a first-class Insights and Predictions sport, reading fixed-win current-market rows from NPC-specific Supabase tables.
+        - Show UEFA Champions League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from UCL-specific Supabase tables.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -605,6 +606,9 @@ data_model:
     npc_insight_aggregates:
       purpose: Stored app-facing NPC rugby insight rows for fixed-win singles, try-scorer percentages, and same-game multi percentages.
       key: scope_key
+    ucl_insight_aggregates:
+      purpose: Stored app-facing UEFA Champions League insight rows for fixed-win singles, goalscorer percentages, and same-game multi percentages.
+      key: scope_key
     pfl_insight_aggregates:
       purpose: Stored app-facing PFL fixed-win insight rows for favourite, other fighter, and price-difference buckets.
       key: scope_key
@@ -640,6 +644,14 @@ derived_views:
       - Store try-scorer percentage rows by player, team, season, round, and captured price bucket from official RU7 player rows and TAB try-scorer prices.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis from captured TAB try-scorer prices and official RU7 try settlement.
       - Keep NPC Insights on stored Supabase aggregates instead of calculating rates in the app.
+  ucl_insight_aggregates:
+    responsibility:
+      - Store one canonical TAB Match Result row per source event with home, draw, and away fixed-win prices.
+      - Store UCL fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
+      - Store goalscorer percentage rows by player, team, season, round, and captured price bucket from UEFA player/event rows and TAB Anytime Goalscorer prices.
+      - Store Same Game % rows for favourite-team plus top-two goalscorer multis from captured TAB goalscorer prices and official UEFA goal settlement.
+      - Keep UCL Insights on stored Supabase aggregates instead of calculating rates in the app.
   pfl_insight_aggregates:
     responsibility:
       - Store PFL favourite fixed-win performance by favourite price, other fighter price, and price-difference buckets.
@@ -762,6 +774,7 @@ flows:
       - find the current Auckland source date and inspect current_prediction_snapshots for Racing, UFC, and PFL active current predictions.
       - read nrl_single_predictions for NRL active current single predictions until NRL is folded into the mixed current snapshot.
       - read npc_single_predictions for NPC active current single predictions until NPC is folded into the mixed current snapshot.
+      - read ucl_single_predictions for UCL active current single predictions until UCL is folded into the mixed current snapshot.
       - create or reuse a prediction_notification_events row once the selected sport/model finalisation timestamp has passed and at least one active prediction exists.
       - create user_prediction_notifications rows before sending so retries remain idempotent.
       - send neutral Expo push notifications and record Expo ticket ids or errors; disable permanently invalid push tokens.
@@ -799,6 +812,7 @@ flows:
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
       - NRL and NPC Insights default price bucket breakdowns to 50c granularity and can switch to 25c stored aggregate rows.
       - NPC Insights reads npc_insight_aggregates and NPC Predictions reads npc_single_predictions for Singles -> Win % rows.
+      - UCL Insights reads ucl_insight_aggregates and UCL Predictions reads ucl_single_predictions for Singles -> Win % rows.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.

@@ -28,10 +28,12 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [PFL data source validation](./integrations/pfl-data-sources.md)
 - [NRL data source validation](./integrations/nrl-data-sources.md)
 - [NPC rugby data source validation](./integrations/npc-data-sources.md)
+- [UEFA Champions League data source validation](./integrations/ucl-data-sources.md)
 - [TAB Form Guide notes](./integrations/tab-form-guide.md)
 - [HRNZ notes](./integrations/hrnz.md)
 - [Race ID discovery notes](./integrations/race-id-discovery.md)
 - [NPC rugby feature plan](./branches/features/npc-rugby/npc-rugby_plan.md)
+- [UEFA Champions League feature plan](./branches/features/uefa-champions-league/uefa-champions-league_plan.md)
 
 ## Current MVP Goal
 
