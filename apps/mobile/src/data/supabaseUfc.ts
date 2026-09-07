@@ -7,6 +7,8 @@ export const DEFAULT_UFC_ROW_LIMIT = 20;
 
 type NullableNumber = number | string | null;
 type CombatSport = "pfl" | "ufc";
+export type UfcPriceBucketSize = "0.25" | "0.50";
+export type UfcPriceBreakdownGroups = Record<UfcPriceBucketSize, PriceBreakdown[]>;
 
 const COMBAT_SPORT_CONFIG = {
   pfl: {
@@ -70,9 +72,12 @@ export type UfcHistoricalQueryResult = {
 };
 
 export type UfcInsightsData = {
-  favouritePriceBreakdown: PriceBreakdown[];
-  otherFighterPriceBreakdown: PriceBreakdown[];
-  priceDifferenceBreakdown: PriceBreakdown[];
+  favouritePriceBreakdown: UfcPriceBreakdownGroups;
+  favouritePriceBreakdownPlus: UfcPriceBreakdownGroups;
+  otherFighterPriceBreakdown: UfcPriceBreakdownGroups;
+  otherFighterPriceBreakdownPlus: UfcPriceBreakdownGroups;
+  priceDifferenceBreakdown: UfcPriceBreakdownGroups;
+  priceDifferenceBreakdownPlus: UfcPriceBreakdownGroups;
   summaryStats: FavouriteStat[];
 };
 
@@ -100,7 +105,10 @@ type UfcInsightAggregateRow = {
   fight_count: number;
   missing_price_count: number;
   net_return: NullableNumber;
+  bucket_size: NullableNumber;
+  price_bucket_end: NullableNumber;
   price_bucket_label: string | null;
+  price_bucket_start: NullableNumber;
   priced_fight_count: number;
   result_only_count: number;
   review_candidate_count: number;
@@ -114,8 +122,11 @@ type UfcInsightAggregateRow = {
 type UfcInsightScopeType =
   | "overall"
   | "favourite_price_bucket"
+  | "favourite_price_bucket_plus"
   | "other_fighter_price_bucket"
+  | "other_fighter_price_bucket_plus"
   | "price_difference_bucket"
+  | "price_difference_bucket_plus"
   | "price_match_status";
 
 export const hasSupabaseUfcConfig = Boolean(
@@ -251,21 +262,35 @@ export async function fetchPflInsights(): Promise<UfcInsightsData> {
 
 async function fetchCombatInsights(sport: CombatSport): Promise<UfcInsightsData> {
   const config = COMBAT_SPORT_CONFIG[sport];
-  const [overallRows, favouritePriceRows, otherFighterPriceRows, priceDifferenceRows] = await Promise.all([
+  const [
+    overallRows,
+    favouritePriceRows,
+    favouritePricePlusRows,
+    otherFighterPriceRows,
+    otherFighterPricePlusRows,
+    priceDifferenceRows,
+    priceDifferencePlusRows,
+  ] = await Promise.all([
     supabaseSelectAll<UfcInsightAggregateRow>(config.insightTable, {
       scope_key: `eq.${config.overallScopeKey}`,
       select: UFC_INSIGHT_SELECT,
     }),
     fetchCombatBucketRows(sport, "favourite_price_bucket"),
+    fetchCombatBucketRows(sport, "favourite_price_bucket_plus"),
     fetchCombatBucketRows(sport, "other_fighter_price_bucket"),
+    fetchCombatBucketRows(sport, "other_fighter_price_bucket_plus"),
     fetchCombatBucketRows(sport, "price_difference_bucket"),
+    fetchCombatBucketRows(sport, "price_difference_bucket_plus"),
   ]);
   const overall = overallRows[0] ?? null;
 
   return {
-    favouritePriceBreakdown: favouritePriceRows.map(mapUfcPriceBreakdown),
-    otherFighterPriceBreakdown: otherFighterPriceRows.map(mapUfcPriceBreakdown),
-    priceDifferenceBreakdown: priceDifferenceRows.map(mapUfcPriceBreakdown),
+    favouritePriceBreakdown: mapUfcPriceBreakdownGroups(favouritePriceRows),
+    favouritePriceBreakdownPlus: mapUfcPriceBreakdownGroups(favouritePricePlusRows),
+    otherFighterPriceBreakdown: mapUfcPriceBreakdownGroups(otherFighterPriceRows),
+    otherFighterPriceBreakdownPlus: mapUfcPriceBreakdownGroups(otherFighterPricePlusRows),
+    priceDifferenceBreakdown: mapUfcPriceBreakdownGroups(priceDifferenceRows),
+    priceDifferenceBreakdownPlus: mapUfcPriceBreakdownGroups(priceDifferencePlusRows),
     summaryStats: overall ? mapUfcSummaryStats(overall) : [],
   };
 }
@@ -278,7 +303,10 @@ const UFC_INSIGHT_SELECT = [
   "fight_count",
   "missing_price_count",
   "net_return",
+  "bucket_size",
+  "price_bucket_end",
   "price_bucket_label",
+  "price_bucket_start",
   "priced_fight_count",
   "result_only_count",
   "review_candidate_count",
@@ -294,7 +322,7 @@ function fetchCombatBucketRows(
   scopeType: Exclude<UfcInsightScopeType, "overall" | "price_match_status">,
 ) {
   return supabaseSelectAll<UfcInsightAggregateRow>(COMBAT_SPORT_CONFIG[sport].insightTable, {
-    order: "price_bucket_start.asc",
+    order: "bucket_size.desc,price_bucket_start.asc",
     scope_type: `eq.${scopeType}`,
     select: UFC_INSIGHT_SELECT,
   });
@@ -344,6 +372,19 @@ function mapUfcSummaryStats(row: UfcInsightAggregateRow): FavouriteStat[] {
   ];
 }
 
+function mapUfcPriceBreakdownGroups(rows: UfcInsightAggregateRow[]): UfcPriceBreakdownGroups {
+  const groups: UfcPriceBreakdownGroups = {
+    "0.25": [],
+    "0.50": [],
+  };
+
+  for (const row of rows) {
+    groups[getBucketSizeKey(row.bucket_size)].push(mapUfcPriceBreakdown(row));
+  }
+
+  return groups;
+}
+
 function mapUfcPriceBreakdown(row: UfcInsightAggregateRow): PriceBreakdown {
   return {
     averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
@@ -362,6 +403,10 @@ function mapUfcPriceBreakdown(row: UfcInsightAggregateRow): PriceBreakdown {
     totalStaked: formatCurrency(numeric(row.total_stake)),
     winRate: formatPercentage(numeric(row.favourite_win_percentage)),
   };
+}
+
+function getBucketSizeKey(value: NullableNumber): UfcPriceBucketSize {
+  return Number(value) === 0.25 ? "0.25" : "0.50";
 }
 
 /**

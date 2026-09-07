@@ -7,6 +7,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_SOURCE_JSON = "packages/ingestion/data/pfl-bookmakers-review-2026-07-31.json";
+const PRICE_BUCKET_SIZES = [0.5, 0.25];
 
 /**
  * Parses the small PFL seed-import CLI surface.
@@ -159,16 +160,43 @@ function sourceFightKey(seed, fight) {
   ].join("|");
 }
 
-function getPriceBucketStart(price) {
-  return 1 + Math.floor(Math.max(0, price - 1) / 0.5) * 0.5;
+/**
+ * Finds the lower edge of a fixed-win price bucket at the selected granularity.
+ */
+function getPriceBucketStart(price, bucketSize = 0.5) {
+  return roundNumber(1 + Math.floor(Math.max(0, price - 1) / bucketSize) * bucketSize, 2);
 }
 
-function getDifferenceBucketStart(price) {
-  return Math.floor(Math.max(0, price) / 0.5) * 0.5;
+/**
+ * Finds the lower edge of a price-difference bucket from zero upward.
+ */
+function getDifferenceBucketStart(price, bucketSize = 0.5) {
+  return roundNumber(Math.floor(Math.max(0, price) / bucketSize) * bucketSize, 2);
 }
 
-function getBucketLabel(start, prefix = "$") {
-  return `${prefix}${start.toFixed(2)} - ${prefix}${(start + 0.49).toFixed(2)}`;
+/**
+ * Formats an exact bucket label using inclusive-looking decimal ranges.
+ */
+function getBucketLabel(start, bucketSize = 0.5, prefix = "$") {
+  return `${prefix}${start.toFixed(2)} - ${prefix}${(start + bucketSize - 0.01).toFixed(2)}`;
+}
+
+/**
+ * Formats a cumulative threshold bucket label.
+ */
+function getBucketPlusLabel(start, prefix = "$") {
+  return `${prefix}${start.toFixed(2)}+`;
+}
+
+/**
+ * Preserves legacy 50c exact scope keys while namespacing 25c and plus rows.
+ */
+function getBucketScopeKey(sport, scopeType, start, bucketSize, isPlus = false) {
+  if (!isPlus && bucketSize === 0.5) {
+    return `${sport}:${scopeType}:${start.toFixed(2)}`;
+  }
+
+  return `${sport}:${scopeType}${isPlus ? "_plus" : ""}:${bucketSize.toFixed(2)}:${start.toFixed(2)}`;
 }
 
 /**
@@ -285,6 +313,9 @@ function buildFightEntries(seed) {
   });
 }
 
+/**
+ * Creates a mutable accumulator for one PFL insight scope.
+ */
 function createAggregateBucket(scope) {
   return {
     ...scope,
@@ -300,6 +331,9 @@ function createAggregateBucket(scope) {
   };
 }
 
+/**
+ * Adds one fight to an accumulator, counting unpriced rows separately from settled ROI rows.
+ */
 function addFightToAggregate(bucket, fight) {
   bucket.fightCount += 1;
   bucket.missingPriceCount += fight.missing_price ? 1 : 0;
@@ -317,6 +351,9 @@ function addFightToAggregate(bucket, fight) {
   bucket.totalReturn += fight.favourite_win_return ?? 0;
 }
 
+/**
+ * Lists every PFL aggregate scope a fight contributes to.
+ */
 function getAggregateScopes(fight) {
   const scopes = [
     {
@@ -330,36 +367,78 @@ function getAggregateScopes(fight) {
   ];
 
   if (Number.isFinite(fight.favourite_price)) {
-    const start = getPriceBucketStart(fight.favourite_price);
-    scopes.push({
-      priceBucketEnd: start + 0.49,
-      priceBucketLabel: getBucketLabel(start),
-      priceBucketStart: start,
-      scopeKey: `pfl:favourite_price_bucket:${start.toFixed(2)}`,
-      scopeType: "favourite_price_bucket",
-    });
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const start = getPriceBucketStart(fight.favourite_price, bucketSize);
+      scopes.push({
+        bucketSize,
+        priceBucketEnd: roundNumber(start + bucketSize - 0.01, 2),
+        priceBucketLabel: getBucketLabel(start, bucketSize),
+        priceBucketStart: start,
+        scopeKey: getBucketScopeKey("pfl", "favourite_price_bucket", start, bucketSize),
+        scopeType: "favourite_price_bucket",
+      });
+
+      for (let plusStart = 1; plusStart <= start + 0.0001; plusStart = roundNumber(plusStart + bucketSize, 2)) {
+        scopes.push({
+          bucketSize,
+          priceBucketEnd: null,
+          priceBucketLabel: getBucketPlusLabel(plusStart),
+          priceBucketStart: plusStart,
+          scopeKey: getBucketScopeKey("pfl", "favourite_price_bucket", plusStart, bucketSize, true),
+          scopeType: "favourite_price_bucket_plus",
+        });
+      }
+    }
   }
 
   if (Number.isFinite(fight.other_fighter_price)) {
-    const start = getPriceBucketStart(fight.other_fighter_price);
-    scopes.push({
-      priceBucketEnd: start + 0.49,
-      priceBucketLabel: getBucketLabel(start),
-      priceBucketStart: start,
-      scopeKey: `pfl:other_fighter_price_bucket:${start.toFixed(2)}`,
-      scopeType: "other_fighter_price_bucket",
-    });
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const start = getPriceBucketStart(fight.other_fighter_price, bucketSize);
+      scopes.push({
+        bucketSize,
+        priceBucketEnd: roundNumber(start + bucketSize - 0.01, 2),
+        priceBucketLabel: getBucketLabel(start, bucketSize),
+        priceBucketStart: start,
+        scopeKey: getBucketScopeKey("pfl", "other_fighter_price_bucket", start, bucketSize),
+        scopeType: "other_fighter_price_bucket",
+      });
+
+      for (let plusStart = 1; plusStart <= start + 0.0001; plusStart = roundNumber(plusStart + bucketSize, 2)) {
+        scopes.push({
+          bucketSize,
+          priceBucketEnd: null,
+          priceBucketLabel: getBucketPlusLabel(plusStart),
+          priceBucketStart: plusStart,
+          scopeKey: getBucketScopeKey("pfl", "other_fighter_price_bucket", plusStart, bucketSize, true),
+          scopeType: "other_fighter_price_bucket_plus",
+        });
+      }
+    }
   }
 
   if (Number.isFinite(fight.price_difference)) {
-    const start = getDifferenceBucketStart(fight.price_difference);
-    scopes.push({
-      priceBucketEnd: start + 0.49,
-      priceBucketLabel: getBucketLabel(start),
-      priceBucketStart: start,
-      scopeKey: `pfl:price_difference_bucket:${start.toFixed(2)}`,
-      scopeType: "price_difference_bucket",
-    });
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const start = getDifferenceBucketStart(fight.price_difference, bucketSize);
+      scopes.push({
+        bucketSize,
+        priceBucketEnd: roundNumber(start + bucketSize - 0.01, 2),
+        priceBucketLabel: getBucketLabel(start, bucketSize),
+        priceBucketStart: start,
+        scopeKey: getBucketScopeKey("pfl", "price_difference_bucket", start, bucketSize),
+        scopeType: "price_difference_bucket",
+      });
+
+      for (let plusStart = 0; plusStart <= start + 0.0001; plusStart = roundNumber(plusStart + bucketSize, 2)) {
+        scopes.push({
+          bucketSize,
+          priceBucketEnd: null,
+          priceBucketLabel: getBucketPlusLabel(plusStart),
+          priceBucketStart: plusStart,
+          scopeKey: getBucketScopeKey("pfl", "price_difference_bucket", plusStart, bucketSize, true),
+          scopeType: "price_difference_bucket_plus",
+        });
+      }
+    }
   }
 
   return scopes;
@@ -391,6 +470,7 @@ function buildPflInsightAggregates(fightEntries) {
 
     return {
       average_return_per_dollar: totalStake ? roundNumber(totalReturn / totalStake) : 0,
+      bucket_size: bucket.bucketSize ?? 0.5,
       date_from: dates[0] ?? null,
       date_to: dates.at(-1) ?? null,
       favourite_selections: bucket.favouriteSelections,
@@ -414,10 +494,16 @@ function buildPflInsightAggregates(fightEntries) {
   });
 }
 
+/**
+ * Calculates display percentages while protecting empty denominators.
+ */
 function percentage(numerator, denominator) {
   return denominator ? Number(((numerator / denominator) * 100).toFixed(2)) : 0;
 }
 
+/**
+ * Splits REST writes into stable batches for PostgREST payload limits.
+ */
 function chunk(items, size) {
   const chunks = [];
 

@@ -147,12 +147,12 @@ navigation:
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
-          - For NRL, show fixed-win single aggregate rows by home team, away team, favourite, favourite at home, favourite away, Favourite/Home/Away toggles for fixed-win price bucket, other-team fixed-win price bucket, and price-difference bucket rows, plus a 50c/25c bucket-size toggle for price rows, round, official try-scorer percentage rows by player, team, and captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
-          - For NPC, show the same NRL-shaped fixed-win aggregate rows, Favourite/Home/Away fixed-win price toggles, and 50c/25c price bucket-size toggle from npc_insight_aggregates, plus source-backed try-scorer percentage rows and Same Game % rows from official RU7 player events and captured TAB try-scorer prices.
-          - For UCL, show the same fixed-win aggregate rows from ucl_insight_aggregates, plus goalscorer percentage rows and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched UEFA official result/event rows.
+          - For NRL, show fixed-win single aggregate rows by home team, away team, favourite, favourite at home, favourite away, Favourite/Home/Away toggles for fixed-win price bucket, other-team fixed-win price bucket, and price-difference bucket rows, plus 50c/25c bucket-size and Exact/+ bucket-mode toggles for fixed-win price rows, round, official try-scorer percentage rows by player, team, and captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
+          - For NPC, show the same NRL-shaped fixed-win aggregate rows, Favourite/Home/Away fixed-win price toggles, and 50c/25c plus Exact/+ fixed-win price bucket toggles from npc_insight_aggregates, plus source-backed try-scorer percentage rows and Same Game % rows from official RU7 player events and captured TAB try-scorer prices.
+          - For UCL, show the same fixed-win aggregate rows from ucl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus goalscorer percentage rows and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched UEFA official result/event rows.
           - Show the NRL Same Game % section before the NRL fixed-win and try-scorer singles sections.
-          - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates.
-          - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates.
+          - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates, with 50c/25c bucket-size and Exact/+ bucket-mode controls.
+          - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates, with the same 50c/25c and Exact/+ controls as UFC.
           - Surface missing-data counts.
           - Link users back to filtered race lists and race details.
         components:
@@ -588,11 +588,13 @@ content_rules:
     controls remain available while older aggregate runs are missing direct
     country/course scope rows.
   - UFC Insights should read ufc_insight_aggregates and show favourite price,
-    other fighter price, and price-difference breakdowns. Result-only UFC rows
-    must not feed price-based denominators.
+    other fighter price, and price-difference breakdowns with 50c/25c and
+    Exact/+ controls. Result-only UFC rows must not feed price-based
+    denominators.
   - PFL Insights should read pfl_insight_aggregates and show favourite price,
-    other fighter price, and price-difference breakdowns. Result-only PFL rows
-    must not feed price-based denominators.
+    other fighter price, and price-difference breakdowns with 50c/25c and
+    Exact/+ controls. Result-only PFL rows must not feed price-based
+    denominators.
   - Recommendations should show source-backed promotion details, current race
     facts, and historical statistical signals only.
   - Recommendations must read promotion snapshots from Supabase only at runtime;

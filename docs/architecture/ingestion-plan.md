@@ -170,9 +170,11 @@ away/away selections, plus the shorter-priced same-team favourite. A halftime
 draw or fulltime draw is settled as a loss for these tracked selections because
 the team/team double would not pay out. Historical HT/FT prices are not
 backfilled unless a pre-kickoff TAB snapshot already exists.
-NRL and NPC price-bucket aggregate rebuilds write both default 50c rows and
-finer 25c rows. The app selects between them with a bucket-size toggle instead
-of recalculating buckets client-side.
+NRL, NPC, and UCL price-bucket aggregate rebuilds write both default 50c rows
+and finer 25c rows. Fixed-win selected-team price, other-team price, and
+price-difference sections also write cumulative `*_plus` threshold rows, such
+as `$2.00+`, so the app can switch between exact buckets and threshold-and-above
+views without recalculating buckets client-side.
 
 ## UEFA Champions League Current Market Capture
 
@@ -198,8 +200,8 @@ Implemented scripts:
 - `rebuild:ucl-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows from captured fixed-win and goalscorer prices.
 - `rebuild:ucl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
-  same-game rows in `ucl_insight_aggregates`, including 50c and 25c price
-  buckets.
+  same-game rows in `ucl_insight_aggregates`, including 50c/25c exact and
+  cumulative fixed-win price buckets.
 - `generate:ucl-single-predictions`: writes current fixed-win and goalscorer
   single rows to `ucl_single_predictions`.
 - `refresh:ucl-current-markets`: captures TAB market rows, refreshes matching
@@ -517,6 +519,9 @@ Purpose:
   when there is an exact event-date plus unordered fighter-pair match.
 - Rebuild UFC favourite price, other fighter price, and price-difference
   aggregate buckets for the UFC Insights sport toggle.
+- Emit UFC price bucket rows at both 50c and 25c granularity, with exact and
+  cumulative threshold-and-above rows for favourite price, other fighter price,
+  and price difference.
 
 Initial mode:
 
@@ -562,7 +567,9 @@ Runtime app rule:
   The rebuild must score each source date from rows strictly before that date.
 - The Insights tab should show a Racing/UFC sport toggle.
 - The UFC Insights view should read `ufc_insight_aggregates` and display
-  favourite price, other fighter price, and price-difference breakdowns.
+  favourite price, other fighter price, and price-difference breakdowns with
+  50c/25c and Exact/+ controls. Current UFC prediction models continue reading
+  only 50c exact aggregate rows.
 
 ### `refresh-nrl-results`
 
@@ -654,7 +661,9 @@ Source rules:
 - Treat drawn final scores as settled non-paying losses during fixed-win
   reconciliation.
 - NPC insight rebuilds emit price-bucket rows at both `0.50` and `0.25`
-  `bucket_size` values, matching the NRL app-facing breakdown toggle.
+  `bucket_size` values, matching the NRL app-facing breakdown toggle. Fixed-win
+  price, other-team price, and non-negative price-difference rows also emit
+  cumulative `*_plus` scopes for threshold-and-above analysis.
 
 Expected writes:
 
@@ -947,6 +956,10 @@ Source rules:
   try-scorer price bucket rows are emitted for both `0.50` and `0.25`
   `bucket_size` values. Existing settled data can be backfilled by rerunning
   this rebuild after the `bucket_size` migration is applied.
+- Fixed-win selected-team price, other-team price, and price-difference rows
+  are emitted as both exact buckets and cumulative `*_plus` buckets. Cumulative
+  price-difference rows only use non-negative thresholds because signed exact
+  rows remain the source for underdog gap analysis.
 - Fixed-win team and same-game team scopes are no longer generated for the
   app-facing NRL Insights view.
 - Same-game multi percentage uses the stored model
@@ -1192,6 +1205,10 @@ Initial mode:
   `npm --workspace @feeling-gamba/ingestion run backfill:pfl-seed -- --require-supabase`.
   The seed intentionally includes only the eight Bookmakers Review priced fights
   in PFL favourite-return insights; the ninth fight is stored as result-only
+  audit data. As of 2026-09-07, the seed aggregate builder emits 50c/25c exact
+  and cumulative threshold rows for favourite price, other fighter price, and
+  price difference; current PFL prediction models continue reading only 50c
+  exact aggregate rows.
   because no fixed-win price was captured from the indexed odds page.
 - PFL current predictions must stay empty until current MMA odds match the
   reviewed PFL allow-list. The 2026-08-26 The Odds API current MMA proof

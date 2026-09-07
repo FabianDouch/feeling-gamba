@@ -56,11 +56,15 @@ const emptyInsights: InsightsData = {
 
 type InsightMode = "win" | "place";
 type InsightSport = "npc" | "pfl" | "racing" | "nrl" | "ucl" | "ufc";
+type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
-  favouritePriceBreakdown: [],
-  otherFighterPriceBreakdown: [],
-  priceDifferenceBreakdown: [],
+  favouritePriceBreakdown: createEmptyPriceBreakdownGroups(),
+  favouritePriceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  otherFighterPriceBreakdown: createEmptyPriceBreakdownGroups(),
+  otherFighterPriceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  priceDifferenceBreakdown: createEmptyPriceBreakdownGroups(),
+  priceDifferenceBreakdownPlus: createEmptyPriceBreakdownGroups(),
   summaryStats: [],
 };
 
@@ -102,10 +106,18 @@ const PRICE_BUCKET_SIZE_OPTIONS: { label: string; value: NrlPriceBucketSize }[] 
   { label: "25c", value: "0.25" },
 ];
 
+const FIXED_WIN_PRICE_BUCKET_MODE_OPTIONS: { label: string; value: FixedWinPriceBucketMode }[] = [
+  { label: "Exact", value: "exact" },
+  { label: "+", value: "plus" },
+];
+
 const emptyNrlInsights: NrlInsightsData = {
   fixedWinOtherTeamPriceBreakdown: emptyFixedWinPriceBreakdowns,
+  fixedWinOtherTeamPriceBreakdownPlus: emptyFixedWinPriceBreakdowns,
   fixedWinPriceDifferenceBreakdown: emptyFixedWinPriceBreakdowns,
+  fixedWinPriceDifferenceBreakdownPlus: emptyFixedWinPriceBreakdowns,
   fixedWinPriceBreakdown: emptyFixedWinPriceBreakdowns,
+  fixedWinPriceBreakdownPlus: emptyFixedWinPriceBreakdowns,
   fixedWinRoundBreakdown: [],
   fixedWinSelectionBreakdown: [],
   fixedWinSummaryStats: [],
@@ -186,14 +198,20 @@ export function InsightsScreen() {
     || insights.priceBreakdown.length > 0
     || insights.otherStartersAveragePriceBreakdown.length > 0;
   const hasUfcInsightRows = ufcInsights.summaryStats.length > 0
-    || ufcInsights.favouritePriceBreakdown.length > 0
-    || ufcInsights.otherFighterPriceBreakdown.length > 0
-    || ufcInsights.priceDifferenceBreakdown.length > 0;
+    || hasPriceBreakdownRows(ufcInsights.favouritePriceBreakdown)
+    || hasPriceBreakdownRows(ufcInsights.favouritePriceBreakdownPlus)
+    || hasPriceBreakdownRows(ufcInsights.otherFighterPriceBreakdown)
+    || hasPriceBreakdownRows(ufcInsights.otherFighterPriceBreakdownPlus)
+    || hasPriceBreakdownRows(ufcInsights.priceDifferenceBreakdown)
+    || hasPriceBreakdownRows(ufcInsights.priceDifferenceBreakdownPlus);
   const hasNrlInsightRows = nrlInsights.fixedWinSummaryStats.length > 0
     || nrlInsights.fixedWinSelectionBreakdown.length > 0
     || hasFixedWinPriceRows(nrlInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(nrlInsights.fixedWinPriceBreakdownPlus)
     || hasFixedWinPriceRows(nrlInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(nrlInsights.fixedWinOtherTeamPriceBreakdownPlus)
     || hasFixedWinPriceRows(nrlInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(nrlInsights.fixedWinPriceDifferenceBreakdownPlus)
     || nrlInsights.fixedWinRoundBreakdown.length > 0
     || nrlInsights.halfTimeFullTimeSummaryStats.length > 0
     || nrlInsights.halfTimeFullTimeSelectionBreakdown.length > 0
@@ -206,8 +224,11 @@ export function InsightsScreen() {
   const hasNpcInsightRows = npcInsights.fixedWinSummaryStats.length > 0
     || npcInsights.fixedWinSelectionBreakdown.length > 0
     || hasFixedWinPriceRows(npcInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(npcInsights.fixedWinPriceBreakdownPlus)
     || hasFixedWinPriceRows(npcInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(npcInsights.fixedWinOtherTeamPriceBreakdownPlus)
     || hasFixedWinPriceRows(npcInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(npcInsights.fixedWinPriceDifferenceBreakdownPlus)
     || npcInsights.fixedWinRoundBreakdown.length > 0
     || npcInsights.halfTimeFullTimeSummaryStats.length > 0
     || npcInsights.halfTimeFullTimeSelectionBreakdown.length > 0
@@ -220,8 +241,11 @@ export function InsightsScreen() {
   const hasUclInsightRows = uclInsights.fixedWinSummaryStats.length > 0
     || uclInsights.fixedWinSelectionBreakdown.length > 0
     || hasFixedWinPriceRows(uclInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(uclInsights.fixedWinPriceBreakdownPlus)
     || hasFixedWinPriceRows(uclInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(uclInsights.fixedWinOtherTeamPriceBreakdownPlus)
     || hasFixedWinPriceRows(uclInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(uclInsights.fixedWinPriceDifferenceBreakdownPlus)
     || uclInsights.fixedWinRoundBreakdown.length > 0
     || uclInsights.sameGameSummaryStats.length > 0
     || uclInsights.sameGameRoundBreakdown.length > 0
@@ -698,7 +722,7 @@ function hasFixedWinPriceRows(rowsByBucketSize: NrlInsightsData["fixedWinPriceBr
 /**
  * Detects whether any generic price bucket has rows at any supported granularity.
  */
-function hasPriceBreakdownRows(rowsByBucketSize: NrlInsightsData["tryScorerPriceBreakdown"]) {
+function hasPriceBreakdownRows<TPriceRow>(rowsByBucketSize: Record<NrlPriceBucketSize, TPriceRow[]>) {
   return PRICE_BUCKET_SIZE_OPTIONS.some((option) => rowsByBucketSize[option.value].length > 0);
 }
 
@@ -775,6 +799,36 @@ function PriceBucketSizeTabs({ onChange, selectedValue }: PriceBucketSizeTabsPro
   );
 }
 
+type FixedWinPriceBucketModeTabsProps = {
+  onChange: (value: FixedWinPriceBucketMode) => void;
+  selectedValue: FixedWinPriceBucketMode;
+};
+
+/**
+ * Toggles fixed-win price rows between exact buckets and cumulative threshold buckets.
+ */
+function FixedWinPriceBucketModeTabs({ onChange, selectedValue }: FixedWinPriceBucketModeTabsProps) {
+  return (
+    <View style={styles.modeTabs}>
+      {FIXED_WIN_PRICE_BUCKET_MODE_OPTIONS.map((option) => {
+        const isActive = option.value === selectedValue;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.modeTab, isActive ? styles.modeTabActive : null]}
+          >
+            <Text style={[styles.modeTabText, isActive ? styles.modeTabTextActive : null]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 type InsightsPanelProps = {
   insights: InsightsData;
 };
@@ -797,10 +851,20 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
   const [selectedOtherTeamPriceRole, setSelectedOtherTeamPriceRole] = useState<NrlFixedWinPriceRole>("favourite");
   const [selectedPriceDifferenceRole, setSelectedPriceDifferenceRole] = useState<NrlFixedWinPriceRole>("favourite");
   const [selectedBucketSize, setSelectedBucketSize] = useState<NrlPriceBucketSize>("0.50");
+  const [selectedBucketMode, setSelectedBucketMode] = useState<FixedWinPriceBucketMode>("exact");
   const hasSameGameRows = insights.sameGameSummaryStats.length > 0
     || insights.sameGameRoundBreakdown.length > 0;
   const hasHalfTimeFullTimeRows = insights.halfTimeFullTimeSummaryStats.length > 0
     || insights.halfTimeFullTimeSelectionBreakdown.length > 0;
+  const fixedWinPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinPriceBreakdownPlus
+    : insights.fixedWinPriceBreakdown;
+  const fixedWinOtherTeamPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinOtherTeamPriceBreakdownPlus
+    : insights.fixedWinOtherTeamPriceBreakdown;
+  const fixedWinPriceDifferenceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinPriceDifferenceBreakdownPlus
+    : insights.fixedWinPriceDifferenceBreakdown;
 
   return (
     <>
@@ -857,24 +921,31 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
         onChange={setSelectedBucketSize}
         selectedValue={selectedBucketSize}
       />
+      <FixedWinPriceBucketModeTabs
+        onChange={setSelectedBucketMode}
+        selectedValue={selectedBucketMode}
+      />
       <FixedWinRolePriceBreakdown
         bucketSize={selectedBucketSize}
+        bucketMode={selectedBucketMode}
         onRoleChange={setSelectedPriceRole}
-        rowsByRole={insights.fixedWinPriceBreakdown[selectedBucketSize]}
+        rowsByRole={fixedWinPriceBreakdown[selectedBucketSize]}
         selectedRole={selectedPriceRole}
         title="Fixed win price breakdown"
       />
       <FixedWinRolePriceBreakdown
         bucketSize={selectedBucketSize}
+        bucketMode={selectedBucketMode}
         onRoleChange={setSelectedOtherTeamPriceRole}
-        rowsByRole={insights.fixedWinOtherTeamPriceBreakdown[selectedBucketSize]}
+        rowsByRole={fixedWinOtherTeamPriceBreakdown[selectedBucketSize]}
         selectedRole={selectedOtherTeamPriceRole}
         title="Fixed win other team price breakdown"
       />
       <FixedWinRolePriceBreakdown
         bucketSize={selectedBucketSize}
+        bucketMode={selectedBucketMode}
         onRoleChange={setSelectedPriceDifferenceRole}
-        rowsByRole={insights.fixedWinPriceDifferenceBreakdown[selectedBucketSize]}
+        rowsByRole={fixedWinPriceDifferenceBreakdown[selectedBucketSize]}
         selectedRole={selectedPriceDifferenceRole}
         title="Fixed win price difference breakdown"
       />
@@ -904,6 +975,7 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
 
 type FixedWinRolePriceBreakdownProps = {
   bucketSize: NrlPriceBucketSize;
+  bucketMode: FixedWinPriceBucketMode;
   onRoleChange: (value: NrlFixedWinPriceRole) => void;
   rowsByRole: NrlInsightsData["fixedWinPriceBreakdown"][NrlPriceBucketSize];
   selectedRole: NrlFixedWinPriceRole;
@@ -915,6 +987,7 @@ type FixedWinRolePriceBreakdownProps = {
  */
 function FixedWinRolePriceBreakdown({
   bucketSize,
+  bucketMode,
   onRoleChange,
   rowsByRole,
   selectedRole,
@@ -941,7 +1014,7 @@ function FixedWinRolePriceBreakdown({
         })}
       </View>
 
-      <NrlBreakdownRows rowKeyPrefix={`${title}-${bucketSize}-${selectedRole}`} rows={rowsByRole[selectedRole]} />
+      <NrlBreakdownRows rowKeyPrefix={`${title}-${bucketSize}-${bucketMode}-${selectedRole}`} rows={rowsByRole[selectedRole]} />
     </>
   );
 }
@@ -1013,6 +1086,18 @@ function NrlBreakdownRows({ rowKeyPrefix, rows }: NrlBreakdownRowsProps) {
  * Shows fight-sport win-return statistics and price-shape breakdowns.
  */
 function UfcInsightsPanel({ insights, sportLabel }: UfcInsightsPanelProps) {
+  const [selectedBucketSize, setSelectedBucketSize] = useState<NrlPriceBucketSize>("0.50");
+  const [selectedBucketMode, setSelectedBucketMode] = useState<FixedWinPriceBucketMode>("exact");
+  const favouritePriceBreakdown = selectedBucketMode === "plus"
+    ? insights.favouritePriceBreakdownPlus
+    : insights.favouritePriceBreakdown;
+  const otherFighterPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.otherFighterPriceBreakdownPlus
+    : insights.otherFighterPriceBreakdown;
+  const priceDifferenceBreakdown = selectedBucketMode === "plus"
+    ? insights.priceDifferenceBreakdownPlus
+    : insights.priceDifferenceBreakdown;
+
   return (
     <>
       <View style={styles.statsRow}>
@@ -1025,9 +1110,17 @@ function UfcInsightsPanel({ insights, sportLabel }: UfcInsightsPanelProps) {
         ))}
       </View>
 
-      <WinPriceBreakdown title={`${sportLabel} favourite price breakdown`} rows={insights.favouritePriceBreakdown} />
-      <WinPriceBreakdown title={`${sportLabel} other fighter price breakdown`} rows={insights.otherFighterPriceBreakdown} />
-      <WinPriceBreakdown title={`${sportLabel} price difference breakdown`} rows={insights.priceDifferenceBreakdown} />
+      <PriceBucketSizeTabs
+        onChange={setSelectedBucketSize}
+        selectedValue={selectedBucketSize}
+      />
+      <FixedWinPriceBucketModeTabs
+        onChange={setSelectedBucketMode}
+        selectedValue={selectedBucketMode}
+      />
+      <WinPriceBreakdown title={`${sportLabel} favourite price breakdown`} rows={favouritePriceBreakdown[selectedBucketSize]} />
+      <WinPriceBreakdown title={`${sportLabel} other fighter price breakdown`} rows={otherFighterPriceBreakdown[selectedBucketSize]} />
+      <WinPriceBreakdown title={`${sportLabel} price difference breakdown`} rows={priceDifferenceBreakdown[selectedBucketSize]} />
     </>
   );
 }
@@ -1514,12 +1607,12 @@ function FilterGroup({ label, onChange, options, selectedValue }: FilterGroupPro
 }
 
 /**
- * Shows a consistent empty state when a selected track has no settled favourite data.
+ * Shows a consistent empty state when the selected insight scope has no settled rows.
  */
 function EmptyState() {
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>No settled favourite data for this track.</Text>
+      <Text style={styles.emptyStateText}>No settled data for this selection.</Text>
     </View>
   );
 }

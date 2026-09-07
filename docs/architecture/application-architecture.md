@@ -10,7 +10,16 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-07 so UEFA Champions League uses
+Note: the YAML was updated on 2026-09-07 so UFC and PFL price bucket Insights
+store/display 50c/25c exact rows plus cumulative threshold-and-above rows while
+prediction models stay pinned to 50c exact rows. Rendered architecture outputs
+should be regenerated from the YAML before being treated as current. It was
+updated on 2026-09-07 so NRL, NPC, and UCL fixed-win price
+bucket Insights store and display exact bucket rows plus cumulative
+threshold-and-above rows for selected-team price, other-team price, and
+price-difference sections. Rendered architecture outputs should be regenerated
+from the YAML before being treated as current. It was updated on 2026-09-07 so
+UEFA Champions League uses
 sport-specific `ucl_*` tables, TAB `Match Result` fixed-win snapshots, UEFA
 official priced-only result/goal rows, app-facing UCL Insights/Predictions tabs,
 and explicit empty Prediction History branches until UCL history RPCs are
@@ -702,7 +711,9 @@ repo-root public Supabase env values before Metro bundles the app.
   event date and unordered fighter pair. PFL-specific prediction storage/RPCs
   are still not implemented, so PFL Prediction History remains an explicit empty
   state. Historical Data and Insights read the seeded `pfl_fight_entries` and
-  `pfl_insight_aggregates` fixed-win history tables.
+  `pfl_insight_aggregates` fixed-win history tables. UFC/PFL prediction models
+  read only 50c exact bucket rows even though Insights can display 25c and
+  cumulative threshold bucket rows.
 - The app can call `refresh-current-predictions` with a sport-scoped JSON body.
   `{ "sport": "ufc" }` refreshes only UFC aggregates/current Betcha fight
   cards, updates the UFC part of `current_prediction_snapshots`, and writes UFC
@@ -793,7 +804,8 @@ repo-root public Supabase env values before Metro bundles the app.
   Fixed-win buckets include selection type, favourite-venue,
   Favourite/Home/Away role-specific selected-team price, other-team price,
   opponent-minus-selected price difference, season, and round scopes. Price
-  bucket scopes are stored at both 50c and 25c granularity.
+  bucket scopes are stored at both 50c and 25c granularity, with exact and
+  cumulative threshold variants for the three fixed-win price sections.
   Try-scorer percentage metrics are sourced from official NRL player
   appearances and try events; try-scorer cash remains blocked until player
   try-scorer prices are validated. Same-game multi percentage support uses
@@ -806,7 +818,7 @@ repo-root public Supabase env values before Metro bundles the app.
   Same Game % rows use the favourite fixed-win team plus the two shortest-priced
   favourite-team TAB `Anytime Try Scorer` selections where those entrants are
   matched to official player IDs. Price-bucket rows use the same 50c/25c
-  granularity contract as NRL.
+  granularity and Exact/+ contract as NRL.
 - UCL Insights use the same stored aggregate shape as NRL/NPC. Fixed-win cash
   metrics come from reconciled TAB `Match Result` snapshots with home, draw, and
   away prices captured; draw final scores settle as team-selection losses.
@@ -814,7 +826,9 @@ repo-root public Supabase env values before Metro bundles the app.
   and Same Game % rows use the favourite fixed-win team plus the two
   shortest-priced favourite-team TAB `Anytime Goalscorer` selections where
   those entrants are matched to official player IDs. Official UEFA rows are
-  written only for matches with captured fixed-win prices by default.
+  written only for matches with captured fixed-win prices by default. Fixed-win
+  selected-team price, other-team price, and price-difference buckets use the
+  same 50c/25c and Exact/+ contract as NRL/NPC.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

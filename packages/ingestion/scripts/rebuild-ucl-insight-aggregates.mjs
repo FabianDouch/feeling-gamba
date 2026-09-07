@@ -492,6 +492,56 @@ function getPriceDifferenceBucket(priceDifference, bucketSize = 0.5) {
 }
 
 /**
+ * Creates cumulative decimal-price buckets up to the selected price threshold.
+ */
+function getPriceBucketPlusBuckets(price, bucketSize = 0.5) {
+  const value = Number(price);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return [];
+  }
+
+  const buckets = [];
+  const maxStart = roundNumber(Math.max(1, Math.floor(value / bucketSize) * bucketSize), 2);
+
+  for (let start = 1; start <= maxStart + 0.0001; start = roundNumber(start + bucketSize, 2)) {
+    buckets.push({
+      bucketSize,
+      end: null,
+      label: `${formatPriceBucketBoundary(start)}+`,
+      start,
+    });
+  }
+
+  return buckets;
+}
+
+/**
+ * Creates cumulative non-negative buckets for opponent-minus-selected price gaps.
+ */
+function getPriceDifferencePlusBuckets(priceDifference, bucketSize = 0.5) {
+  const value = Number(priceDifference);
+
+  if (!Number.isFinite(value) || value < 0) {
+    return [];
+  }
+
+  const buckets = [];
+  const maxStart = roundNumber(Math.floor(value / bucketSize) * bucketSize, 2);
+
+  for (let start = 0; start <= maxStart + 0.0001; start = roundNumber(start + bucketSize, 2)) {
+    buckets.push({
+      bucketSize,
+      end: null,
+      label: `${formatPriceBucketBoundary(start)}+`,
+      start,
+    });
+  }
+
+  return buckets;
+}
+
+/**
  * Calculates the opponent-minus-selected price gap when both prices are known.
  */
 function getSelectionPriceDifference(selectedPrice, otherPrice) {
@@ -682,6 +732,20 @@ function buildFixedWinAggregates(results, matchesById) {
       }, record, addFixedWinSelection);
     }
 
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      for (const priceBucket of getPriceBucketPlusBuckets(record.price, bucketSize)) {
+        addToBucket(buckets, {
+          bucketSize: priceBucket.bucketSize,
+          insightType: "fixed_win_single",
+          priceBucketEnd: priceBucket.end,
+          priceBucketLabel: priceBucket.label,
+          priceBucketStart: priceBucket.start,
+          scopeKey: `ucl:fixed_win_single:price_bucket_plus:${priceBucket.bucketSize.toFixed(2)}:${record.selectionType}:${priceBucket.start.toFixed(2)}`,
+          scopeType: "price_bucket_plus",
+          selectionType: record.selectionType,
+        }, record, addFixedWinSelection);
+      }
+    }
   }
 
   for (const record of allRecords) {
@@ -701,6 +765,19 @@ function buildFixedWinAggregates(results, matchesById) {
         }, record, addFixedWinSelection);
       }
 
+      for (const otherPricePlusBucket of getPriceBucketPlusBuckets(record.otherPrice, bucketSize)) {
+        addToBucket(buckets, {
+          bucketSize: otherPricePlusBucket.bucketSize,
+          insightType: "fixed_win_single",
+          priceBucketEnd: otherPricePlusBucket.end,
+          priceBucketLabel: otherPricePlusBucket.label,
+          priceBucketStart: otherPricePlusBucket.start,
+          scopeKey: `ucl:fixed_win_single:other_team_price_bucket_plus:${otherPricePlusBucket.bucketSize.toFixed(2)}:${record.selectionType}:${otherPricePlusBucket.start.toFixed(2)}`,
+          scopeType: "other_team_price_bucket_plus",
+          selectionType: record.selectionType,
+        }, record, addFixedWinSelection);
+      }
+
       const differenceBucket = getPriceDifferenceBucket(record.priceDifference, bucketSize);
 
       if (differenceBucket) {
@@ -712,6 +789,19 @@ function buildFixedWinAggregates(results, matchesById) {
           priceBucketStart: differenceBucket.start,
           scopeKey: `ucl:fixed_win_single:price_difference_bucket:${differenceBucket.bucketSize.toFixed(2)}:${record.selectionType}:${differenceBucket.start.toFixed(2)}`,
           scopeType: "price_difference_bucket",
+          selectionType: record.selectionType,
+        }, record, addFixedWinSelection);
+      }
+
+      for (const differencePlusBucket of getPriceDifferencePlusBuckets(record.priceDifference, bucketSize)) {
+        addToBucket(buckets, {
+          bucketSize: differencePlusBucket.bucketSize,
+          insightType: "fixed_win_single",
+          priceBucketEnd: differencePlusBucket.end,
+          priceBucketLabel: differencePlusBucket.label,
+          priceBucketStart: differencePlusBucket.start,
+          scopeKey: `ucl:fixed_win_single:price_difference_bucket_plus:${differencePlusBucket.bucketSize.toFixed(2)}:${record.selectionType}:${differencePlusBucket.start.toFixed(2)}`,
+          scopeType: "price_difference_bucket_plus",
           selectionType: record.selectionType,
         }, record, addFixedWinSelection);
       }

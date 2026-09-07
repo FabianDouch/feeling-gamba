@@ -17,7 +17,14 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-07 so UEFA Champions League appears in
+Note: the IA was updated on 2026-09-07 so UFC and PFL price bucket Insights can
+switch between 50c/25c exact rows and cumulative threshold-and-above rows.
+Rendered IA outputs should be regenerated from the YAML before being treated as
+current. It was updated on 2026-09-07 so NRL, NPC, and UCL fixed-win price
+bucket Insights can switch between exact bucket rows and cumulative
+threshold-and-above rows. Rendered IA outputs should be regenerated from the
+YAML before being treated as current. It was updated on 2026-09-07 so UEFA
+Champions League appears in
 Insights, Predictions, and Prediction History as a UCL-shaped team-sport branch
 backed by `ucl_*` tables; UCL Prediction History remains an explicit reserved
 state until sport-specific history RPCs are added. Rendered IA outputs should
@@ -259,22 +266,28 @@ Purpose:
   `nrl_insight_aggregates`.
 - For NRL price-bucket sections, default to 50c buckets and allow a 25c bucket
   view for fixed-win selected-team price, other-team price, price difference,
-  and captured try-scorer price rows.
+  and captured try-scorer price rows. Fixed-win selected-team price, other-team
+  price, and price-difference sections also allow an Exact/+ toggle where `+`
+  shows cumulative threshold rows such as `$2.00+`.
 - For NPC, show the same fixed-win aggregate shape from
   `npc_insight_aggregates`, plus source-backed try-scorer percentage and Same
   Game % rows from official RU7 player events and captured TAB try-scorer
   prices.
 - For NPC price-bucket sections, use the same 50c/25c bucket-size toggle and
-  Favourite/Home/Away role toggles as NRL where the rows are role-specific.
+  Favourite/Home/Away role toggles as NRL where the rows are role-specific,
+  including the fixed-win Exact/+ bucket mode toggle.
 - For UCL, show the same fixed-win aggregate shape from `ucl_insight_aggregates`,
   plus goalscorer percentage and Same Game % rows from captured TAB prices and
   matched UEFA official result/event rows. UCL fixed-win snapshots store draw
   prices for auditability, but draws settle as non-paying losses for tracked
-  home/away/favourite team selections.
+  home/away/favourite team selections. UCL fixed-win price sections use the
+  same 50c/25c and Exact/+ controls as NRL/NPC.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
-  price-difference breakdown from `ufc_insight_aggregates`.
+  price-difference breakdown from `ufc_insight_aggregates`, with 50c/25c
+  bucket-size and Exact/+ bucket-mode controls.
 - For PFL, show the same fixed-win favourite price, other fighter price, and
-  price-difference breakdowns from `pfl_insight_aggregates`.
+  price-difference breakdowns from `pfl_insight_aggregates`, with the same
+  50c/25c and Exact/+ controls as UFC.
 
 Main content:
 
@@ -310,10 +323,12 @@ Main content:
   `$7.00-$9.99`, and `$25.00+`. These buckets use the average fixed-win price
   of priced non-favourite starters, with `$70.00+` prices excluded from the
   stored average.
-- UFC favourite price, other fighter price, and price-difference breakdowns.
+- UFC/PFL favourite price, other fighter price, and price-difference breakdowns
+  with 50c/25c and Exact/+ controls.
 - NRL fixed-win favourite, home/away, Favourite/Home/Away toggles for
   fixed-win price, other-team price, and price-difference buckets, and round
-  breakdowns. Price sections default to 50c buckets with a 25c toggle.
+  breakdowns. Price sections default to 50c exact buckets with 25c and `+`
+  toggles.
 - NRL try-scorer percentage summaries by player, team, and captured try-scorer
   price bucket using the same 50c/25c bucket-size toggle.
 - NRL Same Game % summary and round breakdowns for the favourite-team plus
@@ -323,7 +338,7 @@ Main content:
 - NPC fixed-win favourite, home/away, favourite-at-home/away,
   Favourite/Home/Away toggles for fixed-win price, other-team price, and
   price-difference buckets, and round breakdowns. Price sections default to
-  50c buckets with a 25c toggle.
+  50c exact buckets with 25c and `+` toggles.
 - MarketMover outcomes where available.
 - Denominator counts for every percentage.
 - Missing-data counts.

@@ -73,6 +73,11 @@ As of `2026-09-04`,
 `supabase/migrations/202609040001_team_sport_insight_bucket_size.sql` adds a
 `bucket_size` column to NRL and NPC aggregate rows so app-facing price
 breakdowns can be stored in both default 50c and optional 25c decimal buckets.
+As of `2026-09-07`,
+`supabase/migrations/202609070002_team_sport_plus_price_buckets.sql` extends
+NRL, NPC, and UCL fixed-win aggregate scopes with cumulative price threshold
+rows for selected-team price, other-team price, and non-negative price
+difference.
 As of `2026-09-04`,
 `supabase/migrations/202609040002_team_sport_half_time_full_time_double.sql`
 adds NRL/NPC halftime score fields plus separate
@@ -102,6 +107,11 @@ scope keys. PFL rows must not be written into `ufc_fight_entries`,
 are sport-specific and would pollute UFC statistics. Current PFL predictions
 are stored only inside `current_prediction_snapshots` until PFL-specific
 prediction tables/RPCs are added.
+As of `2026-09-07`,
+`supabase/migrations/202609070003_combat_sport_price_bucket_modes.sql` adds
+`bucket_size` and cumulative `*_plus` scopes to UFC/PFL insight aggregates so
+Insights can switch between 50c/25c and exact/threshold-and-above views while
+current prediction models continue to consume 50c exact rows.
 
 The design should support:
 
@@ -1231,12 +1241,12 @@ Insights sport toggle is set to NRL.
 Key fields:
 
 - `scope_key text unique`
-- `insight_type text` - `fixed_win_single`, `try_scorer_percentage`, or
-  `same_game_multi_percentage`
+- `insight_type text` - `fixed_win_single`, `half_time_full_time_double`,
+  `try_scorer_percentage`, or `same_game_multi_percentage`
 - `scope_type text` - app-facing NRL rows use `overall`, `selection_type`,
   `favourite_venue`, `price_bucket`, `other_team_price_bucket`,
-  `price_difference_bucket`, `team`, `season`, `season_round`, `player`, or
-  `player_team`
+  `price_difference_bucket`, their cumulative `*_plus` variants, `team`,
+  `season`, `season_round`, `player`, or `player_team`
 - `source text`
 - `selection_type text` - `home`, `away`, `favourite`, `favourite_home`,
   or `favourite_away`
@@ -1285,6 +1295,11 @@ Rules:
 - Price-bucket rows are generated at both `0.50` and `0.25` bucket sizes. The
   `scope_key` includes the bucket size so historical rows can coexist, and the
   app defaults to `0.50` while allowing a `0.25` view.
+- Fixed-win cumulative price scopes use labels such as `$2.00+` and include all
+  matching settled selections at or above the threshold. Cumulative
+  price-difference scopes are only emitted for non-negative
+  `other team price - selected team price` thresholds; exact signed difference
+  buckets remain the source for underdog/negative-gap analysis.
 - Fixed-win selection-type rows include raw venue roles (`home`, `away`) and
   the favourite regardless of venue (`favourite`). Fixed-win favourite-venue
   rows use the `favourite_venue` scope with `selection_type` values
@@ -1481,6 +1496,9 @@ Rules:
   longer-priced team.
 - NPC price-bucket aggregate rows use the same `bucket_size` contract as NRL:
   `0.50` rows are the default app view and `0.25` rows power the finer toggle.
+- NPC fixed-win cumulative `*_plus` price scopes mirror NRL. Selected-team and
+  other-team price thresholds start at `$1.00+`; price-difference thresholds
+  start at `$0.00+` and include only non-negative gaps.
 - Current NPC single predictions use `npc_fixed_win_percentage_single_v1` and
   `npc_try_scorer_percentage_single_v1`. Try-scorer predictions are backed by
   official Opta RU7 appearance/try rows and current TAB `Anytime Try Scorer`
@@ -1841,10 +1859,13 @@ Key fields:
 
 - `scope_key text unique`
 - `scope_type text` - `overall`, `favourite_price_bucket`,
-  `other_fighter_price_bucket`, `price_difference_bucket`, or
-  `price_match_status`
+  `favourite_price_bucket_plus`, `other_fighter_price_bucket`,
+  `other_fighter_price_bucket_plus`, `price_difference_bucket`,
+  `price_difference_bucket_plus`, or `price_match_status`
 - `date_from date`
 - `date_to date`
+- `bucket_size numeric` - `0.50` for the default breakdown and `0.25` for the
+  finer breakdown
 - `price_bucket_start numeric`
 - `price_bucket_end numeric`
 - `price_bucket_label text`
@@ -1867,6 +1888,14 @@ Rules:
 - Aggregates use source-backed priced fights only.
 - Bucket scopes cover favourite price, other fighter price, and the decimal
   difference between the two fixed-win prices.
+- Exact bucket scopes are emitted at both `0.50` and `0.25` granularity. The
+  existing 50c exact `scope_key` shape is retained so older rows update in
+  place; 25c exact rows and all cumulative rows include the bucket size in the
+  `scope_key`.
+- Cumulative `*_plus` bucket scopes use labels such as `$2.00+` and include all
+  matching priced favourite selections at or above the threshold.
+- Current UFC/PFL prediction models must continue reading only 50c exact bucket
+  rows so model baselines are not changed by exploratory Insights controls.
 - Public RLS read access is allowed because these rows contain app-facing
   historical statistics only.
 

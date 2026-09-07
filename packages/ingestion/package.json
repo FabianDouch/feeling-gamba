@@ -28,6 +28,7 @@
     "refresh:ucl-results-and-insights": "node scripts/refresh-ucl-results-and-insights.mjs",
     "refresh:ucl-results": "node scripts/refresh-ucl-results-from-official.mjs",
     "refresh:ufc-results": "node scripts/refresh-ufc-results-from-espn.mjs",
+    "rebuild:combat-insight-aggregates": "node scripts/rebuild-combat-insight-aggregates.mjs",
     "rebuild:npc-insight-aggregates": "node scripts/rebuild-npc-insight-aggregates.mjs",
     "rebuild:npc-same-game-multis": "node scripts/rebuild-npc-same-game-multis.mjs",
     "rebuild:nrl-insight-aggregates": "node scripts/rebuild-nrl-insight-aggregates.mjs",

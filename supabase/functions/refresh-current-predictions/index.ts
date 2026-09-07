@@ -195,6 +195,7 @@ async function fetchUfcInsightAggregateRows(config: SupabaseConfig) {
     [
       "scope_key",
       "scope_type",
+      "bucket_size",
       "price_bucket_label",
       "price_bucket_start",
       "price_bucket_end",
@@ -210,6 +211,7 @@ async function fetchUfcInsightAggregateRows(config: SupabaseConfig) {
       "roi_percentage",
     ].join(","),
   );
+  url.searchParams.set("bucket_size", "eq.0.50");
   url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
   url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
 
@@ -237,6 +239,7 @@ async function fetchPflInsightAggregateRows(config: SupabaseConfig) {
     [
       "scope_key",
       "scope_type",
+      "bucket_size",
       "price_bucket_label",
       "price_bucket_start",
       "price_bucket_end",
@@ -252,6 +255,7 @@ async function fetchPflInsightAggregateRows(config: SupabaseConfig) {
       "roi_percentage",
     ].join(","),
   );
+  url.searchParams.set("bucket_size", "eq.0.50");
   url.searchParams.set("scope_type", "in.(favourite_price_bucket,other_fighter_price_bucket,price_difference_bucket)");
   url.searchParams.set("order", "scope_type.asc,price_bucket_start.asc");
 
