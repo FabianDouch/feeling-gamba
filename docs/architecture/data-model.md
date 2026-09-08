@@ -77,7 +77,10 @@ As of `2026-09-07`,
 `supabase/migrations/202609070002_team_sport_plus_price_buckets.sql` extends
 NRL, NPC, and UCL fixed-win aggregate scopes with cumulative price threshold
 rows for selected-team price, other-team price, and non-negative price
-difference.
+difference. As of `2026-09-09`,
+`supabase/migrations/202609090001_epl_pipeline.sql` creates EPL aggregate
+tables with the same 50c/25c exact and cumulative bucket scope values from the
+start.
 As of `2026-09-04`,
 `supabase/migrations/202609040002_team_sport_half_time_full_time_double.sql`
 adds NRL/NPC halftime score fields plus separate
@@ -97,6 +100,14 @@ are settled non-paying losses for those team selections. Official UEFA fixture,
 lineup, appearance, and goal-event rows are written only when they match a
 captured TAB fixed-win snapshot; unpriced official-only history is not
 backfilled.
+As of `2026-09-09`, English Premier League support uses the same UCL-shaped
+sport-specific pattern with `epl_*` tables in
+`supabase/migrations/202609090001_epl_pipeline.sql`. TAB `Match Result`
+snapshots store home, draw, and away prices. Premier League public fixture and
+goal rows provide official settlement; player rows use official squad-roster
+proxy appearances until a stable public match-lineup endpoint is validated.
+Historical EPL calibration is not backfilled without matching TAB fixed-win
+snapshots.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.

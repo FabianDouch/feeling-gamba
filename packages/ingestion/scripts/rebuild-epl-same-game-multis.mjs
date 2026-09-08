@@ -7,22 +7,23 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
-const MODEL_KEY = "ucl_favourite_top2_goal_scorers_same_game_percentage_v1";
+const MODEL_KEY = "epl_favourite_top2_goal_scorers_same_game_percentage_v1";
 const TEAM_NAME_ALIASES = new Map([
-  ["bayern munich", "bayern munchen"],
-  ["borussia dortmund", "b dortmund"],
-  ["fc porto", "porto"],
-  ["fenerbahce sk", "fenerbahce"],
-  ["inter milan", "inter"],
+  ["afc bournemouth", "bournemouth"],
+  ["brighton hove albion", "brighton and hove albion"],
+  ["brighton", "brighton and hove albion"],
+  ["leeds", "leeds united"],
   ["manchester city", "man city"],
-  ["paris saint germain", "paris"],
-  ["psv eindhoven", "psv"],
-  ["shakhtar donetsk", "shakhtar"],
-  ["slovan bratislava", "s bratislava"],
+  ["manchester united", "man utd"],
+  ["newcastle", "newcastle united"],
+  ["nottingham forest", "nottm forest"],
+  ["tottenham", "tottenham hotspur"],
+  ["west ham", "west ham united"],
+  ["wolves", "wolverhampton wanderers"],
 ]);
 
 /**
- * Parses UCL same-game multi rebuild options.
+ * Parses EPL same-game multi rebuild options.
  */
 function parseArgs(argv) {
   const options = {
@@ -85,7 +86,7 @@ function normalizeSupabaseProjectUrl(value) {
 }
 
 /**
- * Reads Supabase service-role config for local UCL result rebuilds.
+ * Reads Supabase service-role config for local EPL result rebuilds.
  */
 function getSupabaseWriteConfig() {
   const url = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -240,7 +241,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-UEFA club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Premier League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -303,7 +304,7 @@ function buildTryPriceBuckets(rows) {
   const buckets = new Map();
 
   for (const row of rows) {
-    const key = `${row.source}:${row.matched_ucl_match_id ?? ""}:${row.source_event_id}`;
+    const key = `${row.source}:${row.matched_epl_match_id ?? ""}:${row.source_event_id}`;
     const bucket = buckets.get(key) ?? [];
     bucket.push(row);
     buckets.set(key, bucket);
@@ -316,7 +317,7 @@ function buildTryPriceBuckets(rows) {
  * Picks the two shortest-priced goal scorers for the favourite team.
  */
 function selectTopTwoGoalScorers({ fixedWinRow, favouriteTeamSourceId, tryPriceBuckets }) {
-  const key = `${fixedWinRow.source}:${fixedWinRow.matched_ucl_match_id ?? ""}:${fixedWinRow.source_event_id}`;
+  const key = `${fixedWinRow.source}:${fixedWinRow.matched_epl_match_id ?? ""}:${fixedWinRow.source_event_id}`;
   const candidates = (tryPriceBuckets.get(key) ?? [])
     .filter((row) => {
       const price = numeric(row.fixed_win_price);
@@ -386,8 +387,8 @@ function getFixedWinModelKey(row) {
     return `${row.source}:event:${row.source_event_id}`;
   }
 
-  if (row.matched_ucl_match_id) {
-    return `${row.source}:match:${row.matched_ucl_match_id}`;
+  if (row.matched_epl_match_id) {
+    return `${row.source}:match:${row.matched_epl_match_id}`;
   }
 
   return `${row.source}:snapshot:${row.source_snapshot_key}`;
@@ -419,7 +420,7 @@ function getFixedWinOutcomeRank(status) {
  * Prefers matched and settled fixed-win rows, then the latest snapshot.
  */
 function compareFixedWinRowsForModel(left, right) {
-  const matchedDiff = Number(Boolean(right.matched_ucl_match_id)) - Number(Boolean(left.matched_ucl_match_id));
+  const matchedDiff = Number(Boolean(right.matched_epl_match_id)) - Number(Boolean(left.matched_epl_match_id));
 
   if (matchedDiff !== 0) {
     return matchedDiff;
@@ -439,8 +440,8 @@ function compareFixedWinRowsForModel(left, right) {
  */
 function buildSameGameMultiRows({ fixedWinResults, matchesById, tryPriceBuckets, tryCounts }) {
   return selectFixedWinRowsForModel(fixedWinResults).map((fixedWinRow) => {
-    const match = fixedWinRow.matched_ucl_match_id
-      ? matchesById.get(fixedWinRow.matched_ucl_match_id)
+    const match = fixedWinRow.matched_epl_match_id
+      ? matchesById.get(fixedWinRow.matched_epl_match_id)
       : null;
     const favouriteTeamSourceId = getFavouriteTeamSourceId(fixedWinRow, match);
     const selectedGoalScorers = selectTopTwoGoalScorers({
@@ -477,7 +478,7 @@ function buildSameGameMultiRows({ fixedWinResults, matchesById, tryPriceBuckets,
       match_label: fixedWinRow.home_team_name && fixedWinRow.away_team_name
         ? `${fixedWinRow.home_team_name} vs ${fixedWinRow.away_team_name}`
         : null,
-      matched_ucl_match_id: fixedWinRow.matched_ucl_match_id,
+      matched_epl_match_id: fixedWinRow.matched_epl_match_id,
       model_key: MODEL_KEY,
       outcome_status: outcomeStatus,
       outcome_win_return: outcomeStatus === "settled" && multiWon && combinedEstimatedPrice !== null
@@ -519,14 +520,14 @@ function buildSameGameMultiRows({ fixedWinResults, matchesById, tryPriceBuckets,
  */
 async function readSourceRows(supabase) {
   const [fixedWinResults, matches, goalScorerPrices, goalScorers] = await Promise.all([
-    supabase.selectAll("ucl_fixed_win_snapshot_results", {
+    supabase.selectAll("epl_fixed_win_snapshot_results", {
       order: "snapshot_at.asc",
       select: [
         "id",
         "source",
         "source_snapshot_key",
         "source_event_id",
-        "matched_ucl_match_id",
+        "matched_epl_match_id",
         "snapshot_at",
         "advertised_start_at",
         "home_team_name",
@@ -537,7 +538,7 @@ async function readSourceRows(supabase) {
         "outcome_status",
       ].join(","),
     }),
-    supabase.selectAll("ucl_matches", {
+    supabase.selectAll("epl_matches", {
       order: "kickoff_at.asc",
       select: [
         "id",
@@ -551,13 +552,13 @@ async function readSourceRows(supabase) {
         "away_team_name",
       ].join(","),
     }),
-    supabase.selectAll("ucl_goal_scorer_market_snapshots", {
+    supabase.selectAll("epl_goal_scorer_market_snapshots", {
       order: "snapshot_at.asc,fixed_win_price.asc",
       select: [
         "id",
         "source",
         "source_event_id",
-        "matched_ucl_match_id",
+        "matched_epl_match_id",
         "snapshot_at",
         "player_source_id",
         "player_name",
@@ -566,7 +567,7 @@ async function readSourceRows(supabase) {
         "fixed_win_price",
       ].join(","),
     }),
-    supabase.selectAll("ucl_goal_scorers", {
+    supabase.selectAll("epl_goal_scorers", {
       order: "source_match_id.asc,game_seconds.asc",
       select: [
         "source",
@@ -588,7 +589,7 @@ async function readSourceRows(supabase) {
  * Replaces the stored same-game multi rows for the current model.
  */
 async function writeRows(supabase, rows) {
-  await supabase.request("ucl_same_game_multi_results", {
+  await supabase.request("epl_same_game_multi_results", {
     expectJson: false,
     method: "DELETE",
     prefer: "return=minimal",
@@ -596,17 +597,17 @@ async function writeRows(supabase, rows) {
       model_key: `eq.${MODEL_KEY}`,
     },
   });
-  await supabase.upsert("ucl_same_game_multi_results", rows, "source_result_key");
+  await supabase.upsert("epl_same_game_multi_results", rows, "source_result_key");
 
   return {
-    uclSameGameMultiResults: rows.length,
+    eplSameGameMultiResults: rows.length,
     ok: true,
     skipped: false,
   };
 }
 
 /**
- * Runs the local UCL same-game multi result rebuild workflow.
+ * Runs the local EPL same-game multi result rebuild workflow.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -641,9 +642,9 @@ async function main() {
   const summary = {
     matchedPricedMultis: rows.filter((row) => row.outcome_status === "settled").length,
     missingPriceRows: rows.filter((row) => row.outcome_status === "missing_price").length,
-    uclFixedWinSnapshotResults: sourceRows.fixedWinResults.length,
-    uclSameGameMultiResults: rows.length,
-    uclGoalScorerMarketSnapshots: sourceRows.goalScorerPrices.length,
+    eplFixedWinSnapshotResults: sourceRows.fixedWinResults.length,
+    eplSameGameMultiResults: rows.length,
+    eplGoalScorerMarketSnapshots: sourceRows.goalScorerPrices.length,
     settledWins: rows.filter((row) => row.outcome_status === "settled" && row.outcome_win_return > 0).length,
   };
 

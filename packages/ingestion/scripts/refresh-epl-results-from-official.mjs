@@ -7,47 +7,50 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_COMPETITION_ID = 1;
-const DEFAULT_LIMIT = 500;
+const DEFAULT_LIMIT = 100;
 const MATCH_WINDOW_HOURS = 4;
 const PAGE_SIZE = 1000;
-const SOURCE_NAME = "official_uefa";
-const UEFA_BASE_URL = "https://match.uefa.com/v5";
+const SOURCE_NAME = "official_premier_league";
+const PREMIER_LEAGUE_BASE_URL = "https://footballapi.pulselive.com/football";
 const TEAM_NAME_ALIASES = new Map([
-  ["bayern munich", "bayern munchen"],
-  ["borussia dortmund", "b dortmund"],
-  ["fc porto", "porto"],
-  ["fenerbahce sk", "fenerbahce"],
-  ["inter milan", "inter"],
+  ["afc bournemouth", "bournemouth"],
+  ["brighton hove albion", "brighton and hove albion"],
+  ["brighton", "brighton and hove albion"],
+  ["leeds", "leeds united"],
   ["manchester city", "man city"],
-  ["paris saint germain", "paris"],
-  ["psv eindhoven", "psv"],
-  ["shakhtar donetsk", "shakhtar"],
-  ["slovan bratislava", "s bratislava"],
+  ["manchester united", "man utd"],
+  ["newcastle", "newcastle united"],
+  ["nottingham forest", "nottm forest"],
+  ["tottenham", "tottenham hotspur"],
+  ["west ham", "west ham united"],
+  ["wolves", "wolverhampton wanderers"],
 ]);
 
 /**
- * Maps a calendar date to UEFA's Champions League seasonYear convention.
+ * Maps a calendar date to the Premier League season start year.
  */
-function getDefaultUefaSeasonYear(date) {
+function getDefaultEplSeasonYear(date) {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
 
-  return month >= 6 ? year + 1 : year;
+  return month >= 6 ? year : year - 1;
 }
 
 /**
- * Parses official UEFA refresh options while defaulting to price-backed writes only.
+ * Parses official Premier League refresh options while defaulting to price-backed writes only.
  */
 function parseArgs(argv) {
   const options = {
     batchSize: DEFAULT_BATCH_SIZE,
+    compSeasonId: null,
     competitionId: DEFAULT_COMPETITION_ID,
     dryRun: false,
     includeFixtures: false,
     limit: DEFAULT_LIMIT,
+    maxMatches: null,
     pricedOnly: true,
     requireSupabase: false,
-    season: getDefaultUefaSeasonYear(new Date()),
+    season: getDefaultEplSeasonYear(new Date()),
     skipDetails: false,
   };
 
@@ -66,10 +69,14 @@ function parseArgs(argv) {
       options.skipDetails = true;
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
+    } else if (arg.startsWith("--comp-season-id=")) {
+      options.compSeasonId = Number(arg.slice("--comp-season-id=".length));
     } else if (arg.startsWith("--competition-id=")) {
       options.competitionId = Number(arg.slice("--competition-id=".length));
     } else if (arg.startsWith("--limit=")) {
       options.limit = Number(arg.slice("--limit=".length));
+    } else if (arg.startsWith("--max-matches=")) {
+      options.maxMatches = Number(arg.slice("--max-matches=".length));
     } else if (arg.startsWith("--season=")) {
       options.season = Number(arg.slice("--season=".length));
     }
@@ -83,8 +90,16 @@ function parseArgs(argv) {
     throw new Error("--competition-id must be a positive integer.");
   }
 
+  if (options.compSeasonId !== null && (!Number.isInteger(options.compSeasonId) || options.compSeasonId < 1)) {
+    throw new Error("--comp-season-id must be a positive integer.");
+  }
+
   if (!Number.isInteger(options.limit) || options.limit < 1) {
     throw new Error("--limit must be a positive integer.");
+  }
+
+  if (options.maxMatches !== null && (!Number.isInteger(options.maxMatches) || options.maxMatches < 1)) {
+    throw new Error("--max-matches must be a positive integer.");
   }
 
   if (!Number.isInteger(options.season) || options.season < 2000) {
@@ -160,7 +175,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for official UEFA ingestion.
+ * Minimal Supabase REST client for official Premier League ingestion.
  */
 function createSupabaseRestClient(config, batchSize) {
   async function request(table, options = {}) {
@@ -246,27 +261,29 @@ function createSupabaseRestClient(config, batchSize) {
 }
 
 /**
- * Fetches one public UEFA JSON payload.
+ * Fetches one public Premier League JSON payload.
  */
-async function fetchUefaJson(url) {
+async function fetchPremierLeagueJson(url) {
   const response = await fetch(url, {
     headers: {
       accept: "application/json",
       "accept-language": "en-US,en;q=0.9",
+      origin: "https://www.premierleague.com",
+      referer: "https://www.premierleague.com/",
       "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     },
   });
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`UEFA request failed with HTTP ${response.status}: ${message.slice(0, 500)}`);
+    throw new Error(`Premier League request failed with HTTP ${response.status}: ${message.slice(0, 500)}`);
   }
 
   return await response.json();
 }
 
 /**
- * Normalizes UEFA list responses across their `items`, `matches`, and direct array shapes.
+ * Normalizes Premier League list responses across their array-backed shapes.
  */
 function listFromPayload(payload, key) {
   if (Array.isArray(payload)) {
@@ -289,31 +306,67 @@ function listFromPayload(payload, key) {
 }
 
 /**
- * Fetches the UEFA Champions League match list for a season.
+ * Resolves the public Premier League compSeason id for one season start year.
+ */
+async function resolveCompSeasonId(options) {
+  if (options.compSeasonId) {
+    return options.compSeasonId;
+  }
+
+  const url = new URL(`${PREMIER_LEAGUE_BASE_URL}/competitions/${options.competitionId}/compseasons`);
+  url.searchParams.set("page", "0");
+  url.searchParams.set("pageSize", "100");
+  url.searchParams.set("altIds", "true");
+
+  const payload = await fetchPremierLeagueJson(url);
+  const seasons = listFromPayload(payload, "content");
+  const expectedShort = `${options.season}/${String(options.season + 1).slice(-2)}`;
+  const expectedLong = `${options.season}/${options.season + 1}`;
+  const match = seasons.find((season) => {
+    const label = String(season?.label ?? season?.description ?? "");
+    return label.includes(expectedShort) || label.includes(expectedLong);
+  })
+    ?? seasons.find((season) => Number(season?.year) === options.season)
+    ?? seasons.find((season) => String(season?.description ?? "").includes(String(options.season)));
+
+  if (!match?.id) {
+    throw new Error(`Could not resolve Premier League compSeason id for ${options.season}.`);
+  }
+
+  return Number(match.id);
+}
+
+/**
+ * Fetches the Premier League fixture list for a season.
  */
 async function fetchMatches(options) {
   const rows = [];
-  let offset = 0;
+  const compSeasonId = await resolveCompSeasonId(options);
+  let page = 0;
 
   while (true) {
-    const url = new URL(`${UEFA_BASE_URL}/matches`);
-    url.searchParams.set("competitionId", String(options.competitionId));
-    url.searchParams.set("seasonYear", String(options.season));
-    url.searchParams.set("limit", String(options.limit));
-    url.searchParams.set("offset", String(offset));
-    url.searchParams.set("order", "ASC");
-    const payload = await fetchUefaJson(url);
-    const page = listFromPayload(payload, "matches");
-    rows.push(...page);
+    const url = new URL(`${PREMIER_LEAGUE_BASE_URL}/fixtures`);
+    url.searchParams.set("comps", String(options.competitionId));
+    url.searchParams.set("compSeasons", String(compSeasonId));
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("pageSize", String(options.limit));
+    url.searchParams.set("sort", "asc");
+    url.searchParams.set("altIds", "true");
+    const payload = await fetchPremierLeagueJson(url);
+    const fixtures = listFromPayload(payload, "content");
+    rows.push(...fixtures);
 
-    if (page.length < options.limit) {
+    if (fixtures.length < options.limit || page + 1 >= Number(payload?.pageInfo?.numPages ?? 1)) {
       break;
     }
 
-    offset += options.limit;
+    page += 1;
   }
 
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    _compSeasonId: compSeasonId,
+  }));
 }
 
 function normalizeName(value) {
@@ -327,7 +380,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-UEFA club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Premier League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -355,8 +408,11 @@ function getDisplayName(value) {
     return null;
   }
 
-  return value.displayName
+  return value.display
+    ?? value.displayName
     ?? value.internationalName
+    ?? value.shortName
+    ?? value.club?.name
     ?? value.name
     ?? value.translations?.displayName?.EN
     ?? value.translations?.name?.EN
@@ -369,30 +425,52 @@ function getTeamId(team) {
 }
 
 function getTeamName(team) {
-  return getDisplayName(team) ?? team?.teamName ?? null;
+  return getDisplayName(team) ?? team?.teamName ?? team?.club?.name ?? null;
 }
 
 function getPerson(value) {
-  return value?.player ?? value?.person ?? value;
+  return value?.player ?? value?.person ?? value?.owner ?? value;
 }
 
 function getPersonId(value) {
   const person = getPerson(value);
-  return person?.id === undefined || person?.id === null ? null : String(person.id);
+  const id = person?.id ?? person?.personId ?? person?.playerId;
+  return id === undefined || id === null ? null : String(id);
 }
 
 function getPersonName(value) {
   const person = getPerson(value);
-  const firstName = person?.firstName ?? person?.translations?.firstName?.EN ?? null;
-  const lastName = person?.lastName ?? person?.translations?.lastName?.EN ?? null;
+  const firstName = person?.name?.first ?? person?.firstName ?? person?.translations?.firstName?.EN ?? null;
+  const lastName = person?.name?.last ?? person?.lastName ?? person?.translations?.lastName?.EN ?? null;
   const joined = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-  return getDisplayName(person)
+  return person?.name?.display
+    ?? getDisplayName(person)
     ?? person?.internationalName
     ?? (joined || null);
 }
 
+function getHomeTeam(match) {
+  return match?.homeTeam ?? match?.home_team ?? match?.teams?.[0]?.team ?? match?.teams?.[0] ?? {};
+}
+
+function getAwayTeam(match) {
+  return match?.awayTeam ?? match?.away_team ?? match?.teams?.[1]?.team ?? match?.teams?.[1] ?? {};
+}
+
+function getTeamEntry(match, side) {
+  return side === "home" ? match?.teams?.[0] : match?.teams?.[1];
+}
+
 function getScore(match, side) {
+  const team = side === "home" ? getHomeTeam(match) : getAwayTeam(match);
+  const teamEntry = getTeamEntry(match, side);
+  const teamScore = Number(teamEntry?.teamScore?.score ?? teamEntry?.score ?? team?.teamScore?.score ?? team?.score);
+
+  if (Number.isFinite(teamScore)) {
+    return teamScore;
+  }
+
   const score = match?.score ?? {};
   const value = score.total?.[side]
     ?? score.regular?.[side]
@@ -405,12 +483,13 @@ function getScore(match, side) {
 
 function getMatchStatus(match) {
   const status = String(match?.status ?? match?.matchStatus ?? "").toUpperCase();
+  const phase = String(match?.phase ?? "").toUpperCase();
 
   if (status.includes("ABANDON")) {
     return "abandoned";
   }
 
-  if (status.includes("FINISH") || status === "FT" || status === "PLAYED") {
+  if (status.includes("FINISH") || status === "FT" || status === "PLAYED" || status === "C" || phase === "F") {
     return "settled";
   }
 
@@ -418,7 +497,8 @@ function getMatchStatus(match) {
 }
 
 function getRoundTitle(match) {
-  return match?.round?.translations?.name?.EN
+  return match?.gameweek?.compSeason?.label
+    ?? match?.round?.translations?.name?.EN
     ?? match?.round?.metaData?.name
     ?? match?.round?.name
     ?? match?.phase?.translations?.name?.EN
@@ -429,7 +509,9 @@ function getRoundTitle(match) {
 }
 
 function getRoundNumber(match) {
-  const value = match?.matchday?.matchdayNumber
+  const value = match?.gameweek?.gameweek
+    ?? match?.gameweek
+    ?? match?.matchday?.matchdayNumber
     ?? match?.round?.metaData?.matchday
     ?? match?.round?.order
     ?? match?.round?.id
@@ -440,6 +522,12 @@ function getRoundNumber(match) {
 }
 
 function getKickoffAt(match) {
+  const millis = Number(match?.kickoff?.millis);
+
+  if (Number.isFinite(millis)) {
+    return new Date(millis).toISOString();
+  }
+
   return match?.kickOffTime?.dateTime
     ?? match?.kickoffTime?.dateTime
     ?? match?.kickoff_at
@@ -464,25 +552,25 @@ function isWithinMatchWindow(snapshotStart, matchKickoff) {
 }
 
 function sameTeams(snapshot, match) {
-  const homeTeam = match.homeTeam ?? match.home_team ?? {};
-  const awayTeam = match.awayTeam ?? match.away_team ?? {};
+  const homeTeam = getHomeTeam(match);
+  const awayTeam = getAwayTeam(match);
 
   return namesMatch(snapshot.home_team_name, getTeamName(homeTeam))
     && namesMatch(snapshot.away_team_name, getTeamName(awayTeam));
 }
 
 /**
- * Reads fixed-win snapshots used as the price-backed boundary for UEFA writes.
+ * Reads fixed-win snapshots used as the price-backed boundary for Premier League writes.
  */
 async function readPricedSnapshots(supabase) {
   try {
-    return await supabase.selectAll("ucl_market_snapshots", {
+    return await supabase.selectAll("epl_market_snapshots", {
       order: "advertised_start_at.asc",
       select: "source_event_id,advertised_start_at,home_team_name,away_team_name,home_fixed_win_price,away_fixed_win_price",
       source: "eq.tab",
     });
   } catch (error) {
-    if (isMissingUclSchemaError(error)) {
+    if (isMissingEplSchemaError(error)) {
       return [];
     }
 
@@ -490,10 +578,10 @@ async function readPricedSnapshots(supabase) {
   }
 }
 
-function isMissingUclSchemaError(error) {
+function isMissingEplSchemaError(error) {
   return error instanceof Error
     && error.message.includes("PGRST205")
-    && error.message.includes("ucl_");
+    && error.message.includes("epl_");
 }
 
 /**
@@ -516,7 +604,7 @@ function filterToPricedMatches(matches, snapshots) {
 }
 
 /**
- * Maps UEFA team objects to stable Supabase team rows.
+ * Maps Premier League team objects to stable Supabase team rows.
  */
 function mapTeam(team) {
   const sourceTeamId = getTeamId(team);
@@ -527,10 +615,10 @@ function mapTeam(team) {
   }
 
   return {
-    abbreviation: team?.teamCode ?? team?.code ?? null,
+    abbreviation: team?.teamType ?? team?.shortClubName ?? team?.teamCode ?? team?.code ?? null,
     display_name: name,
     name,
-    nick_name: team?.shortName ?? team?.translations?.shortName?.EN ?? null,
+    nick_name: team?.shortName ?? team?.shortClubName ?? team?.translations?.shortName?.EN ?? null,
     raw: team ?? {},
     source: SOURCE_NAME,
     source_team_id: sourceTeamId,
@@ -539,11 +627,11 @@ function mapTeam(team) {
 }
 
 /**
- * Maps a UEFA match row into the app's UCL match table.
+ * Maps a Premier League fixture row into the app's EPL match table.
  */
 function mapMatch(match, options) {
-  const homeTeam = match.homeTeam ?? match.home_team ?? {};
-  const awayTeam = match.awayTeam ?? match.away_team ?? {};
+  const homeTeam = getHomeTeam(match);
+  const awayTeam = getAwayTeam(match);
   const sourceMatchId = String(match.id ?? match.matchId ?? "");
   const homeScore = getScore(match, "home");
   const awayScore = getScore(match, "away");
@@ -569,35 +657,46 @@ function mapMatch(match, options) {
     season: options.season,
     source: SOURCE_NAME,
     source_match_id: sourceMatchId,
-    source_url: sourceMatchId ? `https://www.uefa.com/uefachampionsleague/match/${sourceMatchId}/` : null,
-    venue_city: match?.stadium?.city?.internationalName ?? match?.venue?.city ?? null,
-    venue_name: match?.stadium?.internationalName ?? match?.stadium?.name ?? match?.venue?.name ?? null,
+    source_url: sourceMatchId ? `https://www.premierleague.com/match/${sourceMatchId}` : null,
+    venue_city: match?.ground?.city ?? match?.stadium?.city?.internationalName ?? match?.venue?.city ?? null,
+    venue_name: match?.ground?.name ?? match?.stadium?.internationalName ?? match?.stadium?.name ?? match?.venue?.name ?? null,
     winner_team_name: winnerTeam ? getTeamName(winnerTeam) : null,
     winner_team_source_id: winnerTeam ? getTeamId(winnerTeam) : null,
   };
 }
 
 /**
- * Fetches optional UEFA lineups and event timeline for one retained match.
+ * Fetches official roster details for the fixture teams.
  */
 async function fetchMatchDetails(match) {
   const sourceMatchId = String(match.id ?? match.matchId ?? "");
+  const compSeasonId = match?._compSeasonId;
+  const teams = [getHomeTeam(match), getAwayTeam(match)].filter((team) => getTeamId(team));
 
-  if (!sourceMatchId) {
+  if (!sourceMatchId || !compSeasonId) {
     return {
-      events: [],
-      lineups: null,
+      goals: match?.goals ?? [],
+      rosters: new Map(),
     };
   }
 
-  const [lineupsResult, eventsResult] = await Promise.allSettled([
-    fetchUefaJson(`${UEFA_BASE_URL}/matches/${sourceMatchId}/lineups`),
-    fetchUefaJson(`${UEFA_BASE_URL}/matches/${sourceMatchId}/events?filter=ALL&order=ASC&limit=500&offset=0`),
-  ]);
+  const rosterResults = await Promise.allSettled(teams.map((team) => {
+    const url = new URL(`${PREMIER_LEAGUE_BASE_URL}/teams/${getTeamId(team)}/compseasons/${compSeasonId}/staff`);
+    url.searchParams.set("altIds", "true");
+    return fetchPremierLeagueJson(url);
+  }));
+  const rosters = new Map();
+
+  for (let index = 0; index < teams.length; index += 1) {
+    const team = teams[index];
+    const result = rosterResults[index];
+    const players = result?.status === "fulfilled" ? listFromPayload(result.value, "players") : [];
+    rosters.set(getTeamId(team), players);
+  }
 
   return {
-    events: eventsResult.status === "fulfilled" ? listFromPayload(eventsResult.value, "events") : [],
-    lineups: lineupsResult.status === "fulfilled" ? lineupsResult.value : null,
+    goals: match?.goals ?? [],
+    rosters,
   };
 }
 
@@ -610,7 +709,7 @@ function pushUnique(map, row, key) {
 }
 
 /**
- * Recovers starter and bench player rows from UEFA lineup payloads.
+ * Recovers player rows from Premier League squad payloads when match lineups are not public.
  */
 function collectLineupAppearances(value, team, sourceMatchId, resultStatus, rows, seen, pathLabel = "lineup") {
   if (Array.isArray(value)) {
@@ -662,31 +761,73 @@ function collectLineupAppearances(value, team, sourceMatchId, resultStatus, rows
 }
 
 /**
- * Maps UEFA lineup payloads to player and appearance rows.
+ * Maps Premier League roster payloads to player and match-appearance proxy rows.
  */
 function mapAppearances(match, details) {
   const sourceMatchId = String(match.id ?? match.matchId ?? "");
   const resultStatus = getMatchStatus(match);
-  const homeTeam = match.homeTeam ?? match.home_team ?? {};
-  const awayTeam = match.awayTeam ?? match.away_team ?? {};
-  const lineups = details.lineups ?? {};
+  const teams = [getHomeTeam(match), getAwayTeam(match)];
   const rows = [];
   const seen = new Set();
 
-  collectLineupAppearances(lineups.homeTeam ?? lineups.home ?? lineups.localTeam, homeTeam, sourceMatchId, resultStatus, rows, seen);
-  collectLineupAppearances(lineups.awayTeam ?? lineups.away ?? lineups.visitorTeam, awayTeam, sourceMatchId, resultStatus, rows, seen);
+  for (const team of teams) {
+    const teamId = getTeamId(team);
+    const teamName = getTeamName(team);
+
+    if (!teamId || !teamName) {
+      continue;
+    }
+
+    for (const player of details.rosters?.get(teamId) ?? []) {
+      const playerId = getPersonId(player);
+      const playerName = getPersonName(player);
+
+      if (!playerId || !playerName) {
+        continue;
+      }
+
+      const sourceAppearanceKey = `${SOURCE_NAME}:${sourceMatchId}:${teamId}:${playerId}`;
+
+      if (seen.has(sourceAppearanceKey)) {
+        continue;
+      }
+
+      seen.add(sourceAppearanceKey);
+      rows.push({
+        is_on_field: true,
+        jersey_number: Number.isFinite(Number(player?.info?.shirtNum ?? player?.shirtNumber))
+          ? Number(player?.info?.shirtNum ?? player?.shirtNumber)
+          : null,
+        player_name: playerName,
+        position: player?.info?.position ?? player?.position ?? null,
+        raw: player,
+        result_status: resultStatus,
+        source: SOURCE_NAME,
+        source_appearance_key: sourceAppearanceKey,
+        source_match_id: sourceMatchId,
+        source_player_id: playerId,
+        source_team_id: teamId,
+        team_name: teamName,
+      });
+    }
+  }
 
   return rows;
 }
 
 function getEventMinute(event) {
-  const minute = event?.minute ?? event?.matchMinute ?? event?.time?.minute ?? null;
+  const minute = event?.minute
+    ?? event?.matchMinute
+    ?? event?.time?.minute
+    ?? (Number.isFinite(Number(event?.clock?.secs)) ? Math.floor(Number(event.clock.secs) / 60) : null);
   const parsed = Number(minute);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getEventSecond(event) {
-  const second = event?.second ?? event?.time?.second ?? 0;
+  const second = event?.second
+    ?? event?.time?.second
+    ?? (Number.isFinite(Number(event?.clock?.secs)) ? Number(event.clock.secs) % 60 : 0);
   const parsed = Number(second);
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -705,50 +846,69 @@ function getEventPlayer(event) {
     ?? event?.player
     ?? event?.person
     ?? event?.primaryActor
+    ?? (event?.personId ? { id: event.personId } : null)
     ?? null;
 }
 
 /**
- * Maps regular/extra-time UEFA goal timeline rows to official scorer records.
+ * Maps Premier League fixture goal rows to official scorer records.
  */
 function mapGoalScorers(match, details) {
   const sourceMatchId = String(match.id ?? match.matchId ?? "");
   const rows = [];
+  const playersById = new Map();
 
-  for (const event of details.events) {
-    const eventType = String(event?.type ?? event?.eventType ?? "").toUpperCase();
-    const phase = String(event?.phase ?? event?.period ?? "").toUpperCase();
+  for (const [teamId, players] of details.rosters ?? []) {
+    const team = [getHomeTeam(match), getAwayTeam(match)].find((candidate) => getTeamId(candidate) === teamId);
+    const teamName = getTeamName(team);
 
-    if (eventType !== "GOAL" || phase.includes("PENALTY_SHOOT")) {
+    for (const player of players) {
+      const playerId = getPersonId(player);
+
+      if (playerId) {
+        playersById.set(playerId, {
+          player,
+          teamId,
+          teamName,
+        });
+      }
+    }
+  }
+
+  for (const [index, event] of (details.goals ?? []).entries()) {
+    const phase = String(event?.phase ?? "").toUpperCase();
+    const goalType = String(event?.type ?? "").toUpperCase();
+
+    if (phase.includes("PENALTY_SHOOT")) {
       continue;
     }
 
     const player = getEventPlayer(event);
-    const team = getEventTeam(event);
-    const playerId = getPersonId(player);
-    const playerName = getPersonName(player);
-    const teamId = getTeamId(team);
-    const teamName = getTeamName(team);
+    const playerId = event?.personId === undefined || event?.personId === null ? getPersonId(player) : String(event.personId);
+    const rosterMatch = playersById.get(playerId);
+    const playerName = getPersonName(player) ?? getPersonName(rosterMatch?.player);
+    const teamId = rosterMatch?.teamId ?? getTeamId(getEventTeam(event));
+    const teamName = rosterMatch?.teamName ?? getTeamName(getEventTeam(event));
     const minute = getEventMinute(event);
 
     if (!playerId || !playerName || !teamId || !teamName || minute === null) {
       continue;
     }
 
-    const sourceGoalKey = `${SOURCE_NAME}:${sourceMatchId}:${event.id ?? rows.length}`;
+    const sourceGoalKey = `${SOURCE_NAME}:${sourceMatchId}:${event.id ?? playerId}:${event?.clock?.secs ?? minute}:${index}`;
     rows.push({
-      away_score: Number.isFinite(Number(event?.score?.away ?? event?.totalScore?.away))
-        ? Number(event?.score?.away ?? event?.totalScore?.away)
+      away_score: Number.isFinite(Number(event?.score?.away ?? event?.totalScore?.away ?? event?.awayScore))
+        ? Number(event?.score?.away ?? event?.totalScore?.away ?? event?.awayScore)
         : null,
-      display_minute: event?.displayMinute ?? event?.time?.display ?? String(minute),
+      display_minute: event?.clock?.label ?? event?.displayMinute ?? event?.time?.display ?? String(minute),
       game_seconds: minute * 60 + getEventSecond(event),
-      home_score: Number.isFinite(Number(event?.score?.home ?? event?.totalScore?.home))
-        ? Number(event?.score?.home ?? event?.totalScore?.home)
+      home_score: Number.isFinite(Number(event?.score?.home ?? event?.totalScore?.home ?? event?.homeScore))
+        ? Number(event?.score?.home ?? event?.totalScore?.home ?? event?.homeScore)
         : null,
       player_name: playerName,
       raw: event,
       source: SOURCE_NAME,
-      source_goal_key: sourceGoalKey,
+      source_goal_key: goalType === "OWN" || goalType === "OG" ? `${sourceGoalKey}:own_goal` : sourceGoalKey,
       source_match_id: sourceMatchId,
       source_player_id: playerId,
       source_team_id: teamId,
@@ -791,7 +951,7 @@ function mapPlayersFromRows(appearances, goalScorers) {
 }
 
 /**
- * Converts retained UEFA payload rows into normalized write sets.
+ * Converts retained Premier League payload rows into normalized write sets.
  */
 async function buildWriteSets(matches, options) {
   const teams = new Map();
@@ -800,8 +960,8 @@ async function buildWriteSets(matches, options) {
   const goalScorers = [];
 
   for (const match of matches) {
-    const homeTeam = match.homeTeam ?? match.home_team ?? {};
-    const awayTeam = match.awayTeam ?? match.away_team ?? {};
+    const homeTeam = getHomeTeam(match);
+    const awayTeam = getAwayTeam(match);
     const matchRow = mapMatch(match, options);
 
     if (!matchRow.source_match_id || !matchRow.home_team_name || !matchRow.away_team_name) {
@@ -829,28 +989,28 @@ async function buildWriteSets(matches, options) {
 }
 
 /**
- * Writes official UEFA rows in dependency order.
+ * Writes official Premier League rows in dependency order.
  */
 async function writeRows(supabase, rows) {
-  await supabase.upsert("ucl_teams", rows.teams, "source,source_team_id");
-  await supabase.upsert("ucl_players", rows.players, "source,source_player_id");
-  await supabase.upsert("ucl_matches", rows.matches, "source,source_match_id");
-  await supabase.upsert("ucl_player_match_appearances", rows.appearances, "source_appearance_key");
-  await supabase.upsert("ucl_goal_scorers", rows.goalScorers, "source_goal_key");
+  await supabase.upsert("epl_teams", rows.teams, "source,source_team_id");
+  await supabase.upsert("epl_players", rows.players, "source,source_player_id");
+  await supabase.upsert("epl_matches", rows.matches, "source,source_match_id");
+  await supabase.upsert("epl_player_match_appearances", rows.appearances, "source_appearance_key");
+  await supabase.upsert("epl_goal_scorers", rows.goalScorers, "source_goal_key");
 
   return {
     ok: true,
     skipped: false,
-    uclAppearances: rows.appearances.length,
-    uclGoalScorers: rows.goalScorers.length,
-    uclMatches: rows.matches.length,
-    uclPlayers: rows.players.length,
-    uclTeams: rows.teams.length,
+    eplAppearances: rows.appearances.length,
+    eplGoalScorers: rows.goalScorers.length,
+    eplMatches: rows.matches.length,
+    eplPlayers: rows.players.length,
+    eplTeams: rows.teams.length,
   };
 }
 
 /**
- * Runs the official UEFA result/scorer refresh.
+ * Runs the official Premier League result/scorer refresh.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -882,13 +1042,15 @@ async function main() {
   const retainedMatches = options.pricedOnly
     ? filterToPricedMatches(writableMatches, pricedSnapshots)
     : writableMatches;
-  const rows = await buildWriteSets(retainedMatches, options);
+  const matchesToWrite = options.maxMatches ? retainedMatches.slice(0, options.maxMatches) : retainedMatches;
+  const rows = await buildWriteSets(matchesToWrite, options);
   const summary = {
     allMatches: allMatches.length,
     includeFixtures: options.includeFixtures,
     pricedOnly: options.pricedOnly,
     pricedSnapshots: pricedSnapshots.length,
     retainedMatches: retainedMatches.length,
+    retainedMatchesAfterLimit: matchesToWrite.length,
     season: options.season,
     skippedUnpricedMatches: writableMatches.length - retainedMatches.length,
     writableMatches: writableMatches.length,

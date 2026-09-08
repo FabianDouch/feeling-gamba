@@ -24,6 +24,12 @@ sport-specific `ucl_*` tables, TAB `Match Result` fixed-win snapshots, UEFA
 official priced-only result/goal rows, app-facing UCL Insights/Predictions tabs,
 and explicit empty Prediction History branches until UCL history RPCs are
 added. Rendered architecture outputs should be regenerated from the YAML before
+being treated as current. It was updated on 2026-09-09 so English Premier
+League uses sport-specific `epl_*` tables, TAB `Match Result` and `Anytime
+Goalscorer` snapshots, Premier League public official result/goal rows,
+app-facing EPL Insights/Predictions tabs, and explicit empty Prediction History
+branches until EPL history RPCs are added. Rendered architecture outputs should
+be regenerated from the YAML before
 being treated as current. It was updated on 2026-09-04 to add
 `ufc_multi_other_fighter_price_win_percentage_top6_v1`, a UFC other-fighter
 price same-card multi variant capped at six legs. Rendered architecture outputs
@@ -641,7 +647,8 @@ repo-root public Supabase env values before Metro bundles the app.
   breakdowns and source-backed try-scorer/Same Game rows. UCL reads
   `ucl_insight_aggregates` with the same fixed-win role and bucket structure,
   football goalscorer rows, and draw outcomes counted as settled losses for
-  tracked team selections. When one racing track and one racing discipline is selected, the app
+  tracked team selections. EPL reads `epl_insight_aggregates` with the same
+  UCL-shaped fixed-win, goalscorer, and same-game structure. When one racing track and one racing discipline is selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
   races at the selected track, store an audit row in
   `track_race_odds_requests`, and show the response for manual comparison with
@@ -705,7 +712,10 @@ repo-root public Supabase env values before Metro bundles the app.
   from official historical player/team try rates. NPC reads current Singles ->
   Win % rows from `npc_single_predictions`. UCL reads current Singles -> Win %
   rows from `ucl_single_predictions`, using TAB `Match Result` fixed-win
-  snapshots and UEFA `official_uefa` player/team goal rates. PFL uses the same
+  snapshots and UEFA `official_uefa` player/team goal rates. EPL reads current
+  Singles -> Win % rows from `epl_single_predictions`, using TAB `Match Result`
+  fixed-win snapshots and Premier League `official_premier_league` player/team
+  goal rates. PFL uses the same
   Singles/Multis -> Win % model tabs as UFC and reads current fixed-win MMA odds
   only when a current odds event matches the reviewed PFL event allow-list by
   event date and unordered fighter pair. PFL-specific prediction storage/RPCs
@@ -753,7 +763,8 @@ repo-root public Supabase env values before Metro bundles the app.
   history RPCs are added. NPC prediction history is intentionally empty until
   official NPC result refresh and NPC history RPCs are added. UCL prediction
   history is intentionally empty until UCL prediction reconciliation and history
-  RPCs are added. PFL prediction
+  RPCs are added. EPL prediction history is intentionally empty until EPL
+  prediction reconciliation and history RPCs are added. PFL prediction
   history is also intentionally empty:
   the app shows the same PFL Win % tab shape as UFC, but does not read UFC
   tables because they do not distinguish PFL rows.
@@ -829,6 +840,17 @@ repo-root public Supabase env values before Metro bundles the app.
   written only for matches with captured fixed-win prices by default. Fixed-win
   selected-team price, other-team price, and price-difference buckets use the
   same 50c/25c and Exact/+ contract as NRL/NPC.
+- EPL Insights use the same stored aggregate shape as UCL. Fixed-win cash
+  metrics come from reconciled TAB `Match Result` snapshots with home, draw, and
+  away prices captured; draw final scores settle as team-selection losses.
+  Goalscorer percentage rows come from Premier League official goal rows and
+  squad-roster proxy appearances until a stable match-lineup endpoint is
+  validated. Same Game % rows use the favourite fixed-win team plus the two
+  shortest-priced favourite-team TAB `Anytime Goalscorer` selections where
+  those entrants are matched to official player IDs. Official Premier League
+  rows are written only for matches with captured fixed-win prices by default.
+  Fixed-win selected-team price, other-team price, and price-difference buckets
+  use the same 50c/25c and Exact/+ contract as UCL.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

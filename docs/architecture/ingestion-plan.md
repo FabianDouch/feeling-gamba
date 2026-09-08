@@ -170,7 +170,7 @@ away/away selections, plus the shorter-priced same-team favourite. A halftime
 draw or fulltime draw is settled as a loss for these tracked selections because
 the team/team double would not pay out. Historical HT/FT prices are not
 backfilled unless a pre-kickoff TAB snapshot already exists.
-NRL, NPC, and UCL price-bucket aggregate rebuilds write both default 50c rows
+NRL, NPC, UCL, and EPL price-bucket aggregate rebuilds write both default 50c rows
 and finer 25c rows. Fixed-win selected-team price, other-team price, and
 price-difference sections also write cumulative `*_plus` threshold rows, such
 as `$2.00+`, so the app can switch between exact buckets and threshold-and-above
@@ -215,6 +215,53 @@ current-market wrapper every 15 minutes across the usual European evening UCL
 window. `.github/workflows/ucl-result-refresh.yml` runs repeated post-match
 catch-up passes. Both wrappers are idempotent. Historical UEFA rows are not
 backfilled unless a matching fixed-win price snapshot exists.
+As of 2026-09-09, UCL result refresh defaults use UEFA's `seasonYear`
+convention rather than the plain calendar year: July-December uses the next
+year, while January-June uses the current year. This keeps September 2026
+fixtures on `seasonYear=2027` so captured TAB rows can match and settle.
+
+## English Premier League Current Market Capture
+
+The first EPL slice mirrors the UCL pipeline with separate `epl_*` tables.
+As of 2026-09-09, TAB current markets are targeted at `SOCCER` /
+`premier-league`, with a three-runner `Match Result` market: home, draw, and
+away. The capture script writes one canonical `epl_market_snapshots` row per
+TAB source event, including `draw_fixed_win_price` for auditability. EPL
+fixed-win aggregates still track only home, away, favourite, favourite at home,
+and favourite away team selections; a drawn final score is settled as a
+non-paying loss for each of those selections.
+
+Implemented scripts:
+
+- `refresh:epl-market-snapshots`: captures current TAB `Match Result` prices.
+- `refresh:epl-goal-scorer-market-snapshots`: captures current TAB `Anytime
+  Goalscorer` prices and excludes `No Goalscorer`.
+- `refresh:epl-results`: reads Premier League public fixture, score, goal, and
+  squad endpoints and writes `official_premier_league` rows only for matches
+  with captured TAB fixed-win prices by default.
+- `reconcile:epl-fixed-win`: derives `epl_fixed_win_snapshot_results` and
+  treats draws as settled losses for home/away/favourite team selections.
+- `rebuild:epl-same-game-multis`: derives favourite-team plus top-two
+  goalscorer same-game rows from captured fixed-win and goalscorer prices.
+- `rebuild:epl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
+  same-game rows in `epl_insight_aggregates`, including 50c/25c exact and
+  cumulative fixed-win price buckets.
+- `generate:epl-single-predictions`: writes current fixed-win and goalscorer
+  single rows to `epl_single_predictions`.
+- `refresh:epl-current-markets`: captures TAB market rows, refreshes matching
+  priced Premier League fixtures, reconciles, rebuilds, and regenerates current
+  predictions.
+- `refresh:epl-results-and-insights`: refreshes priced official Premier League
+  rows, reconciles, rebuilds, and regenerates current predictions.
+
+The GitHub Actions `.github/workflows/epl-market-refresh.yml` schedule runs the
+current-market wrapper every 15 minutes across broad Premier League
+weekend/midweek UTC windows. `.github/workflows/epl-result-refresh.yml` runs
+repeated post-match catch-up passes across those days. Both wrappers are
+idempotent. Historical Premier League rows are not backfilled unless a matching
+fixed-win price snapshot exists. EPL result refresh defaults to the season
+start year: July-December uses the current year, while January-June uses the
+previous year.
 
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
 current-market wrapper every 15 minutes during typical NPC match windows.

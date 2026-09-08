@@ -1,6 +1,6 @@
 # UEFA Champions League Data Source Validation
 
-Checked on 2026-09-07.
+Checked on 2026-09-07. Updated on 2026-09-09 for UEFA season-year handling.
 
 ## Implementation Status
 
@@ -41,7 +41,7 @@ Official UEFA rows use `source = 'official_uefa'`.
 
 Validated public endpoints:
 
-- `https://match.uefa.com/v5/matches?competitionId=1&seasonYear=2026`
+- `https://match.uefa.com/v5/matches?competitionId=1&seasonYear=2027`
 - `https://match.uefa.com/v5/matches/{source_match_id}/lineups`
 - `https://match.uefa.com/v5/matches/{source_match_id}/events?filter=ALL&order=ASC&limit=500&offset=0`
 
@@ -51,9 +51,16 @@ window, then writes only those price-backed official matches. On 2026-09-07,
 the dry run saw 281 UEFA 2026 season matches but retained zero because the UCL
 schema had not been deployed and no UCL fixed-win snapshots existed in
 Supabase.
+On 2026-09-09, the September 2026 UCL fixtures were confirmed under UEFA
+`seasonYear=2027`; the result wrappers now default July-December dates to the
+next UEFA season year and January-June dates to the current year.
+The same check found source-name differences between TAB and UEFA, including
+`FC Porto` vs `Porto`, `Manchester City` vs `Man City`, and `Inter Milan` vs
+`Inter`. The UCL matchers now use explicit club aliases for these source-backed
+variants instead of fuzzy matching.
 
 ```sh
-npm --workspace @feeling-gamba/ingestion run refresh:ucl-results -- --dry-run --season=2026 --include-fixtures --priced-only --skip-details
+npm --workspace @feeling-gamba/ingestion run refresh:ucl-results -- --dry-run --season=2027 --include-fixtures --priced-only --skip-details
 ```
 
 ## Settlement Rule

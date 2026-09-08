@@ -11,30 +11,31 @@ const DEFAULT_EVENT_COUNT = 20;
 const DEFAULT_MARKETS_FIRST = 500;
 const MATCH_WINDOW_HOURS = 4;
 const PAGE_SIZE = 1000;
-const UCL_CATEGORY = "SOCCER";
-const UCL_COMPETITION_SLUG = "uefa-champions-league";
-const UCL_FIXED_WIN_MARKET_NAME = "match result";
-const UCL_GOAL_SCORER_MARKET_NAME = "anytime goalscorer";
+const EPL_CATEGORY = "SOCCER";
+const EPL_COMPETITION_SLUG = "premier-league";
+const EPL_FIXED_WIN_MARKET_NAME = "match result";
+const EPL_GOAL_SCORER_MARKET_NAME = "anytime goalscorer";
 const TAB_SOURCE = {
   endpoint: "https://api.tab.co.nz/graphql",
-  label: "UCL market source",
+  label: "EPL market source",
   source: "tab",
 };
 const TEAM_NAME_ALIASES = new Map([
-  ["bayern munich", "bayern munchen"],
-  ["borussia dortmund", "b dortmund"],
-  ["fc porto", "porto"],
-  ["fenerbahce sk", "fenerbahce"],
-  ["inter milan", "inter"],
+  ["afc bournemouth", "bournemouth"],
+  ["brighton hove albion", "brighton and hove albion"],
+  ["brighton", "brighton and hove albion"],
+  ["leeds", "leeds united"],
   ["manchester city", "man city"],
-  ["paris saint germain", "paris"],
-  ["psv eindhoven", "psv"],
-  ["shakhtar donetsk", "shakhtar"],
-  ["slovan bratislava", "s bratislava"],
+  ["manchester united", "man utd"],
+  ["newcastle", "newcastle united"],
+  ["nottingham forest", "nottm forest"],
+  ["tottenham", "tottenham hotspur"],
+  ["west ham", "west ham united"],
+  ["wolves", "wolverhampton wanderers"],
 ]);
 
-const UCL_GOAL_SCORER_SNAPSHOT_QUERY = `
-  query UclGoalScorerMarketSnapshot(
+const EPL_GOAL_SCORER_SNAPSHOT_QUERY = `
+  query EplGoalScorerMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $entrantsFirst: Int!
@@ -93,7 +94,7 @@ const UCL_GOAL_SCORER_SNAPSHOT_QUERY = `
 `;
 
 /**
- * Parses UCL player goal-scorer snapshot ingestion options.
+ * Parses EPL player goal-scorer snapshot ingestion options.
  */
 function parseArgs(argv) {
   const options = {
@@ -198,7 +199,7 @@ function getSupabaseWriteConfig() {
 }
 
 /**
- * Builds browser-like headers for the current UCL market source request.
+ * Builds browser-like headers for the current EPL market source request.
  */
 function getGraphqlHeaders() {
   const origin = "https://www.tab.co.nz";
@@ -262,7 +263,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-UEFA club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Premier League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -321,7 +322,7 @@ function getMarketSourceId(market) {
  */
 function findFixedWinMarket(event) {
   return (event.markets?.nodes ?? []).find((market) =>
-    normalizeName(market?.name) === UCL_FIXED_WIN_MARKET_NAME);
+    normalizeName(market?.name) === EPL_FIXED_WIN_MARKET_NAME);
 }
 
 /**
@@ -329,7 +330,7 @@ function findFixedWinMarket(event) {
  */
 function findGoalScorerMarkets(event) {
   return (event.markets?.nodes ?? []).filter((market) =>
-    normalizeName(market?.name) === UCL_GOAL_SCORER_MARKET_NAME);
+    normalizeName(market?.name) === EPL_GOAL_SCORER_MARKET_NAME);
 }
 
 /**
@@ -470,7 +471,7 @@ function isBeforeAdvertisedStart(event, generatedAt) {
 }
 
 /**
- * Checks whether the market event teams match an official UCL fixture.
+ * Checks whether the market event teams match an official EPL fixture.
  */
 function sameTeams(eventContext, match) {
   return namesMatch(eventContext.homeTeamName, match.home_team_name)
@@ -478,9 +479,9 @@ function sameTeams(eventContext, match) {
 }
 
 /**
- * Matches a current market event to one official UCL fixture shell/result.
+ * Matches a current market event to one official EPL fixture shell/result.
  */
-function matchExistingUclMatch(eventContext, matches) {
+function matchExistingEplMatch(eventContext, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(eventContext, match) && isWithinMatchWindow(eventContext.advertisedStart, match.kickoff_at));
 
@@ -561,7 +562,7 @@ function getTeamNameForEntrant(entrant, parsedTeamName, eventContext, matchedMat
 }
 
 /**
- * Matches a market player entrant to one official UCL match appearance.
+ * Matches a market player entrant to one official EPL match appearance.
  */
 function matchPlayerAppearance(playerName, teamSourceId, teamName, appearances) {
   const nameCandidates = appearances.filter((appearance) =>
@@ -669,7 +670,7 @@ function mapGoalScorerRows({ appearancesByMatch, event, eventContext, generatedA
         advertised_start_at: event?.advertisedStart ?? null,
         fixed_win_price: fractionalOddsToDecimal(entrant?.price?.odds),
         market_name: market.name,
-        matched_ucl_match_id: matchedMatch?.id ?? null,
+        matched_epl_match_id: matchedMatch?.id ?? null,
         player_name: parsed.playerName,
         player_source_id: matchedAppearance?.source_player_id ?? null,
         raw: {
@@ -721,7 +722,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for UCL goal-scorer snapshot reads and writes.
+ * Minimal Supabase REST client for EPL goal-scorer snapshot reads and writes.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -816,12 +817,12 @@ function createSupabaseRestClient(config, batchSize) {
 }
 
 /**
- * Fetches current open UCL events from the market source.
+ * Fetches current open EPL events from the market source.
  */
 async function fetchSourceEvents(options) {
-  const response = await graphql(TAB_SOURCE, "UclGoalScorerMarketSnapshot", UCL_GOAL_SCORER_SNAPSHOT_QUERY, {
-    category: UCL_CATEGORY,
-    competitionSlug: UCL_COMPETITION_SLUG,
+  const response = await graphql(TAB_SOURCE, "EplGoalScorerMarketSnapshot", EPL_GOAL_SCORER_SNAPSHOT_QUERY, {
+    category: EPL_CATEGORY,
+    competitionSlug: EPL_COMPETITION_SLUG,
     entrantsFirst: options.entrantsFirst,
     marketsFirst: options.marketsFirst,
     upcomingEventsCount: options.eventCount,
@@ -831,7 +832,7 @@ async function fetchSourceEvents(options) {
 }
 
 /**
- * Fetches official UCL fixture rows in the current market event window.
+ * Fetches official EPL fixture rows in the current market event window.
  */
 async function fetchOfficialMatchesForEvents(supabase, events) {
   const starts = events
@@ -850,7 +851,7 @@ async function fetchOfficialMatchesForEvents(supabase, events) {
     return [];
   }
 
-  return await supabase.selectAll("ucl_matches", {
+  return await supabase.selectAll("epl_matches", {
     and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
     order: "kickoff_at.asc",
     select: [
@@ -866,7 +867,7 @@ async function fetchOfficialMatchesForEvents(supabase, events) {
       "away_team_name",
       "result_status",
     ].join(","),
-    source: "eq.official_uefa",
+    source: "eq.official_premier_league",
   });
 }
 
@@ -882,7 +883,7 @@ async function fetchAppearancesForMatches(supabase, matches) {
     return [];
   }
 
-  return await supabase.selectAll("ucl_player_match_appearances", {
+  return await supabase.selectAll("epl_player_match_appearances", {
     order: "source_match_id.asc,source_team_id.asc,player_name.asc",
     select: [
       "source",
@@ -892,7 +893,7 @@ async function fetchAppearancesForMatches(supabase, matches) {
       "source_team_id",
       "team_name",
     ].join(","),
-    source: "eq.official_uefa",
+    source: "eq.official_premier_league",
     source_match_id: `in.(${matchIds.join(",")})`,
   });
 }
@@ -932,7 +933,7 @@ function buildSnapshotRows(events, officialMatches, appearances) {
       continue;
     }
 
-    const matchedMatch = matchExistingUclMatch(eventContext, officialMatches);
+    const matchedMatch = matchExistingEplMatch(eventContext, officialMatches);
     const eventRows = mapGoalScorerRows({
       appearancesByMatch,
       event,
@@ -944,7 +945,7 @@ function buildSnapshotRows(events, officialMatches, appearances) {
     rows.push(...eventRows);
     eventSummaries.push({
       eventName: event?.name ?? null,
-      matchedUclMatchId: matchedMatch?.id ?? null,
+      matchedEplMatchId: matchedMatch?.id ?? null,
       sourceEventId: eventContext.sourceEventId,
       goalScorerMarketCount: goalScorerMarkets.length,
       writtenRows: eventRows.length,
@@ -959,10 +960,10 @@ function buildSnapshotRows(events, officialMatches, appearances) {
 }
 
 /**
- * Writes current UCL goal-scorer price snapshots to Supabase.
+ * Writes current EPL goal-scorer price snapshots to Supabase.
  */
 async function writeRows(supabase, rows) {
-  await supabase.request("ucl_goal_scorer_market_snapshots", {
+  await supabase.request("epl_goal_scorer_market_snapshots", {
     expectJson: false,
     method: "DELETE",
     prefer: "return=minimal",
@@ -970,38 +971,38 @@ async function writeRows(supabase, rows) {
       player_name: "eq.No Goalscorer",
     },
   });
-  await supabase.upsert("ucl_goal_scorer_market_snapshots", rows, "source_selection_key");
+  await supabase.upsert("epl_goal_scorer_market_snapshots", rows, "source_selection_key");
 
   return {
-    uclGoalScorerMarketSnapshots: rows.length,
+    eplGoalScorerMarketSnapshots: rows.length,
     ok: true,
     skipped: false,
   };
 }
 
 /**
- * Summarizes current UCL goal-scorer snapshot matching and price coverage.
+ * Summarizes current EPL goal-scorer snapshot matching and price coverage.
  */
 function summarize({ eventCount, officialMatches, result }) {
   return {
     generatedAt: result.generatedAt,
-    matchedEvents: result.eventSummaries.filter((event) => event.matchedUclMatchId).length,
+    matchedEvents: result.eventSummaries.filter((event) => event.matchedEplMatchId).length,
     matchedPlayerSelections: result.rows.filter((row) => row.player_source_id).length,
-    uclGoalScorerMarketSnapshots: result.rows.length,
+    eplGoalScorerMarketSnapshots: result.rows.length,
     officialMatchesChecked: officialMatches.length,
     openEventsChecked: eventCount,
     primaryGoalScorerMarkets: result.eventSummaries.reduce((total, event) =>
       total + Number(event.goalScorerMarketCount ?? 0), 0),
     skippedEvents: result.eventSummaries.filter((event) => event.reason).length,
     unmatchedEvents: result.eventSummaries.filter((event) =>
-      !event.reason && !event.matchedUclMatchId).length,
+      !event.reason && !event.matchedEplMatchId).length,
     unmatchedPlayerSelections: result.rows.filter((row) => !row.player_source_id).length,
     unpricedSelections: result.rows.filter((row) => row.fixed_win_price === null).length,
   };
 }
 
 /**
- * Runs the local UCL player goal-scorer market snapshot workflow.
+ * Runs the local EPL player goal-scorer market snapshot workflow.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -1042,7 +1043,7 @@ async function main() {
       events: result.eventSummaries,
       sample: result.rows.slice(0, 8).map((row) => ({
         advertisedStart: row.advertised_start_at,
-        matchedUclMatchId: row.matched_ucl_match_id,
+        matchedEplMatchId: row.matched_epl_match_id,
         playerName: row.player_name,
         playerSourceId: row.player_source_id,
         price: row.fixed_win_price,
@@ -1052,7 +1053,7 @@ async function main() {
       })),
       unmatchedSample: result.rows.filter((row) => !row.player_source_id).slice(0, 12).map((row) => ({
         advertisedStart: row.advertised_start_at,
-        matchedUclMatchId: row.matched_ucl_match_id,
+        matchedEplMatchId: row.matched_epl_match_id,
         playerName: row.player_name,
         price: row.fixed_win_price,
         teamName: row.team_name,

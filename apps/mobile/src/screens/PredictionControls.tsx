@@ -9,7 +9,7 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
+export type PredictionSport = "epl" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
@@ -29,6 +29,10 @@ const PREDICTION_SPORT_OPTIONS = [
   {
     label: "UCL",
     value: "ucl",
+  },
+  {
+    label: "EPL",
+    value: "epl",
   },
   {
     label: "PFL",

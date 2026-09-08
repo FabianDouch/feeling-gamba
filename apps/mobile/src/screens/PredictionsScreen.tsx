@@ -47,6 +47,11 @@ import {
   UCL_SINGLE_PREDICTION_MODEL_VARIANTS,
   type UclSinglePredictionModelKey,
 } from "../data/supabaseUclPredictions";
+import {
+  EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  EPL_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type EplSinglePredictionModelKey,
+} from "../data/supabaseEplPredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionFormatTabs,
@@ -107,6 +112,8 @@ export function PredictionsScreen() {
     useState<NpcSinglePredictionModelKey>(NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeUclSingleModelKey, setActiveUclSingleModelKey] =
     useState<UclSinglePredictionModelKey>(UCL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeEplSingleModelKey, setActiveEplSingleModelKey] =
+    useState<EplSinglePredictionModelKey>(EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
@@ -125,6 +132,9 @@ export function PredictionsScreen() {
   const activeUclSingleModel = UCL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
     model.key === activeUclSingleModelKey)
     ?? UCL_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeEplSingleModel = EPL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeEplSingleModelKey)
+    ?? EPL_SINGLE_PREDICTION_MODEL_VARIANTS[0];
   const activeCashModel = CASH_PREDICTION_MODEL_VARIANTS.find((model) => model.key === activeCashModelKey)
     ?? CASH_PREDICTION_MODEL_VARIANTS[0];
   const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
@@ -135,6 +145,7 @@ export function PredictionsScreen() {
     : activeCashModelKey;
   const activeModelInfo = getActiveModelInfo({
     activeCashModel,
+    activeEplSingleModel,
     activeFormat,
     activeNpcSingleModel,
     activeNrlSingleModel,
@@ -155,7 +166,7 @@ export function PredictionsScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc" || value === "ucl") {
+    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -293,6 +304,14 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "epl" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeEplSingleModelKey}
+          models={EPL_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveEplSingleModelKey}
+        />
+      ) : null}
+
       {activeSport === "racing" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
         <WinPercentageMultiModelTabs
           activeModelKey={activeWinPercentageMultiModelKey}
@@ -361,6 +380,7 @@ export function PredictionsScreen() {
 
       <BetCandidatesSection
         npcSinglePredictionModelKey={activeNpcSingleModelKey}
+        eplSinglePredictionModelKey={activeEplSingleModelKey}
         nrlSinglePredictionModelKey={activeNrlSingleModelKey}
         predictionFormat={activeFormat}
         predictionModelKey={activePredictionType === "cash" ? activeCashModelKey : activeSingleModelKey}
@@ -375,6 +395,11 @@ export function PredictionsScreen() {
 
 type ActiveModelInfoInput = {
   activeCashModel: PredictionModelVariant;
+  activeEplSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
   activeFormat: PredictionFormat;
   activeNpcSingleModel: {
     description: string;
@@ -406,6 +431,7 @@ type ActiveModelInfoInput = {
  */
 function getActiveModelInfo({
   activeCashModel,
+  activeEplSingleModel,
   activeFormat,
   activeNpcSingleModel,
   activeNrlSingleModel,
@@ -463,6 +489,23 @@ function getActiveModelInfo({
       description: activeUclSingleModel.description,
       detail: activeUclSingleModel.detail,
       label: activeUclSingleModel.label,
+    };
+  }
+
+  if (activeSport === "epl" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future EPL prediction models.",
+      detail: "EPL cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No EPL ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `EPL ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "epl") {
+    return {
+      description: activeEplSingleModel.description,
+      detail: activeEplSingleModel.detail,
+      label: activeEplSingleModel.label,
     };
   }
 

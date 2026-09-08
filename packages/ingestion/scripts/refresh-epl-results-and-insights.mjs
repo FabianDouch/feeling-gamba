@@ -9,17 +9,17 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 
 /**
- * Maps a calendar date to UEFA's Champions League seasonYear convention.
+ * Maps a calendar date to the Premier League season start year.
  */
-function getDefaultUefaSeasonYear(date) {
+function getDefaultEplSeasonYear(date) {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
 
-  return month >= 6 ? year + 1 : year;
+  return month >= 6 ? year : year - 1;
 }
 
 /**
- * Parses the scheduled UCL post-match settlement options.
+ * Parses the scheduled EPL post-match settlement options.
  */
 function parseArgs(argv) {
   const now = new Date();
@@ -29,7 +29,7 @@ function parseArgs(argv) {
     includeFixtures: true,
     pricedOnly: true,
     requireSupabase: false,
-    season: getDefaultUefaSeasonYear(now),
+    season: getDefaultEplSeasonYear(now),
     skipInsights: false,
     skipPredictions: false,
     skipReconcile: false,
@@ -111,7 +111,7 @@ function buildCommand(label, scriptName, args) {
 }
 
 /**
- * Builds the shared Supabase/write flags used by the child UCL workers.
+ * Builds the shared Supabase/write flags used by the child EPL workers.
  */
 function getWriteFlags(options) {
   const flags = [
@@ -130,7 +130,7 @@ function getWriteFlags(options) {
 }
 
 /**
- * Builds child refresh commands for official UCL settlement and read models.
+ * Builds child refresh commands for official EPL settlement and read models.
  */
 function buildRefreshCommands(options) {
   const commands = [];
@@ -150,22 +150,22 @@ function buildRefreshCommands(options) {
     resultFlags.push("--allow-unpriced-backfill");
   }
 
-  commands.push(buildCommand("refresh_official_ucl_results", "refresh-ucl-results-from-official.mjs", resultFlags));
+  commands.push(buildCommand("refresh_official_epl_results", "refresh-epl-results-from-official.mjs", resultFlags));
 
   if (!options.skipReconcile) {
-    commands.push(buildCommand("reconcile_ucl_fixed_win", "reconcile-ucl-fixed-win-snapshots.mjs", writeFlags));
+    commands.push(buildCommand("reconcile_epl_fixed_win", "reconcile-epl-fixed-win-snapshots.mjs", writeFlags));
   }
 
   if (!options.skipSameGameMultis) {
-    commands.push(buildCommand("rebuild_ucl_same_game_multis", "rebuild-ucl-same-game-multis.mjs", writeFlags));
+    commands.push(buildCommand("rebuild_epl_same_game_multis", "rebuild-epl-same-game-multis.mjs", writeFlags));
   }
 
   if (!options.skipInsights) {
-    commands.push(buildCommand("rebuild_ucl_insights", "rebuild-ucl-insight-aggregates.mjs", writeFlags));
+    commands.push(buildCommand("rebuild_epl_insights", "rebuild-epl-insight-aggregates.mjs", writeFlags));
   }
 
   if (!options.skipPredictions) {
-    commands.push(buildCommand("generate_ucl_single_predictions", "generate-ucl-single-predictions.mjs", writeFlags));
+    commands.push(buildCommand("generate_epl_single_predictions", "generate-epl-single-predictions.mjs", writeFlags));
   }
 
   return commands;
@@ -195,7 +195,7 @@ async function runCommand(command) {
 }
 
 /**
- * Runs official UCL settlement and app-facing derived read-model rebuilds.
+ * Runs official EPL settlement and app-facing derived read-model rebuilds.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));

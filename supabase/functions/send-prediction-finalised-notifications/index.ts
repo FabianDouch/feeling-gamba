@@ -9,6 +9,12 @@ const SOURCE_TIME_ZONE = "Pacific/Auckland";
 const FINALISATION_BUFFER_MS = 15 * 60 * 1000;
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_BATCH_SIZE = 100;
+const TEAM_SPORT_SINGLE_PREDICTION_TABLES = {
+  epl: "epl_single_predictions",
+  npc: "npc_single_predictions",
+  nrl: "nrl_single_predictions",
+  ucl: "ucl_single_predictions",
+} as const;
 
 const corsHeaders = {
   "access-control-allow-headers": "authorization, content-type, x-client-info, x-refresh-token",
@@ -31,7 +37,7 @@ type FavouriteModelRow = {
   model_key: string;
   prediction_format: "singles" | "multis";
   prediction_type: string;
-  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
+  sport: "epl" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
   user_id: string;
 };
 
@@ -57,7 +63,7 @@ type NotificationEventRow = {
   prediction_key: string;
   prediction_type: string;
   source_date: string;
-  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
+  sport: "epl" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
 };
 
 type DeliveryRow = {
@@ -76,7 +82,7 @@ type ActivePredictionEvent = {
   predictionType: string;
   sourceDate: string;
   sourceTimeZone: string;
-  sport: "npc" | "nrl" | "pfl" | "racing" | "ufc";
+  sport: "epl" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
 };
 
 type ExpoTicket = {
@@ -277,12 +283,12 @@ async function findActivePredictionEvents(
 ) {
   const events: ActivePredictionEvent[] = [];
   const snapshot = favourites.some((favourite) =>
-    favourite.sport !== "nrl" && favourite.sport !== "npc")
+    !isTeamSportPredictionSport(favourite.sport))
     ? await fetchCurrentPredictionSnapshot(config, sourceDate)
     : null;
 
   for (const favourite of uniqueFavouriteKeys(favourites)) {
-    if (favourite.sport === "nrl" || favourite.sport === "npc") {
+    if (isTeamSportPredictionSport(favourite.sport)) {
       const teamSportEvent = await findTeamSportActivePredictionEvent(config, favourite, sourceDate);
 
       if (teamSportEvent) {
@@ -372,7 +378,12 @@ async function findTeamSportActivePredictionEvent(
     return null;
   }
 
-  const tableName = favourite.sport === "npc" ? "npc_single_predictions" : "nrl_single_predictions";
+  const tableName = TEAM_SPORT_SINGLE_PREDICTION_TABLES[favourite.sport as keyof typeof TEAM_SPORT_SINGLE_PREDICTION_TABLES];
+
+  if (!tableName) {
+    return null;
+  }
+
   const url = new URL(`/rest/v1/${tableName}`, config.url);
   url.searchParams.set("select", "source_date,source_time_zone,advertised_start_at,predicted_at");
   url.searchParams.set("source_date", `eq.${sourceDate}`);
@@ -1012,8 +1023,15 @@ function chunk<T>(items: T[], size: number) {
   return chunks;
 }
 
+/**
+ * Identifies sports whose current single predictions live in sport-specific tables.
+ */
+function isTeamSportPredictionSport(sport: FavouriteModelRow["sport"]) {
+  return sport in TEAM_SPORT_SINGLE_PREDICTION_TABLES;
+}
+
 function getSportLabel(sport: string) {
-  if (sport === "ufc" || sport === "pfl" || sport === "nrl" || sport === "npc") {
+  if (sport === "ufc" || sport === "pfl" || sport === "nrl" || sport === "npc" || sport === "ucl" || sport === "epl") {
     return sport.toUpperCase();
   }
 

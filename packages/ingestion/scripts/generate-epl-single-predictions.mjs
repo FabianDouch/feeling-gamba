@@ -8,29 +8,30 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
-const FIXED_WIN_MODEL = "ucl_fixed_win_percentage_single_v1";
-const GOAL_SCORER_MODEL = "ucl_goal_scorer_percentage_single_v1";
+const FIXED_WIN_MODEL = "epl_fixed_win_percentage_single_v1";
+const GOAL_SCORER_MODEL = "epl_goal_scorer_percentage_single_v1";
 const GOAL_SCORER_CANDIDATES_PER_TEAM = 3;
 const TEAM_NAME_ALIASES = new Map([
-  ["bayern munich", "bayern munchen"],
-  ["borussia dortmund", "b dortmund"],
-  ["fc porto", "porto"],
-  ["fenerbahce sk", "fenerbahce"],
-  ["inter milan", "inter"],
+  ["afc bournemouth", "bournemouth"],
+  ["brighton hove albion", "brighton and hove albion"],
+  ["brighton", "brighton and hove albion"],
+  ["leeds", "leeds united"],
   ["manchester city", "man city"],
-  ["paris saint germain", "paris"],
-  ["psv eindhoven", "psv"],
-  ["shakhtar donetsk", "shakhtar"],
-  ["slovan bratislava", "s bratislava"],
+  ["manchester united", "man utd"],
+  ["newcastle", "newcastle united"],
+  ["nottingham forest", "nottm forest"],
+  ["tottenham", "tottenham hotspur"],
+  ["west ham", "west ham united"],
+  ["wolves", "wolverhampton wanderers"],
 ]);
-const UCL_SINGLE_PREDICTION_COLUMNS = [
+const EPL_SINGLE_PREDICTION_COLUMNS = [
   "advertised_start_at",
   "away_team_name",
   "bucket_sample_size",
   "home_team_name",
   "lineup_status",
   "match_label",
-  "matched_ucl_match_id",
+  "matched_epl_match_id",
   "other_team_fixed_win_price",
   "other_team_name",
   "predicted_at",
@@ -57,7 +58,7 @@ const UCL_SINGLE_PREDICTION_COLUMNS = [
 ];
 
 /**
- * Parses UCL single prediction generation options.
+ * Parses EPL single prediction generation options.
  */
 function parseArgs(argv) {
   const options = {
@@ -174,7 +175,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for UCL prediction generation.
+ * Minimal Supabase REST client for EPL prediction generation.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -282,7 +283,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-UEFA club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Premier League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -341,7 +342,7 @@ function getLatestSnapshots(snapshots) {
 }
 
 /**
- * Builds season-to-date team records from official settled UCL matches.
+ * Builds season-to-date team records from official settled EPL matches.
  */
 function buildTeamRecords(matches) {
   const records = new Map();
@@ -447,11 +448,11 @@ function buildFixedWinPredictions({ matchesById, predictedAt, snapshots, sourceD
   const rows = [];
 
   for (const snapshot of getLatestSnapshots(snapshots)) {
-    if (!snapshot.favourite_team_name || !snapshot.matched_ucl_match_id) {
+    if (!snapshot.favourite_team_name || !snapshot.matched_epl_match_id) {
       continue;
     }
 
-    const match = matchesById.get(snapshot.matched_ucl_match_id);
+    const match = matchesById.get(snapshot.matched_epl_match_id);
 
     if (!match || match.result_status !== "pending") {
       continue;
@@ -474,7 +475,7 @@ function buildFixedWinPredictions({ matchesById, predictedAt, snapshots, sourceD
       home_team_name: snapshot.home_team_name,
       lineup_status: "not_applicable",
       match_label: `${snapshot.home_team_name} vs ${snapshot.away_team_name}`,
-      matched_ucl_match_id: snapshot.matched_ucl_match_id,
+      matched_epl_match_id: snapshot.matched_epl_match_id,
       other_team_fixed_win_price: otherFixedWinPrice,
       other_team_name: team.otherTeamName,
       predicted_at: predictedAt,
@@ -593,7 +594,7 @@ function buildGoalScorerPredictions({ aggregates, matches, predictedAt, sourceDa
           home_team_name: match.home_team_name,
           lineup_status: "historical_team_roster",
           match_label: `${match.home_team_name} vs ${match.away_team_name}`,
-          matched_ucl_match_id: match.id,
+          matched_epl_match_id: match.id,
           other_team_name: team.opponentName,
           predicted_at: predictedAt,
           predicted_player_name: candidate.player_name,
@@ -616,13 +617,13 @@ function buildGoalScorerPredictions({ aggregates, matches, predictedAt, sourceDa
           signal_detail: `${candidate.win_count} scoring appearances from ${candidate.selection_count} settled team appearances`,
           signal_label: `${score.toFixed(2)}% goal rate`,
           signal_tone: score >= 40 ? "positive" : score >= 25 ? "neutral" : "caution",
-          source: "official_uefa",
+          source: "official_premier_league",
           source_date: sourceDate,
           source_event_id: match.source_match_id,
           source_match_id: match.source_match_id,
           source_prediction_key: [
             GOAL_SCORER_MODEL,
-            "official_uefa",
+            "official_premier_league",
             sourceDate,
             match.source_match_id,
             candidate.player_source_id,
@@ -662,18 +663,18 @@ function rankRows(rows) {
  * Gives every prediction row the same nullable column set for PostgREST bulk writes.
  */
 function normalizeRowForWrite(row) {
-  return Object.fromEntries(UCL_SINGLE_PREDICTION_COLUMNS.map((column) => [
+  return Object.fromEntries(EPL_SINGLE_PREDICTION_COLUMNS.map((column) => [
     column,
     row[column] ?? null,
   ]));
 }
 
 /**
- * Loads source rows needed by both UCL single prediction models.
+ * Loads source rows needed by both EPL single prediction models.
  */
 async function readSourceRows(supabase) {
   const [snapshots, matches, aggregates] = await Promise.all([
-    supabase.selectAll("ucl_market_snapshots", {
+    supabase.selectAll("epl_market_snapshots", {
       order: "snapshot_at.desc",
       select: [
         "id",
@@ -681,7 +682,7 @@ async function readSourceRows(supabase) {
         "source_snapshot_key",
         "source_event_id",
         "source_market_id",
-        "matched_ucl_match_id",
+        "matched_epl_match_id",
         "snapshot_at",
         "advertised_start_at",
         "home_team_name",
@@ -693,7 +694,7 @@ async function readSourceRows(supabase) {
       ].join(","),
       source: "eq.tab",
     }),
-    supabase.selectAll("ucl_matches", {
+    supabase.selectAll("epl_matches", {
       order: "kickoff_at.asc",
       select: [
         "id",
@@ -711,7 +712,7 @@ async function readSourceRows(supabase) {
         "away_score",
       ].join(","),
     }),
-    supabase.selectAll("ucl_insight_aggregates", {
+    supabase.selectAll("epl_insight_aggregates", {
       insight_type: "eq.goal_scorer_percentage",
       order: "win_percentage.desc",
       select: [
@@ -737,10 +738,10 @@ async function readSourceRows(supabase) {
 }
 
 /**
- * Writes generated UCL single predictions to Supabase.
+ * Writes generated EPL single predictions to Supabase.
  */
 async function writeRows(supabase, rows, sourceDate) {
-  await supabase.request("ucl_single_predictions", {
+  await supabase.request("epl_single_predictions", {
     expectJson: false,
     method: "DELETE",
     prefer: "return=minimal",
@@ -751,13 +752,13 @@ async function writeRows(supabase, rows, sourceDate) {
   });
 
   await supabase.upsert(
-    "ucl_single_predictions",
+    "epl_single_predictions",
     rows.map(normalizeRowForWrite),
     "source_prediction_key",
   );
 
   return {
-    uclSinglePredictions: rows.length,
+    eplSinglePredictions: rows.length,
     ok: true,
     skipped: false,
   };
@@ -770,14 +771,14 @@ function summarize(sourceRows, fixedWinRows, goalScorerRows) {
   return {
     fixedWinPredictions: fixedWinRows.length,
     sourceMarketSnapshots: sourceRows.snapshots.length,
-    sourceUclInsightAggregates: sourceRows.aggregates.length,
-    sourceUclMatches: sourceRows.matches.length,
+    sourceEplInsightAggregates: sourceRows.aggregates.length,
+    sourceEplMatches: sourceRows.matches.length,
     goalScorerPredictions: goalScorerRows.length,
   };
 }
 
 /**
- * Runs the local UCL single prediction generation workflow.
+ * Runs the local EPL single prediction generation workflow.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));

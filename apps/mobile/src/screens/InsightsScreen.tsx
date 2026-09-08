@@ -29,6 +29,11 @@ import {
   type UclInsightsData,
 } from "../data/supabaseUcl";
 import {
+  fetchEplInsights,
+  hasSupabaseEplConfig,
+  type EplInsightsData,
+} from "../data/supabaseEpl";
+import {
   fetchPflInsights,
   fetchUfcInsights,
   hasSupabasePflConfig,
@@ -55,7 +60,7 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "npc" | "pfl" | "racing" | "nrl" | "ucl" | "ufc";
+type InsightSport = "epl" | "npc" | "pfl" | "racing" | "nrl" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -152,6 +157,7 @@ export function InsightsScreen() {
   const [nrlInsights, setNrlInsights] = useState<NrlInsightsData>(emptyNrlInsights);
   const [npcInsights, setNpcInsights] = useState<NpcInsightsData>(emptyNrlInsights);
   const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyNrlInsights);
+  const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyNrlInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
@@ -161,6 +167,7 @@ export function InsightsScreen() {
   const [isLoadingNrlInsights, setIsLoadingNrlInsights] = useState(false);
   const [isLoadingNpcInsights, setIsLoadingNpcInsights] = useState(false);
   const [isLoadingUclInsights, setIsLoadingUclInsights] = useState(false);
+  const [isLoadingEplInsights, setIsLoadingEplInsights] = useState(false);
   const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -253,6 +260,21 @@ export function InsightsScreen() {
     || uclInsights.tryScorerPlayerBreakdown.length > 0
     || hasPriceBreakdownRows(uclInsights.tryScorerPriceBreakdown)
     || uclInsights.tryScorerTeamBreakdown.length > 0;
+  const hasEplInsightRows = eplInsights.fixedWinSummaryStats.length > 0
+    || eplInsights.fixedWinSelectionBreakdown.length > 0
+    || hasFixedWinPriceRows(eplInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(eplInsights.fixedWinPriceBreakdownPlus)
+    || hasFixedWinPriceRows(eplInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(eplInsights.fixedWinOtherTeamPriceBreakdownPlus)
+    || hasFixedWinPriceRows(eplInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(eplInsights.fixedWinPriceDifferenceBreakdownPlus)
+    || eplInsights.fixedWinRoundBreakdown.length > 0
+    || eplInsights.sameGameSummaryStats.length > 0
+    || eplInsights.sameGameRoundBreakdown.length > 0
+    || eplInsights.tryScorerSummaryStats.length > 0
+    || eplInsights.tryScorerPlayerBreakdown.length > 0
+    || hasPriceBreakdownRows(eplInsights.tryScorerPriceBreakdown)
+    || eplInsights.tryScorerTeamBreakdown.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -408,6 +430,46 @@ export function InsightsScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadEplInsights() {
+      if (sport !== "epl") {
+        return;
+      }
+
+      if (!hasSupabaseEplConfig) {
+        setErrorMessage("Supabase is not configured for EPL Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingEplInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchEplInsights();
+
+        if (!cancelled) {
+          setEplInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "EPL Insights failed to load.");
+          setEplInsights(emptyNrlInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingEplInsights(false);
+        }
+      }
+    }
+
+    loadEplInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadNpcInsights() {
       if (sport !== "npc") {
         return;
@@ -491,7 +553,7 @@ export function InsightsScreen() {
   }, [sport]);
 
   function updateSport(value: string) {
-    if (value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "ucl" || value === "ufc") {
+    if (value === "epl" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "ucl" || value === "ufc") {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -585,6 +647,8 @@ export function InsightsScreen() {
             ? "Showing NPC fixed-win favourite signals"
           : sport === "ucl"
             ? "Showing UCL fixed-win favourite and goal-scorer percentage signals"
+          : sport === "epl"
+            ? "Showing EPL fixed-win favourite and goal-scorer percentage signals"
           : sport === "nrl"
             ? "Showing NRL fixed-win favourite and try-scorer percentage signals"
           : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
@@ -598,6 +662,7 @@ export function InsightsScreen() {
           { label: "NRL", value: "nrl" },
           { label: "NPC", value: "npc" },
           { label: "UCL", value: "ucl" },
+          { label: "EPL", value: "epl" },
           { label: "PFL", value: "pfl" },
           { label: "UFC", value: "ufc" },
         ]}
@@ -680,6 +745,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored UCL insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={uclInsights} scorerLabel="Goal scorer" />
+        )
+      ) : sport === "epl" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingEplInsights ? (
+          <StateMessage text="Loading stored EPL insight aggregates from Supabase." />
+        ) : !hasEplInsightRows ? (
+          <StateMessage text="No stored EPL insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={eplInsights} scorerLabel="Goal scorer" />
         )
       ) : sport === "pfl" || sport === "ufc" ? (
         errorMessage ? (

@@ -240,7 +240,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, NPC, UCL, PFL, and UFC insight views.
+- Toggle between Racing, NRL, NPC, UCL, EPL, PFL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -282,6 +282,12 @@ Purpose:
   prices for auditability, but draws settle as non-paying losses for tracked
   home/away/favourite team selections. UCL fixed-win price sections use the
   same 50c/25c and Exact/+ controls as NRL/NPC.
+- For EPL, show the same fixed-win aggregate shape from `epl_insight_aggregates`,
+  plus goalscorer percentage and Same Game % rows from captured TAB prices and
+  matched Premier League official result/goal rows. EPL fixed-win snapshots
+  store draw prices for auditability, but draws settle as non-paying losses for
+  tracked home/away/favourite team selections. EPL fixed-win price sections use
+  the same 50c/25c and Exact/+ controls as UCL.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`, with 50c/25c
   bucket-size and Exact/+ bucket-mode controls.
@@ -291,7 +297,7 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing, NRL, NPC, UCL, PFL, or UFC.
+- Sport selector: Racing, NRL, NPC, UCL, EPL, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -427,7 +433,7 @@ Purpose:
 
 Main content:
 
-- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `NRL`, `NPC`, `UCL`, `PFL`, `UFC`);
+- Shared prediction hierarchy: Level 1 sport tabs (`Racing`, `NRL`, `NPC`, `UCL`, `EPL`, `PFL`, `UFC`);
   Level 2 format tabs (`Singles`, `Multis`); Level 3 signal tabs (`Cash`,
   `Win %`, `Placing`); Level 4 model tabs filtered to the selected
   sport/format/signal.
@@ -468,12 +474,18 @@ Main content:
   TAB `Match Result` favourites and treat draws as settled losses; goalscorer
   rows use UEFA player/team goal rates and captured TAB `Anytime Goalscorer`
   prices where entrants match official player IDs.
+- EPL Singles -> Win % reads `epl_single_predictions` and shows fixed-win
+  percentage and goalscorer percentage model tabs. Fixed-win rows use current
+  TAB `Match Result` favourites and treat draws as settled losses; goalscorer
+  rows use Premier League official goal rates, squad-roster proxy appearance
+  rows, and captured TAB `Anytime Goalscorer` prices where entrants match
+  official player IDs.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing, NRL, NPC, UCL, PFL, or UFC.
+- Sport selector for current Predictions: Racing, NRL, NPC, UCL, EPL, PFL, or UFC.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   two-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
@@ -512,6 +524,9 @@ Main content:
 - UCL exposes the same sport/format/signal hierarchy as NRL/NPC. Unsupported
   UCL branches, such as cash, placing, and multis, show explicit empty states
   until matching cash or same-game current prediction views are added.
+- EPL exposes the same sport/format/signal hierarchy as UCL. Unsupported EPL
+  branches, such as cash, placing, and multis, show explicit empty states until
+  matching cash or same-game current prediction views are added.
 - The current Predictions refresh button refreshes only the active sport:
   Racing refreshes racing race-card predictions; UFC refreshes UFC fight-card
   multis without refreshing racing; PFL refreshes reviewed current PFL
@@ -621,7 +636,7 @@ Purpose:
 Main content:
 
 - Shared prediction hierarchy matching the current Predictions page: Level 1
-  sport tabs (`Racing`, `NRL`, `NPC`, `UCL`, `PFL`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
+  sport tabs (`Racing`, `NRL`, `NPC`, `UCL`, `EPL`, `PFL`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
   Level 3 signal tabs (`Cash`, `Win %`, `Placing`); Level 4 model tabs filtered
   to the selected sport/format/signal.
 - Model selectors sit beneath the sport/format/signal controls: cash prediction
@@ -682,7 +697,7 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing, NRL, NPC, UCL, PFL, or UFC. UFC uses the same
+- Prediction History sport selector: Racing, NRL, NPC, UCL, EPL, PFL, or UFC. UFC uses the same
   hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
@@ -696,7 +711,8 @@ Main content:
   RPCs are added. NPC history branches show explicit empty states until official
   NPC result settlement and history RPCs are added. UCL history branches show
   explicit empty states until UCL prediction reconciliation and history RPCs are
-  added.
+  added. EPL history branches show explicit empty states until EPL prediction
+  reconciliation and history RPCs are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 2-5 for the

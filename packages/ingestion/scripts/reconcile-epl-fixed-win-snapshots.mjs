@@ -9,20 +9,21 @@ const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
 const MATCH_WINDOW_HOURS = 4;
 const TEAM_NAME_ALIASES = new Map([
-  ["bayern munich", "bayern munchen"],
-  ["borussia dortmund", "b dortmund"],
-  ["fc porto", "porto"],
-  ["fenerbahce sk", "fenerbahce"],
-  ["inter milan", "inter"],
+  ["afc bournemouth", "bournemouth"],
+  ["brighton hove albion", "brighton and hove albion"],
+  ["brighton", "brighton and hove albion"],
+  ["leeds", "leeds united"],
   ["manchester city", "man city"],
-  ["paris saint germain", "paris"],
-  ["psv eindhoven", "psv"],
-  ["shakhtar donetsk", "shakhtar"],
-  ["slovan bratislava", "s bratislava"],
+  ["manchester united", "man utd"],
+  ["newcastle", "newcastle united"],
+  ["nottingham forest", "nottm forest"],
+  ["tottenham", "tottenham hotspur"],
+  ["west ham", "west ham united"],
+  ["wolves", "wolverhampton wanderers"],
 ]);
 
 /**
- * Parses UCL fixed-win snapshot reconciliation options.
+ * Parses EPL fixed-win snapshot reconciliation options.
  */
 function parseArgs(argv) {
   const options = {
@@ -131,7 +132,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for UCL fixed-win reconciliation.
+ * Minimal Supabase REST client for EPL fixed-win reconciliation.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -210,7 +211,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-UEFA club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Premier League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -262,7 +263,7 @@ function sameTeams(snapshot, match) {
     && namesMatch(snapshot.away_team_name, match.away_team_name);
 }
 
-function matchExistingUclMatch(snapshot, matches) {
+function matchExistingEplMatch(snapshot, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
 
@@ -270,7 +271,7 @@ function matchExistingUclMatch(snapshot, matches) {
 }
 
 /**
- * Confirms an official UCL match has final scores usable for settlement.
+ * Confirms an official EPL match has final scores usable for settlement.
  */
 function isSettledMatch(match) {
   return match?.result_status === "settled"
@@ -316,10 +317,10 @@ function calculateReturn(won, price) {
 }
 
 /**
- * Classifies one snapshot against its matched official UCL result state.
+ * Classifies one snapshot against its matched official EPL result state.
  */
 function mapOutcome(snapshot, match) {
-  if (!snapshot.matched_ucl_match_id) {
+  if (!snapshot.matched_epl_match_id) {
     return {
       outcomeStatus: "unmatched",
       row: buildResultRow(snapshot, null, null, {
@@ -425,7 +426,7 @@ function buildResultRow(snapshot, match, winner, outcome) {
     home_win_return: calculateReturn(outcome.homeTeamWon, snapshot.home_fixed_win_price),
     match_drawn: outcome.matchDrawn,
     market_snapshot_id: snapshot.id,
-    matched_ucl_match_id: snapshot.matched_ucl_match_id,
+    matched_epl_match_id: snapshot.matched_epl_match_id,
     outcome_status: outcome.outcomeStatus,
     raw: {
       match: {
@@ -463,7 +464,7 @@ async function readSnapshots(supabase, options) {
       "source_event_id",
       "source_event_url",
       "source_market_id",
-      "matched_ucl_match_id",
+      "matched_epl_match_id",
       "snapshot_at",
       "advertised_start_at",
       "home_team_name",
@@ -480,7 +481,7 @@ async function readSnapshots(supabase, options) {
     search.source = `eq.${options.source}`;
   }
 
-  const rows = await supabase.request("ucl_market_snapshots", {
+  const rows = await supabase.request("epl_market_snapshots", {
     search,
   });
 
@@ -510,7 +511,7 @@ function selectCanonicalSnapshots(snapshots) {
 }
 
 /**
- * Loads official UCL matches in the selected snapshot kickoff window.
+ * Loads official EPL matches in the selected snapshot kickoff window.
  */
 async function readMatches(supabase, snapshots) {
   const starts = snapshots
@@ -529,7 +530,7 @@ async function readMatches(supabase, snapshots) {
     return [];
   }
 
-  return await supabase.request("ucl_matches", {
+  return await supabase.request("epl_matches", {
     search: {
       and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
       order: "kickoff_at.asc",
@@ -548,7 +549,7 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
-      source: "eq.official_uefa",
+      source: "eq.official_premier_league",
     },
   });
 }
@@ -560,11 +561,11 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
   const matchesById = new Map(officialMatches.map((row) => [row.id, row]));
   const updates = [];
   const resolvedSnapshots = snapshots.map((snapshot) => {
-    if (snapshot.matched_ucl_match_id && matchesById.has(snapshot.matched_ucl_match_id)) {
+    if (snapshot.matched_epl_match_id && matchesById.has(snapshot.matched_epl_match_id)) {
       return snapshot;
     }
 
-    const match = matchExistingUclMatch(snapshot, officialMatches);
+    const match = matchExistingEplMatch(snapshot, officialMatches);
 
     if (!match) {
       return snapshot;
@@ -572,12 +573,12 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
 
     updates.push({
       id: snapshot.id,
-      matched_ucl_match_id: match.id,
+      matched_epl_match_id: match.id,
     });
 
     return {
       ...snapshot,
-      matched_ucl_match_id: match.id,
+      matched_epl_match_id: match.id,
     };
   });
 
@@ -589,7 +590,7 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
 }
 
 /**
- * Builds fixed-win outcome rows from source snapshots and official UCL results.
+ * Builds fixed-win outcome rows from source snapshots and official EPL results.
  */
 function reconcileSnapshots(snapshots, matchesById) {
   const statuses = {
@@ -602,8 +603,8 @@ function reconcileSnapshots(snapshots, matchesById) {
   const rows = [];
 
   for (const snapshot of snapshots) {
-    const match = snapshot.matched_ucl_match_id
-      ? matchesById.get(snapshot.matched_ucl_match_id)
+    const match = snapshot.matched_epl_match_id
+      ? matchesById.get(snapshot.matched_epl_match_id)
       : null;
     const outcome = mapOutcome(snapshot, match);
 
@@ -625,9 +626,9 @@ function reconcileSnapshots(snapshots, matchesById) {
  */
 async function writeSnapshotMatchUpdates(supabase, updates) {
   for (const update of updates) {
-    await supabase.request("ucl_market_snapshots", {
+    await supabase.request("epl_market_snapshots", {
       body: {
-        matched_ucl_match_id: update.matched_ucl_match_id,
+        matched_epl_match_id: update.matched_epl_match_id,
       },
       method: "PATCH",
       prefer: "return=minimal",
@@ -645,13 +646,13 @@ async function writeSnapshotMatchUpdates(supabase, updates) {
 async function writeRows(supabase, rows, snapshotMatchUpdates) {
   await writeSnapshotMatchUpdates(supabase, snapshotMatchUpdates);
   await supabase.upsert(
-    "ucl_fixed_win_snapshot_results",
+    "epl_fixed_win_snapshot_results",
     rows,
     "source_snapshot_key",
   );
 
   return {
-    uclFixedWinSnapshotResults: rows.length,
+    eplFixedWinSnapshotResults: rows.length,
     ok: true,
     skipped: false,
   };
@@ -662,7 +663,7 @@ async function writeRows(supabase, rows, snapshotMatchUpdates) {
  */
 function summarize(snapshots, matchesById, reconciliation) {
   return {
-    matchedSnapshots: snapshots.filter((snapshot) => snapshot.matched_ucl_match_id).length,
+    matchedSnapshots: snapshots.filter((snapshot) => snapshot.matched_epl_match_id).length,
     officialMatchesChecked: matchesById.size,
     outcomeRows: reconciliation.rows.length,
     snapshotsChecked: snapshots.length,

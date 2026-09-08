@@ -315,7 +315,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" ? undefined : activeSport,
+          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" || activeSport === "epl" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -385,7 +385,7 @@ export function PredictionHistoryScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc" || value === "ucl") {
+    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -1212,6 +1212,10 @@ function getUnsupportedHistoryBranchMessage({
     return "UCL prediction history is not tracked yet. Current UCL single predictions are available on the Predictions tab.";
   }
 
+  if (activeSport === "epl") {
+    return "EPL prediction history is not tracked yet. Current EPL single predictions are available on the Predictions tab.";
+  }
+
   return null;
 }
 
@@ -1324,6 +1328,10 @@ function getPredictionSportLabel(sport: PredictionSport) {
 
   if (sport === "ucl") {
     return "UCL";
+  }
+
+  if (sport === "epl") {
+    return "EPL";
   }
 
   return "Racing";
