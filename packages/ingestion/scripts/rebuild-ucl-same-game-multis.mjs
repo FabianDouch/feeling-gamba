@@ -9,16 +9,35 @@ const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
 const MODEL_KEY = "ucl_favourite_top2_goal_scorers_same_game_percentage_v1";
 const TEAM_NAME_ALIASES = new Map([
+  ["arsenal fc", "arsenal"],
+  ["as roma", "roma"],
+  ["atletico madrid", "atleti"],
   ["bayern munich", "bayern munchen"],
+  ["bod glimt", "bodo glimt"],
   ["borussia dortmund", "b dortmund"],
+  ["como 1907", "como"],
+  ["fc barcelona", "barcelona"],
   ["fc porto", "porto"],
+  ["fc sabah masazir", "sabah"],
+  ["fc shakhtar donetsk", "shakhtar"],
   ["fenerbahce sk", "fenerbahce"],
+  ["feyenoord rotterdam", "feyenoord"],
+  ["galatasaray sk", "galatasaray"],
   ["inter milan", "inter"],
+  ["lille osc", "lille"],
   ["manchester city", "man city"],
+  ["manchester united", "man utd"],
   ["paris saint germain", "paris"],
   ["psv eindhoven", "psv"],
+  ["rc lens", "lens"],
+  ["rb leipzig", "leipzig"],
   ["shakhtar donetsk", "shakhtar"],
+  ["slavia prague", "slavia praha"],
   ["slovan bratislava", "s bratislava"],
+  ["ssc napoli", "napoli"],
+  ["vfb stuttgart", "stuttgart"],
+  ["villarreal cf", "villarreal"],
+  ["viking fk", "viking"],
 ]);
 
 /**

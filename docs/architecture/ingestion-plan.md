@@ -219,6 +219,12 @@ As of 2026-09-09, UCL result refresh defaults use UEFA's `seasonYear`
 convention rather than the plain calendar year: July-December uses the next
 year, while January-June uses the current year. This keeps September 2026
 fixtures on `seasonYear=2027` so captured TAB rows can match and settle.
+As of 2026-09-10, UCL matchers include the source-backed TAB/UEFA club aliases
+needed for the first September 2026 fixture set, including `Atletico Madrid` vs
+`Atleti`, `Manchester United` vs `Man Utd`, `Lille OSC` vs `Lille`, and
+`Bodø/Glimt` normalization. A manual refresh after this update matched all 18
+captured TAB rows, rebuilt 12 settled fixed-win selections and 6 pending
+fixtures, and cleared the unmatched UCL fixed-win rows.
 
 ## English Premier League Current Market Capture
 

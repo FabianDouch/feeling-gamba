@@ -1,6 +1,7 @@
 # UEFA Champions League Data Source Validation
 
-Checked on 2026-09-07. Updated on 2026-09-09 for UEFA season-year handling.
+Checked on 2026-09-07. Updated on 2026-09-09 for UEFA season-year handling
+and on 2026-09-10 for September fixture name-alias coverage.
 
 ## Implementation Status
 
@@ -58,6 +59,14 @@ The same check found source-name differences between TAB and UEFA, including
 `FC Porto` vs `Porto`, `Manchester City` vs `Man City`, and `Inter Milan` vs
 `Inter`. The UCL matchers now use explicit club aliases for these source-backed
 variants instead of fuzzy matching.
+On 2026-09-10, the same alias contract was extended for September 2026 TAB
+fixtures that UEFA exposes under shorter names, including `Arsenal FC` vs
+`Arsenal`, `Atletico Madrid` vs `Atleti`, `Bodø/Glimt` normalization,
+`Feyenoord Rotterdam` vs `Feyenoord`, `Lille OSC` vs `Lille`, `Manchester
+United` vs `Man Utd`, `AS Roma` vs `Roma`, and `FC Sabah Masazir` vs `Sabah`.
+After the alias update, the priced-only official refresh retained all 18
+captured TAB UCL fixtures from 2026-09-08 to 2026-09-10, reconciled 12 settled
+fixed-win rows and 6 pending rows, and left 0 unmatched rows.
 
 ```sh
 npm --workspace @feeling-gamba/ingestion run refresh:ucl-results -- --dry-run --season=2027 --include-fixtures --priced-only --skip-details
