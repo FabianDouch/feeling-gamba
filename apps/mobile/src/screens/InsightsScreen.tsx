@@ -24,6 +24,11 @@ import {
   type NpcInsightsData,
 } from "../data/supabaseNpc";
 import {
+  fetchTennisInsights,
+  hasSupabaseTennisConfig,
+  type TennisInsightsData,
+} from "../data/supabaseTennis";
+import {
   fetchUclInsights,
   hasSupabaseUclConfig,
   type UclInsightsData,
@@ -60,7 +65,7 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "epl" | "npc" | "pfl" | "racing" | "nrl" | "ucl" | "ufc";
+type InsightSport = "epl" | "npc" | "pfl" | "racing" | "nrl" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -136,6 +141,18 @@ const emptyNrlInsights: NrlInsightsData = {
   tryScorerTeamBreakdown: [],
 };
 
+const emptyTennisInsights: TennisInsightsData = {
+  fixedWinCompetitionBreakdown: [],
+  fixedWinOtherPlayerPriceBreakdown: createEmptyPriceBreakdownGroups(),
+  fixedWinOtherPlayerPriceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  fixedWinPriceBreakdown: createEmptyPriceBreakdownGroups(),
+  fixedWinPriceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  fixedWinPriceDifferenceBreakdown: createEmptyPriceBreakdownGroups(),
+  fixedWinPriceDifferenceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  fixedWinSummaryStats: [],
+  fixedWinTourBreakdown: [],
+};
+
 const FIXED_WIN_PRICE_ROLE_OPTIONS: { label: string; value: NrlFixedWinPriceRole }[] = [
   { label: "Favourite", value: "favourite" },
   { label: "Home", value: "home" },
@@ -156,6 +173,7 @@ export function InsightsScreen() {
   const [insights, setInsights] = useState<InsightsData>(emptyInsights);
   const [nrlInsights, setNrlInsights] = useState<NrlInsightsData>(emptyNrlInsights);
   const [npcInsights, setNpcInsights] = useState<NpcInsightsData>(emptyNrlInsights);
+  const [tennisInsights, setTennisInsights] = useState<TennisInsightsData>(emptyTennisInsights);
   const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyNrlInsights);
   const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyNrlInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
@@ -166,6 +184,7 @@ export function InsightsScreen() {
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isLoadingNrlInsights, setIsLoadingNrlInsights] = useState(false);
   const [isLoadingNpcInsights, setIsLoadingNpcInsights] = useState(false);
+  const [isLoadingTennisInsights, setIsLoadingTennisInsights] = useState(false);
   const [isLoadingUclInsights, setIsLoadingUclInsights] = useState(false);
   const [isLoadingEplInsights, setIsLoadingEplInsights] = useState(false);
   const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
@@ -245,6 +264,15 @@ export function InsightsScreen() {
     || npcInsights.tryScorerPlayerBreakdown.length > 0
     || hasPriceBreakdownRows(npcInsights.tryScorerPriceBreakdown)
     || npcInsights.tryScorerTeamBreakdown.length > 0;
+  const hasTennisInsightRows = tennisInsights.fixedWinSummaryStats.length > 0
+    || tennisInsights.fixedWinTourBreakdown.length > 0
+    || tennisInsights.fixedWinCompetitionBreakdown.length > 0
+    || hasPriceBreakdownRows(tennisInsights.fixedWinPriceBreakdown)
+    || hasPriceBreakdownRows(tennisInsights.fixedWinPriceBreakdownPlus)
+    || hasPriceBreakdownRows(tennisInsights.fixedWinOtherPlayerPriceBreakdown)
+    || hasPriceBreakdownRows(tennisInsights.fixedWinOtherPlayerPriceBreakdownPlus)
+    || hasPriceBreakdownRows(tennisInsights.fixedWinPriceDifferenceBreakdown)
+    || hasPriceBreakdownRows(tennisInsights.fixedWinPriceDifferenceBreakdownPlus);
   const hasUclInsightRows = uclInsights.fixedWinSummaryStats.length > 0
     || uclInsights.fixedWinSelectionBreakdown.length > 0
     || hasFixedWinPriceRows(uclInsights.fixedWinPriceBreakdown)
@@ -381,6 +409,46 @@ export function InsightsScreen() {
     }
 
     loadNrlInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTennisInsights() {
+      if (sport !== "tennis") {
+        return;
+      }
+
+      if (!hasSupabaseTennisConfig) {
+        setErrorMessage("Supabase is not configured for Tennis Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingTennisInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchTennisInsights();
+
+        if (!cancelled) {
+          setTennisInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Tennis Insights failed to load.");
+          setTennisInsights(emptyTennisInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTennisInsights(false);
+        }
+      }
+    }
+
+    loadTennisInsights();
 
     return () => {
       cancelled = true;
@@ -553,7 +621,7 @@ export function InsightsScreen() {
   }, [sport]);
 
   function updateSport(value: string) {
-    if (value === "epl" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "ucl" || value === "ufc") {
+    if (value === "epl" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "tennis" || value === "ucl" || value === "ufc") {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -645,6 +713,8 @@ export function InsightsScreen() {
             ? "Showing PFL favourite price, other fighter price, and price-difference signals"
           : sport === "npc"
             ? "Showing NPC fixed-win favourite signals"
+          : sport === "tennis"
+            ? "Showing Tennis fixed-win favourite signals across result-backed ATP/WTA competitions"
           : sport === "ucl"
             ? "Showing UCL fixed-win favourite and goal-scorer percentage signals"
           : sport === "epl"
@@ -661,6 +731,7 @@ export function InsightsScreen() {
           { label: "Racing", value: "racing" },
           { label: "NRL", value: "nrl" },
           { label: "NPC", value: "npc" },
+          { label: "Tennis", value: "tennis" },
           { label: "UCL", value: "ucl" },
           { label: "EPL", value: "epl" },
           { label: "PFL", value: "pfl" },
@@ -735,6 +806,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored NPC insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={npcInsights} />
+        )
+      ) : sport === "tennis" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingTennisInsights ? (
+          <StateMessage text="Loading stored Tennis insight aggregates from Supabase." />
+        ) : !hasTennisInsightRows ? (
+          <StateMessage text="No stored Tennis insight aggregates are loaded yet." />
+        ) : (
+          <TennisInsightsPanel insights={tennisInsights} />
         )
       ) : sport === "ucl" ? (
         errorMessage ? (
@@ -913,6 +994,10 @@ type NrlInsightsPanelProps = {
   scorerLabel?: string;
 };
 
+type TennisInsightsPanelProps = {
+  insights: TennisInsightsData;
+};
+
 type UfcInsightsPanelProps = {
   insights: UfcInsightsData;
   sportLabel: "PFL" | "UFC";
@@ -1044,6 +1129,64 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
       />
       <NrlBreakdown title={`${scorerLabel} by player`} rows={insights.tryScorerPlayerBreakdown} />
       <NrlBreakdown title={`${scorerLabel} by team`} rows={insights.tryScorerTeamBreakdown} />
+    </>
+  );
+}
+
+/**
+ * Shows Tennis fixed-win favourite statistics without home/away or multi sections.
+ */
+function TennisInsightsPanel({ insights }: TennisInsightsPanelProps) {
+  const [selectedBucketSize, setSelectedBucketSize] = useState<NrlPriceBucketSize>("0.50");
+  const [selectedBucketMode, setSelectedBucketMode] = useState<FixedWinPriceBucketMode>("exact");
+  const fixedWinPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinPriceBreakdownPlus
+    : insights.fixedWinPriceBreakdown;
+  const fixedWinOtherPlayerPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinOtherPlayerPriceBreakdownPlus
+    : insights.fixedWinOtherPlayerPriceBreakdown;
+  const fixedWinPriceDifferenceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedWinPriceDifferenceBreakdownPlus
+    : insights.fixedWinPriceDifferenceBreakdown;
+
+  return (
+    <>
+      <Text style={styles.subheading}>Fixed win singles</Text>
+      <View style={styles.statsRow}>
+        {insights.fixedWinSummaryStats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={styles.statDetail}>{stat.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <PriceBucketSizeTabs
+        onChange={setSelectedBucketSize}
+        selectedValue={selectedBucketSize}
+      />
+      <FixedWinPriceBucketModeTabs
+        onChange={setSelectedBucketMode}
+        selectedValue={selectedBucketMode}
+      />
+      <NrlBreakdown
+        rowKeyPrefix={`Tennis fixed win price breakdown-${selectedBucketSize}-${selectedBucketMode}`}
+        title="Fixed win price breakdown"
+        rows={fixedWinPriceBreakdown[selectedBucketSize]}
+      />
+      <NrlBreakdown
+        rowKeyPrefix={`Tennis fixed win other player price breakdown-${selectedBucketSize}-${selectedBucketMode}`}
+        title="Fixed win other player price breakdown"
+        rows={fixedWinOtherPlayerPriceBreakdown[selectedBucketSize]}
+      />
+      <NrlBreakdown
+        rowKeyPrefix={`Tennis fixed win price difference breakdown-${selectedBucketSize}-${selectedBucketMode}`}
+        title="Fixed win price difference breakdown"
+        rows={fixedWinPriceDifferenceBreakdown[selectedBucketSize]}
+      />
+      <NrlBreakdown title="Fixed win by tour" rows={insights.fixedWinTourBreakdown} />
+      <NrlBreakdown title="Fixed win by competition" rows={insights.fixedWinCompetitionBreakdown} />
     </>
   );
 }

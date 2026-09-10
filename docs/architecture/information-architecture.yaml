@@ -134,7 +134,7 @@ navigation:
         audience: app_user
         purpose:
           - Act as the default app landing page.
-          - Toggle between Racing, NRL, NPC, UCL, EPL, PFL, and UFC insight views.
+          - Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, PFL, and UFC insight views.
           - Summarise favourite and MarketMover outcomes.
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
@@ -151,6 +151,7 @@ navigation:
           - For NPC, show the same NRL-shaped fixed-win aggregate rows, Favourite/Home/Away fixed-win price toggles, and 50c/25c plus Exact/+ fixed-win price bucket toggles from npc_insight_aggregates, plus source-backed try-scorer percentage rows and Same Game % rows from official RU7 player events and captured TAB try-scorer prices.
           - For UCL, show the same fixed-win aggregate rows from ucl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus goalscorer percentage rows and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched UEFA official result/event rows.
           - For EPL, show the same fixed-win aggregate rows from epl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus goalscorer percentage rows and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched Premier League official result/goal rows.
+          - For Tennis, show favourite-only fixed-win aggregate rows from tennis_insight_aggregates, grouped across result-backed ATP/WTA singles competitions, with 50c/25c and Exact/+ controls for favourite price, other-player price, and price-difference rows, and no home/away, multis, or prediction branches.
           - Show the NRL Same Game % section before the NRL fixed-win and try-scorer singles sections.
           - For UFC, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from ufc_insight_aggregates, with 50c/25c bucket-size and Exact/+ bucket-mode controls.
           - For PFL, show favourite price breakdown, other fighter price breakdown, and price-difference breakdown from pfl_insight_aggregates, with the same 50c/25c and Exact/+ controls as UFC.
@@ -509,6 +510,7 @@ screen_data_relationships:
     reads:
       - insight_aggregates
       - nrl_insight_aggregates
+      - tennis_insight_aggregates
       - ufc_insight_aggregates
       - race_day_entries
       - track_race_odds_requests
@@ -519,6 +521,7 @@ screen_data_relationships:
       - race_results
       - runners
       - nrl_fixed_win_snapshot_results
+      - tennis_fixed_win_snapshot_results
       - nrl_player_match_appearances
       - nrl_try_scorers
       - ufc_fight_entries

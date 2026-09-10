@@ -113,6 +113,7 @@ systems:
         - Show NPC rugby as a first-class Insights and Predictions sport, reading fixed-win current-market rows from NPC-specific Supabase tables.
         - Show UEFA Champions League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from UCL-specific Supabase tables.
         - Show English Premier League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from EPL-specific Supabase tables.
+        - Show Tennis as a first-class fixed-win-only Insights sport, reading TAB Match Betting snapshots and Odds API ATP/WTA tournament settlement rows from Tennis-specific Supabase tables.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
         - Keep the balance ledger separate from stake sizing, bankroll guidance, account scraping, and automated wagering.
@@ -613,6 +614,9 @@ data_model:
     epl_insight_aggregates:
       purpose: Stored app-facing English Premier League insight rows for fixed-win singles, goalscorer percentages, and same-game multi percentages.
       key: scope_key
+    tennis_insight_aggregates:
+      purpose: Stored app-facing Tennis fixed-win insight rows for favourite price, other-player price, price-difference, tour, and competition buckets.
+      key: scope_key
     pfl_insight_aggregates:
       purpose: Stored app-facing PFL fixed-win insight rows for favourite, other fighter, and price-difference buckets.
       key: scope_key
@@ -666,6 +670,13 @@ derived_views:
       - Store goalscorer percentage rows by player, team, season, round, and captured price bucket from Premier League official goal rows, squad-roster proxy appearances, and TAB Anytime Goalscorer prices.
       - Store Same Game % rows for favourite-team plus top-two goalscorer multis from captured TAB goalscorer prices and official Premier League goal settlement.
       - Keep EPL Insights on stored Supabase aggregates instead of calculating rates in the app.
+  tennis_insight_aggregates:
+    responsibility:
+      - Store one canonical TAB Match Betting row per supported ATP/WTA singles source event.
+      - Store Tennis fixed-win favourite-only aggregate rows by overall, tour, competition, favourite price, other-player price, and price difference.
+      - Store favourite price, other-player price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
+      - Exclude home/away, multis, predictions, ITF, Challenger, WTA125, and doubles rows until matching result-backed source coverage is validated.
+      - Keep Tennis Insights on stored Supabase aggregates instead of calculating rates in the app.
   pfl_insight_aggregates:
     responsibility:
       - Store UFC/PFL favourite fixed-win performance by favourite price, other fighter price, and price-difference buckets.
@@ -826,11 +837,12 @@ flows:
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
-      - NRL, NPC, UCL, and EPL Insights default fixed-win price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
+      - NRL, NPC, UCL, EPL, and Tennis Insights default fixed-win price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
       - UFC and PFL Insights default price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
       - NPC Insights reads npc_insight_aggregates and NPC Predictions reads npc_single_predictions for Singles -> Win % rows.
       - UCL Insights reads ucl_insight_aggregates and UCL Predictions reads ucl_single_predictions for Singles -> Win % rows.
       - EPL Insights reads epl_insight_aggregates and EPL Predictions reads epl_single_predictions for Singles -> Win % rows.
+      - Tennis Insights reads tennis_insight_aggregates for fixed-win favourite-only rows; Tennis Predictions are not exposed yet.
       - Insights can call request-track-race-odds when one track and one discipline are selected to fetch public Betcha odds for all races at that track, including the default global_bucket_blend_v1 cash average score for each returned race.
       - Promos reads current_promotion_snapshots whenever the tab is selected for race-specific promotion signals, shows cache age, and treats rows older than 15 minutes as stale.
       - Promos can call EXPO_PUBLIC_PROMOTION_REFRESH_URL to request a server-side refresh when that backend endpoint is configured.

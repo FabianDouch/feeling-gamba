@@ -10,7 +10,11 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-07 so UFC and PFL price bucket Insights
+Note: the YAML was updated on 2026-09-10 so Tennis uses sport-specific
+`tennis_*` tables for fixed-win-only Insights, with TAB Match Betting snapshots
+settled by The Odds API ATP/WTA tournament scores and no home/away, multis, or
+predictions branch yet. Rendered architecture outputs should be regenerated
+from the YAML before being treated as current. The YAML was updated on 2026-09-07 so UFC and PFL price bucket Insights
 store/display 50c/25c exact rows plus cumulative threshold-and-above rows while
 prediction models stay pinned to 50c exact rows. Rendered architecture outputs
 should be regenerated from the YAML before being treated as current. It was
@@ -648,7 +652,9 @@ repo-root public Supabase env values before Metro bundles the app.
   `ucl_insight_aggregates` with the same fixed-win role and bucket structure,
   football goalscorer rows, and draw outcomes counted as settled losses for
   tracked team selections. EPL reads `epl_insight_aggregates` with the same
-  UCL-shaped fixed-win, goalscorer, and same-game structure. When one racing track and one racing discipline is selected, the app
+  UCL-shaped fixed-win, goalscorer, and same-game structure. Tennis reads
+  `tennis_insight_aggregates` for fixed-win favourite price, other-player
+  price, price-difference, tour, and competition rows only. When one racing track and one racing discipline is selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
   races at the selected track, store an audit row in
   `track_race_odds_requests`, and show the response for manual comparison with
@@ -851,6 +857,12 @@ repo-root public Supabase env values before Metro bundles the app.
   rows are written only for matches with captured fixed-win prices by default.
   Fixed-win selected-team price, other-team price, and price-difference buckets
   use the same 50c/25c and Exact/+ contract as UCL.
+- Tennis Insights use a narrower stored aggregate shape. Fixed-win cash metrics
+  come from reconciled TAB `Match Betting` snapshots matched to The Odds API
+  ATP/WTA tournament result rows. The app groups Tennis into one sport and shows
+  favourite-only overall, tour, competition, favourite price, other-player
+  price, and price-difference rows. ITF, Challenger, WTA125, and doubles events
+  are excluded until a result-backed settlement source is validated.
 - The separate UFC result refresh loads completed ESPN scoreboard result rows
   into `ufc_fight_entries`, then checks UFC multi recommendation legs against
   stored fight rows by source-backed fighter pair and event-date window.

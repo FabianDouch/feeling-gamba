@@ -17,7 +17,11 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-07 so UFC and PFL price bucket Insights can
+Note: the IA was updated on 2026-09-10 so Tennis appears as a fixed-win-only
+Insights sport backed by `tennis_*` tables, with 50c/25c and Exact/+ price
+bucket controls and no multis, home/away, predictions, or prediction history
+branch yet. Rendered IA outputs should be regenerated from the YAML before
+being treated as current. It was updated on 2026-09-07 so UFC and PFL price bucket Insights can
 switch between 50c/25c exact rows and cumulative threshold-and-above rows.
 Rendered IA outputs should be regenerated from the YAML before being treated as
 current. It was updated on 2026-09-07 so NRL, NPC, and UCL fixed-win price
@@ -240,7 +244,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, NPC, UCL, EPL, PFL, and UFC insight views.
+- Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, PFL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -288,6 +292,11 @@ Purpose:
   store draw prices for auditability, but draws settle as non-paying losses for
   tracked home/away/favourite team selections. EPL fixed-win price sections use
   the same 50c/25c and Exact/+ controls as UCL.
+- For Tennis, show favourite-only fixed-win aggregate rows from
+  `tennis_insight_aggregates`, grouped across result-backed ATP/WTA singles
+  competitions. Tennis price sections use the same 50c/25c and Exact/+ controls
+  for favourite price, other-player price, and price-difference rows, but do
+  not show home/away, multis, or prediction branches.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`, with 50c/25c
   bucket-size and Exact/+ bucket-mode controls.
@@ -297,7 +306,7 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing, NRL, NPC, UCL, EPL, PFL, or UFC.
+- Sport selector: Racing, NRL, NPC, Tennis, UCL, EPL, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus

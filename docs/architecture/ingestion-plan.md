@@ -170,11 +170,11 @@ away/away selections, plus the shorter-priced same-team favourite. A halftime
 draw or fulltime draw is settled as a loss for these tracked selections because
 the team/team double would not pay out. Historical HT/FT prices are not
 backfilled unless a pre-kickoff TAB snapshot already exists.
-NRL, NPC, UCL, and EPL price-bucket aggregate rebuilds write both default 50c rows
-and finer 25c rows. Fixed-win selected-team price, other-team price, and
-price-difference sections also write cumulative `*_plus` threshold rows, such
-as `$2.00+`, so the app can switch between exact buckets and threshold-and-above
-views without recalculating buckets client-side.
+NRL, NPC, UCL, EPL, and Tennis price-bucket aggregate rebuilds write both
+default 50c rows and finer 25c rows. Fixed-win selected-team/player price,
+other-team/player price, and price-difference sections also write cumulative
+`*_plus` threshold rows, such as `$2.00+`, so the app can switch between exact
+buckets and threshold-and-above views without recalculating buckets client-side.
 
 ## UEFA Champions League Current Market Capture
 
@@ -268,6 +268,43 @@ idempotent. Historical Premier League rows are not backfilled unless a matching
 fixed-win price snapshot exists. EPL result refresh defaults to the season
 start year: July-December uses the current year, while January-June uses the
 previous year.
+
+## Tennis Current Market Capture
+
+The first Tennis slice is grouped as one app-facing Insights sport with
+sport-specific `tennis_*` tables. As of 2026-09-10, TAB current markets are
+validated at `TENNIS` with two-runner `Match Betting` markets. The app does not
+show home/away, multis, or predictions for Tennis because neutral venues and
+competition coverage make those branches misleading at this stage.
+
+Implemented scripts:
+
+- `refresh:tennis-market-snapshots`: captures current TAB `Match Betting`
+  prices for supported ATP/WTA singles competitions into
+  `tennis_market_snapshots`.
+- `refresh:tennis-results`: reads The Odds API tennis tournament event/scores
+  endpoints and writes result-backed `tennis_matches` rows.
+- `reconcile:tennis-fixed-win`: derives
+  `tennis_fixed_win_snapshot_results` by matching TAB player pairs to Odds API
+  matches by tournament key, player names, and kickoff window.
+- `rebuild:tennis-insight-aggregates`: rebuilds favourite-only fixed-win rows
+  in `tennis_insight_aggregates`, including tour, competition, 50c/25c exact
+  player price buckets, other-player price buckets, price-difference buckets,
+  and cumulative `*_plus` threshold rows.
+- `refresh:tennis-current-markets`: runs current TAB capture, optional result
+  refresh, reconciliation, and aggregate rebuild. The scheduled workflow skips
+  Odds API result refreshes so frequent market capture does not burn settlement
+  source quota.
+- `refresh:tennis-results-and-insights`: runs result refresh, reconciliation,
+  and aggregate rebuild for post-match catch-up.
+
+The Odds API does not expose a working aggregate `tennis` scores endpoint, so
+the collector discovers and queries tournament-specific keys such as
+`tennis_atp_us_open` and `tennis_wta_us_open`. TAB ITF, Challenger, WTA125, and
+doubles events are excluded until a matching result source is validated. This
+prevents unmatched lower-tier rows from becoming permanent calibration noise.
+Historical Tennis calibration is not backfilled without matching TAB fixed-win
+prices.
 
 The GitHub Actions `.github/workflows/npc-market-refresh.yml` schedule runs the
 current-market wrapper every 15 minutes during typical NPC match windows.
@@ -1492,6 +1529,8 @@ Proposed recurring jobs:
 | `refresh-npc-results` | active: GitHub Actions catch-up schedules `45 18 * * *`, `45 20 * * *`, `45 22 * * *`, and `45 23 * * *` UTC | `refresh:npc-results-and-insights` | Loads official Provincial Rugby/Opta NPC fixture, result, player appearance, and try-scorer rows, rematches/reconciles fixed-win and HT/FT snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. Multiple idempotent runs reduce stale pending rows when GitHub cron is delayed or the official source settles late. |
 | `refresh-nrl-current-markets` | active: GitHub Actions `*/15 2-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
 | `refresh-npc-current-markets` | active: GitHub Actions `*/15 0-9 * * 4,5,6,0` UTC during usual NPC match windows | `refresh:npc-current-markets` | Captures open NPC fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
+| `refresh-tennis-current-markets` | active: GitHub Actions `*/30 * * * *` UTC | `refresh:tennis-current-markets -- --skip-results` | Captures open supported ATP/WTA singles TAB Match Betting prices, reconciles fixed-win snapshots against already refreshed Tennis result rows, and rebuilds Tennis Insights. |
+| `refresh-tennis-results` | active: GitHub Actions `20 */3 * * *` UTC | `refresh:tennis-results-and-insights` | Refreshes The Odds API tournament scores, reconciles Tennis fixed-win snapshots, and rebuilds favourite-only Tennis Insights. |
 | `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`; requests 500 open TAB markets per event by default because high-market events can expose the match market late in the connection. |
 | `validate-nrl-try-scorer-markets` | manual validation only | `validate:nrl-try-scorer-markets` | Read-only probe for TAB NRL `Anytime Try Scorer` markets and priced player entrants before adding write ingestion. |
 | `refresh-nrl-try-scorer-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-try-scorer-market-snapshots` | Captures current NRL `Anytime Try Scorer` player prices and matches them to official player appearances. |

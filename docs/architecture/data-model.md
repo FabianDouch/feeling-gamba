@@ -108,6 +108,15 @@ goal rows provide official settlement; player rows use official squad-roster
 proxy appearances until a stable public match-lineup endpoint is validated.
 Historical EPL calibration is not backfilled without matching TAB fixed-win
 snapshots.
+As of `2026-09-10`, Tennis support uses a fixed-win-only sport-specific pattern
+with `tennis_*` tables in
+`supabase/migrations/202609100001_tennis_fixed_win_pipeline.sql`. TAB
+`Match Betting` snapshots store two player prices, while The Odds API
+tournament event/scores endpoints provide settlement for supported ATP/WTA
+singles competitions. The app groups those competitions under one Tennis
+Insights sport and does not expose home/away, multis, or predictions for
+Tennis. ITF, Challenger, WTA125, and doubles rows are excluded until a
+source-backed settlement path is validated.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.
@@ -1516,6 +1525,36 @@ Rules:
   prices where entrant-to-player matching is safe.
 - Public RLS read access is allowed because rows contain app-facing aggregate,
   current prediction, and source market facts only.
+
+### Tennis fixed-win tables
+
+Implemented sport-specific Tennis tables for favourite-only fixed-win
+calibration:
+
+- `tennis_matches`: Odds API tennis tournament rows with player names, start
+  time, set scores, winner, and result status.
+- `tennis_market_snapshots`: one canonical TAB `Match Betting` row per source
+  event/market for supported ATP/WTA singles competitions.
+- `tennis_fixed_win_snapshot_results`: matched TAB snapshot result rows with
+  favourite/other-player prices, winner, favourite outcome, and return.
+- `tennis_insight_aggregates`: stored app-facing Tennis fixed-win aggregate
+  rows for overall, ATP/WTA tour, competition, favourite price bucket,
+  other-player price bucket, and price-difference scopes.
+
+Rules:
+
+- Tennis Insights are grouped across supported ATP/WTA competitions. The tour
+  and competition breakdowns provide the sub-sport detail.
+- TAB HOME/AWAY entrant roles are stored only as source ordering; the app does
+  not show home/away Tennis insight rows.
+- Only pre-match TAB fixed-win prices are used for return calibration.
+- Historical result rows are not backfilled into calibration unless a matching
+  TAB snapshot exists.
+- Price bucket rows use the same app contract as team sports: default `0.50`
+  buckets, optional `0.25` buckets, exact bucket scopes, and cumulative
+  `*_plus` threshold scopes. Selected-player and other-player thresholds start
+  at `$1.00+`; price-difference thresholds start at `$0.00+` and include only
+  non-negative favourite-vs-other gaps.
 
 ### `promotion_recommendations`
 
