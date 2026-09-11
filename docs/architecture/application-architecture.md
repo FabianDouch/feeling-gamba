@@ -10,7 +10,12 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-10 so Tennis uses sport-specific
+Note: the YAML was updated on 2026-09-11 so Spanish La Liga uses
+sport-specific `laliga_*` tables for EPL/UCL-shaped football Insights and
+Predictions, with TAB `Match Result` snapshots, La Liga public fixture/result
+rows, fixed-draw aggregates, and a documented goalscorer event-source gap.
+Rendered architecture outputs should be regenerated from the YAML before being
+treated as current. It was updated on 2026-09-10 so Tennis uses sport-specific
 `tennis_*` tables for fixed-win-only Insights, with TAB Match Betting snapshots
 settled by The Odds API ATP/WTA tournament scores and no home/away, multis, or
 predictions branch yet. Rendered architecture outputs should be regenerated
@@ -721,7 +726,10 @@ repo-root public Supabase env values before Metro bundles the app.
   snapshots and UEFA `official_uefa` player/team goal rates. EPL reads current
   Singles -> Win % rows from `epl_single_predictions`, using TAB `Match Result`
   fixed-win snapshots and Premier League `official_premier_league` player/team
-  goal rates. PFL uses the same
+  goal rates. La Liga reads current Singles -> Win % rows from
+  `laliga_single_predictions`, using TAB `Match Result` fixed-win snapshots and
+  `official_laliga` fixture/result rows; goalscorer rows remain empty until a
+  source-backed scorer event feed is validated. PFL uses the same
   Singles/Multis -> Win % model tabs as UFC and reads current fixed-win MMA odds
   only when a current odds event matches the reviewed PFL event allow-list by
   event date and unordered fighter pair. PFL-specific prediction storage/RPCs

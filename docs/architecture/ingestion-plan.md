@@ -279,6 +279,51 @@ As of 2026-09-11, EPL fixed-draw aggregate rebuilds use only captured
 `draw_fixed_win_price` rows matched to official results. They do not infer draw
 prices for unpriced Premier League history.
 
+## Spanish La Liga Current Market Capture
+
+The La Liga slice mirrors the EPL/UCL football pipeline with separate
+`laliga_*` tables. As of 2026-09-11, the official/public La Liga service is
+validated for 2026 season fixtures, scores, teams, and squad rows through
+`subscription=laliga-easports-2026` and `competition=primera-division`.
+The default TAB competition slug is `spanish-la-liga`, but local TAB GraphQL
+validation was blocked by HTTP 403 in the same environment that blocks EPL
+GraphQL probes, so the capture scripts and workflow expose
+`--competition-slug` for quick correction if TAB uses a different slug.
+
+Implemented scripts:
+
+- `refresh:laliga-market-snapshots`: captures current TAB `Match Result`
+  prices into one canonical row per TAB source event, including the draw price.
+- `refresh:laliga-goal-scorer-market-snapshots`: captures current TAB
+  `Anytime Goalscorer` prices where the TAB event can be matched to official
+  La Liga fixture and squad rows.
+- `refresh:laliga-results`: reads public La Liga fixture, score, team, and
+  squad endpoints and writes `official_laliga` rows only for matches with
+  captured TAB fixed-win prices by default.
+- `reconcile:laliga-fixed-win`: derives `laliga_fixed_win_snapshot_results`;
+  drawn final scores settle as losses for home/away/favourite team selections.
+- `rebuild:laliga-same-game-multis`: derives favourite-team plus top-two
+  goalscorer same-game rows when both scorer prices and official scorer rows
+  exist.
+- `rebuild:laliga-insight-aggregates`: rebuilds fixed-win, fixed-draw,
+  goalscorer, and same-game rows in `laliga_insight_aggregates`, including
+  50c/25c exact and cumulative fixed-win/draw price buckets.
+- `generate:laliga-single-predictions`: writes current fixed-win and
+  goalscorer single rows to `laliga_single_predictions`.
+- `refresh:laliga-current-markets`: captures TAB market rows, refreshes
+  matching priced La Liga fixtures, reconciles, rebuilds, and regenerates
+  current predictions.
+- `refresh:laliga-results-and-insights`: refreshes priced official La Liga
+  rows, reconciles, rebuilds, and regenerates current predictions.
+
+The GitHub Actions `.github/workflows/laliga-market-refresh.yml` schedule runs
+the current-market wrapper every 15 minutes across broad weekend/midweek UTC
+windows. `.github/workflows/laliga-result-refresh.yml` runs repeated
+post-match catch-up passes. Fixed-win and fixed-draw Insights can settle from
+captured TAB prices plus official La Liga scores. Goalscorer and same-game
+settlement should be treated as partially scaffolded until a stable no-key
+per-match scorer event feed is validated.
+
 ## Tennis Current Market Capture
 
 The first Tennis slice is grouped as one app-facing Insights sport with

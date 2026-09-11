@@ -108,6 +108,16 @@ goal rows provide official settlement; player rows use official squad-roster
 proxy appearances until a stable public match-lineup endpoint is validated.
 Historical EPL calibration is not backfilled without matching TAB fixed-win
 snapshots.
+As of `2026-09-11`, Spanish La Liga support uses the same football pipeline
+shape with `laliga_*` tables in
+`supabase/migrations/202609110002_laliga_pipeline.sql`. TAB `Match Result`
+snapshots store home, draw, and away prices, while the public La Liga service
+provides fixture, score, team, and squad rows. Fixed-win and fixed-draw
+calibration remains price-backed only: official La Liga rows are written for
+settlement when they match captured TAB fixed-win snapshots, and official-only
+history is not backfilled without stored prices. The scorer/same-game table
+shape is present, but goalscorer settlement remains a source-confidence gap
+until a stable per-match La Liga goal-event feed is validated.
 As of `2026-09-11`,
 `supabase/migrations/202609110001_football_fixed_draw_insights.sql` allows UCL
 and EPL aggregate tables to store `fixed_draw_single` rows. These rows use the

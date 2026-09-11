@@ -39,6 +39,11 @@ import {
   type EplInsightsData,
 } from "../data/supabaseEpl";
 import {
+  fetchLaligaInsights,
+  hasSupabaseLaligaConfig,
+  type LaligaInsightsData,
+} from "../data/supabaseLaliga";
+import {
   fetchPflInsights,
   fetchUfcInsights,
   hasSupabasePflConfig,
@@ -65,7 +70,7 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "epl" | "npc" | "pfl" | "racing" | "nrl" | "tennis" | "ucl" | "ufc";
+type InsightSport = "epl" | "laliga" | "npc" | "pfl" | "racing" | "nrl" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -183,6 +188,7 @@ export function InsightsScreen() {
   const [tennisInsights, setTennisInsights] = useState<TennisInsightsData>(emptyTennisInsights);
   const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyFootballInsights);
   const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyFootballInsights);
+  const [laligaInsights, setLaligaInsights] = useState<LaligaInsightsData>(emptyFootballInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
@@ -194,6 +200,7 @@ export function InsightsScreen() {
   const [isLoadingTennisInsights, setIsLoadingTennisInsights] = useState(false);
   const [isLoadingUclInsights, setIsLoadingUclInsights] = useState(false);
   const [isLoadingEplInsights, setIsLoadingEplInsights] = useState(false);
+  const [isLoadingLaligaInsights, setIsLoadingLaligaInsights] = useState(false);
   const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -316,6 +323,24 @@ export function InsightsScreen() {
     || eplInsights.tryScorerPlayerBreakdown.length > 0
     || hasPriceBreakdownRows(eplInsights.tryScorerPriceBreakdown)
     || eplInsights.tryScorerTeamBreakdown.length > 0;
+  const hasLaligaInsightRows = laligaInsights.fixedWinSummaryStats.length > 0
+    || laligaInsights.fixedWinSelectionBreakdown.length > 0
+    || hasFixedWinPriceRows(laligaInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(laligaInsights.fixedWinPriceBreakdownPlus)
+    || hasFixedWinPriceRows(laligaInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(laligaInsights.fixedWinOtherTeamPriceBreakdownPlus)
+    || hasFixedWinPriceRows(laligaInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(laligaInsights.fixedWinPriceDifferenceBreakdownPlus)
+    || laligaInsights.fixedDrawSummaryStats.length > 0
+    || hasPriceBreakdownRows(laligaInsights.fixedDrawPriceBreakdown)
+    || hasPriceBreakdownRows(laligaInsights.fixedDrawPriceBreakdownPlus)
+    || laligaInsights.fixedWinRoundBreakdown.length > 0
+    || laligaInsights.sameGameSummaryStats.length > 0
+    || laligaInsights.sameGameRoundBreakdown.length > 0
+    || laligaInsights.tryScorerSummaryStats.length > 0
+    || laligaInsights.tryScorerPlayerBreakdown.length > 0
+    || hasPriceBreakdownRows(laligaInsights.tryScorerPriceBreakdown)
+    || laligaInsights.tryScorerTeamBreakdown.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -551,6 +576,46 @@ export function InsightsScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadLaligaInsights() {
+      if (sport !== "laliga") {
+        return;
+      }
+
+      if (!hasSupabaseLaligaConfig) {
+        setErrorMessage("Supabase is not configured for La Liga Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingLaligaInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchLaligaInsights();
+
+        if (!cancelled) {
+          setLaligaInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "La Liga Insights failed to load.");
+          setLaligaInsights(emptyFootballInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLaligaInsights(false);
+        }
+      }
+    }
+
+    loadLaligaInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadNpcInsights() {
       if (sport !== "npc") {
         return;
@@ -634,7 +699,7 @@ export function InsightsScreen() {
   }, [sport]);
 
   function updateSport(value: string) {
-    if (value === "epl" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "tennis" || value === "ucl" || value === "ufc") {
+    if (value === "epl" || value === "laliga" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "tennis" || value === "ucl" || value === "ufc") {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -732,6 +797,8 @@ export function InsightsScreen() {
             ? "Showing UCL fixed-win favourite and goal-scorer percentage signals"
           : sport === "epl"
             ? "Showing EPL fixed-win favourite and goal-scorer percentage signals"
+          : sport === "laliga"
+            ? "Showing La Liga fixed-win favourite and goal-scorer percentage signals"
           : sport === "nrl"
             ? "Showing NRL fixed-win favourite and try-scorer percentage signals"
           : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
@@ -747,6 +814,7 @@ export function InsightsScreen() {
           { label: "Tennis", value: "tennis" },
           { label: "UCL", value: "ucl" },
           { label: "EPL", value: "epl" },
+          { label: "La Liga", value: "laliga" },
           { label: "PFL", value: "pfl" },
           { label: "UFC", value: "ufc" },
         ]}
@@ -849,6 +917,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored EPL insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={eplInsights} scorerLabel="Goal scorer" />
+        )
+      ) : sport === "laliga" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingLaligaInsights ? (
+          <StateMessage text="Loading stored La Liga insight aggregates from Supabase." />
+        ) : !hasLaligaInsightRows ? (
+          <StateMessage text="No stored La Liga insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={laligaInsights} scorerLabel="Goal scorer" />
         )
       ) : sport === "pfl" || sport === "ufc" ? (
         errorMessage ? (

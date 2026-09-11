@@ -1,0 +1,117 @@
+name: La Liga Market Refresh
+
+on:
+  schedule:
+    # Pre-match La Liga weekend and midweek window. GitHub cron uses UTC.
+    - cron: "*/15 10-23 * * 5,6,0,1,2,3"
+  workflow_dispatch:
+    inputs:
+      competition_slug:
+        description: TAB competition slug for Spanish La Liga
+        required: true
+        default: "spanish-la-liga"
+        type: string
+      dry_run:
+        description: Fetch and summarize La Liga markets without writing
+        required: false
+        default: false
+        type: boolean
+      event_count:
+        description: Number of open La Liga payload events to scan
+        required: true
+        default: "20"
+        type: string
+      entrants_first:
+        description: Goalscorer entrants to request per market
+        required: true
+        default: "80"
+        type: string
+      markets_first:
+        description: Open markets to request per event
+        required: true
+        default: "500"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: laliga-market-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh La Liga Current Markets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      COMPETITION_SLUG: ${{ github.event.inputs.competition_slug }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      ENTRANTS_FIRST: ${{ github.event.inputs.entrants_first }}
+      EVENT_COUNT: ${{ github.event.inputs.event_count }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      MARKETS_FIRST: ${{ github.event.inputs.markets_first }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          competition_slug="${COMPETITION_SLUG:-spanish-la-liga}"
+          entrants_first="${ENTRANTS_FIRST:-80}"
+          event_count="${EVENT_COUNT:-20}"
+          markets_first="${MARKETS_FIRST:-500}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          test -n "$competition_slug" || (echo "competition_slug is required" && exit 1)
+
+          for input_name in entrants_first event_count markets_first; do
+            input_value="${!input_name:-}"
+
+            case "$input_value" in
+              ''|*[!0-9]*)
+                echo "${input_name} must be a positive integer"
+                exit 1
+                ;;
+            esac
+
+            if [ "$input_value" -lt 1 ]; then
+              echo "${input_name} must be a positive integer"
+              exit 1
+            fi
+          done
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for La Liga market writes"
+            exit 1
+          fi
+
+      - name: Refresh current La Liga market data
+        run: |
+          args=(
+            "--competition-slug=${COMPETITION_SLUG:-spanish-la-liga}"
+            "--event-count=${EVENT_COUNT:-20}"
+            "--entrants-first=${ENTRANTS_FIRST:-80}"
+            "--markets-first=${MARKETS_FIRST:-500}"
+          )
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:laliga-current-markets -- "${args[@]}"

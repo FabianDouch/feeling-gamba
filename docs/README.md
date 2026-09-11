@@ -30,6 +30,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [NPC rugby data source validation](./integrations/npc-data-sources.md)
 - [UEFA Champions League data source validation](./integrations/ucl-data-sources.md)
 - [English Premier League data source validation](./integrations/epl-data-sources.md)
+- [Spanish La Liga data source validation](./integrations/laliga-data-sources.md)
 - [Tennis data source validation](./integrations/tennis-data-sources.md)
 - [TAB Form Guide notes](./integrations/tab-form-guide.md)
 - [HRNZ notes](./integrations/hrnz.md)
@@ -37,6 +38,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [NPC rugby feature plan](./branches/features/npc-rugby/npc-rugby_plan.md)
 - [UEFA Champions League feature plan](./branches/features/uefa-champions-league/uefa-champions-league_plan.md)
 - [English Premier League feature plan](./branches/features/english-premier-league/english-premier-league_plan.md)
+- [Spanish La Liga feature plan](./branches/features/spanish-la-liga/spanish-la-liga_plan.md)
 - [Tennis insights feature plan](./branches/features/tennis-insights/tennis-insights_plan.md)
 - [Football draw insights feature plan](./branches/features/football-draw-insights/football-draw-insights_plan.md)
 

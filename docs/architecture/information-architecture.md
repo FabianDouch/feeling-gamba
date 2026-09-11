@@ -17,7 +17,12 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-10 so Tennis appears as a fixed-win-only
+Note: the IA was updated on 2026-09-11 so Spanish La Liga appears as an
+EPL/UCL-shaped football branch in Insights, Predictions, and Prediction History,
+backed by `laliga_*` tables, fixed-win/fixed-draw rows, current single
+predictions, and an explicit history empty state until sport-specific history
+RPCs are added. Rendered IA outputs should be regenerated from the YAML before
+being treated as current. It was updated on 2026-09-10 so Tennis appears as a fixed-win-only
 Insights sport backed by `tennis_*` tables, with 50c/25c and Exact/+ price
 bucket controls and no multis, home/away, predictions, or prediction history
 branch yet. Rendered IA outputs should be regenerated from the YAML before
@@ -244,7 +249,7 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, PFL, and UFC insight views.
+- Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, La Liga, PFL, and UFC insight views.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -294,6 +299,11 @@ Purpose:
   home/away/favourite team selections, while a separate Fixed draw singles
   section tracks the draw entrant itself. EPL fixed-win and fixed-draw price
   sections use the same 50c/25c and Exact/+ controls as UCL.
+- For La Liga, show the same fixed-win aggregate shape from
+  `laliga_insight_aggregates`, plus fixed-draw singles from captured TAB draw
+  prices and matched La Liga final scores. La Liga goalscorer and Same Game %
+  rows are present only when captured scorer prices can be matched to
+  source-backed official scorer events.
 - For Tennis, show favourite-only fixed-win aggregate rows from
   `tennis_insight_aggregates`, grouped across result-backed ATP/WTA singles
   competitions. Tennis price sections use the same 50c/25c and Exact/+ controls
@@ -308,7 +318,7 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing, NRL, NPC, Tennis, UCL, EPL, PFL, or UFC.
+- Sport selector: Racing, NRL, NPC, Tennis, UCL, EPL, La Liga, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus
@@ -491,12 +501,17 @@ Main content:
   rows use Premier League official goal rates, squad-roster proxy appearance
   rows, and captured TAB `Anytime Goalscorer` prices where entrants match
   official player IDs.
+- La Liga Singles -> Win % reads `laliga_single_predictions` and shows
+  fixed-win percentage and goalscorer percentage model tabs. Fixed-win rows use
+  current TAB `Match Result` favourites and treat draws as settled losses;
+  goalscorer rows stay empty until source-backed official scorer events are
+  validated.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing, NRL, NPC, UCL, EPL, PFL, or UFC.
+- Sport selector for current Predictions: Racing, NRL, NPC, UCL, EPL, La Liga, PFL, or UFC.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   two-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
@@ -708,7 +723,7 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing, NRL, NPC, UCL, EPL, PFL, or UFC. UFC uses the same
+- Prediction History sport selector: Racing, NRL, NPC, UCL, EPL, La Liga, PFL, or UFC. UFC uses the same
   hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
@@ -723,7 +738,9 @@ Main content:
   NPC result settlement and history RPCs are added. UCL history branches show
   explicit empty states until UCL prediction reconciliation and history RPCs are
   added. EPL history branches show explicit empty states until EPL prediction
-  reconciliation and history RPCs are added.
+  reconciliation and history RPCs are added. La Liga history branches show
+  explicit empty states until La Liga prediction reconciliation and history RPCs
+  are added.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 2-5 for the
