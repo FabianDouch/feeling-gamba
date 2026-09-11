@@ -9,26 +9,14 @@ const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
 const MATCH_WINDOW_HOURS = 4;
 const TEAM_NAME_ALIASES = new Map([
-  ["alaves", "deportivo alaves"],
-  ["athletic bilbao", "athletic club"],
-  ["atletico madrid", "atletico de madrid"],
-  ["barcelona", "fc barcelona"],
-  ["celta vigo", "rc celta"],
-  ["deportivo la coruna", "rc deportivo"],
-  ["deportivo", "rc deportivo"],
-  ["espanyol", "rcd espanyol de barcelona"],
-  ["getafe", "getafe cf"],
-  ["girona", "girona fc"],
-  ["levante", "levante ud"],
-  ["mallorca", "rcd mallorca"],
-  ["osasuna", "ca osasuna"],
-  ["oviedo", "real oviedo"],
-  ["rayo", "rayo vallecano"],
-  ["real madrid", "real madrid"],
-  ["real sociedad", "real sociedad"],
-  ["sevilla", "sevilla fc"],
-  ["valencia", "valencia cf"],
-  ["villarreal", "villarreal cf"],
+  ["as monaco", "as monaco fc"],
+  ["estac troyes", "es troyes ac"],
+  ["olympique lyon", "olympique lyonnais"],
+  ["olympique marseille", "olympique de marseille"],
+  ["paris saint germain", "paris saint germain fc"],
+  ["rc lens", "racing club de lens"],
+  ["stade brest 29", "stade brestois 29"],
+  ["stade rennais", "stade rennais fc 1901"],
 ]);
 
 /**
@@ -560,7 +548,7 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
-      source: "eq.official_ligue1",
+      source: "eq.openfootball",
     },
   });
 }

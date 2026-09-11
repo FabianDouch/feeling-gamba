@@ -11,6 +11,12 @@ const PAGE_SIZE = 1000;
 
 const LEAGUES = {
   bundesliga: {
+    aliases: new Map([
+      ["1 fc cologne", "1 fc koln"],
+      ["bayer leverkusen", "bayer 04 leverkusen"],
+      ["bayern munich", "fc bayern munchen"],
+      ["tsg hoffenheim", "tsg 1899 hoffenheim"],
+    ]),
     competitionId: 1,
     label: "Bundesliga",
     openFootballCode: "de.1",
@@ -19,6 +25,16 @@ const LEAGUES = {
     timeZoneOffset: "+02:00",
   },
   ligue1: {
+    aliases: new Map([
+      ["as monaco", "as monaco fc"],
+      ["estac troyes", "es troyes ac"],
+      ["olympique lyon", "olympique lyonnais"],
+      ["olympique marseille", "olympique de marseille"],
+      ["paris saint germain", "paris saint germain fc"],
+      ["rc lens", "racing club de lens"],
+      ["stade brest 29", "stade brestois 29"],
+      ["stade rennais", "stade rennais fc 1901"],
+    ]),
     competitionId: 1,
     label: "Ligue 1",
     openFootballCode: "fr.1",
@@ -34,6 +50,12 @@ const LEAGUES = {
     tablePrefix: "mls",
   },
   seriea: {
+    aliases: new Map([
+      ["bologna fc", "bologna fc 1909"],
+      ["cagliari", "cagliari calcio"],
+      ["inter milan", "fc internazionale milano"],
+      ["parma calcio", "parma calcio 1913"],
+    ]),
     competitionId: 1,
     label: "Serie A",
     openFootballCode: "it.1",
@@ -421,9 +443,14 @@ function isWithinMatchWindow(snapshotStart, matchKickoff) {
   return Math.abs(snapshotDate.valueOf() - matchDate.valueOf()) <= MATCH_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
-function namesMatch(left, right) {
-  const leftName = normalizeName(left);
-  const rightName = normalizeName(right);
+function normalizeTeamName(value, config) {
+  const name = normalizeName(value);
+  return config.aliases?.get(name) ?? name;
+}
+
+function namesMatch(left, right, config) {
+  const leftName = normalizeTeamName(left, config);
+  const rightName = normalizeTeamName(right, config);
 
   if (!leftName || !rightName) {
     return false;
@@ -453,7 +480,7 @@ async function readPricedSnapshots(supabase, config) {
   }
 }
 
-function filterToPricedMatches(matches, snapshots) {
+function filterToPricedMatches(matches, snapshots, config) {
   if (!snapshots.length) {
     return [];
   }
@@ -462,8 +489,8 @@ function filterToPricedMatches(matches, snapshots) {
     snapshots.some((snapshot) =>
       snapshot.home_fixed_win_price !== null
       && snapshot.away_fixed_win_price !== null
-      && namesMatch(snapshot.home_team_name, match.homeTeam)
-      && namesMatch(snapshot.away_team_name, match.awayTeam)
+      && namesMatch(snapshot.home_team_name, match.homeTeam, config)
+      && namesMatch(snapshot.away_team_name, match.awayTeam, config)
       && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoffAt)));
 }
 
@@ -582,7 +609,7 @@ async function main() {
   ]);
   const writableMatches = allMatches.filter((match) => isWritableMatch(match, options.includeFixtures));
   const retainedMatches = options.pricedOnly
-    ? filterToPricedMatches(writableMatches, pricedSnapshots)
+    ? filterToPricedMatches(writableMatches, pricedSnapshots, config)
     : writableMatches;
   const limitedMatches = options.maxMatches === null
     ? retainedMatches

@@ -18,6 +18,16 @@ kickoff.
 - These feeds provide fixture dates, home/away teams, round metadata, and final
   scores sufficient for fixed-win and fixed-draw settlement once a matching TAB
   `Match Result` price row exists.
+- Observed TAB-vs-feed team aliases are normalized during priced fixture
+  matching and reconciliation. Current aliases include Bundesliga variants such
+  as `Bayern Munich` -> `FC Bayern München`, `Bayer Leverkusen` -> `Bayer 04
+  Leverkusen`, and `1. FC Cologne` -> `1. FC Köln`; Serie A variants such as
+  `Inter Milan` -> `FC Internazionale Milano`, `Bologna FC` -> `Bologna FC
+  1909`, `Parma Calcio` -> `Parma Calcio 1913`, and `Cagliari` -> `Cagliari
+  Calcio`; and Ligue 1 variants such as `Olympique Marseille` -> `Olympique de
+  Marseille`, `Olympique Lyon` -> `Olympique Lyonnais`, `AS Monaco` -> `AS
+  Monaco FC`, `RC Lens` -> `Racing Club de Lens`, `Stade Brest 29` -> `Stade
+  Brestois 29`, and `Stade Rennais` -> `Stade Rennais FC 1901`.
 
 ## Market Source
 
