@@ -1,7 +1,8 @@
 # UEFA Champions League Data Source Validation
 
-Checked on 2026-09-07. Updated on 2026-09-09 for UEFA season-year handling
-and on 2026-09-10 for September fixture name-alias coverage.
+Checked on 2026-09-07. Updated on 2026-09-09 for UEFA season-year handling,
+on 2026-09-10 for September fixture name-alias coverage, and on 2026-09-11 for
+fixed-draw insight usage.
 
 ## Implementation Status
 
@@ -28,6 +29,9 @@ Validated current UCL market access:
 The observed `Match Result` market is three-way. The UCL snapshot stores home,
 draw, and away prices. Fixed-win Insights and predictions only track team
 selections: home, away, favourite, favourite at home, and favourite away.
+Fixed-draw Insights separately track the draw entrant from
+`draw_fixed_win_price` where a captured TAB price is matched to an official
+result.
 
 Validation dry run on 2026-09-07 captured Club Brugge vs Aston Villa with home
 `$2.60`, draw `$3.60`, and away/favourite `$2.45`.

@@ -1,6 +1,6 @@
 # English Premier League Data Source Validation
 
-Last updated: 2026-09-09.
+Last updated: 2026-09-11.
 
 The first EPL slice mirrors the UCL team-sport pipeline with sport-specific
 `epl_*` tables. It keeps the same Insights, Predictions, and reserved
@@ -16,10 +16,11 @@ EPL market refresh scripts use the same TAB GraphQL route as UCL:
 - `refresh:epl-goal-scorer-market-snapshots` captures `Anytime Goalscorer`
   prices and excludes `No Goalscorer`.
 
-The drawn `Match Result` price is stored for auditability only. App-facing
-fixed-win calibration tracks home, away, favourite, favourite at home, and
-favourite away team selections; drawn final scores are settled non-paying
-losses for those team selections.
+App-facing fixed-win calibration tracks home, away, favourite, favourite at
+home, and favourite away team selections; drawn final scores are settled
+non-paying losses for those team selections. Fixed-draw Insights separately
+track the draw entrant from `draw_fixed_win_price` where a captured TAB price is
+matched to an official result.
 
 ## Official Results
 
@@ -55,9 +56,9 @@ only unless a future task explicitly approves official-only historical rows.
 - `reconcile:epl-fixed-win`: derives `epl_fixed_win_snapshot_results`.
 - `rebuild:epl-same-game-multis`: derives favourite-team plus top-two
   goalscorer Same Game % rows from captured prices.
-- `rebuild:epl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
-  same-game rows in `epl_insight_aggregates`, including 50c/25c exact and
-  cumulative fixed-win price buckets.
+- `rebuild:epl-insight-aggregates`: rebuilds fixed-win, fixed-draw,
+  goalscorer, and same-game rows in `epl_insight_aggregates`, including 50c/25c
+  exact and cumulative fixed-win/draw price buckets.
 - `generate:epl-single-predictions`: writes current fixed-win and goalscorer
   single rows to `epl_single_predictions`.
 - `refresh:epl-results-and-insights`: refreshes priced official rows,

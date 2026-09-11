@@ -283,15 +283,17 @@ Purpose:
 - For UCL, show the same fixed-win aggregate shape from `ucl_insight_aggregates`,
   plus goalscorer percentage and Same Game % rows from captured TAB prices and
   matched UEFA official result/event rows. UCL fixed-win snapshots store draw
-  prices for auditability, but draws settle as non-paying losses for tracked
-  home/away/favourite team selections. UCL fixed-win price sections use the
-  same 50c/25c and Exact/+ controls as NRL/NPC.
+  prices; draws settle as non-paying losses for tracked home/away/favourite
+  team selections, while a separate Fixed draw singles section tracks the draw
+  entrant itself. UCL fixed-win and fixed-draw price sections use the same
+  50c/25c and Exact/+ controls as NRL/NPC.
 - For EPL, show the same fixed-win aggregate shape from `epl_insight_aggregates`,
   plus goalscorer percentage and Same Game % rows from captured TAB prices and
   matched Premier League official result/goal rows. EPL fixed-win snapshots
-  store draw prices for auditability, but draws settle as non-paying losses for
-  tracked home/away/favourite team selections. EPL fixed-win price sections use
-  the same 50c/25c and Exact/+ controls as UCL.
+  store draw prices; draws settle as non-paying losses for tracked
+  home/away/favourite team selections, while a separate Fixed draw singles
+  section tracks the draw entrant itself. EPL fixed-win and fixed-draw price
+  sections use the same 50c/25c and Exact/+ controls as UCL.
 - For Tennis, show favourite-only fixed-win aggregate rows from
   `tennis_insight_aggregates`, grouped across result-backed ATP/WTA singles
   competitions. Tennis price sections use the same 50c/25c and Exact/+ controls

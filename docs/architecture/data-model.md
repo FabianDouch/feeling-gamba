@@ -108,6 +108,14 @@ goal rows provide official settlement; player rows use official squad-roster
 proxy appearances until a stable public match-lineup endpoint is validated.
 Historical EPL calibration is not backfilled without matching TAB fixed-win
 snapshots.
+As of `2026-09-11`,
+`supabase/migrations/202609110001_football_fixed_draw_insights.sql` allows UCL
+and EPL aggregate tables to store `fixed_draw_single` rows. These rows use the
+captured TAB `draw_fixed_win_price` from the same canonical Match Result
+snapshot rows that feed fixed-win team selections, then settle as wins only
+when the official final score is level. They are stored separately from
+home/away/favourite fixed-win team selections and are not backfilled from
+official-only results without captured draw prices.
 As of `2026-09-10`, Tennis support uses a fixed-win-only sport-specific pattern
 with `tennis_*` tables in
 `supabase/migrations/202609100001_tennis_fixed_win_pipeline.sql`. TAB

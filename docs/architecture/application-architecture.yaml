@@ -609,10 +609,10 @@ data_model:
       purpose: Stored app-facing NPC rugby insight rows for fixed-win singles, try-scorer percentages, and same-game multi percentages.
       key: scope_key
     ucl_insight_aggregates:
-      purpose: Stored app-facing UEFA Champions League insight rows for fixed-win singles, goalscorer percentages, and same-game multi percentages.
+      purpose: Stored app-facing UEFA Champions League insight rows for fixed-win singles, fixed-draw singles, goalscorer percentages, and same-game multi percentages.
       key: scope_key
     epl_insight_aggregates:
-      purpose: Stored app-facing English Premier League insight rows for fixed-win singles, goalscorer percentages, and same-game multi percentages.
+      purpose: Stored app-facing English Premier League insight rows for fixed-win singles, fixed-draw singles, goalscorer percentages, and same-game multi percentages.
       key: scope_key
     tennis_insight_aggregates:
       purpose: Stored app-facing Tennis fixed-win insight rows for favourite price, other-player price, price-difference, tour, and competition buckets.
@@ -658,6 +658,7 @@ derived_views:
       - Store UCL fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
       - Store fixed-win selected-team price, other-team price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
+      - Store fixed-draw rows from captured draw_fixed_win_price values, with overall, 50c/25c exact, and cumulative threshold price buckets.
       - Store goalscorer percentage rows by player, team, season, round, and captured price bucket from UEFA player/event rows and TAB Anytime Goalscorer prices.
       - Store Same Game % rows for favourite-team plus top-two goalscorer multis from captured TAB goalscorer prices and official UEFA goal settlement.
       - Keep UCL Insights on stored Supabase aggregates instead of calculating rates in the app.
@@ -667,6 +668,7 @@ derived_views:
       - Store EPL fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
       - Store fixed-win selected-team price, other-team price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
+      - Store fixed-draw rows from captured draw_fixed_win_price values, with overall, 50c/25c exact, and cumulative threshold price buckets.
       - Store goalscorer percentage rows by player, team, season, round, and captured price bucket from Premier League official goal rows, squad-roster proxy appearances, and TAB Anytime Goalscorer prices.
       - Store Same Game % rows for favourite-team plus top-two goalscorer multis from captured TAB goalscorer prices and official Premier League goal settlement.
       - Keep EPL Insights on stored Supabase aggregates instead of calculating rates in the app.
@@ -838,6 +840,7 @@ flows:
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
       - NRL, NPC, UCL, EPL, and Tennis Insights default fixed-win price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
+      - UCL and EPL fixed-draw price bucket breakdowns use the same 50c/25c and Exact/+ controls as their fixed-win football sections.
       - UFC and PFL Insights default price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
       - NPC Insights reads npc_insight_aggregates and NPC Predictions reads npc_single_predictions for Singles -> Win % rows.
       - UCL Insights reads ucl_insight_aggregates and UCL Predictions reads ucl_single_predictions for Singles -> Win % rows.

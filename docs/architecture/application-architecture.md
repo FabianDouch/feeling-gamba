@@ -839,24 +839,28 @@ repo-root public Supabase env values before Metro bundles the app.
 - UCL Insights use the same stored aggregate shape as NRL/NPC. Fixed-win cash
   metrics come from reconciled TAB `Match Result` snapshots with home, draw, and
   away prices captured; draw final scores settle as team-selection losses.
+  Separate fixed-draw rows use the captured draw price and settle as wins only
+  when the official full-time score is level.
   Goalscorer percentage rows come from UEFA player appearances and goal events,
   and Same Game % rows use the favourite fixed-win team plus the two
   shortest-priced favourite-team TAB `Anytime Goalscorer` selections where
   those entrants are matched to official player IDs. Official UEFA rows are
   written only for matches with captured fixed-win prices by default. Fixed-win
-  selected-team price, other-team price, and price-difference buckets use the
-  same 50c/25c and Exact/+ contract as NRL/NPC.
+  selected-team price, other-team price, price-difference, and fixed-draw price
+  buckets use the same 50c/25c and Exact/+ contract as NRL/NPC.
 - EPL Insights use the same stored aggregate shape as UCL. Fixed-win cash
   metrics come from reconciled TAB `Match Result` snapshots with home, draw, and
   away prices captured; draw final scores settle as team-selection losses.
+  Separate fixed-draw rows use the captured draw price and settle as wins only
+  when the official full-time score is level.
   Goalscorer percentage rows come from Premier League official goal rows and
   squad-roster proxy appearances until a stable match-lineup endpoint is
   validated. Same Game % rows use the favourite fixed-win team plus the two
   shortest-priced favourite-team TAB `Anytime Goalscorer` selections where
   those entrants are matched to official player IDs. Official Premier League
   rows are written only for matches with captured fixed-win prices by default.
-  Fixed-win selected-team price, other-team price, and price-difference buckets
-  use the same 50c/25c and Exact/+ contract as UCL.
+  Fixed-win selected-team price, other-team price, price-difference, and
+  fixed-draw price buckets use the same 50c/25c and Exact/+ contract as UCL.
 - Tennis Insights use a narrower stored aggregate shape. Fixed-win cash metrics
   come from reconciled TAB `Match Betting` snapshots matched to The Odds API
   ATP/WTA tournament result rows. The app groups Tennis into one sport and shows

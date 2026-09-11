@@ -812,6 +812,76 @@ function buildFixedWinAggregates(results, matchesById) {
 }
 
 /**
+ * Builds draw-selection records from settled three-way UCL fixed-win results.
+ */
+function buildFixedDrawRecords(results, matchesById) {
+  return selectCanonicalFixedWinResults(results).map((row) => {
+    const match = row.matched_ucl_match_id ? matchesById.get(row.matched_ucl_match_id) : null;
+    const price = numeric(row.draw_fixed_win_price);
+    const won = row.outcome_status === "settled"
+      && row.home_team_won !== true
+      && row.away_team_won !== true;
+
+    return {
+      date: getMatchDate(match, row.advertised_start_at ?? row.snapshot_at),
+      outcomeStatus: row.outcome_status,
+      price,
+      returnValue: won ? price : 0,
+      roundNumber: match?.round_number ?? null,
+      season: match?.season ?? null,
+      source: row.source,
+      won,
+    };
+  });
+}
+
+/**
+ * Builds fixed-draw aggregate rows across overall and draw-price bucket scopes.
+ */
+function buildFixedDrawAggregates(results, matchesById) {
+  const buckets = new Map();
+  const records = buildFixedDrawRecords(results, matchesById);
+
+  for (const record of records) {
+    addToBucket(buckets, {
+      insightType: "fixed_draw_single",
+      scopeKey: "ucl:fixed_draw_single:overall:draw",
+      scopeType: "overall",
+    }, record, addFixedWinSelection);
+
+    for (const bucketSize of PRICE_BUCKET_SIZES) {
+      const priceBucket = getPriceBucket(record.price, bucketSize);
+
+      if (priceBucket) {
+        addToBucket(buckets, {
+          bucketSize: priceBucket.bucketSize,
+          insightType: "fixed_draw_single",
+          priceBucketEnd: priceBucket.end,
+          priceBucketLabel: priceBucket.label,
+          priceBucketStart: priceBucket.start,
+          scopeKey: `ucl:fixed_draw_single:price_bucket:${priceBucket.bucketSize.toFixed(2)}:${priceBucket.start.toFixed(2)}`,
+          scopeType: "price_bucket",
+        }, record, addFixedWinSelection);
+      }
+
+      for (const priceBucketPlus of getPriceBucketPlusBuckets(record.price, bucketSize)) {
+        addToBucket(buckets, {
+          bucketSize: priceBucketPlus.bucketSize,
+          insightType: "fixed_draw_single",
+          priceBucketEnd: priceBucketPlus.end,
+          priceBucketLabel: priceBucketPlus.label,
+          priceBucketStart: priceBucketPlus.start,
+          scopeKey: `ucl:fixed_draw_single:price_bucket_plus:${priceBucketPlus.bucketSize.toFixed(2)}:${priceBucketPlus.start.toFixed(2)}`,
+          scopeType: "price_bucket_plus",
+        }, record, addFixedWinSelection);
+      }
+    }
+  }
+
+  return finalizeAggregates(buckets);
+}
+
+/**
  * Builds selection-level records from home/home, away/away, and favourite HT/FT rows.
  */
 function buildHalfTimeFullTimeRecords(results, matchesById) {
@@ -1181,6 +1251,7 @@ async function readSourceRows(supabase) {
         "home_team_name",
         "away_team_name",
         "home_fixed_win_price",
+        "draw_fixed_win_price",
         "away_fixed_win_price",
         "favourite_team_name",
         "favourite_fixed_win_price",
@@ -1277,7 +1348,7 @@ async function clearExistingAggregates(supabase) {
     method: "DELETE",
     prefer: "return=minimal",
     search: {
-      insight_type: "in.(fixed_win_single,goal_scorer_percentage,same_game_multi_percentage)",
+      insight_type: "in.(fixed_win_single,fixed_draw_single,goal_scorer_percentage,same_game_multi_percentage)",
     },
   });
 }
@@ -1299,8 +1370,9 @@ async function writeAggregates(supabase, rows) {
 /**
  * Produces a compact summary for dry runs and writes.
  */
-function summarize(sourceRows, fixedWinRows, goalScorerRows, sameGameMultiRows) {
+function summarize(sourceRows, fixedWinRows, fixedDrawRows, goalScorerRows, sameGameMultiRows) {
   return {
+    fixedDrawAggregateRows: fixedDrawRows.length,
     fixedWinAggregateRows: fixedWinRows.length,
     fixedWinSnapshots: sourceRows.fixedWinResults.length,
     uclAppearances: sourceRows.appearances.length,
@@ -1346,6 +1418,7 @@ async function main() {
     match,
   ]));
   const fixedWinRows = buildFixedWinAggregates(sourceRows.fixedWinResults, matchesById);
+  const fixedDrawRows = buildFixedDrawAggregates(sourceRows.fixedWinResults, matchesById);
   const goalScorerRows = buildGoalScorerAggregates(
     sourceRows.appearances,
     sourceRows.goalScorers,
@@ -1354,8 +1427,8 @@ async function main() {
     sourceRows.goalScorerPrices,
   );
   const sameGameMultiRows = buildSameGameMultiAggregates(sourceRows.sameGameMultiResults);
-  const rows = [...fixedWinRows, ...goalScorerRows, ...sameGameMultiRows];
-  const summary = summarize(sourceRows, fixedWinRows, goalScorerRows, sameGameMultiRows);
+  const rows = [...fixedWinRows, ...fixedDrawRows, ...goalScorerRows, ...sameGameMultiRows];
+  const summary = summarize(sourceRows, fixedWinRows, fixedDrawRows, goalScorerRows, sameGameMultiRows);
 
   if (options.dryRun) {
     console.log(JSON.stringify({

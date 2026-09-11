@@ -185,7 +185,9 @@ and away. The capture script writes one canonical `ucl_market_snapshots` row per
 TAB source event, including `draw_fixed_win_price` for auditability. UCL
 fixed-win aggregates still track only home, away, favourite, favourite at home,
 and favourite away team selections; a drawn final score is settled as a
-non-paying loss for each of those selections.
+non-paying loss for each of those selections. As of 2026-09-11, the captured
+draw price also feeds separate `fixed_draw_single` aggregates; the draw
+selection wins only when the official final score is level.
 
 Implemented scripts:
 
@@ -199,9 +201,9 @@ Implemented scripts:
   draws as settled losses for home/away/favourite team selections.
 - `rebuild:ucl-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows from captured fixed-win and goalscorer prices.
-- `rebuild:ucl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
-  same-game rows in `ucl_insight_aggregates`, including 50c/25c exact and
-  cumulative fixed-win price buckets.
+- `rebuild:ucl-insight-aggregates`: rebuilds fixed-win, fixed-draw,
+  goalscorer, and same-game rows in `ucl_insight_aggregates`, including
+  50c/25c exact and cumulative fixed-win/draw price buckets.
 - `generate:ucl-single-predictions`: writes current fixed-win and goalscorer
   single rows to `ucl_single_predictions`.
 - `refresh:ucl-current-markets`: captures TAB market rows, refreshes matching
@@ -225,6 +227,9 @@ needed for the first September 2026 fixture set, including `Atletico Madrid` vs
 `Bodø/Glimt` normalization. A manual refresh after this update matched all 18
 captured TAB rows, rebuilt 12 settled fixed-win selections and 6 pending
 fixtures, and cleared the unmatched UCL fixed-win rows.
+As of 2026-09-11, UCL fixed-draw aggregate rebuilds use only captured
+`draw_fixed_win_price` rows matched to official results. They do not infer draw
+prices for unpriced UEFA history.
 
 ## English Premier League Current Market Capture
 
@@ -235,7 +240,9 @@ away. The capture script writes one canonical `epl_market_snapshots` row per
 TAB source event, including `draw_fixed_win_price` for auditability. EPL
 fixed-win aggregates still track only home, away, favourite, favourite at home,
 and favourite away team selections; a drawn final score is settled as a
-non-paying loss for each of those selections.
+non-paying loss for each of those selections. As of 2026-09-11, the captured
+draw price also feeds separate `fixed_draw_single` aggregates; the draw
+selection wins only when the official final score is level.
 
 Implemented scripts:
 
@@ -249,9 +256,9 @@ Implemented scripts:
   treats draws as settled losses for home/away/favourite team selections.
 - `rebuild:epl-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows from captured fixed-win and goalscorer prices.
-- `rebuild:epl-insight-aggregates`: rebuilds fixed-win, goalscorer, and
-  same-game rows in `epl_insight_aggregates`, including 50c/25c exact and
-  cumulative fixed-win price buckets.
+- `rebuild:epl-insight-aggregates`: rebuilds fixed-win, fixed-draw,
+  goalscorer, and same-game rows in `epl_insight_aggregates`, including
+  50c/25c exact and cumulative fixed-win/draw price buckets.
 - `generate:epl-single-predictions`: writes current fixed-win and goalscorer
   single rows to `epl_single_predictions`.
 - `refresh:epl-current-markets`: captures TAB market rows, refreshes matching
@@ -268,6 +275,9 @@ idempotent. Historical Premier League rows are not backfilled unless a matching
 fixed-win price snapshot exists. EPL result refresh defaults to the season
 start year: July-December uses the current year, while January-June uses the
 previous year.
+As of 2026-09-11, EPL fixed-draw aggregate rebuilds use only captured
+`draw_fixed_win_price` rows matched to official results. They do not infer draw
+prices for unpriced Premier League history.
 
 ## Tennis Current Market Capture
 

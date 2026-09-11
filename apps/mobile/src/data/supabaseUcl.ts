@@ -26,6 +26,9 @@ export type UclFixedWinPriceBreakdownGroups = Record<UclPriceBucketSize, UclFixe
 export type UclPriceBreakdownGroups = Record<UclPriceBucketSize, UclInsightBreakdown[]>;
 
 export type UclInsightsData = {
+  fixedDrawPriceBreakdown: UclPriceBreakdownGroups;
+  fixedDrawPriceBreakdownPlus: UclPriceBreakdownGroups;
+  fixedDrawSummaryStats: FavouriteStat[];
   fixedWinOtherTeamPriceBreakdown: UclFixedWinPriceBreakdownGroups;
   fixedWinOtherTeamPriceBreakdownPlus: UclFixedWinPriceBreakdownGroups;
   fixedWinPriceDifferenceBreakdown: UclFixedWinPriceBreakdownGroups;
@@ -74,7 +77,7 @@ type UclInsightAggregateRow = {
   win_percentage: NullableNumber;
 };
 
-type UclInsightType = "fixed_win_single" | "half_time_full_time_double" | "same_game_multi_percentage" | "goal_scorer_percentage";
+type UclInsightType = "fixed_win_single" | "fixed_draw_single" | "half_time_full_time_double" | "same_game_multi_percentage" | "goal_scorer_percentage";
 
 type UclInsightScopeType =
   | "overall"
@@ -148,6 +151,9 @@ export async function fetchUclInsights(): Promise<UclInsightsData> {
     fixedWinFavouriteVenueRows,
     fixedWinSelectionRows,
     fixedWinRoundRows,
+    fixedDrawOverallRows,
+    fixedDrawPriceRows,
+    fixedDrawPricePlusRows,
     halfTimeFullTimeOverallRows,
     halfTimeFullTimeFavouriteVenueRows,
     halfTimeFullTimeSelectionRows,
@@ -184,6 +190,15 @@ export async function fetchUclInsights(): Promise<UclInsightsData> {
     fetchUclAggregateRows("fixed_win_single", "season_round", {
       order: "season.desc,round_number.desc",
     }),
+    fetchUclAggregateRows("fixed_draw_single", "overall", {
+      scope_key: "eq.ucl:fixed_draw_single:overall:draw",
+    }),
+    fetchUclAggregateRows("fixed_draw_single", "price_bucket", {
+      order: "bucket_size.desc,price_bucket_start.asc",
+    }),
+    fetchUclAggregateRows("fixed_draw_single", "price_bucket_plus", {
+      order: "bucket_size.desc,price_bucket_start.asc",
+    }),
     fetchUclAggregateRows("half_time_full_time_double", "overall", {
       scope_key: "eq.ucl:half_time_full_time_double:overall:favourite",
     }),
@@ -208,11 +223,15 @@ export async function fetchUclInsights(): Promise<UclInsightsData> {
     }),
   ]);
   const fixedWinOverall = fixedWinOverallRows[0] ?? null;
+  const fixedDrawOverall = fixedDrawOverallRows[0] ?? null;
   const halfTimeFullTimeOverall = halfTimeFullTimeOverallRows[0] ?? null;
   const sameGameOverall = sameGameOverallRows[0] ?? null;
   const goalScorerOverall = goalScorerOverallRows[0] ?? null;
 
   return {
+    fixedDrawPriceBreakdown: mapPriceBreakdownGroups(fixedDrawPriceRows, mapFixedDrawBreakdown),
+    fixedDrawPriceBreakdownPlus: mapPriceBreakdownGroups(fixedDrawPricePlusRows, mapFixedDrawBreakdown),
+    fixedDrawSummaryStats: fixedDrawOverall ? mapFixedDrawSummaryStats(fixedDrawOverall) : [],
     fixedWinOtherTeamPriceBreakdown: mapFixedWinPriceBreakdowns(fixedWinOtherTeamPriceRows),
     fixedWinOtherTeamPriceBreakdownPlus: mapFixedWinPriceBreakdowns(fixedWinOtherTeamPricePlusRows),
     fixedWinPriceDifferenceBreakdown: mapFixedWinPriceBreakdowns(fixedWinPriceDifferenceRows),
@@ -241,6 +260,29 @@ export async function fetchUclInsights(): Promise<UclInsightsData> {
     tryScorerSummaryStats: goalScorerOverall ? mapGoalScorerSummaryStats(goalScorerOverall) : [],
     tryScorerTeamBreakdown: goalScorerTeamRows.map(mapGoalScorerBreakdown),
   };
+}
+
+/**
+ * Maps the overall fixed-draw row to KPI cards.
+ */
+function mapFixedDrawSummaryStats(row: UclInsightAggregateRow): FavouriteStat[] {
+  return [
+    {
+      detail: `${row.win_count} draws from ${row.selection_count} settled matches`,
+      label: "Fixed-draw rate",
+      value: formatPercentage(numeric(row.win_percentage)),
+    },
+    {
+      detail: `${formatCurrency(numeric(row.total_return))} returned from ${formatCurrency(numeric(row.total_stake))} unit stake`,
+      label: "$1 draw return",
+      value: formatReturn(numeric(row.average_return_per_dollar)),
+    },
+    {
+      detail: `${row.pending_count} pending, ${row.unmatched_count} unmatched, ${row.missing_result_count} missing result`,
+      label: "Draw audit",
+      value: String(row.event_count),
+    },
+  ];
 }
 
 /**
@@ -422,6 +464,24 @@ function mapFixedWinBreakdown(row: UclInsightAggregateRow): UclInsightBreakdown 
     pending: `${row.pending_count} pending`,
     roi: formatPercentage(numeric(row.roi_percentage)),
     selections: `${row.selection_count} selections`,
+    totalReturned: formatCurrency(numeric(row.total_return)),
+    totalStaked: formatCurrency(numeric(row.total_stake)),
+    winRate: formatPercentage(numeric(row.win_percentage)),
+  };
+}
+
+/**
+ * Maps a fixed-draw aggregate row to the generic UCL breakdown display model.
+ */
+function mapFixedDrawBreakdown(row: UclInsightAggregateRow): UclInsightBreakdown {
+  return {
+    averageReturn: formatReturn(numeric(row.average_return_per_dollar)),
+    detail: `${row.win_count} draws from ${row.selection_count} settled matches`,
+    label: getUclAggregateLabel(row),
+    netReturn: formatCurrency(numeric(row.net_return)),
+    pending: `${row.pending_count} pending`,
+    roi: formatPercentage(numeric(row.roi_percentage)),
+    selections: `${row.selection_count} matches`,
     totalReturned: formatCurrency(numeric(row.total_return)),
     totalStaked: formatCurrency(numeric(row.total_stake)),
     winRate: formatPercentage(numeric(row.win_percentage)),

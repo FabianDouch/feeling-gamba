@@ -38,6 +38,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [UEFA Champions League feature plan](./branches/features/uefa-champions-league/uefa-champions-league_plan.md)
 - [English Premier League feature plan](./branches/features/english-premier-league/english-premier-league_plan.md)
 - [Tennis insights feature plan](./branches/features/tennis-insights/tennis-insights_plan.md)
+- [Football draw insights feature plan](./branches/features/football-draw-insights/football-draw-insights_plan.md)
 
 ## Current MVP Goal
 

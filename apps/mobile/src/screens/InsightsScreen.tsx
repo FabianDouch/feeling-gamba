@@ -50,7 +50,7 @@ import {
   requestTrackRaceOdds,
   type TrackRaceOddsResult,
 } from "../data/trackRaceOdds";
-import type { InsightsData } from "../data/collectedRaceDay";
+import type { FavouriteStat, InsightsData } from "../data/collectedRaceDay";
 import type { UserFavouriteTrack } from "../data/userFavouriteTracks";
 import { FavouriteTrackControl } from "./FavouriteTrackControl";
 import { FavouriteTrackQuickFilter } from "./FavouriteTrackQuickFilter";
@@ -141,6 +141,13 @@ const emptyNrlInsights: NrlInsightsData = {
   tryScorerTeamBreakdown: [],
 };
 
+const emptyFootballInsights = {
+  ...emptyNrlInsights,
+  fixedDrawPriceBreakdown: createEmptyPriceBreakdownGroups(),
+  fixedDrawPriceBreakdownPlus: createEmptyPriceBreakdownGroups(),
+  fixedDrawSummaryStats: [],
+};
+
 const emptyTennisInsights: TennisInsightsData = {
   fixedWinCompetitionBreakdown: [],
   fixedWinOtherPlayerPriceBreakdown: createEmptyPriceBreakdownGroups(),
@@ -174,8 +181,8 @@ export function InsightsScreen() {
   const [nrlInsights, setNrlInsights] = useState<NrlInsightsData>(emptyNrlInsights);
   const [npcInsights, setNpcInsights] = useState<NpcInsightsData>(emptyNrlInsights);
   const [tennisInsights, setTennisInsights] = useState<TennisInsightsData>(emptyTennisInsights);
-  const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyNrlInsights);
-  const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyNrlInsights);
+  const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyFootballInsights);
+  const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyFootballInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
@@ -281,6 +288,9 @@ export function InsightsScreen() {
     || hasFixedWinPriceRows(uclInsights.fixedWinOtherTeamPriceBreakdownPlus)
     || hasFixedWinPriceRows(uclInsights.fixedWinPriceDifferenceBreakdown)
     || hasFixedWinPriceRows(uclInsights.fixedWinPriceDifferenceBreakdownPlus)
+    || uclInsights.fixedDrawSummaryStats.length > 0
+    || hasPriceBreakdownRows(uclInsights.fixedDrawPriceBreakdown)
+    || hasPriceBreakdownRows(uclInsights.fixedDrawPriceBreakdownPlus)
     || uclInsights.fixedWinRoundBreakdown.length > 0
     || uclInsights.sameGameSummaryStats.length > 0
     || uclInsights.sameGameRoundBreakdown.length > 0
@@ -296,6 +306,9 @@ export function InsightsScreen() {
     || hasFixedWinPriceRows(eplInsights.fixedWinOtherTeamPriceBreakdownPlus)
     || hasFixedWinPriceRows(eplInsights.fixedWinPriceDifferenceBreakdown)
     || hasFixedWinPriceRows(eplInsights.fixedWinPriceDifferenceBreakdownPlus)
+    || eplInsights.fixedDrawSummaryStats.length > 0
+    || hasPriceBreakdownRows(eplInsights.fixedDrawPriceBreakdown)
+    || hasPriceBreakdownRows(eplInsights.fixedDrawPriceBreakdownPlus)
     || eplInsights.fixedWinRoundBreakdown.length > 0
     || eplInsights.sameGameSummaryStats.length > 0
     || eplInsights.sameGameRoundBreakdown.length > 0
@@ -479,7 +492,7 @@ export function InsightsScreen() {
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : "UCL Insights failed to load.");
-          setUclInsights(emptyNrlInsights);
+          setUclInsights(emptyFootballInsights);
         }
       } finally {
         if (!cancelled) {
@@ -519,7 +532,7 @@ export function InsightsScreen() {
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : "EPL Insights failed to load.");
-          setEplInsights(emptyNrlInsights);
+          setEplInsights(emptyFootballInsights);
         }
       } finally {
         if (!cancelled) {
@@ -990,8 +1003,14 @@ type InsightsPanelProps = {
 };
 
 type NrlInsightsPanelProps = {
-  insights: NrlInsightsData;
+  insights: FootballLikeInsights;
   scorerLabel?: string;
+};
+
+type FootballLikeInsights = NrlInsightsData & {
+  fixedDrawPriceBreakdown?: Record<NrlPriceBucketSize, NrlInsightBreakdown[]>;
+  fixedDrawPriceBreakdownPlus?: Record<NrlPriceBucketSize, NrlInsightBreakdown[]>;
+  fixedDrawSummaryStats?: FavouriteStat[];
 };
 
 type TennisInsightsPanelProps = {
@@ -1025,6 +1044,13 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
   const fixedWinPriceDifferenceBreakdown = selectedBucketMode === "plus"
     ? insights.fixedWinPriceDifferenceBreakdownPlus
     : insights.fixedWinPriceDifferenceBreakdown;
+  const fixedDrawPriceBreakdown = selectedBucketMode === "plus"
+    ? insights.fixedDrawPriceBreakdownPlus
+    : insights.fixedDrawPriceBreakdown;
+  const hasFixedDrawRows = Boolean(
+    insights.fixedDrawSummaryStats?.length
+    || (fixedDrawPriceBreakdown && hasPriceBreakdownRows(fixedDrawPriceBreakdown)),
+  );
 
   return (
     <>
@@ -1110,6 +1136,27 @@ function NrlInsightsPanel({ insights, scorerLabel = "Try scorer" }: NrlInsightsP
         title="Fixed win price difference breakdown"
       />
       <NrlBreakdown title="Fixed win by round" rows={insights.fixedWinRoundBreakdown} />
+
+      {hasFixedDrawRows ? (
+        <>
+          <Text style={styles.subheading}>Fixed draw singles</Text>
+          <View style={styles.statsRow}>
+            {insights.fixedDrawSummaryStats?.map((stat) => (
+              <View key={stat.label} style={styles.stat}>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+                <Text style={styles.statDetail}>{stat.detail}</Text>
+              </View>
+            ))}
+          </View>
+
+          <NrlBreakdown
+            rowKeyPrefix={`Fixed draw price breakdown-${selectedBucketSize}-${selectedBucketMode}`}
+            title="Fixed draw price breakdown"
+            rows={fixedDrawPriceBreakdown?.[selectedBucketSize] ?? []}
+          />
+        </>
+      ) : null}
 
       <Text style={styles.subheading}>{scorerLabel} percentage</Text>
       <View style={styles.statsRow}>
