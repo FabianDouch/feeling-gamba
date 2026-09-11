@@ -118,6 +118,20 @@ settlement when they match captured TAB fixed-win snapshots, and official-only
 history is not backfilled without stored prices. The scorer/same-game table
 shape is present, but goalscorer settlement remains a source-confidence gap
 until a stable per-match La Liga goal-event feed is validated.
+As of `2026-09-11`, German Bundesliga, Italian Serie A, French Ligue 1, and
+MLS support use the same football pipeline shape with `bundesliga_*`,
+`seriea_*`, `ligue1_*`, and `mls_*` tables in
+`supabase/migrations/202609110003_bundesliga_pipeline.sql`,
+`supabase/migrations/202609110004_seriea_pipeline.sql`,
+`supabase/migrations/202609110005_ligue1_pipeline.sql`, and
+`supabase/migrations/202609110006_mls_pipeline.sql`. Bundesliga, Serie A, and
+Ligue 1 results are sourced from OpenFootball JSON, while MLS results are
+sourced from FixtureDownload. The first slice is fixed-win and fixed-draw
+only: official fixture/result rows are written by default only when they match
+captured TAB `Match Result` prices, full-time draws are non-paying losses for
+home/away/favourite fixed-win team selections, and goalscorer/same-game rows
+remain scaffolded until source-backed scorer events and TAB scorer market
+mapping are validated.
 As of `2026-09-11`,
 `supabase/migrations/202609110001_football_fixed_draw_insights.sql` allows UCL
 and EPL aggregate tables to store `fixed_draw_single` rows. These rows use the

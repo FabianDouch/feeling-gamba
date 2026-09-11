@@ -9,7 +9,7 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "epl" | "laliga" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
+export type PredictionSport = "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
@@ -37,6 +37,22 @@ const PREDICTION_SPORT_OPTIONS = [
   {
     label: "La Liga",
     value: "laliga",
+  },
+  {
+    label: "Bundesliga",
+    value: "bundesliga",
+  },
+  {
+    label: "Serie A",
+    value: "seriea",
+  },
+  {
+    label: "Ligue 1",
+    value: "ligue1",
+  },
+  {
+    label: "MLS",
+    value: "mls",
   },
   {
     label: "PFL",

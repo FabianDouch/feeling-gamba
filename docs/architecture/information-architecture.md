@@ -17,7 +17,14 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-11 so Spanish La Liga appears as an
+Note: the IA was updated on 2026-09-11 so German Bundesliga, Italian Serie A,
+French Ligue 1, and MLS appear as football branches in Insights, Predictions,
+and Prediction History, backed by sport-specific `*_` tables, fixed-win and
+fixed-draw rows, current single predictions, and explicit history empty states
+until sport-specific history RPCs are added. Goalscorer and Same Game % rows
+remain reserved until source-backed scorer events are validated. Rendered IA
+outputs should be regenerated from the YAML before being treated as current. It
+was updated on 2026-09-11 so Spanish La Liga appears as an
 EPL/UCL-shaped football branch in Insights, Predictions, and Prediction History,
 backed by `laliga_*` tables, fixed-win/fixed-draw rows, current single
 predictions, and an explicit history empty state until sport-specific history

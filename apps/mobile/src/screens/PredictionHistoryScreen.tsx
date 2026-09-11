@@ -315,7 +315,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" || activeSport === "epl" || activeSport === "laliga" ? undefined : activeSport,
+          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" || activeSport === "epl" || activeSport === "laliga" || activeSport === "bundesliga" || activeSport === "seriea" || activeSport === "ligue1" || activeSport === "mls" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -385,7 +385,7 @@ export function PredictionHistoryScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || value === "laliga") {
+    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || value === "laliga" || value === "bundesliga" || value === "seriea" || value === "ligue1" || value === "mls") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -1220,6 +1220,22 @@ function getUnsupportedHistoryBranchMessage({
     return "La Liga prediction history is not tracked yet. Current La Liga single predictions are available on the Predictions tab.";
   }
 
+  if (activeSport === "bundesliga") {
+    return "Bundesliga prediction history is not tracked yet. Current Bundesliga single predictions are available on the Predictions tab.";
+  }
+
+  if (activeSport === "seriea") {
+    return "Serie A prediction history is not tracked yet. Current Serie A single predictions are available on the Predictions tab.";
+  }
+
+  if (activeSport === "ligue1") {
+    return "Ligue 1 prediction history is not tracked yet. Current Ligue 1 single predictions are available on the Predictions tab.";
+  }
+
+  if (activeSport === "mls") {
+    return "MLS prediction history is not tracked yet. Current MLS single predictions are available on the Predictions tab.";
+  }
+
   return null;
 }
 
@@ -1340,6 +1356,22 @@ function getPredictionSportLabel(sport: PredictionSport) {
 
   if (sport === "laliga") {
     return "La Liga";
+  }
+
+  if (sport === "bundesliga") {
+    return "Bundesliga";
+  }
+
+  if (sport === "seriea") {
+    return "Serie A";
+  }
+
+  if (sport === "ligue1") {
+    return "Ligue 1";
+  }
+
+  if (sport === "mls") {
+    return "MLS";
   }
 
   return "Racing";

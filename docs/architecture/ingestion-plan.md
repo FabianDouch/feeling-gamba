@@ -324,6 +324,40 @@ captured TAB prices plus official La Liga scores. Goalscorer and same-game
 settlement should be treated as partially scaffolded until a stable no-key
 per-match scorer event feed is validated.
 
+## Additional Football League Current Market Capture
+
+German Bundesliga, Italian Serie A, French Ligue 1, and MLS use the same
+football-shaped pipeline as La Liga with separate `bundesliga_*`, `seriea_*`,
+`ligue1_*`, and `mls_*` tables. TAB `Match Result` capture stores one
+canonical row per source event with home, draw, and away prices. Fixed-win team
+selections settle home/away/favourite outcomes from matched public final
+scores, and full-time draws are counted as settled losses for those team
+selections. Fixed-draw rows are stored separately and win only when the final
+score is level.
+
+Implemented scripts:
+
+- `refresh:{league}-market-snapshots`: captures current TAB `Match Result`
+  prices for the selected league slug.
+- `refresh:{league}-results`: reads the shared public fixture/result loader for
+  Bundesliga, Serie A, Ligue 1, or MLS and writes priced official rows by
+  default.
+- `reconcile:{league}-fixed-win`: derives fixed-win snapshot result rows from
+  matched public scores.
+- `rebuild:{league}-insight-aggregates`: rebuilds fixed-win and fixed-draw
+  aggregate rows, including 50c/25c exact and cumulative price buckets.
+- `generate:{league}-single-predictions`: writes current fixed-win single
+  predictions.
+- `refresh:{league}-current-markets` and
+  `refresh:{league}-results-and-insights`: run the capture/result,
+  reconciliation, aggregate, and prediction steps in order.
+
+Bundesliga, Serie A, and Ligue 1 use OpenFootball JSON fixture/result files.
+MLS uses FixtureDownload JSON. Historical calibration is not backfilled unless
+a matching TAB fixed-win/draw price snapshot exists. Goalscorer and Same Game %
+rows remain scaffolded until source-backed per-match scorer events and TAB
+goalscorer market mapping are validated for each league.
+
 ## Tennis Current Market Capture
 
 The first Tennis slice is grouped as one app-facing Insights sport with

@@ -57,6 +57,26 @@ import {
   LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
   type LaligaSinglePredictionModelKey,
 } from "../data/supabaseLaligaPredictions";
+import {
+  BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type BundesligaSinglePredictionModelKey,
+} from "../data/supabaseBundesligaPredictions";
+import {
+  SERIEA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type SerieaSinglePredictionModelKey,
+} from "../data/supabaseSerieaPredictions";
+import {
+  LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type Ligue1SinglePredictionModelKey,
+} from "../data/supabaseLigue1Predictions";
+import {
+  MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  MLS_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type MlsSinglePredictionModelKey,
+} from "../data/supabaseMlsPredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionFormatTabs,
@@ -121,6 +141,14 @@ export function PredictionsScreen() {
     useState<EplSinglePredictionModelKey>(EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeLaligaSingleModelKey, setActiveLaligaSingleModelKey] =
     useState<LaligaSinglePredictionModelKey>(LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeBundesligaSingleModelKey, setActiveBundesligaSingleModelKey] =
+    useState<BundesligaSinglePredictionModelKey>(BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeSerieaSingleModelKey, setActiveSerieaSingleModelKey] =
+    useState<SerieaSinglePredictionModelKey>(SERIEA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeLigue1SingleModelKey, setActiveLigue1SingleModelKey] =
+    useState<Ligue1SinglePredictionModelKey>(LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const [activeMlsSingleModelKey, setActiveMlsSingleModelKey] =
+    useState<MlsSinglePredictionModelKey>(MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
@@ -145,6 +173,18 @@ export function PredictionsScreen() {
   const activeLaligaSingleModel = LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
     model.key === activeLaligaSingleModelKey)
     ?? LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeBundesligaSingleModel = BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeBundesligaSingleModelKey)
+    ?? BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeSerieaSingleModel = SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeSerieaSingleModelKey)
+    ?? SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeLigue1SingleModel = LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeLigue1SingleModelKey)
+    ?? LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+  const activeMlsSingleModel = MLS_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeMlsSingleModelKey)
+    ?? MLS_SINGLE_PREDICTION_MODEL_VARIANTS[0];
   const activeCashModel = CASH_PREDICTION_MODEL_VARIANTS.find((model) => model.key === activeCashModelKey)
     ?? CASH_PREDICTION_MODEL_VARIANTS[0];
   const activeWinPercentageModel = WIN_PERCENTAGE_MULTI_MODEL_VARIANTS.find((model) =>
@@ -155,11 +195,15 @@ export function PredictionsScreen() {
     : activeCashModelKey;
   const activeModelInfo = getActiveModelInfo({
     activeCashModel,
+    activeBundesligaSingleModel,
     activeEplSingleModel,
     activeFormat,
     activeLaligaSingleModel,
+    activeLigue1SingleModel,
+    activeMlsSingleModel,
     activeNpcSingleModel,
     activeNrlSingleModel,
+    activeSerieaSingleModel,
     activeUclSingleModel,
     activePredictionType,
     activeSingleWinPercentageModel,
@@ -177,7 +221,17 @@ export function PredictionsScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || value === "laliga") {
+    if (
+      value === "nrl"
+      || value === "npc"
+      || value === "ucl"
+      || value === "epl"
+      || value === "laliga"
+      || value === "bundesliga"
+      || value === "seriea"
+      || value === "ligue1"
+      || value === "mls"
+    ) {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -331,6 +385,38 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "bundesliga" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeBundesligaSingleModelKey}
+          models={BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveBundesligaSingleModelKey}
+        />
+      ) : null}
+
+      {activeSport === "seriea" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeSerieaSingleModelKey}
+          models={SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveSerieaSingleModelKey}
+        />
+      ) : null}
+
+      {activeSport === "ligue1" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeLigue1SingleModelKey}
+          models={LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveLigue1SingleModelKey}
+        />
+      ) : null}
+
+      {activeSport === "mls" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeMlsSingleModelKey}
+          models={MLS_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveMlsSingleModelKey}
+        />
+      ) : null}
+
       {activeSport === "racing" && activeFormat === "multis" && activePredictionType === "win_percentage" ? (
         <WinPercentageMultiModelTabs
           activeModelKey={activeWinPercentageMultiModelKey}
@@ -399,9 +485,13 @@ export function PredictionsScreen() {
 
       <BetCandidatesSection
         npcSinglePredictionModelKey={activeNpcSingleModelKey}
+        bundesligaSinglePredictionModelKey={activeBundesligaSingleModelKey}
         eplSinglePredictionModelKey={activeEplSingleModelKey}
         laligaSinglePredictionModelKey={activeLaligaSingleModelKey}
+        ligue1SinglePredictionModelKey={activeLigue1SingleModelKey}
+        mlsSinglePredictionModelKey={activeMlsSingleModelKey}
         nrlSinglePredictionModelKey={activeNrlSingleModelKey}
+        serieaSinglePredictionModelKey={activeSerieaSingleModelKey}
         predictionFormat={activeFormat}
         predictionModelKey={activePredictionType === "cash" ? activeCashModelKey : activeSingleModelKey}
         predictionSport={activeSport}
@@ -415,6 +505,11 @@ export function PredictionsScreen() {
 
 type ActiveModelInfoInput = {
   activeCashModel: PredictionModelVariant;
+  activeBundesligaSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
   activeEplSingleModel: {
     description: string;
     detail: string;
@@ -426,12 +521,27 @@ type ActiveModelInfoInput = {
     detail: string;
     label: string;
   };
+  activeLigue1SingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
+  activeMlsSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
   activeNpcSingleModel: {
     description: string;
     detail: string;
     label: string;
   };
   activeNrlSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
+  activeSerieaSingleModel: {
     description: string;
     detail: string;
     label: string;
@@ -456,11 +566,15 @@ type ActiveModelInfoInput = {
  */
 function getActiveModelInfo({
   activeCashModel,
+  activeBundesligaSingleModel,
   activeEplSingleModel,
   activeFormat,
   activeLaligaSingleModel,
+  activeLigue1SingleModel,
+  activeMlsSingleModel,
   activeNpcSingleModel,
   activeNrlSingleModel,
+  activeSerieaSingleModel,
   activeUclSingleModel,
   activePredictionType,
   activeSingleWinPercentageModel,
@@ -549,6 +663,74 @@ function getActiveModelInfo({
       description: activeLaligaSingleModel.description,
       detail: activeLaligaSingleModel.detail,
       label: activeLaligaSingleModel.label,
+    };
+  }
+
+  if (activeSport === "bundesliga" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future Bundesliga prediction models.",
+      detail: "Bundesliga cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No Bundesliga ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `Bundesliga ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "bundesliga") {
+    return {
+      description: activeBundesligaSingleModel.description,
+      detail: activeBundesligaSingleModel.detail,
+      label: activeBundesligaSingleModel.label,
+    };
+  }
+
+  if (activeSport === "seriea" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future Serie A prediction models.",
+      detail: "Serie A cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No Serie A ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `Serie A ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "seriea") {
+    return {
+      description: activeSerieaSingleModel.description,
+      detail: activeSerieaSingleModel.detail,
+      label: activeSerieaSingleModel.label,
+    };
+  }
+
+  if (activeSport === "ligue1" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future Ligue 1 prediction models.",
+      detail: "Ligue 1 cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No Ligue 1 ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `Ligue 1 ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "ligue1") {
+    return {
+      description: activeLigue1SingleModel.description,
+      detail: activeLigue1SingleModel.detail,
+      label: activeLigue1SingleModel.label,
+    };
+  }
+
+  if (activeSport === "mls" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future MLS prediction models.",
+      detail: "MLS cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No MLS ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `MLS ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
+  if (activeSport === "mls") {
+    return {
+      description: activeMlsSingleModel.description,
+      detail: activeMlsSingleModel.detail,
+      label: activeMlsSingleModel.label,
     };
   }
 

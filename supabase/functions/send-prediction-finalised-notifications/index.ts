@@ -10,10 +10,14 @@ const FINALISATION_BUFFER_MS = 15 * 60 * 1000;
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_BATCH_SIZE = 100;
 const TEAM_SPORT_SINGLE_PREDICTION_TABLES = {
+  bundesliga: "bundesliga_single_predictions",
   epl: "epl_single_predictions",
   laliga: "laliga_single_predictions",
+  ligue1: "ligue1_single_predictions",
+  mls: "mls_single_predictions",
   npc: "npc_single_predictions",
   nrl: "nrl_single_predictions",
+  seriea: "seriea_single_predictions",
   ucl: "ucl_single_predictions",
 } as const;
 
@@ -38,7 +42,7 @@ type FavouriteModelRow = {
   model_key: string;
   prediction_format: "singles" | "multis";
   prediction_type: string;
-  sport: "epl" | "laliga" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
+  sport: "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
   user_id: string;
 };
 
@@ -64,7 +68,7 @@ type NotificationEventRow = {
   prediction_key: string;
   prediction_type: string;
   source_date: string;
-  sport: "epl" | "laliga" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
+  sport: "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
 };
 
 type DeliveryRow = {
@@ -83,7 +87,7 @@ type ActivePredictionEvent = {
   predictionType: string;
   sourceDate: string;
   sourceTimeZone: string;
-  sport: "epl" | "laliga" | "npc" | "nrl" | "pfl" | "racing" | "ucl" | "ufc";
+  sport: "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
 };
 
 type ExpoTicket = {
@@ -1032,11 +1036,23 @@ function isTeamSportPredictionSport(sport: FavouriteModelRow["sport"]) {
 }
 
 function getSportLabel(sport: string) {
+  if (sport === "bundesliga") {
+    return "Bundesliga";
+  }
+
   if (sport === "laliga") {
     return "La Liga";
   }
 
-  if (sport === "ufc" || sport === "pfl" || sport === "nrl" || sport === "npc" || sport === "ucl" || sport === "epl") {
+  if (sport === "ligue1") {
+    return "Ligue 1";
+  }
+
+  if (sport === "seriea") {
+    return "Serie A";
+  }
+
+  if (sport === "ufc" || sport === "pfl" || sport === "nrl" || sport === "npc" || sport === "ucl" || sport === "epl" || sport === "mls") {
     return sport.toUpperCase();
   }
 
@@ -1051,7 +1067,10 @@ function formatModelKey(modelKey: string) {
     .replace(/\bUfc\b/u, "UFC")
     .replace(/\bPfl\b/u, "PFL")
     .replace(/\bNrl\b/u, "NRL")
-    .replace(/\bLaliga\b/u, "La Liga");
+    .replace(/\bLaliga\b/u, "La Liga")
+    .replace(/\bLigue1\b/u, "Ligue 1")
+    .replace(/\bSeriea\b/u, "Serie A")
+    .replace(/\bMls\b/u, "MLS");
 }
 
 function getTodayInTimeZone(timeZone: string) {

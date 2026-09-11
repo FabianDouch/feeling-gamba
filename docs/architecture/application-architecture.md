@@ -10,7 +10,13 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-11 so Spanish La Liga uses
+Note: the YAML was updated on 2026-09-11 so German Bundesliga, Italian Serie A,
+French Ligue 1, and MLS use sport-specific football tables for fixed-win and
+fixed-draw Insights/Predictions, backed by TAB `Match Result` snapshots and
+public fixture/result feeds. Goalscorer and Same Game % rows remain scaffolded
+until source-backed scorer events are validated. Rendered architecture outputs
+should be regenerated from the YAML before being treated as current. It was
+updated on 2026-09-11 so Spanish La Liga uses
 sport-specific `laliga_*` tables for EPL/UCL-shaped football Insights and
 Predictions, with TAB `Match Result` snapshots, La Liga public fixture/result
 rows, fixed-draw aggregates, and a documented goalscorer event-source gap.
