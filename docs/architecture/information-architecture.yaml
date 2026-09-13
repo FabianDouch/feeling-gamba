@@ -134,7 +134,8 @@ navigation:
         audience: app_user
         purpose:
           - Act as the default app landing page.
-          - Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, La Liga, PFL, and UFC insight views.
+          - Toggle first by sport group, including Racing, Tennis, Rugby League, Rugby Union, Football, and Combat Sports.
+          - Toggle within each sport group by league or all-sport scope: All Rugby League/NRL, All Rugby Union/NPC, All Football/UCL/EPL/La Liga/Bundesliga/Serie A/Ligue 1/MLS, All Tennis, and UFC/PFL.
           - Summarise favourite and MarketMover outcomes.
           - Show favourite win, 2nd, and 3rd percentages across collected history.
           - Break favourite finish-position percentages down by final starter count.
@@ -147,6 +148,7 @@ navigation:
           - Filter return, starter-count, favourite-price, and other-starters average fixed-win breakdowns by discipline, all countries or one selected country, then by all tracks or one selected track inside that country.
           - Let users request public odds for all races when one track and one discipline are selected, for manual comparison with account-visible hidden promos.
           - Read stored Supabase aggregates instead of calculating historical insight tables in the app.
+          - For sport-level All Rugby League, All Rugby Union, and All Football views, read `sport_group_insight_aggregates` rows derived from league aggregate tables by summing selections/wins/stakes/returns and recalculating rates, while league drilldowns keep reading their existing league-specific aggregate tables.
           - For NRL, show fixed-win single aggregate rows by home team, away team, favourite, favourite at home, favourite away, Favourite/Home/Away toggles for fixed-win price bucket, other-team fixed-win price bucket, and price-difference bucket rows, plus 50c/25c bucket-size and Exact/+ bucket-mode toggles for fixed-win price rows, round, official try-scorer percentage rows by player, team, and captured try-scorer price bucket, and Same Game % summary/round rows for favourite-team plus top-two try-scorer multis from nrl_insight_aggregates.
           - For NPC, show the same NRL-shaped fixed-win aggregate rows, Favourite/Home/Away fixed-win price toggles, and 50c/25c plus Exact/+ fixed-win price bucket toggles from npc_insight_aggregates, plus source-backed try-scorer percentage rows and Same Game % rows from official RU7 player events and captured TAB try-scorer prices.
           - For UCL, show the same fixed-win aggregate rows from ucl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus separate fixed-draw singles rows with the same price bucket controls, goalscorer percentage rows, and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched UEFA official result/event rows.
@@ -161,6 +163,7 @@ navigation:
           - Link users back to filtered race lists and race details.
         components:
           - sport_selector
+          - league_selector
           - date_range_filter
           - country_filter
           - discipline_filter

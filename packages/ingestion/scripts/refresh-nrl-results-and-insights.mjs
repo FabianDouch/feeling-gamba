@@ -242,6 +242,10 @@ function buildRefreshCommands(options, rounds) {
     buildCommand("reconcile_nrl_half_time_full_time", "reconcile-nrl-half-time-full-time-snapshots.mjs", writeFlags),
     buildCommand("rebuild_nrl_same_game_multis", "rebuild-nrl-same-game-multis.mjs", writeFlags),
     buildCommand("rebuild_nrl_insights", "rebuild-nrl-insight-aggregates.mjs", writeFlags),
+    buildCommand("rebuild_rugby_league_group_insights", "rebuild-sport-group-insight-aggregates.mjs", [
+      "--groups=rugby_league",
+      ...writeFlags,
+    ]),
   ];
 }
 

@@ -665,7 +665,12 @@ repo-root public Supabase env values before Metro bundles the app.
   tracked team selections. EPL reads `epl_insight_aggregates` with the same
   UCL-shaped fixed-win, goalscorer, and same-game structure. Tennis reads
   `tennis_insight_aggregates` for fixed-win favourite price, other-player
-  price, price-difference, tour, and competition rows only. When one racing track and one racing discipline is selected, the app
+  price, price-difference, tour, and competition rows only. The Insights screen
+  uses a sport-first selector with league drilldowns; All Football, All Rugby
+  League, and All Rugby Union read `sport_group_insight_aggregates`, whose rows
+  are rebuilt from league aggregate tables by summing selections, wins, stakes,
+  and returns, then recalculating rates. League drilldowns continue to read the
+  league-specific aggregate tables. When one racing track and one racing discipline is selected, the app
   can call `request-track-race-odds` to fetch current public Betcha odds for all
   races at the selected track, store an audit row in
   `track_race_odds_requests`, and show the response for manual comparison with

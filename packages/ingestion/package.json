@@ -74,6 +74,7 @@
     "rebuild:seriea-insight-aggregates": "node scripts/rebuild-seriea-insight-aggregates.mjs",
     "rebuild:ligue1-insight-aggregates": "node scripts/rebuild-ligue1-insight-aggregates.mjs",
     "rebuild:mls-insight-aggregates": "node scripts/rebuild-mls-insight-aggregates.mjs",
+    "rebuild:sport-group-insight-aggregates": "node scripts/rebuild-sport-group-insight-aggregates.mjs",
     "fetch:current-predictions": "node scripts/fetch-current-predictions.mjs",
     "fetch:current-promotions": "node scripts/fetch-current-promotions.mjs",
     "fetch:pilot-date": "node scripts/fetch-pilot-date.mjs",

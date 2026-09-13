@@ -71,6 +71,12 @@ import {
   type UfcInsightsData,
 } from "../data/supabaseUfc";
 import {
+  fetchSportGroupInsights,
+  hasSupabaseSportGroupInsightsConfig,
+  type SportGroupInsightsData,
+  type SportInsightGroup,
+} from "../data/supabaseSportGroupInsights";
+import {
   hasTrackRaceOddsConfig,
   requestTrackRaceOdds,
   type TrackRaceOddsResult,
@@ -90,7 +96,8 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSport = "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
+type InsightSportGroup = "combat_sports" | "football" | "racing" | "rugby_league" | "rugby_union" | "tennis";
+type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -215,10 +222,60 @@ const FIXED_WIN_PRICE_ROLE_OPTIONS: { label: string; value: NrlFixedWinPriceRole
   { label: "Away", value: "away" },
 ];
 
+const SPORT_GROUP_OPTIONS: { label: string; value: InsightSportGroup }[] = [
+  { label: "Racing", value: "racing" },
+  { label: "Tennis", value: "tennis" },
+  { label: "Rugby League", value: "rugby_league" },
+  { label: "Rugby Union", value: "rugby_union" },
+  { label: "Football", value: "football" },
+  { label: "Combat Sports", value: "combat_sports" },
+];
+
+const LEAGUE_OPTIONS_BY_GROUP: Record<InsightSportGroup, { label: string; value: InsightSport }[]> = {
+  combat_sports: [
+    { label: "UFC", value: "ufc" },
+    { label: "PFL", value: "pfl" },
+  ],
+  football: [
+    { label: "All Football", value: "all_football" },
+    { label: "UCL", value: "ucl" },
+    { label: "EPL", value: "epl" },
+    { label: "La Liga", value: "laliga" },
+    { label: "Bundesliga", value: "bundesliga" },
+    { label: "Serie A", value: "seriea" },
+    { label: "Ligue 1", value: "ligue1" },
+    { label: "MLS", value: "mls" },
+  ],
+  racing: [
+    { label: "Racing", value: "racing" },
+  ],
+  rugby_league: [
+    { label: "All Rugby League", value: "all_rugby_league" },
+    { label: "NRL", value: "nrl" },
+  ],
+  rugby_union: [
+    { label: "All Rugby Union", value: "all_rugby_union" },
+    { label: "NPC", value: "npc" },
+  ],
+  tennis: [
+    { label: "All Tennis", value: "tennis" },
+  ],
+};
+
+const DEFAULT_LEAGUE_BY_GROUP: Record<InsightSportGroup, InsightSport> = {
+  combat_sports: "ufc",
+  football: "all_football",
+  racing: "racing",
+  rugby_league: "all_rugby_league",
+  rugby_union: "all_rugby_union",
+  tennis: "tennis",
+};
+
 /**
  * Shows sport-specific favourite-performance insights.
  */
 export function InsightsScreen() {
+  const [sportGroup, setSportGroup] = useState<InsightSportGroup>("racing");
   const [sport, setSport] = useState<InsightSport>("racing");
   const [filters, setFilters] = useState<InsightFilters>({
     country: "all",
@@ -237,6 +294,9 @@ export function InsightsScreen() {
   const [serieaInsights, setSerieaInsights] = useState<SerieaInsightsData>(emptyFootballInsights);
   const [ligue1Insights, setLigue1Insights] = useState<Ligue1InsightsData>(emptyFootballInsights);
   const [mlsInsights, setMlsInsights] = useState<MlsInsightsData>(emptyFootballInsights);
+  const [footballGroupInsights, setFootballGroupInsights] = useState<SportGroupInsightsData>(emptyFootballInsights);
+  const [rugbyLeagueGroupInsights, setRugbyLeagueGroupInsights] = useState<SportGroupInsightsData>(emptyFootballInsights);
+  const [rugbyUnionGroupInsights, setRugbyUnionGroupInsights] = useState<SportGroupInsightsData>(emptyFootballInsights);
   const [ufcInsights, setUfcInsights] = useState<UfcInsightsData>(emptyUfcInsights);
   const [oddsErrorMessage, setOddsErrorMessage] = useState<string | null>(null);
   const [oddsResult, setOddsResult] = useState<TrackRaceOddsResult | null>(null);
@@ -253,6 +313,7 @@ export function InsightsScreen() {
   const [isLoadingSerieaInsights, setIsLoadingSerieaInsights] = useState(false);
   const [isLoadingLigue1Insights, setIsLoadingLigue1Insights] = useState(false);
   const [isLoadingMlsInsights, setIsLoadingMlsInsights] = useState(false);
+  const [isLoadingSportGroupInsights, setIsLoadingSportGroupInsights] = useState(false);
   const [isLoadingUfcInsights, setIsLoadingUfcInsights] = useState(false);
   const [isRequestingOdds, setIsRequestingOdds] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -261,6 +322,8 @@ export function InsightsScreen() {
     () => getInsightCourseOptions(metadata, filters.country),
     [filters.country, metadata],
   );
+  const leagueOptions = LEAGUE_OPTIONS_BY_GROUP[sportGroup];
+  const selectedLeagueLabel = leagueOptions.find((option) => option.value === sport)?.label ?? "All";
   const selectedCountryLabel = metadata?.countryOptions
     .find((option) => option.value === filters.country)
     ?.label ?? "All countries";
@@ -397,6 +460,9 @@ export function InsightsScreen() {
   const hasSerieaInsightRows = hasFootballInsightRows(serieaInsights);
   const hasLigue1InsightRows = hasFootballInsightRows(ligue1Insights);
   const hasMlsInsightRows = hasFootballInsightRows(mlsInsights);
+  const hasFootballGroupInsightRows = hasFootballInsightRows(footballGroupInsights);
+  const hasRugbyLeagueGroupInsightRows = hasFootballInsightRows(rugbyLeagueGroupInsights);
+  const hasRugbyUnionGroupInsightRows = hasFootballInsightRows(rugbyUnionGroupInsights);
 
   useEffect(() => {
     let cancelled = false;
@@ -468,6 +534,69 @@ export function InsightsScreen() {
       cancelled = true;
     };
   }, [filters, metadata, sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSportGroupInsights() {
+      let group: SportInsightGroup | null = null;
+
+      if (sport === "all_football") {
+        group = "football";
+      } else if (sport === "all_rugby_league") {
+        group = "rugby_league";
+      } else if (sport === "all_rugby_union") {
+        group = "rugby_union";
+      }
+
+      if (!group) {
+        return;
+      }
+
+      if (!hasSupabaseSportGroupInsightsConfig) {
+        setErrorMessage("Supabase is not configured for sport-level Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingSportGroupInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchSportGroupInsights(group);
+
+        if (!cancelled) {
+          if (group === "football") {
+            setFootballGroupInsights(nextInsights);
+          } else if (group === "rugby_league") {
+            setRugbyLeagueGroupInsights(nextInsights);
+          } else {
+            setRugbyUnionGroupInsights(nextInsights);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Sport-level Insights failed to load.");
+
+          if (group === "football") {
+            setFootballGroupInsights(emptyFootballInsights);
+          } else if (group === "rugby_league") {
+            setRugbyLeagueGroupInsights(emptyFootballInsights);
+          } else {
+            setRugbyUnionGroupInsights(emptyFootballInsights);
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSportGroupInsights(false);
+        }
+      }
+    }
+
+    loadSportGroupInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
 
   useEffect(() => {
     let cancelled = false;
@@ -864,8 +993,18 @@ export function InsightsScreen() {
     };
   }, [sport]);
 
+  function updateSportGroup(value: string) {
+    if (isInsightSportGroup(value)) {
+      setSportGroup(value);
+      setSport(DEFAULT_LEAGUE_BY_GROUP[value]);
+      setOddsResult(null);
+      setOddsErrorMessage(null);
+      setErrorMessage(null);
+    }
+  }
+
   function updateSport(value: string) {
-    if (value === "bundesliga" || value === "epl" || value === "laliga" || value === "ligue1" || value === "mls" || value === "npc" || value === "pfl" || value === "racing" || value === "nrl" || value === "seriea" || value === "tennis" || value === "ucl" || value === "ufc") {
+    if (isInsightSport(value)) {
       setSport(value);
       setOddsResult(null);
       setOddsErrorMessage(null);
@@ -951,51 +1090,22 @@ export function InsightsScreen() {
       <Text style={styles.eyebrow}>Insights</Text>
       <Text style={styles.heading}>Collected favourite performance</Text>
       <Text style={styles.trackNote}>
-        {sport === "ufc"
-          ? "Showing UFC favourite price, other fighter price, and price-difference signals"
-          : sport === "pfl"
-            ? "Showing PFL favourite price, other fighter price, and price-difference signals"
-          : sport === "npc"
-            ? "Showing NPC fixed-win favourite signals"
-          : sport === "tennis"
-            ? "Showing Tennis fixed-win favourite signals across result-backed ATP/WTA competitions"
-          : sport === "ucl"
-            ? "Showing UCL fixed-win favourite and goal-scorer percentage signals"
-          : sport === "epl"
-            ? "Showing EPL fixed-win favourite and goal-scorer percentage signals"
-          : sport === "laliga"
-            ? "Showing La Liga fixed-win favourite and goal-scorer percentage signals"
-          : sport === "bundesliga"
-            ? "Showing Bundesliga fixed-win favourite and goal-scorer percentage signals"
-          : sport === "seriea"
-            ? "Showing Serie A fixed-win favourite and goal-scorer percentage signals"
-          : sport === "ligue1"
-            ? "Showing Ligue 1 fixed-win favourite and goal-scorer percentage signals"
-          : sport === "mls"
-            ? "Showing MLS fixed-win favourite and goal-scorer percentage signals"
-          : sport === "nrl"
-            ? "Showing NRL fixed-win favourite and try-scorer percentage signals"
-          : `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`}
+        {sport === "racing"
+          ? `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`
+          : `Showing ${getSportGroupLabel(sportGroup)} · ${selectedLeagueLabel} insight signals`}
       </Text>
 
       <FilterGroup
         label="Sport"
+        onChange={updateSportGroup}
+        options={SPORT_GROUP_OPTIONS}
+        selectedValue={sportGroup}
+      />
+
+      <FilterGroup
+        label={sportGroup === "tennis" ? "Competition" : "League"}
         onChange={updateSport}
-        options={[
-          { label: "Racing", value: "racing" },
-          { label: "NRL", value: "nrl" },
-          { label: "NPC", value: "npc" },
-          { label: "Tennis", value: "tennis" },
-          { label: "UCL", value: "ucl" },
-          { label: "EPL", value: "epl" },
-          { label: "La Liga", value: "laliga" },
-          { label: "Bundesliga", value: "bundesliga" },
-          { label: "Serie A", value: "seriea" },
-          { label: "Ligue 1", value: "ligue1" },
-          { label: "MLS", value: "mls" },
-          { label: "PFL", value: "pfl" },
-          { label: "UFC", value: "ufc" },
-        ]}
+        options={leagueOptions}
         selectedValue={sport}
       />
 
@@ -1046,7 +1156,37 @@ export function InsightsScreen() {
         />
       ) : null}
 
-      {sport === "nrl" ? (
+      {sport === "all_football" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingSportGroupInsights ? (
+          <StateMessage text="Loading stored Football insight aggregates from Supabase." />
+        ) : !hasFootballGroupInsightRows ? (
+          <StateMessage text="No stored Football insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={footballGroupInsights} scorerLabel="Goal scorer" />
+        )
+      ) : sport === "all_rugby_league" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingSportGroupInsights ? (
+          <StateMessage text="Loading stored Rugby League insight aggregates from Supabase." />
+        ) : !hasRugbyLeagueGroupInsightRows ? (
+          <StateMessage text="No stored Rugby League insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={rugbyLeagueGroupInsights} />
+        )
+      ) : sport === "all_rugby_union" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingSportGroupInsights ? (
+          <StateMessage text="Loading stored Rugby Union insight aggregates from Supabase." />
+        ) : !hasRugbyUnionGroupInsightRows ? (
+          <StateMessage text="No stored Rugby Union insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={rugbyUnionGroupInsights} />
+        )
+      ) : sport === "nrl" ? (
         errorMessage ? (
           <StateMessage tone="error" text={errorMessage} />
         ) : isLoadingNrlInsights ? (
@@ -1197,6 +1337,20 @@ function isRaceCode(value: string): value is "horse" | "harness" | "greyhound" {
 
 function stripCountrySuffix(label: string, country: string) {
   return label.replace(new RegExp(`\\s\\(${country}\\)$`), "");
+}
+
+function getSportGroupLabel(value: InsightSportGroup) {
+  return SPORT_GROUP_OPTIONS.find((option) => option.value === value)?.label ?? "Sport";
+}
+
+function isInsightSportGroup(value: string): value is InsightSportGroup {
+  return SPORT_GROUP_OPTIONS.some((option) => option.value === value);
+}
+
+function isInsightSport(value: string): value is InsightSport {
+  return Object.values(LEAGUE_OPTIONS_BY_GROUP).some((options) => (
+    options.some((option) => option.value === value)
+  ));
 }
 
 type InsightModeTabsProps = {

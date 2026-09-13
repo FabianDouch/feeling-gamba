@@ -696,6 +696,13 @@ derived_views:
       - Store favourite price, other-player price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Exclude home/away, multis, predictions, ITF, Challenger, WTA125, and doubles rows until matching result-backed source coverage is validated.
       - Keep Tennis Insights on stored Supabase aggregates instead of calculating rates in the app.
+  sport_group_insight_aggregates:
+    responsibility:
+      - Store additive top-level Insights rows for All Football, All Rugby League, and All Rugby Union without replacing league-specific aggregate tables.
+      - Combine compatible league aggregate rows by summing selections, wins, event counts, stakes, returns, pending, unmatched, and missing-data counts.
+      - Recalculate win percentage, average return per dollar, net return, and ROI from summed values rather than averaging league percentages.
+      - Exclude league round scopes from sport-level rows because round numbers are not comparable across competitions; league drilldowns still show their own round breakdowns.
+      - Keep the app on stored Supabase aggregates for sport-level Insights instead of calculating combined statistics at runtime.
   pfl_insight_aggregates:
     responsibility:
       - Store UFC/PFL favourite fixed-win performance by favourite price, other fighter price, and price-difference buckets.
@@ -857,6 +864,7 @@ flows:
       - Race Days reads race_day_entries from Supabase, defaulting to the latest 20 races across all AUS/NZ/HK records.
       - Race Days filters query Supabase for the selected date, country, discipline, and course scope.
       - Insights reads stored insight_aggregates from Supabase and filters by country, track, and discipline.
+      - Insights uses a sport-first selector with league drilldowns; All Football, All Rugby League, and All Rugby Union read `sport_group_insight_aggregates`, while league drilldowns keep reading their sport-specific aggregate tables.
       - PFL Historical Data reads pfl_fight_entries and PFL Insights reads pfl_insight_aggregates.
       - NRL, NPC, UCL, EPL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, and Tennis Insights default fixed-win price bucket breakdowns to 50c exact rows and can switch to 25c stored rows or cumulative threshold-and-above rows.
       - UCL, EPL, La Liga, Bundesliga, Serie A, Ligue 1, and MLS fixed-draw price bucket breakdowns use the same 50c/25c and Exact/+ controls as their fixed-win football sections.

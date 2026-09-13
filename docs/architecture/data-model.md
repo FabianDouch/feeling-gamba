@@ -149,6 +149,15 @@ singles competitions. The app groups those competitions under one Tennis
 Insights sport and does not expose home/away, multis, or predictions for
 Tennis. ITF, Challenger, WTA125, and doubles rows are excluded until a
 source-backed settlement path is validated.
+As of `2026-09-12`,
+`supabase/migrations/202609120001_sport_group_insight_aggregates.sql` adds
+`sport_group_insight_aggregates` as an additive read model for the Insights
+top-level sport views. It does not replace or rewrite league source tables.
+The rebuild script combines compatible rows from league aggregate tables for
+`football`, `rugby_league`, and `rugby_union` by summing counts, stakes, and
+returns, then recalculating win percentage, average return, and ROI. League
+drilldowns continue to read their existing `nrl_*`, `npc_*`, `ucl_*`, `epl_*`,
+`laliga_*`, `bundesliga_*`, `seriea_*`, `ligue1_*`, and `mls_*` tables.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.

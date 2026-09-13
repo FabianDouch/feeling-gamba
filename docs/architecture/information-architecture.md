@@ -256,7 +256,11 @@ Purpose:
   recommendations.
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
-- Toggle between Racing, NRL, NPC, Tennis, UCL, EPL, La Liga, PFL, and UFC insight views.
+- Toggle first by sport group: Racing, Tennis, Rugby League, Rugby Union,
+  Football, and Combat Sports.
+- Toggle within each sport group by league or all-sport scope: All Rugby
+  League/NRL, All Rugby Union/NPC, All Football/UCL/EPL/La Liga/Bundesliga/Serie
+  A/Ligue 1/MLS, All Tennis, and UFC/PFL.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -275,6 +279,10 @@ Purpose:
   compared manually.
 - Read stored Supabase aggregates rather than calculating historical insight
   tables in the app.
+- For sport-level All Rugby League, All Rugby Union, and All Football views,
+  read `sport_group_insight_aggregates` rows derived from league aggregate
+  tables; league drilldowns keep reading their existing league-specific
+  aggregate tables.
 - For NRL, show fixed-win single aggregates by home team, away team, favourite,
   favourite at home, favourite away, role-toggled fixed-win price, role-toggled
   other-team price, role-toggled price-difference, and round, plus try-scorer

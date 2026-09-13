@@ -153,6 +153,10 @@ function buildRefreshCommands(options) {
 
   if (!options.skipInsights) {
     commands.push(buildCommand("rebuild_npc_insights", "rebuild-npc-insight-aggregates.mjs", writeFlags));
+    commands.push(buildCommand("rebuild_rugby_union_group_insights", "rebuild-sport-group-insight-aggregates.mjs", [
+      "--groups=rugby_union",
+      ...writeFlags,
+    ]));
   }
 
   if (!options.skipPredictions) {

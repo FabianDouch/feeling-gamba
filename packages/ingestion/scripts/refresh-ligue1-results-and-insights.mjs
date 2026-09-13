@@ -163,6 +163,10 @@ function buildRefreshCommands(options) {
 
   if (!options.skipInsights) {
     commands.push(buildCommand("rebuild_ligue1_insights", "rebuild-ligue1-insight-aggregates.mjs", writeFlags));
+    commands.push(buildCommand("rebuild_football_group_insights", "rebuild-sport-group-insight-aggregates.mjs", [
+      "--groups=football",
+      ...writeFlags,
+    ]));
   }
 
   if (!options.skipPredictions) {
