@@ -8,6 +8,8 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_EVENT_COUNT = 20;
 const DEFAULT_MARKETS_FIRST = 500;
+const GRAPHQL_MAX_ATTEMPTS = 3;
+const GRAPHQL_RETRY_STATUS_CODES = new Set([403, 408, 425, 429, 500, 502, 503, 504]);
 const MATCH_WINDOW_HOURS = 4;
 const BUNDESLIGA_CATEGORY = "SOCCER";
 const BUNDESLIGA_COMPETITION_SLUG = "german-bundesliga";
@@ -210,38 +212,79 @@ function getGraphqlHeaders() {
 }
 
 /**
- * Sends one public sports GraphQL request and surfaces schema errors.
+ * Pauses between retryable TAB GraphQL attempts.
+ */
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Sends one public sports GraphQL request and retries transient TAB edge failures.
  */
 async function graphql(source, operationName, query, variables) {
-  const response = await fetch(source.endpoint, {
-    body: JSON.stringify({
-      operationName,
-      query,
-      variables,
-    }),
-    headers: getGraphqlHeaders(),
-    method: "POST",
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${source.label} ${operationName} failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  for (let attempt = 1; attempt <= GRAPHQL_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(source.endpoint, {
+        body: JSON.stringify({
+          operationName,
+          query,
+          variables,
+        }),
+        headers: getGraphqlHeaders(),
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        const error = new Error(`${source.label} ${operationName} failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+        error.status = response.status;
+        throw error;
+      }
+
+      const text = await response.text();
+
+      if (!text.trim()) {
+        throw new Error(`${source.label} ${operationName} returned an empty response body`);
+      }
+
+      const payload = JSON.parse(text);
+
+      if (payload.errors?.length) {
+        const messages = payload.errors.map((error) => error.message).join("; ");
+        throw new Error(`${source.label} ${operationName} returned GraphQL errors: ${messages}`);
+      }
+
+      return payload;
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableGraphqlError(error) || attempt === GRAPHQL_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      console.warn(`${source.label} ${operationName} attempt ${attempt} failed; retrying: ${error.message}`);
+      await wait(1000 * attempt);
+    }
   }
 
-  const text = await response.text();
+  throw lastError;
+}
 
-  if (!text.trim()) {
-    throw new Error(`${source.label} ${operationName} returned an empty response body`);
+/**
+ * Treats TAB edge blocks and network instability as retryable, but not schema errors.
+ */
+function isRetryableGraphqlError(error) {
+  if (GRAPHQL_RETRY_STATUS_CODES.has(error?.status)) {
+    return true;
   }
 
-  const payload = JSON.parse(text);
-
-  if (payload.errors?.length) {
-    const messages = payload.errors.map((error) => error.message).join("; ");
-    throw new Error(`${source.label} ${operationName} returned GraphQL errors: ${messages}`);
-  }
-
-  return payload;
+  return error?.cause?.code
+    || error?.code
+    || error instanceof TypeError;
 }
 
 function normalizeName(value) {

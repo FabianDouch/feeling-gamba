@@ -357,6 +357,11 @@ MLS uses FixtureDownload JSON. Historical calibration is not backfilled unless
 a matching TAB fixed-win/draw price snapshot exists. Goalscorer and Same Game %
 rows remain scaffolded until source-backed per-match scorer events and TAB
 goalscorer market mapping are validated for each league.
+As of 2026-09-15, additional-football TAB `Match Result` capture retries
+transient TAB GraphQL edge failures, including temporary 403/429/5xx responses
+and network resets, up to three attempts before failing the scheduled workflow.
+Persistent source blocks still fail loudly so missing current market snapshots
+are visible.
 
 ## Tennis Current Market Capture
 

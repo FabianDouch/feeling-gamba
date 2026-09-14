@@ -38,6 +38,10 @@ kickoff.
 - Local TAB GraphQL probes are blocked by HTTP 403 in this environment, so the
   slugs are exposed through workflow/manual inputs for quick correction if TAB
   uses different route slugs.
+- As of 2026-09-15, scheduled additional-football TAB market captures retry
+  transient GraphQL edge failures, including temporary 403/429/5xx responses,
+  before failing the workflow. A persistent 403 is still treated as a source
+  access failure rather than silently reusing stale market data.
 
 ## Current Gaps
 
