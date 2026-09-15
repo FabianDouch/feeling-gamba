@@ -1,0 +1,114 @@
+name: NFL Result Refresh
+
+on:
+  schedule:
+    # Catch ESPN settlement after common NFL game windows.
+    - cron: "30 5,8,11 * * 1,2,5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and summarize NFL results without writing
+        required: false
+        default: false
+        type: boolean
+      season:
+        description: ESPN NFL season year
+        required: true
+        default: "2026"
+        type: string
+      season_type:
+        description: ESPN season type, 2 regular season or 3 postseason
+        required: true
+        default: "2"
+        type: string
+      from_round:
+        description: Optional start week
+        required: false
+        type: string
+      to_round:
+        description: Optional end week
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nfl-result-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh NFL Results
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      FROM_ROUND: ${{ github.event.inputs.from_round }}
+      SEASON: ${{ github.event.inputs.season }}
+      SEASON_TYPE: ${{ github.event.inputs.season_type }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+      TO_ROUND: ${{ github.event.inputs.to_round }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Validate required inputs and secrets
+        run: |
+          test -n "$SUPABASE_PROJECT_REF" || (echo "SUPABASE_PROJECT_REF is required" && exit 1)
+
+          dry_run="${DRY_RUN:-false}"
+          supabase_write_key="${FEELING_GAMBA_SUPABASE_SECRET_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}"
+
+          if [ "$dry_run" != "true" ] && [ -z "$supabase_write_key" ]; then
+            echo "FEELING_GAMBA_SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required for NFL result writes"
+            exit 1
+          fi
+
+          SEASON="${SEASON:-2026}"
+          SEASON_TYPE="${SEASON_TYPE:-2}"
+
+          for input_name in SEASON SEASON_TYPE; do
+            input_value="${!input_name:-}"
+
+            case "$input_value" in
+              ''|*[!0-9]*)
+                echo "${input_name} must be a positive integer"
+                exit 1
+                ;;
+            esac
+          done
+
+          if { [ -n "${FROM_ROUND:-}" ] && [ -z "${TO_ROUND:-}" ]; } || { [ -z "${FROM_ROUND:-}" ] && [ -n "${TO_ROUND:-}" ]; }; then
+            echo "Pass both from_round and to_round"
+            exit 1
+          fi
+
+      - name: Refresh NFL result data
+        run: |
+          args=(
+            "--season=${SEASON:-2026}"
+            "--season-type=${SEASON_TYPE:-2}"
+          )
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            args+=("--dry-run")
+          else
+            args+=("--require-supabase")
+          fi
+
+          if [ -n "${FROM_ROUND:-}" ]; then
+            args+=("--from-round=${FROM_ROUND}" "--to-round=${TO_ROUND}")
+          fi
+
+          npm --workspace @feeling-gamba/ingestion run refresh:nfl-results-and-insights -- "${args[@]}"

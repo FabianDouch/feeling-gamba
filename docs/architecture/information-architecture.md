@@ -24,7 +24,10 @@ fixed-draw rows, current single predictions, and explicit history empty states
 until sport-specific history RPCs are added. Goalscorer and Same Game % rows
 remain reserved until source-backed scorer events are validated. Rendered IA
 outputs should be regenerated from the YAML before being treated as current. It
-was updated on 2026-09-11 so Spanish La Liga appears as an
+was updated on 2026-09-15 so NFL appears under a new American Football Insights
+group as fixed-win-only Head To Head aggregates backed by `nfl_*` tables.
+Rendered IA outputs should be regenerated from the YAML before being treated as
+current. It was updated on 2026-09-11 so Spanish La Liga appears as an
 EPL/UCL-shaped football branch in Insights, Predictions, and Prediction History,
 backed by `laliga_*` tables, fixed-win/fixed-draw rows, current single
 predictions, and an explicit history empty state until sport-specific history
@@ -257,10 +260,10 @@ Purpose:
 - Show favourite-performance statistics across the collected historical dataset
   for thoroughbred, harness, and greyhound races.
 - Toggle first by sport group: Racing, Tennis, Rugby League, Rugby Union,
-  Football, and Combat Sports.
+  Football, American Football, and Combat Sports.
 - Toggle within each sport group by league or all-sport scope: All Rugby
   League/NRL, All Rugby Union/NPC, All Football/UCL/EPL/La Liga/Bundesliga/Serie
-  A/Ligue 1/MLS, All Tennis, and UFC/PFL.
+  A/Ligue 1/MLS, All Tennis, NFL, and UFC/PFL.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other
@@ -324,6 +327,12 @@ Purpose:
   competitions. Tennis price sections use the same 50c/25c and Exact/+ controls
   for favourite price, other-player price, and price-difference rows, but do
   not show home/away, multis, or prediction branches.
+- For NFL, show fixed-win Head To Head aggregate rows from
+  `nfl_insight_aggregates`, including Favourite/Home/Away role toggles,
+  50c/25c bucket-size controls, and Exact/+ fixed-win price bucket controls.
+  Touchdown/player-prop and same-game rows remain empty until official
+  player-event settlement is validated. Tied games are excluded from settled
+  fixed-win return counts until TAB tie settlement is source-validated.
 - For UFC, show favourite price breakdown, other fighter price breakdown, and
   price-difference breakdown from `ufc_insight_aggregates`, with 50c/25c
   bucket-size and Exact/+ bucket-mode controls.
@@ -333,7 +342,7 @@ Purpose:
 
 Main content:
 
-- Sport selector: Racing, NRL, NPC, Tennis, UCL, EPL, La Liga, PFL, or UFC.
+- Sport selector: Racing, NRL, NPC, NFL, Tennis, UCL, EPL, La Liga, PFL, or UFC.
 - Date range filter.
 - Country, discipline, and racecourse filters.
 - Track scope filter: all tracks at the all-country level, or all tracks plus

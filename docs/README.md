@@ -33,6 +33,7 @@ Feeling Gamba is an Expo + Supabase app for tracking racing favourites and outco
 - [Spanish La Liga data source validation](./integrations/laliga-data-sources.md)
 - [Additional football league data source validation](./integrations/additional-football-leagues-data-sources.md)
 - [Tennis data source validation](./integrations/tennis-data-sources.md)
+- [NFL data source validation](./integrations/nfl-data-sources.md)
 - [TAB Form Guide notes](./integrations/tab-form-guide.md)
 - [HRNZ notes](./integrations/hrnz.md)
 - [Race ID discovery notes](./integrations/race-id-discovery.md)

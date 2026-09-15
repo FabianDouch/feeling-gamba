@@ -170,11 +170,41 @@ away/away selections, plus the shorter-priced same-team favourite. A halftime
 draw or fulltime draw is settled as a loss for these tracked selections because
 the team/team double would not pay out. Historical HT/FT prices are not
 backfilled unless a pre-kickoff TAB snapshot already exists.
-NRL, NPC, UCL, EPL, and Tennis price-bucket aggregate rebuilds write both
+NRL, NPC, UCL, EPL, Tennis, and NFL price-bucket aggregate rebuilds write both
 default 50c rows and finer 25c rows. Fixed-win selected-team/player price,
 other-team/player price, and price-difference sections also write cumulative
 `*_plus` threshold rows, such as `$2.00+`, so the app can switch between exact
 buckets and threshold-and-above views without recalculating buckets client-side.
+
+## NFL Current Market Capture
+
+The first NFL slice mirrors the NRL/NPC fixed-win structure with separate
+`nfl_*` tables, but is fixed-win-only until player-prop and touchdown-event
+settlement is source-backed. As of 2026-09-15, TAB current markets are
+validated at `AMERICAN_FOOTBALL` / `nfl`, with two-runner `Head To Head`
+entries for home and away teams.
+
+Implemented scripts:
+
+- `refresh:nfl-results`: loads ESPN public NFL scoreboard team, fixture, and
+  final-score rows into `nfl_teams` and `nfl_matches`.
+- `refresh:nfl-market-snapshots`: captures current TAB Head To Head prices into
+  one canonical `nfl_market_snapshots` row per source event.
+- `reconcile:nfl-fixed-win`: derives `nfl_fixed_win_snapshot_results` from
+  matched ESPN rows, using one canonical fixed-win row per source event.
+- `rebuild:nfl-insight-aggregates`: rebuilds app-facing
+  `nfl_insight_aggregates`.
+- `refresh:nfl-current-markets`: runs current-market capture, reconciliation,
+  and Insight rebuild steps in order, with optional ESPN fixture preloading for
+  a supplied season/week.
+- `refresh:nfl-results-and-insights`: runs recent ESPN fixture/result refresh,
+  fixed-win reconciliation, and Insight rebuild steps in order.
+
+Tied final scores are stored as `draw` outcomes and excluded from settled
+fixed-win return counts until TAB tied-game settlement is explicitly validated.
+Touchdown scorer, player prop, line, total, and same-game TAB markets remain
+reserved until an official player-event settlement source and stable TAB market
+mapping are validated.
 
 ## UEFA Champions League Current Market Capture
 
@@ -1623,6 +1653,8 @@ Proposed recurring jobs:
 | `refresh-npc-results` | active: GitHub Actions catch-up schedules `45 18 * * *`, `45 20 * * *`, `45 22 * * *`, and `45 23 * * *` UTC | `refresh:npc-results-and-insights` | Loads official Provincial Rugby/Opta NPC fixture, result, player appearance, and try-scorer rows, rematches/reconciles fixed-win and HT/FT snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. Multiple idempotent runs reduce stale pending rows when GitHub cron is delayed or the official source settles late. |
 | `refresh-nrl-current-markets` | active: GitHub Actions `*/15 2-11 * * 4,5,6,0` UTC during usual NRL match windows | `refresh:nrl-current-markets` | Captures open NRL fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NRL Insights, and regenerates NRL single predictions. |
 | `refresh-npc-current-markets` | active: GitHub Actions `*/15 0-9 * * 4,5,6,0` UTC during usual NPC match windows | `refresh:npc-current-markets` | Captures open NPC fixed-win and anytime try-scorer prices before advertised kickoff, reconciles fixed-win snapshots, rebuilds same-game rows and NPC Insights, and regenerates NPC single predictions. |
+| `refresh-nfl-current-markets` | active: GitHub Actions `*/30 0-4,16-23 * * 0,1,4,5` UTC during common NFL market windows | `refresh:nfl-current-markets` | Captures open NFL TAB Head To Head prices before advertised kickoff, reconciles fixed-win snapshots, and rebuilds NFL Insights. Optional manual inputs can preload ESPN fixture rows for a supplied season/week range. |
+| `refresh-nfl-results` | active: GitHub Actions catch-up schedule `30 5,8,11 * * 1,2,5` UTC | `refresh:nfl-results-and-insights` | Loads recent ESPN NFL scoreboard fixture/result rows, reconciles NFL fixed-win snapshots, and rebuilds fixed-win-only NFL Insights. |
 | `refresh-tennis-current-markets` | active: GitHub Actions `*/30 * * * *` UTC | `refresh:tennis-current-markets -- --skip-results` | Captures open supported ATP/WTA singles TAB Match Betting prices, reconciles fixed-win snapshots against already refreshed Tennis result rows, and rebuilds Tennis Insights. |
 | `refresh-tennis-results` | active: GitHub Actions `20 */3 * * *` UTC | `refresh:tennis-results-and-insights` | Refreshes The Odds API tournament scores, reconciles Tennis fixed-win snapshots, and rebuilds favourite-only Tennis Insights. |
 | `refresh-nrl-market-snapshots` | called by `refresh-nrl-current-markets`; manual diagnostics remain available | `refresh:nrl-market-snapshots` | Captures open NRL `Match Betting` fixed-win prices into `nrl_market_snapshots`; requests 500 open TAB markets per event by default because high-market events can expose the match market late in the connection. |

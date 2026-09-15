@@ -24,6 +24,11 @@ import {
   type NpcInsightsData,
 } from "../data/supabaseNpc";
 import {
+  fetchNflInsights,
+  hasSupabaseNflConfig,
+  type NflInsightsData,
+} from "../data/supabaseNfl";
+import {
   fetchTennisInsights,
   hasSupabaseTennisConfig,
   type TennisInsightsData,
@@ -96,8 +101,8 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSportGroup = "combat_sports" | "football" | "racing" | "rugby_league" | "rugby_union" | "tennis";
-type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
+type InsightSportGroup = "american_football" | "combat_sports" | "football" | "racing" | "rugby_league" | "rugby_union" | "tennis";
+type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "nfl" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -228,10 +233,14 @@ const SPORT_GROUP_OPTIONS: { label: string; value: InsightSportGroup }[] = [
   { label: "Rugby League", value: "rugby_league" },
   { label: "Rugby Union", value: "rugby_union" },
   { label: "Football", value: "football" },
+  { label: "American Football", value: "american_football" },
   { label: "Combat Sports", value: "combat_sports" },
 ];
 
 const LEAGUE_OPTIONS_BY_GROUP: Record<InsightSportGroup, { label: string; value: InsightSport }[]> = {
+  american_football: [
+    { label: "NFL", value: "nfl" },
+  ],
   combat_sports: [
     { label: "UFC", value: "ufc" },
     { label: "PFL", value: "pfl" },
@@ -263,6 +272,7 @@ const LEAGUE_OPTIONS_BY_GROUP: Record<InsightSportGroup, { label: string; value:
 };
 
 const DEFAULT_LEAGUE_BY_GROUP: Record<InsightSportGroup, InsightSport> = {
+  american_football: "nfl",
   combat_sports: "ufc",
   football: "all_football",
   racing: "racing",
@@ -286,6 +296,7 @@ export function InsightsScreen() {
   const [insights, setInsights] = useState<InsightsData>(emptyInsights);
   const [nrlInsights, setNrlInsights] = useState<NrlInsightsData>(emptyNrlInsights);
   const [npcInsights, setNpcInsights] = useState<NpcInsightsData>(emptyNrlInsights);
+  const [nflInsights, setNflInsights] = useState<NflInsightsData>(emptyNrlInsights);
   const [tennisInsights, setTennisInsights] = useState<TennisInsightsData>(emptyTennisInsights);
   const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyFootballInsights);
   const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyFootballInsights);
@@ -305,6 +316,7 @@ export function InsightsScreen() {
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isLoadingNrlInsights, setIsLoadingNrlInsights] = useState(false);
   const [isLoadingNpcInsights, setIsLoadingNpcInsights] = useState(false);
+  const [isLoadingNflInsights, setIsLoadingNflInsights] = useState(false);
   const [isLoadingTennisInsights, setIsLoadingTennisInsights] = useState(false);
   const [isLoadingUclInsights, setIsLoadingUclInsights] = useState(false);
   const [isLoadingEplInsights, setIsLoadingEplInsights] = useState(false);
@@ -393,6 +405,15 @@ export function InsightsScreen() {
     || npcInsights.tryScorerPlayerBreakdown.length > 0
     || hasPriceBreakdownRows(npcInsights.tryScorerPriceBreakdown)
     || npcInsights.tryScorerTeamBreakdown.length > 0;
+  const hasNflInsightRows = nflInsights.fixedWinSummaryStats.length > 0
+    || nflInsights.fixedWinSelectionBreakdown.length > 0
+    || hasFixedWinPriceRows(nflInsights.fixedWinPriceBreakdown)
+    || hasFixedWinPriceRows(nflInsights.fixedWinPriceBreakdownPlus)
+    || hasFixedWinPriceRows(nflInsights.fixedWinOtherTeamPriceBreakdown)
+    || hasFixedWinPriceRows(nflInsights.fixedWinOtherTeamPriceBreakdownPlus)
+    || hasFixedWinPriceRows(nflInsights.fixedWinPriceDifferenceBreakdown)
+    || hasFixedWinPriceRows(nflInsights.fixedWinPriceDifferenceBreakdownPlus)
+    || nflInsights.fixedWinRoundBreakdown.length > 0;
   const hasTennisInsightRows = tennisInsights.fixedWinSummaryStats.length > 0
     || tennisInsights.fixedWinTourBreakdown.length > 0
     || tennisInsights.fixedWinCompetitionBreakdown.length > 0
@@ -632,6 +653,46 @@ export function InsightsScreen() {
     }
 
     loadNrlInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNflInsights() {
+      if (sport !== "nfl") {
+        return;
+      }
+
+      if (!hasSupabaseNflConfig) {
+        setErrorMessage("Supabase is not configured for NFL Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingNflInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchNflInsights();
+
+        if (!cancelled) {
+          setNflInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "NFL Insights failed to load.");
+          setNflInsights(emptyNrlInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingNflInsights(false);
+        }
+      }
+    }
+
+    loadNflInsights();
 
     return () => {
       cancelled = true;
@@ -1205,6 +1266,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored NPC insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={npcInsights} />
+        )
+      ) : sport === "nfl" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingNflInsights ? (
+          <StateMessage text="Loading stored NFL insight aggregates from Supabase." />
+        ) : !hasNflInsightRows ? (
+          <StateMessage text="No stored NFL insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={nflInsights} scorerLabel="Touchdown scorer" />
         )
       ) : sport === "tennis" ? (
         errorMessage ? (
