@@ -105,7 +105,7 @@ function getWriteFlags(options) {
 }
 
 /**
- * Estimates the current NFL week from the public ESPN calendar start date.
+ * Estimates the current NFL week from the regular-season calendar start date.
  */
 function getEstimatedCurrentWeek(season) {
   const regularSeasonStart = Date.UTC(season, 8, 6, 7, 0, 0);
@@ -127,7 +127,7 @@ function buildRefreshCommands(options) {
   const fromRound = options.fromRound ?? Math.max(1, toRound - options.lookbackWeeks + 1);
 
   return [
-    buildCommand("refresh_nfl_results", "refresh-nfl-results-from-espn.mjs", [
+    buildCommand("refresh_nfl_results", "refresh-nfl-results-from-nflverse.mjs", [
       `--season=${options.season}`,
       `--season-type=${options.seasonType}`,
       `--from-round=${fromRound}`,

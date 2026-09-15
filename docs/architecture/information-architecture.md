@@ -695,6 +695,9 @@ Main content:
   tabs for Racing Multis -> Win %, the place percentage multi model for Racing
   Multis -> Placing, and UFC same-card percentage multi models for UFC Multis
   -> Win %.
+- Racing Cash multis model tabs show a small `Multi` tag when the selected
+  history date range has at least one tracked multi-bet prediction for that
+  model, so the default yesterday range highlights yesterday's available multis.
 - Stored model performance section for historical outcomes, discipline
   performance, date-range breakdowns, and prediction history.
 - Overall prediction count, settled count, pending count, and missing-outcome

@@ -22,19 +22,19 @@ on:
         default: "500"
         type: string
       season:
-        description: Optional ESPN NFL fixture preload season
+        description: Optional nflverse NFL fixture preload season
         required: false
         type: string
       round:
-        description: Optional ESPN NFL fixture preload week
+        description: Optional nflverse NFL fixture preload week
         required: false
         type: string
       from_round:
-        description: Optional ESPN NFL fixture preload start week
+        description: Optional nflverse NFL fixture preload start week
         required: false
         type: string
       to_round:
-        description: Optional ESPN NFL fixture preload end week
+        description: Optional nflverse NFL fixture preload end week
         required: false
         type: string
 
@@ -115,7 +115,7 @@ jobs:
           fi
 
           if { [ -n "${ROUND:-}" ] || [ -n "${FROM_ROUND:-}" ]; } && [ -z "${SEASON:-}" ]; then
-            echo "season is required when preloading ESPN NFL fixtures"
+            echo "season is required when preloading nflverse NFL fixtures"
             exit 1
           fi
 

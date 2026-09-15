@@ -2,7 +2,7 @@ name: NFL Result Refresh
 
 on:
   schedule:
-    # Catch ESPN settlement after common NFL game windows.
+    # Catch nflverse settlement after common NFL game windows.
     - cron: "30 5,8,11 * * 1,2,5"
   workflow_dispatch:
     inputs:
@@ -12,12 +12,12 @@ on:
         default: false
         type: boolean
       season:
-        description: ESPN NFL season year
+        description: NFL season year
         required: true
         default: "2026"
         type: string
       season_type:
-        description: ESPN season type, 2 regular season or 3 postseason
+        description: NFL season type, 2 regular season or 3 postseason
         required: true
         default: "2"
         type: string

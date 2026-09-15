@@ -149,11 +149,11 @@ singles competitions. The app groups those competitions under one Tennis
 Insights sport and does not expose home/away, multis, or predictions for
 Tennis. ITF, Challenger, WTA125, and doubles rows are excluded until a
 source-backed settlement path is validated.
-As of `2026-09-15`, NFL support uses a fixed-win-only sport-specific pattern
+As of `2026-09-16`, NFL support uses a fixed-win-only sport-specific pattern
 with `nfl_*` tables in
 `supabase/migrations/202609150001_nfl_fixed_win_pipeline.sql`. TAB
 `Head To Head` snapshots store two team prices from the
-`AMERICAN_FOOTBALL` / `nfl` competition, while ESPN's public NFL scoreboard
+`AMERICAN_FOOTBALL` / `nfl` competition, while nflverse `nfldata` `games.csv`
 provides fixture and final-score settlement. The app exposes NFL under an
 American Football Insights group. Tied final scores are stored as `draw` outcome
 rows and excluded from settled fixed-win return counts until TAB tied-game

@@ -148,7 +148,7 @@ function buildRefreshCommands(options) {
       ? [`--round=${options.round}`]
       : [`--from-round=${options.fromRound}`, `--to-round=${options.toRound}`];
 
-    commands.push(buildCommand("preload_official_nfl_fixtures", "refresh-nfl-results-from-espn.mjs", [
+    commands.push(buildCommand("preload_official_nfl_fixtures", "refresh-nfl-results-from-nflverse.mjs", [
       `--season=${options.season}`,
       ...roundFlags,
       "--include-fixtures",

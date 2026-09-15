@@ -365,11 +365,22 @@ function sameTeams(snapshot, match) {
     && namesMatch(snapshot.away_team_name, match.away_team_name);
 }
 
+function isNflverseMatch(match) {
+  return match?.raw?.dataSource === "nflverse/nfldata games.csv"
+    || String(match?.source_url ?? "").includes("nflverse/nfldata");
+}
+
 function matchExistingNflMatch(snapshot, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
 
-  return candidates.length === 1 ? candidates[0] : null;
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  const nflverseCandidates = candidates.filter(isNflverseMatch);
+
+  return nflverseCandidates.length === 1 ? nflverseCandidates[0] : null;
 }
 
 function mapSnapshot(source, event, generatedAt, officialMatches) {
@@ -567,7 +578,7 @@ async function fetchOfficialMatchesForWindow(config, rows, batchSize) {
     search: {
       and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
       order: "kickoff_at.asc",
-      select: "id,source,source_match_id,kickoff_at,home_team_name,away_team_name",
+      select: "id,source,source_match_id,source_url,kickoff_at,home_team_name,away_team_name,raw",
       source: "eq.official_nfl",
     },
   });

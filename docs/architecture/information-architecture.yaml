@@ -385,6 +385,7 @@ navigation:
           - Show all-time Multi-bet percentage performance separately from selected-model multi performance.
           - Show shared Sport tabs for Racing, NRL, NPC, UCL, EPL, La Liga, PFL, and UFC, then format tabs for Singles and Multis, then Cash, Win %, and Placing signal tabs, then only model tabs matching the selected sport/format/signal branch.
           - Show cash model tabs for Racing Cash singles and multis, 60%+ and 65%+ win singles models for Racing Singles -> Win %, percentage multi model tabs including the 50/50 65%+ model for Racing Multis -> Win %, the place percentage multi model for Racing Multis -> Placing, UFC 65%+, 75%+, and 85%+ threshold model tabs for UFC Singles -> Win %, UFC same-card model tabs for UFC Multis -> Win %, and matching reserved PFL Win % model tabs.
+          - Show a small Multi tag on Racing Cash multis model tabs when the selected history date range has at least one tracked multi-bet prediction row for that model, including yesterday by default.
           - UFC Singles -> Win % reads stored `ufc_single_predictions` history through UFC-specific summary and entry RPCs, including the 65%+, 75%+, and 85%+ threshold single models, with racing-only country, discipline, and racecourse filters hidden.
           - PFL Prediction History shows the UFC-shaped PFL Win % model hierarchy as a reserved empty state until PFL prediction storage and RPCs are added.
           - NRL history branches remain explicit empty states until NRL prediction reconciliation and history RPCs are added.

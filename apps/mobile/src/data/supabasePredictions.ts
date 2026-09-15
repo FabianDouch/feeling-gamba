@@ -677,17 +677,35 @@ export const hasSupabasePredictionsConfig = Boolean(
   publicEnv.supabaseUrl && publicEnv.supabaseKey,
 );
 
+type MultiBetRecommendationModelKeyFilters = {
+  fromDate?: string;
+  toDate?: string;
+};
+
 /**
- * Reads model keys that have a tracked multi-bet prediction for today's source date.
+ * Reads model keys that have tracked multi-bet predictions for today or a history date range.
  */
-export async function fetchMultiBetRecommendationModelKeys(): Promise<PredictionModelKey[]> {
+export async function fetchMultiBetRecommendationModelKeys(
+  filters: MultiBetRecommendationModelKeyFilters = {},
+): Promise<PredictionModelKey[]> {
   try {
     const today = getTodaySourceDate();
-    const rows = await supabaseSelect<{ prediction_model: string | null }>("multi_bet_recommendations", {
+    const params: Record<string, string> = {
       order: "prediction_model.asc",
       select: "prediction_model",
-      source_date: `eq.${today}`,
-    });
+    };
+
+    if (filters.fromDate && filters.toDate) {
+      params.and = `(source_date.gte.${filters.fromDate},source_date.lte.${filters.toDate})`;
+    } else if (filters.fromDate) {
+      params.source_date = `gte.${filters.fromDate}`;
+    } else if (filters.toDate) {
+      params.source_date = `lte.${filters.toDate}`;
+    } else {
+      params.source_date = `eq.${today}`;
+    }
+
+    const rows = await supabaseSelect<{ prediction_model: string | null }>("multi_bet_recommendations", params);
     const knownModels = new Set(PREDICTION_MODEL_VARIANTS.map((model) => model.key));
 
     return unique(rows

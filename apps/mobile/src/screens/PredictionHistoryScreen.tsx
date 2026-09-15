@@ -214,12 +214,24 @@ export function PredictionHistoryScreen() {
     let cancelled = false;
 
     async function loadMultiBetModelKeys() {
-      if (!hasSupabasePredictionsConfig) {
+      if (
+        !hasSupabasePredictionsConfig
+        || activeSport !== "racing"
+        || activeFormat !== "multis"
+        || activePredictionType !== "cash"
+        || unsupportedHistoryMessage
+        || !filters.fromDate
+        || !filters.toDate
+      ) {
+        setMultiBetModelKeys([]);
         return;
       }
 
       try {
-        const nextModelKeys = await fetchMultiBetRecommendationModelKeys();
+        const nextModelKeys = await fetchMultiBetRecommendationModelKeys({
+          fromDate: filters.fromDate,
+          toDate: filters.toDate,
+        });
 
         if (!cancelled) {
           setMultiBetModelKeys(nextModelKeys);
@@ -236,7 +248,14 @@ export function PredictionHistoryScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [
+    activeFormat,
+    activePredictionType,
+    activeSport,
+    filters.fromDate,
+    filters.toDate,
+    unsupportedHistoryMessage,
+  ]);
 
   useEffect(() => {
     let cancelled = false;

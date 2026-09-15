@@ -29,7 +29,7 @@
     "refresh:nfl-current-markets": "node scripts/refresh-nfl-current-markets.mjs",
     "refresh:nfl-market-snapshots": "node scripts/refresh-nfl-market-snapshots-from-tab.mjs",
     "refresh:nfl-results-and-insights": "node scripts/refresh-nfl-results-and-insights.mjs",
-    "refresh:nfl-results": "node scripts/refresh-nfl-results-from-espn.mjs",
+    "refresh:nfl-results": "node scripts/refresh-nfl-results-from-nflverse.mjs",
     "refresh:ucl-current-markets": "node scripts/refresh-ucl-current-markets.mjs",
     "refresh:ucl-goal-scorer-market-snapshots": "node scripts/refresh-ucl-goal-scorer-market-snapshots-from-tab.mjs",
     "refresh:ucl-market-snapshots": "node scripts/refresh-ucl-market-snapshots-from-tab.mjs",

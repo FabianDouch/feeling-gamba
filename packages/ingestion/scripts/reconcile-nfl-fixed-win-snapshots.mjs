@@ -7,6 +7,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
+const MATCH_WINDOW_HOURS = 4;
 
 /**
  * Parses NFL fixed-win snapshot reconciliation options.
@@ -260,6 +261,50 @@ function calculateReturn(won, price) {
   return Number(Number(price).toFixed(3));
 }
 
+function addHours(value, hours) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Date(date.getTime() + (hours * 60 * 60 * 1000)).toISOString();
+}
+
+function isWithinMatchWindow(snapshotStart, kickoffAt) {
+  const snapshotTime = new Date(snapshotStart).getTime();
+  const kickoffTime = new Date(kickoffAt).getTime();
+
+  if (Number.isNaN(snapshotTime) || Number.isNaN(kickoffTime)) {
+    return false;
+  }
+
+  return Math.abs(snapshotTime - kickoffTime) <= MATCH_WINDOW_HOURS * 60 * 60 * 1000;
+}
+
+function sameTeams(snapshot, match) {
+  return namesMatch(snapshot.home_team_name, match.home_team_name)
+    && namesMatch(snapshot.away_team_name, match.away_team_name);
+}
+
+function isNflverseMatch(match) {
+  return match?.raw?.dataSource === "nflverse/nfldata games.csv"
+    || String(match?.source_url ?? "").includes("nflverse/nfldata");
+}
+
+function matchExistingNflMatch(snapshot, matches) {
+  const candidates = matches.filter((match) =>
+    sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
+
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  const nflverseCandidates = candidates.filter(isNflverseMatch);
+
+  return nflverseCandidates.length === 1 ? nflverseCandidates[0] : null;
+}
+
 /**
  * Classifies one snapshot against its matched official NFL result state.
  */
@@ -454,32 +499,80 @@ async function readMatches(supabase, snapshots) {
       .map((snapshot) => snapshot.matched_nfl_match_id)
       .filter(Boolean),
   ));
+  const starts = snapshots
+    .map((snapshot) => snapshot.advertised_start_at)
+    .filter(Boolean)
+    .sort();
+  const windowFrom = starts.length ? addHours(starts[0], -MATCH_WINDOW_HOURS) : null;
+  const windowTo = starts.length ? addHours(starts.at(-1), MATCH_WINDOW_HOURS) : null;
+  const windowSearch = windowFrom && windowTo
+    ? {
+        and: `(kickoff_at.gte.${windowFrom},kickoff_at.lte.${windowTo})`,
+        source: "eq.official_nfl",
+      }
+    : null;
+  const rowsById = new Map();
 
-  if (!matchIds.length) {
-    return new Map();
+  if (matchIds.length) {
+    const rows = await supabase.request("nfl_matches", {
+      search: {
+        id: `in.(${matchIds.join(",")})`,
+        select: [
+          "id",
+          "source",
+          "source_match_id",
+          "source_url",
+          "result_status",
+          "kickoff_at",
+          "home_team_name",
+          "away_team_name",
+          "home_team_source_id",
+          "away_team_source_id",
+          "home_score",
+          "away_score",
+          "winner_team_name",
+          "winner_team_source_id",
+          "raw",
+        ].join(","),
+      },
+    });
+
+    for (const row of rows) {
+      rowsById.set(row.id, row);
+    }
   }
 
-  const rows = await supabase.request("nfl_matches", {
-    search: {
-      id: `in.(${matchIds.join(",")})`,
-      select: [
-        "id",
-        "source",
-        "source_match_id",
-        "result_status",
-        "home_team_name",
-        "away_team_name",
-        "home_team_source_id",
-        "away_team_source_id",
-        "home_score",
-        "away_score",
-        "winner_team_name",
-        "winner_team_source_id",
-      ].join(","),
-    },
-  });
+  if (windowSearch) {
+    const rows = await supabase.request("nfl_matches", {
+      search: {
+        ...windowSearch,
+        order: "kickoff_at.asc",
+        select: [
+          "id",
+          "source",
+          "source_match_id",
+          "source_url",
+          "result_status",
+          "kickoff_at",
+          "home_team_name",
+          "away_team_name",
+          "home_team_source_id",
+          "away_team_source_id",
+          "home_score",
+          "away_score",
+          "winner_team_name",
+          "winner_team_source_id",
+          "raw",
+        ].join(","),
+      },
+    });
 
-  return new Map(rows.map((row) => [row.id, row]));
+    for (const row of rows) {
+      rowsById.set(row.id, row);
+    }
+  }
+
+  return rowsById;
 }
 
 /**
@@ -495,12 +588,24 @@ function reconcileSnapshots(snapshots, matchesById) {
     unmatched: 0,
   };
   const rows = [];
+  let rematchedSnapshots = 0;
 
   for (const snapshot of snapshots) {
-    const match = snapshot.matched_nfl_match_id
+    const rematchedMatch = snapshot.matched_nfl_match_id
       ? matchesById.get(snapshot.matched_nfl_match_id)
-      : null;
-    const outcome = mapOutcome(snapshot, match);
+      : matchExistingNflMatch(snapshot, Array.from(matchesById.values()));
+    const matchedSnapshot = rematchedMatch && !snapshot.matched_nfl_match_id
+      ? {
+          ...snapshot,
+          matched_nfl_match_id: rematchedMatch.id,
+        }
+      : snapshot;
+
+    if (rematchedMatch && !snapshot.matched_nfl_match_id) {
+      rematchedSnapshots += 1;
+    }
+
+    const outcome = mapOutcome(matchedSnapshot, rematchedMatch);
 
     statuses[outcome.outcomeStatus] += 1;
 
@@ -510,6 +615,7 @@ function reconcileSnapshots(snapshots, matchesById) {
   }
 
   return {
+    rematchedSnapshots,
     rows,
     statuses,
   };
@@ -536,10 +642,13 @@ async function writeRows(supabase, rows) {
  * Produces a compact reconciliation report for dry runs and writes.
  */
 function summarize(snapshots, matchesById, reconciliation) {
+  const originallyMatchedSnapshots = snapshots.filter((snapshot) => snapshot.matched_nfl_match_id).length;
+
   return {
-    matchedSnapshots: snapshots.filter((snapshot) => snapshot.matched_nfl_match_id).length,
+    matchedSnapshots: originallyMatchedSnapshots + reconciliation.rematchedSnapshots,
     officialMatchesChecked: matchesById.size,
     outcomeRows: reconciliation.rows.length,
+    rematchedSnapshots: reconciliation.rematchedSnapshots,
     snapshotsChecked: snapshots.length,
     statuses: reconciliation.statuses,
   };
