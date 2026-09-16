@@ -10,7 +10,10 @@ source for this architecture is:
 The YAML file is intentionally plain and structured so a future Codex skill or
 script can parse it and regenerate visual diagrams.
 
-Note: the YAML was updated on 2026-09-11 so German Bundesliga, Italian Serie A,
+Note: the YAML was updated on 2026-09-17 so team-sport fixed-win Insights add a
+derived Underdog role to selected-team price, other-team price, and
+price-difference breakdowns. Rendered architecture outputs should be
+regenerated from the YAML before being treated as current. The YAML was updated on 2026-09-11 so German Bundesliga, Italian Serie A,
 French Ligue 1, and MLS use sport-specific football tables for fixed-win and
 fixed-draw Insights/Predictions, backed by TAB `Match Result` snapshots and
 public fixture/result feeds. Goalscorer and Same Game % rows remain scaffolded
@@ -838,8 +841,8 @@ repo-root public Supabase env values before Metro bundles the app.
   `npm --workspace @feeling-gamba/ingestion run rebuild:nrl-insight-aggregates`.
   Fixed-win cash metrics are sourced from reconciled current-market snapshots.
   Fixed-win buckets include selection type, favourite-venue,
-  Favourite/Home/Away role-specific selected-team price, other-team price,
-  opponent-minus-selected price difference, season, and round scopes. Price
+  Favourite/Underdog/Home/Away role-specific selected-team price, other-team price,
+  role-specific price difference, season, and round scopes. Price
   bucket scopes are stored at both 50c and 25c granularity, with exact and
   cumulative threshold variants for the three fixed-win price sections.
   Try-scorer percentage metrics are sourced from official NRL player

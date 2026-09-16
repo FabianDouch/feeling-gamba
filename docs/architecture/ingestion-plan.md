@@ -228,7 +228,8 @@ Implemented scripts:
   and writes `official_uefa` rows only for matches with captured TAB fixed-win
   prices by default.
 - `reconcile:ucl-fixed-win`: derives `ucl_fixed_win_snapshot_results` and treats
-  draws as settled losses for home/away/favourite team selections.
+  draws as settled losses for home/away/favourite team selections; aggregate
+  rebuilds derive underdog rows from those settled team results.
 - `rebuild:ucl-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows from captured fixed-win and goalscorer prices.
 - `rebuild:ucl-insight-aggregates`: rebuilds fixed-win, fixed-draw,
@@ -283,7 +284,8 @@ Implemented scripts:
   squad endpoints and writes `official_premier_league` rows only for matches
   with captured TAB fixed-win prices by default.
 - `reconcile:epl-fixed-win`: derives `epl_fixed_win_snapshot_results` and
-  treats draws as settled losses for home/away/favourite team selections.
+  treats draws as settled losses for home/away/favourite team selections;
+  aggregate rebuilds derive underdog rows from those settled team results.
 - `rebuild:epl-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows from captured fixed-win and goalscorer prices.
 - `rebuild:epl-insight-aggregates`: rebuilds fixed-win, fixed-draw,
@@ -331,7 +333,8 @@ Implemented scripts:
   squad endpoints and writes `official_laliga` rows only for matches with
   captured TAB fixed-win prices by default.
 - `reconcile:laliga-fixed-win`: derives `laliga_fixed_win_snapshot_results`;
-  drawn final scores settle as losses for home/away/favourite team selections.
+  drawn final scores settle as losses for home/away/favourite team selections,
+  and aggregate rebuilds derive underdog rows from those settled team results.
 - `rebuild:laliga-same-game-multis`: derives favourite-team plus top-two
   goalscorer same-game rows when both scorer prices and official scorer rows
   exist.
@@ -361,8 +364,9 @@ and EFL Cup use the same football-shaped pipeline as La Liga with separate
 `bundesliga_*`, `seriea_*`, `ligue1_*`, `mls_*`, `europaleague_*`, and
 `eflcup_*` tables. TAB `Match Result` capture stores one canonical row per
 source event with home, draw, and away prices. Fixed-win team selections settle
-home/away/favourite outcomes from matched public final scores, and full-time
-draws are counted as settled losses for those team selections. Fixed-draw rows
+home/away/favourite outcomes from matched public final scores; aggregate
+rebuilds derive underdog rows from those settled team results. Full-time draws
+are counted as settled losses for those team selections. Fixed-draw rows
 are stored separately and win only when the final score is level.
 
 Implemented scripts:

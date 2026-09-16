@@ -17,7 +17,10 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-16 so UEFA Europa League and EFL Cup appear
+Note: the IA was updated on 2026-09-17 so team-sport fixed-win price,
+other-team price, and price-difference breakdowns expose a derived Underdog
+role alongside Favourite/Home/Away. Rendered IA outputs should be regenerated
+from the YAML before being treated as current. The IA was updated on 2026-09-16 so UEFA Europa League and EFL Cup appear
 as football branches in Insights, backed by sport-specific `europaleague_*` and
 `eflcup_*` tables and fixed-win/fixed-draw rows. Prediction tables are
 scaffolded but the Predictions UI remains gated until enough matched
@@ -61,8 +64,8 @@ being treated as current. It was updated on 2026-09-04 so NRL and NPC price-buck
 Insights can switch between the default 50c buckets and finer 25c buckets for
 fixed-win selected-team price, other-team price, price difference, and
 try-scorer price rows. Rendered IA outputs should be regenerated from the YAML
-before being treated as current. It was updated on 2026-09-03 so NRL and NPC fixed-win price,
-other-team price, and price-difference Insights each expose Favourite/Home/Away
+before being treated as current. It was updated on 2026-09-17 so team-sport fixed-win price,
+other-team price, and price-difference Insights each expose Favourite/Underdog/Home/Away
 role toggles backed by role-specific aggregate rows. Rendered IA outputs should
 be regenerated from the YAML before being treated as current. It was updated on
 2026-09-02 so NPC rugby appears in Insights,
@@ -307,20 +310,20 @@ Purpose:
   Game % rows from official RU7 player events and captured TAB try-scorer
   prices.
 - For NPC price-bucket sections, use the same 50c/25c bucket-size toggle and
-  Favourite/Home/Away role toggles as NRL where the rows are role-specific,
+  Favourite/Underdog/Home/Away role toggles as NRL where the rows are role-specific,
   including the fixed-win Exact/+ bucket mode toggle.
 - For UCL, show the same fixed-win aggregate shape from `ucl_insight_aggregates`,
   plus goalscorer percentage and Same Game % rows from captured TAB prices and
   matched UEFA official result/event rows. UCL fixed-win snapshots store draw
   prices; draws settle as non-paying losses for tracked home/away/favourite
-  team selections, while a separate Fixed draw singles section tracks the draw
+  team selections and derived underdog aggregate rows, while a separate Fixed draw singles section tracks the draw
   entrant itself. UCL fixed-win and fixed-draw price sections use the same
   50c/25c and Exact/+ controls as NRL/NPC.
 - For EPL, show the same fixed-win aggregate shape from `epl_insight_aggregates`,
   plus goalscorer percentage and Same Game % rows from captured TAB prices and
   matched Premier League official result/goal rows. EPL fixed-win snapshots
   store draw prices; draws settle as non-paying losses for tracked
-  home/away/favourite team selections, while a separate Fixed draw singles
+  home/away/favourite team selections and derived underdog aggregate rows, while a separate Fixed draw singles
   section tracks the draw entrant itself. EPL fixed-win and fixed-draw price
   sections use the same 50c/25c and Exact/+ controls as UCL.
 - For La Liga, show the same fixed-win aggregate shape from
@@ -334,7 +337,7 @@ Purpose:
   for favourite price, other-player price, and price-difference rows, but do
   not show home/away, multis, or prediction branches.
 - For NFL, show fixed-win Head To Head aggregate rows from
-  `nfl_insight_aggregates`, including Favourite/Home/Away role toggles,
+  `nfl_insight_aggregates`, including Favourite/Underdog/Home/Away role toggles,
   50c/25c bucket-size controls, and Exact/+ fixed-win price bucket controls.
   Touchdown/player-prop and same-game rows remain empty until official
   player-event settlement is validated. Tied games are excluded from settled
@@ -382,7 +385,7 @@ Main content:
   stored average.
 - UFC/PFL favourite price, other fighter price, and price-difference breakdowns
   with 50c/25c and Exact/+ controls.
-- NRL fixed-win favourite, home/away, Favourite/Home/Away toggles for
+- NRL fixed-win favourite, home/away, Favourite/Underdog/Home/Away toggles for
   fixed-win price, other-team price, and price-difference buckets, and round
   breakdowns. Price sections default to 50c exact buckets with 25c and `+`
   toggles.
@@ -393,7 +396,7 @@ Main content:
   source-backed player try-scorer prices are captured. Show this section before
   the NRL fixed-win and try-scorer singles sections.
 - NPC fixed-win favourite, home/away, favourite-at-home/away,
-  Favourite/Home/Away toggles for fixed-win price, other-team price, and
+  Favourite/Underdog/Home/Away toggles for fixed-win price, other-team price, and
   price-difference buckets, and round breakdowns. Price sections default to
   50c exact buckets with 25c and `+` toggles.
 - MarketMover outcomes where available.

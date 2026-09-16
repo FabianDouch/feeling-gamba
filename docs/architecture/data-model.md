@@ -95,8 +95,9 @@ As of `2026-09-07`, UEFA Champions League support uses the same narrow
 sport-specific pattern with `ucl_*` tables in
 `supabase/migrations/202609070001_ucl_pipeline.sql`. TAB `Match Result`
 snapshots store home, draw, and away prices, but app-facing fixed-win
-calibration tracks only home/away/favourite team selections. Drawn final scores
-are settled non-paying losses for those team selections. Official UEFA fixture,
+calibration tracks home/away/favourite team selections plus derived underdog
+aggregate rows. Drawn final scores are settled non-paying losses for those team
+selections. Official UEFA fixture,
 lineup, appearance, and goal-event rows are written only when they match a
 captured TAB fixed-win snapshot; unpriced official-only history is not
 backfilled.
@@ -136,7 +137,7 @@ league event endpoints. They retain canonical `official_bundesliga`,
 first slice is fixed-win and fixed-draw only: official
 fixture/result rows are written by default only when they match captured TAB
 `Match Result` prices, full-time draws are non-paying losses for
-home/away/favourite fixed-win team selections, and goalscorer/same-game rows
+home/away/favourite/underdog fixed-win aggregate selections, and goalscorer/same-game rows
 remain scaffolded until source-backed scorer events and TAB scorer market
 mapping are validated. A matched fixed-win snapshot can remain
 `missing_result` when the fixture feed has no final score for the matched row.
@@ -146,7 +147,7 @@ and EPL aggregate tables to store `fixed_draw_single` rows. These rows use the
 captured TAB `draw_fixed_win_price` from the same canonical Match Result
 snapshot rows that feed fixed-win team selections, then settle as wins only
 when the official final score is level. They are stored separately from
-home/away/favourite fixed-win team selections and are not backfilled from
+home/away/favourite/underdog fixed-win aggregate selections and are not backfilled from
 official-only results without captured draw prices.
 As of `2026-09-10`, Tennis support uses a fixed-win-only sport-specific pattern
 with `tennis_*` tables in
@@ -1328,8 +1329,8 @@ Key fields:
   `price_difference_bucket`, their cumulative `*_plus` variants, `team`,
   `season`, `season_round`, `player`, or `player_team`
 - `source text`
-- `selection_type text` - `home`, `away`, `favourite`, `favourite_home`,
-  or `favourite_away`
+- `selection_type text` - `home`, `away`, `favourite`, `underdog`,
+  `favourite_home`, or `favourite_away`
 - `season int`
 - `round_number int`
 - `team_source_id text`
@@ -1369,26 +1370,27 @@ Rules:
   app-facing Insights view.
 - Fixed-win `price_bucket`, `other_team_price_bucket`, and
   `price_difference_bucket` rows are role-specific through `selection_type`.
-  App-facing rows are generated for `favourite`, `home`, and `away` selections
-  so Insights can toggle the same breakdown between favourite, home-team, and
-  away-team calibration views.
+  App-facing rows are generated for `favourite`, `underdog`, `home`, and
+  `away` selections so Insights can toggle the same breakdown between
+  favourite, non-favourite, home-team, and away-team calibration views.
 - Price-bucket rows are generated at both `0.50` and `0.25` bucket sizes. The
   `scope_key` includes the bucket size so historical rows can coexist, and the
   app defaults to `0.50` while allowing a `0.25` view.
 - Fixed-win cumulative price scopes use labels such as `$2.00+` and include all
   matching settled selections at or above the threshold. Cumulative
-  price-difference scopes are only emitted for non-negative
-  `other team price - selected team price` thresholds; exact signed difference
-  buckets remain the source for underdog/negative-gap analysis.
+  price-difference scopes are emitted for non-negative comparison gaps:
+  favourite rows use opponent-minus-favourite price, underdog rows use
+  underdog-minus-favourite price, and venue rows use opponent-minus-selected
+  price when that gap is non-negative.
 - Fixed-win selection-type rows include raw venue roles (`home`, `away`) and
   the favourite regardless of venue (`favourite`). Fixed-win favourite-venue
   rows use the `favourite_venue` scope with `selection_type` values
   `favourite_home` and `favourite_away`, so older app builds that only fetch
   `selection_type` rows do not mislabel the new rows.
-- Fixed-win price-difference buckets use `other team price - selected team
-  price`. Favourite rows preserve the existing favourite-vs-other positive gap;
-  home/away rows can be negative when the selected venue side was longer priced
-  than the opponent.
+- Fixed-win price-difference buckets use a role-specific comparison gap.
+  Favourite rows preserve the existing opponent-minus-favourite price gap,
+  underdog rows use the underdog price premium over the favourite, and home/away
+  rows use opponent-minus-selected price.
 - Try-scorer percentage rows use one settled player appearance as one
   selection and count a win when that player scored at least one official try.
 - Try-scorer overall/player/team rows store counts and percentages from official
@@ -1571,9 +1573,8 @@ Rules:
   has no separate `draw` outcome status.
 - NPC fixed-win price, other-team price, and price-difference aggregate rows
   mirror NRL by storing separate `selection_type` buckets for `favourite`,
-  `home`, and `away`. Price difference means `other team price - selected team
-  price`, so home/away buckets can be negative when that venue side was the
-  longer-priced team.
+  `underdog`, `home`, and `away`. Price difference uses the same role-specific
+  comparison gap as NRL.
 - NPC price-bucket aggregate rows use the same `bucket_size` contract as NRL:
   `0.50` rows are the default app view and `0.25` rows power the finer toggle.
 - NPC fixed-win cumulative `*_plus` price scopes mirror NRL. Selected-team and

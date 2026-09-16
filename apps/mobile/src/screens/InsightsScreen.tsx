@@ -126,13 +126,14 @@ const emptyUfcInsights: UfcInsightsData = {
 };
 
 /**
- * Creates empty favourite/home/away price rows for a fixed-win breakdown.
+ * Creates empty favourite/underdog/home/away price rows for a fixed-win breakdown.
  */
 function createEmptyFixedWinPriceBreakdowns() {
   return {
     away: [],
     favourite: [],
     home: [],
+    underdog: [],
   };
 }
 
@@ -233,6 +234,7 @@ const emptyTennisInsights: TennisInsightsData = {
 
 const FIXED_WIN_PRICE_ROLE_OPTIONS: { label: string; value: NrlFixedWinPriceRole }[] = [
   { label: "Favourite", value: "favourite" },
+  { label: "Underdog", value: "underdog" },
   { label: "Home", value: "home" },
   { label: "Away", value: "away" },
 ];

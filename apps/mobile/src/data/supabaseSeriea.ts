@@ -19,7 +19,7 @@ export type SerieaInsightBreakdown = {
   winRate: string;
 };
 
-export type SerieaFixedWinPriceRole = "favourite" | "home" | "away";
+export type SerieaFixedWinPriceRole = "favourite" | "underdog" | "home" | "away";
 
 export type SerieaFixedWinPriceBreakdowns = Record<SerieaFixedWinPriceRole, SerieaInsightBreakdown[]>;
 export type SerieaFixedWinPriceBreakdownGroups = Record<SerieaPriceBucketSize, SerieaFixedWinPriceBreakdowns>;
@@ -125,11 +125,12 @@ const SERIEA_INSIGHT_SELECT = [
 ].join(",");
 
 const FIXED_WIN_SELECTION_ORDER: Record<string, number> = {
-  home: 0,
-  away: 1,
-  favourite: 2,
-  favourite_home: 3,
-  favourite_away: 4,
+  favourite: 0,
+  underdog: 1,
+  home: 2,
+  away: 3,
+  favourite_home: 4,
+  favourite_away: 5,
 };
 
 export const hasSupabaseSerieaConfig = Boolean(
@@ -377,7 +378,7 @@ function mapFixedWinPriceBreakdowns(rows: SerieaInsightAggregateRow[]): SerieaFi
   const groups = createFixedWinPriceBreakdownGroups();
 
   for (const row of rows) {
-    if (row.selection_type === "away" || row.selection_type === "favourite" || row.selection_type === "home") {
+    if (row.selection_type === "away" || row.selection_type === "favourite" || row.selection_type === "home" || row.selection_type === "underdog") {
       groups[getBucketSizeKey(row.bucket_size)][row.selection_type].push(mapFixedWinBreakdown(row));
     }
   }
@@ -413,11 +414,13 @@ function createFixedWinPriceBreakdownGroups(): SerieaFixedWinPriceBreakdownGroup
       away: [],
       favourite: [],
       home: [],
+      underdog: [],
     },
     "0.50": {
       away: [],
       favourite: [],
       home: [],
+      underdog: [],
     },
   };
 }
@@ -597,7 +600,7 @@ function isSerieaPriceBucketScope(scopeType: SerieaInsightScopeType) {
 }
 
 /**
- * Formats home/away/favourite selection labels for Serie A fixed-win rows.
+ * Formats favourite/underdog/home/away selection labels for Serie A fixed-win rows.
  */
 function formatSelectionType(value: string) {
   if (value === "home") {
@@ -606,6 +609,10 @@ function formatSelectionType(value: string) {
 
   if (value === "away") {
     return "Away team";
+  }
+
+  if (value === "underdog") {
+    return "Underdog";
   }
 
   if (value === "favourite_home") {

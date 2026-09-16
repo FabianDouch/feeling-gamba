@@ -646,7 +646,7 @@ derived_views:
   nrl_insight_aggregates:
     responsibility:
       - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
-      - Store fixed-win favourite, source, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store fixed-win favourite, source, home/away, favourite-venue, Favourite/Underdog/Home/Away selected-team price, other-team price, role-specific price-difference, season, and round aggregate rows.
       - Store selected-team price, other-team price, price-difference, and try-scorer price bucket rows at both 50c and 25c granularity for the app bucket-size toggle; fixed-win selected-team price, other-team price, and price-difference rows also have exact and cumulative threshold variants.
       - Store try-scorer percentage rows by player, team, season, and round.
       - Store Same Game % rows for favourite-team plus top-two try-scorer multis once player try-scorer prices are captured.
@@ -654,7 +654,7 @@ derived_views:
   npc_insight_aggregates:
     responsibility:
       - Store one canonical fixed-win market row per source event; repeated pre-kickoff captures update the event row instead of creating extra calibration selections.
-      - Store NPC fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store NPC fixed-win favourite, home/away, favourite-venue, Favourite/Underdog/Home/Away selected-team price, other-team price, role-specific price-difference, season, and round aggregate rows.
       - Store selected-team price, other-team price, price-difference, and try-scorer price bucket rows at both 50c and 25c granularity for the app bucket-size toggle; fixed-win selected-team price, other-team price, and price-difference rows also have exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because fixed-win team bets do not pay on a draw.
       - Store try-scorer percentage rows by player, team, season, round, and captured price bucket from official RU7 player rows and TAB try-scorer prices.
@@ -663,7 +663,7 @@ derived_views:
   ucl_insight_aggregates:
     responsibility:
       - Store one canonical TAB Match Result row per source event with home, draw, and away fixed-win prices.
-      - Store UCL fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store UCL fixed-win favourite, home/away, favourite-venue, Favourite/Underdog/Home/Away selected-team price, other-team price, role-specific price-difference, season, and round aggregate rows.
       - Store fixed-win selected-team price, other-team price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
       - Store fixed-draw rows from captured draw_fixed_win_price values, with overall, 50c/25c exact, and cumulative threshold price buckets.
@@ -673,7 +673,7 @@ derived_views:
   epl_insight_aggregates:
     responsibility:
       - Store one canonical TAB Match Result row per source event with home, draw, and away fixed-win prices.
-      - Store EPL fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store EPL fixed-win favourite, home/away, favourite-venue, Favourite/Underdog/Home/Away selected-team price, other-team price, role-specific price-difference, season, and round aggregate rows.
       - Store fixed-win selected-team price, other-team price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
       - Store fixed-draw rows from captured draw_fixed_win_price values, with overall, 50c/25c exact, and cumulative threshold price buckets.
@@ -683,7 +683,7 @@ derived_views:
   laliga_insight_aggregates:
     responsibility:
       - Store one canonical TAB Match Result row per source event with home, draw, and away fixed-win prices.
-      - Store La Liga fixed-win favourite, home/away, favourite-venue, Favourite/Home/Away selected-team price, other-team price, opponent-minus-selected price-difference, season, and round aggregate rows.
+      - Store La Liga fixed-win favourite, home/away, favourite-venue, Favourite/Underdog/Home/Away selected-team price, other-team price, role-specific price-difference, season, and round aggregate rows.
       - Store fixed-win selected-team price, other-team price, and price-difference rows at both 50c and 25c granularity with exact and cumulative threshold variants.
       - Count drawn fixed-win outcomes as settled losses for team selections because home/away/favourite team bets do not pay on a draw.
       - Store fixed-draw rows from captured draw_fixed_win_price values, with overall, 50c/25c exact, and cumulative threshold price buckets.

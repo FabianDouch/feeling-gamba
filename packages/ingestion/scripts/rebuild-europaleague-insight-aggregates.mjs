@@ -517,7 +517,7 @@ function getPriceBucketPlusBuckets(price, bucketSize = 0.5) {
 }
 
 /**
- * Creates cumulative non-negative buckets for opponent-minus-selected price gaps.
+ * Creates cumulative non-negative buckets for role-specific price comparison gaps.
  */
 function getPriceDifferencePlusBuckets(priceDifference, bucketSize = 0.5) {
   const value = Number(priceDifference);
@@ -542,7 +542,7 @@ function getPriceDifferencePlusBuckets(priceDifference, bucketSize = 0.5) {
 }
 
 /**
- * Calculates the opponent-minus-selected price gap when both prices are known.
+ * Calculates the second price minus first price gap when both prices are known.
  */
 function getSelectionPriceDifference(selectedPrice, otherPrice) {
   return hasPrice(selectedPrice) && hasPrice(otherPrice)
@@ -574,11 +574,12 @@ function selectCanonicalFixedWinResults(results) {
 }
 
 /**
- * Builds selection-level records from home, away, and favourite fixed-win rows.
+ * Builds selection-level records from home, away, favourite, and derived underdog fixed-win rows.
  */
 function buildFixedWinRecords(results, matchesById) {
   const sideRecords = [];
   const favouriteRecords = [];
+  const underdogRecords = [];
 
   for (const row of results) {
     const match = row.matched_europaleague_match_id ? matchesById.get(row.matched_europaleague_match_id) : null;
@@ -641,12 +642,36 @@ function buildFixedWinRecords(results, matchesById) {
           : match?.away_team_source_id ?? null,
         won: row.favourite_won === true,
       });
+
+      const underdogIsHome = favouriteIsAway;
+      const underdogIsAway = favouriteIsHome;
+
+      if (underdogIsHome || underdogIsAway) {
+        const underdogPrice = underdogIsHome ? row.home_fixed_win_price : row.away_fixed_win_price;
+        const underdogReturn = underdogIsHome ? row.home_win_return : row.away_win_return;
+        const underdogWon = underdogIsHome ? row.home_team_won === true : row.away_team_won === true;
+
+        underdogRecords.push({
+          ...base,
+          otherPrice: row.favourite_fixed_win_price,
+          price: underdogPrice,
+          priceDifference: getSelectionPriceDifference(row.favourite_fixed_win_price, underdogPrice),
+          returnValue: numeric(underdogReturn),
+          selectionType: "underdog",
+          teamName: underdogIsHome ? row.home_team_name : row.away_team_name,
+          teamSourceId: underdogIsHome
+            ? match?.home_team_source_id ?? null
+            : match?.away_team_source_id ?? null,
+          won: underdogWon,
+        });
+      }
     }
   }
 
   return {
     favouriteRecords,
     sideRecords,
+    underdogRecords,
   };
 }
 
@@ -656,8 +681,8 @@ function buildFixedWinRecords(results, matchesById) {
 function buildFixedWinAggregates(results, matchesById) {
   const buckets = new Map();
   const canonicalResults = selectCanonicalFixedWinResults(results);
-  const { favouriteRecords, sideRecords } = buildFixedWinRecords(canonicalResults, matchesById);
-  const allRecords = [...sideRecords, ...favouriteRecords];
+  const { favouriteRecords, sideRecords, underdogRecords } = buildFixedWinRecords(canonicalResults, matchesById);
+  const allRecords = [...sideRecords, ...favouriteRecords, ...underdogRecords];
 
   for (const record of favouriteRecords) {
     addToBucket(buckets, {
