@@ -8,25 +8,27 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const PAGE_SIZE = 1000;
 const SOURCE_TIME_ZONE = "Pacific/Auckland";
-const FIXED_WIN_MODEL = "bundesliga_fixed_win_percentage_single_v1";
-const GOAL_SCORER_MODEL = "bundesliga_goal_scorer_percentage_single_v1";
+const FIXED_WIN_MODEL = "europaleague_fixed_win_percentage_single_v1";
+const GOAL_SCORER_MODEL = "europaleague_goal_scorer_percentage_single_v1";
 const GOAL_SCORER_CANDIDATES_PER_TEAM = 3;
 const TEAM_NAME_ALIASES = new Map([
-  ["1 fc cologne", "1 fc koln"],
   ["bayer leverkusen", "bayer 04 leverkusen"],
-  ["bayern munich", "fc bayern munchen"],
-  ["sport club freiburg", "sc freiburg"],
-  ["sv 07 elversberg", "sv elversberg"],
-  ["tsg hoffenheim", "tsg 1899 hoffenheim"],
+  ["inter milan", "fc internazionale milano"],
+  ["juventus fc", "juventus"],
+  ["milan", "ac milan"],
+  ["olympique lyon", "olympique lyonnais"],
+  ["olympique marseille", "olympique de marseille"],
+  ["rangers", "glasgow rangers"],
+  ["stade rennais", "stade rennais fc"],
 ]);
-const BUNDESLIGA_SINGLE_PREDICTION_COLUMNS = [
+const EUROPALEAGUE_SINGLE_PREDICTION_COLUMNS = [
   "advertised_start_at",
   "away_team_name",
   "bucket_sample_size",
   "home_team_name",
   "lineup_status",
   "match_label",
-  "matched_bundesliga_match_id",
+  "matched_europaleague_match_id",
   "other_team_fixed_win_price",
   "other_team_name",
   "predicted_at",
@@ -53,7 +55,7 @@ const BUNDESLIGA_SINGLE_PREDICTION_COLUMNS = [
 ];
 
 /**
- * Parses LaLiga single prediction generation options.
+ * Parses football cup single prediction generation options.
  */
 function parseArgs(argv) {
   const options = {
@@ -170,7 +172,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for LaLiga prediction generation.
+ * Minimal Supabase REST client for football cup prediction generation.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -278,7 +280,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-Bundesliga club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Europa League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -339,7 +341,7 @@ function getLatestSnapshots(snapshots) {
 }
 
 /**
- * Builds season-to-date team records from official settled LaLiga matches.
+ * Builds season-to-date team records from official settled football cup matches.
  */
 function buildTeamRecords(matches) {
   const records = new Map();
@@ -445,11 +447,11 @@ function buildFixedWinPredictions({ matchesById, predictedAt, snapshots, sourceD
   const rows = [];
 
   for (const snapshot of getLatestSnapshots(snapshots)) {
-    if (!snapshot.favourite_team_name || !snapshot.matched_bundesliga_match_id) {
+    if (!snapshot.favourite_team_name || !snapshot.matched_europaleague_match_id) {
       continue;
     }
 
-    const match = matchesById.get(snapshot.matched_bundesliga_match_id);
+    const match = matchesById.get(snapshot.matched_europaleague_match_id);
 
     if (!match || match.result_status !== "pending") {
       continue;
@@ -472,7 +474,7 @@ function buildFixedWinPredictions({ matchesById, predictedAt, snapshots, sourceD
       home_team_name: snapshot.home_team_name,
       lineup_status: "not_applicable",
       match_label: `${snapshot.home_team_name} vs ${snapshot.away_team_name}`,
-      matched_bundesliga_match_id: snapshot.matched_bundesliga_match_id,
+      matched_europaleague_match_id: snapshot.matched_europaleague_match_id,
       other_team_fixed_win_price: otherFixedWinPrice,
       other_team_name: team.otherTeamName,
       predicted_at: predictedAt,
@@ -591,7 +593,7 @@ function buildGoalScorerPredictions({ aggregates, matches, predictedAt, sourceDa
           home_team_name: match.home_team_name,
           lineup_status: "historical_team_roster",
           match_label: `${match.home_team_name} vs ${match.away_team_name}`,
-          matched_bundesliga_match_id: match.id,
+          matched_europaleague_match_id: match.id,
           other_team_name: team.opponentName,
           predicted_at: predictedAt,
           predicted_player_name: candidate.player_name,
@@ -614,13 +616,13 @@ function buildGoalScorerPredictions({ aggregates, matches, predictedAt, sourceDa
           signal_detail: `${candidate.win_count} scoring appearances from ${candidate.selection_count} settled team appearances`,
           signal_label: `${score.toFixed(2)}% goal rate`,
           signal_tone: score >= 40 ? "positive" : score >= 25 ? "neutral" : "caution",
-          source: "official_bundesliga",
+          source: "official_europa_league",
           source_date: sourceDate,
           source_event_id: match.source_match_id,
           source_match_id: match.source_match_id,
           source_prediction_key: [
             GOAL_SCORER_MODEL,
-            "official_bundesliga",
+            "official_europa_league",
             sourceDate,
             match.source_match_id,
             candidate.player_source_id,
@@ -660,18 +662,18 @@ function rankRows(rows) {
  * Gives every prediction row the same nullable column set for PostgREST bulk writes.
  */
 function normalizeRowForWrite(row) {
-  return Object.fromEntries(BUNDESLIGA_SINGLE_PREDICTION_COLUMNS.map((column) => [
+  return Object.fromEntries(EUROPALEAGUE_SINGLE_PREDICTION_COLUMNS.map((column) => [
     column,
     row[column] ?? null,
   ]));
 }
 
 /**
- * Loads source rows needed by both LaLiga single prediction models.
+ * Loads source rows needed by both football cup single prediction models.
  */
 async function readSourceRows(supabase) {
   const [snapshots, matches, aggregates] = await Promise.all([
-    supabase.selectAll("bundesliga_market_snapshots", {
+    supabase.selectAll("europaleague_market_snapshots", {
       order: "snapshot_at.desc",
       select: [
         "id",
@@ -679,7 +681,7 @@ async function readSourceRows(supabase) {
         "source_snapshot_key",
         "source_event_id",
         "source_market_id",
-        "matched_bundesliga_match_id",
+        "matched_europaleague_match_id",
         "snapshot_at",
         "advertised_start_at",
         "home_team_name",
@@ -691,7 +693,7 @@ async function readSourceRows(supabase) {
       ].join(","),
       source: "eq.tab",
     }),
-    supabase.selectAll("bundesliga_matches", {
+    supabase.selectAll("europaleague_matches", {
       order: "kickoff_at.asc",
       select: [
         "id",
@@ -709,7 +711,7 @@ async function readSourceRows(supabase) {
         "away_score",
       ].join(","),
     }),
-    supabase.selectAll("bundesliga_insight_aggregates", {
+    supabase.selectAll("europaleague_insight_aggregates", {
       insight_type: "eq.goal_scorer_percentage",
       order: "win_percentage.desc",
       select: [
@@ -735,10 +737,10 @@ async function readSourceRows(supabase) {
 }
 
 /**
- * Writes generated LaLiga single predictions to Supabase.
+ * Writes generated football cup single predictions to Supabase.
  */
 async function writeRows(supabase, rows, sourceDate) {
-  await supabase.request("bundesliga_single_predictions", {
+  await supabase.request("europaleague_single_predictions", {
     expectJson: false,
     method: "DELETE",
     prefer: "return=minimal",
@@ -749,13 +751,13 @@ async function writeRows(supabase, rows, sourceDate) {
   });
 
   await supabase.upsert(
-    "bundesliga_single_predictions",
+    "europaleague_single_predictions",
     rows.map(normalizeRowForWrite),
     "source_prediction_key",
   );
 
   return {
-    bundesligaSinglePredictions: rows.length,
+    europaleagueSinglePredictions: rows.length,
     ok: true,
     skipped: false,
   };
@@ -768,14 +770,14 @@ function summarize(sourceRows, fixedWinRows, goalScorerRows) {
   return {
     fixedWinPredictions: fixedWinRows.length,
     sourceMarketSnapshots: sourceRows.snapshots.length,
-    sourceBundesligaInsightAggregates: sourceRows.aggregates.length,
-    sourceBundesligaMatches: sourceRows.matches.length,
+    sourceEuropaleagueInsightAggregates: sourceRows.aggregates.length,
+    sourceEuropaleagueMatches: sourceRows.matches.length,
     goalScorerPredictions: goalScorerRows.length,
   };
 }
 
 /**
- * Runs the local LaLiga single prediction generation workflow.
+ * Runs the local football cup single prediction generation workflow.
  */
 async function main() {
   const options = parseArgs(process.argv.slice(2));

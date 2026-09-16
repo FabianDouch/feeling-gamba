@@ -15,30 +15,74 @@ const LEAGUES = {
       ["1 fc cologne", "1 fc koln"],
       ["bayer leverkusen", "bayer 04 leverkusen"],
       ["bayern munich", "fc bayern munchen"],
+      ["sport club freiburg", "sc freiburg"],
+      ["sv 07 elversberg", "sv elversberg"],
       ["tsg hoffenheim", "tsg 1899 hoffenheim"],
     ]),
     competitionId: 1,
+    fixtureDownloadSlug: "bundesliga",
     label: "Bundesliga",
     openFootballCode: "de.1",
-    source: "openfootball",
+    provider: "fixture_download",
+    source: "official_bundesliga",
     tablePrefix: "bundesliga",
     timeZoneOffset: "+02:00",
+  },
+  eflcup: {
+    aliases: new Map([
+      ["manchester united", "man united"],
+      ["manchester city", "man city"],
+      ["newcastle united", "newcastle"],
+      ["nottingham forest", "nottm forest"],
+      ["tottenham hotspur", "tottenham"],
+      ["west ham united", "west ham"],
+      ["wolverhampton wanderers", "wolves"],
+    ]),
+    competitionId: 1,
+    label: "EFL Cup",
+    provider: "thesportsdb",
+    source: "official_efl_cup",
+    sportsDbLeagueId: 4570,
+    tablePrefix: "eflcup",
+  },
+  europaleague: {
+    aliases: new Map([
+      ["bayer leverkusen", "bayer 04 leverkusen"],
+      ["inter milan", "fc internazionale milano"],
+      ["juventus fc", "juventus"],
+      ["milan", "ac milan"],
+      ["olympique lyon", "olympique lyonnais"],
+      ["olympique marseille", "olympique de marseille"],
+      ["rangers", "glasgow rangers"],
+      ["stade rennais", "stade rennais fc"],
+    ]),
+    competitionId: 1,
+    fixtureDownloadSlug: "europa-league",
+    label: "Europa League",
+    provider: "fixture_download",
+    source: "official_europa_league",
+    tablePrefix: "europaleague",
   },
   ligue1: {
     aliases: new Map([
       ["as monaco", "as monaco fc"],
       ["estac troyes", "es troyes ac"],
+      ["havre athletic club", "le havre ac"],
+      ["losc lille", "lille osc"],
       ["olympique lyon", "olympique lyonnais"],
       ["olympique marseille", "olympique de marseille"],
       ["paris saint germain", "paris saint germain fc"],
       ["rc lens", "racing club de lens"],
       ["stade brest 29", "stade brestois 29"],
       ["stade rennais", "stade rennais fc 1901"],
+      ["stade rennais fc", "stade rennais fc 1901"],
     ]),
     competitionId: 1,
+    fixtureDownloadSlug: "ligue-1",
     label: "Ligue 1",
     openFootballCode: "fr.1",
-    source: "openfootball",
+    provider: "fixture_download",
+    source: "official_ligue1",
     tablePrefix: "ligue1",
     timeZoneOffset: "+02:00",
   },
@@ -51,15 +95,35 @@ const LEAGUES = {
   },
   seriea: {
     aliases: new Map([
+      ["atalanta", "atalanta bc"],
       ["bologna fc", "bologna fc 1909"],
+      ["bologna", "bologna fc 1909"],
       ["cagliari", "cagliari calcio"],
+      ["como", "como 1907"],
+      ["frosinone", "frosinone calcio"],
+      ["genoa", "genoa cfc"],
       ["inter milan", "fc internazionale milano"],
+      ["internazionale", "fc internazionale milano"],
+      ["juventus fc", "juventus"],
+      ["lazio", "ss lazio"],
+      ["lecce", "us lecce"],
+      ["milan", "ac milan"],
+      ["monza", "ac monza"],
+      ["napoli", "ssc napoli"],
       ["parma calcio", "parma calcio 1913"],
+      ["parma", "parma calcio 1913"],
+      ["roma", "as roma"],
+      ["sassuolo", "us sassuolo calcio"],
+      ["torino", "torino fc"],
+      ["udinese", "udinese calcio"],
+      ["venezia fc", "venezia"],
     ]),
     competitionId: 1,
+    fixtureDownloadSlug: "serie-a",
     label: "Serie A",
     openFootballCode: "it.1",
-    source: "openfootball",
+    provider: "fixture_download",
+    source: "official_seriea",
     tablePrefix: "seriea",
     timeZoneOffset: "+02:00",
   },
@@ -325,15 +389,55 @@ async function fetchJson(url) {
 }
 
 async function fetchMatches(config, options) {
-  if (config.source === "fixture_download") {
+  if ((config.provider ?? config.source) === "fixture_download") {
     const url = `https://fixturedownload.com/feed/json/${config.fixtureDownloadSlug}-${options.season}`;
     const rows = await fetchJson(url);
     return Array.isArray(rows) ? rows.map((row) => mapFixtureDownloadRow(row, config, options, url)) : [];
   }
 
+  if (config.provider === "thesportsdb") {
+    return await fetchTheSportsDbMatches(config, options);
+  }
+
   const url = `https://raw.githubusercontent.com/openfootball/football.json/master/${getSeasonSlug(options.season)}/${config.openFootballCode}.json`;
   const payload = await fetchJson(url);
   return (payload.matches ?? []).map((row, index) => mapOpenFootballRow(row, index, config, options, url));
+}
+
+function getTheSportsDbSeasonLabel(season) {
+  return `${season}-${season + 1}`;
+}
+
+async function fetchTheSportsDbEvents(url) {
+  const payload = await fetchJson(url);
+  return Array.isArray(payload?.events) ? payload.events : [];
+}
+
+async function fetchTheSportsDbMatches(config, options) {
+  const seasonLabel = getTheSportsDbSeasonLabel(options.season);
+  const urls = [
+    `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=${config.sportsDbLeagueId}&s=${seasonLabel}`,
+    `https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=${config.sportsDbLeagueId}`,
+    `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${config.sportsDbLeagueId}`,
+  ];
+  const rowsById = new Map();
+
+  for (const url of urls) {
+    const rows = await fetchTheSportsDbEvents(url);
+
+    for (const row of rows) {
+      if (!row?.idEvent) {
+        continue;
+      }
+
+      rowsById.set(row.idEvent, {
+        row,
+        url,
+      });
+    }
+  }
+
+  return Array.from(rowsById.values()).map(({ row, url }) => mapTheSportsDbRow(row, config, options, url));
 }
 
 function parseOpenFootballScore(score) {
@@ -381,6 +485,20 @@ function withOffset(date, time, offset) {
   return `${date}T${time ?? "12:00"}:00${offset}`;
 }
 
+function normalizeTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = String(value).trim();
+
+  if (/([zZ]|[+-]\d{2}:?\d{2})$/.test(timestamp)) {
+    return timestamp;
+  }
+
+  return `${timestamp}Z`;
+}
+
 function mapOpenFootballRow(row, index, config, options, url) {
   const homeTeam = row.team1;
   const awayTeam = row.team2;
@@ -407,10 +525,22 @@ function mapOpenFootballRow(row, index, config, options, url) {
   };
 }
 
+/**
+ * Preserves blank FixtureDownload score cells as unknown instead of converting null to 0.
+ */
+function parseFixtureDownloadScore(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function mapFixtureDownloadRow(row, config, options, url) {
-  const homeScore = Number(row.HomeTeamScore);
-  const awayScore = Number(row.AwayTeamScore);
-  const settled = Number.isFinite(homeScore) && Number.isFinite(awayScore);
+  const homeScore = parseFixtureDownloadScore(row.HomeTeamScore);
+  const awayScore = parseFixtureDownloadScore(row.AwayTeamScore);
+  const settled = homeScore !== null && awayScore !== null;
 
   return {
     awayScore: settled ? awayScore : null,
@@ -425,6 +555,56 @@ function mapFixtureDownloadRow(row, config, options, url) {
     sourceMatchId: `${options.season}:${config.fixtureDownloadSlug}:${row.MatchNumber ?? `${normalizeName(row.HomeTeam)}:${normalizeName(row.AwayTeam)}`}`,
     sourceUrl: url,
     venueName: row.Location ?? null,
+  };
+}
+
+function buildTheSportsDbKickoff(row) {
+  const timestamp = normalizeTimestamp(row.strTimestamp);
+
+  if (timestamp) {
+    return timestamp;
+  }
+
+  if (row.dateEvent && row.strTime) {
+    return normalizeTimestamp(`${row.dateEvent}T${String(row.strTime).replace(/Z$/, "")}`);
+  }
+
+  return row.dateEvent ? `${row.dateEvent}T12:00:00Z` : null;
+}
+
+function isTheSportsDbSettled(row, kickoffAt, homeScore, awayScore) {
+  const status = normalizeName(row.strStatus);
+  const finished = status === "ft"
+    || status === "aet"
+    || status === "pen"
+    || status.includes("match finished")
+    || status.includes("after extra time")
+    || status.includes("penalties");
+
+  return homeScore !== null
+    && awayScore !== null
+    && (finished || hasPassedResultBuffer(kickoffAt));
+}
+
+function mapTheSportsDbRow(row, config, options, url) {
+  const homeScore = parseFixtureDownloadScore(row.intHomeScore);
+  const awayScore = parseFixtureDownloadScore(row.intAwayScore);
+  const kickoffAt = buildTheSportsDbKickoff(row);
+  const settled = isTheSportsDbSettled(row, kickoffAt, homeScore, awayScore);
+
+  return {
+    awayScore: settled ? awayScore : null,
+    awayTeam: row.strAwayTeam,
+    homeScore: settled ? homeScore : null,
+    homeTeam: row.strHomeTeam,
+    kickoffAt,
+    raw: row,
+    resultStatus: settled ? "settled" : "pending",
+    roundNumber: Number.isFinite(Number(row.intRound)) ? Number(row.intRound) : null,
+    roundTitle: row.intRound ? `Round ${row.intRound}` : row.strRound ?? null,
+    sourceMatchId: `${options.season}:${config.sportsDbLeagueId}:${row.idEvent}`,
+    sourceUrl: url,
+    venueName: row.strVenue ?? null,
   };
 }
 

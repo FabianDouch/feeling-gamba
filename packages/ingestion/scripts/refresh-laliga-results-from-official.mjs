@@ -19,9 +19,13 @@ const TEAM_NAME_ALIASES = new Map([
   ["athletic bilbao", "athletic club"],
   ["atletico madrid", "atletico de madrid"],
   ["barcelona", "fc barcelona"],
+  ["celta", "rc celta"],
   ["celta vigo", "rc celta"],
+  ["rc celta de vigo", "rc celta"],
+  ["espanyol barcelona", "rcd espanyol de barcelona"],
   ["deportivo la coruna", "rc deportivo"],
   ["deportivo", "rc deportivo"],
+  ["rc deportivo la coruna", "rc deportivo"],
   ["espanyol", "rcd espanyol de barcelona"],
   ["getafe", "getafe cf"],
   ["girona", "girona fc"],
@@ -30,6 +34,8 @@ const TEAM_NAME_ALIASES = new Map([
   ["osasuna", "ca osasuna"],
   ["oviedo", "real oviedo"],
   ["rayo", "rayo vallecano"],
+  ["r racing club", "racing santander"],
+  ["racing santander", "racing santander"],
   ["real betis", "real betis"],
   ["real madrid", "real madrid"],
   ["real sociedad", "real sociedad"],
@@ -59,6 +65,7 @@ function parseArgs(argv) {
     dryRun: false,
     includeFixtures: false,
     limit: DEFAULT_LIMIT,
+    includePricedSnapshotWindowFixtures: true,
     maxMatches: null,
     pricedOnly: true,
     requireSupabase: false,
@@ -74,6 +81,10 @@ function parseArgs(argv) {
       options.dryRun = true;
     } else if (arg === "--include-fixtures") {
       options.includeFixtures = true;
+    } else if (arg === "--include-priced-snapshot-window-fixtures") {
+      options.includePricedSnapshotWindowFixtures = true;
+    } else if (arg === "--no-priced-snapshot-window-fixtures") {
+      options.includePricedSnapshotWindowFixtures = false;
     } else if (arg === "--priced-only") {
       options.pricedOnly = true;
     } else if (arg === "--require-supabase") {
@@ -557,12 +568,23 @@ function isWithinMatchWindow(snapshotStart, matchKickoff) {
   return Math.abs(snapshotDate.valueOf() - matchDate.valueOf()) <= MATCH_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
+function hasFixedWinPrices(snapshot) {
+  return snapshot.home_fixed_win_price !== null && snapshot.away_fixed_win_price !== null;
+}
+
 function sameTeams(snapshot, match) {
   const homeTeam = getHomeTeam(match);
   const awayTeam = getAwayTeam(match);
 
   return namesMatch(snapshot.home_team_name, getTeamName(homeTeam))
     && namesMatch(snapshot.away_team_name, getTeamName(awayTeam));
+}
+
+function isInsidePricedSnapshotWindow(match, snapshots) {
+  const kickoffAt = getKickoffAt(match);
+
+  return snapshots.some((snapshot) =>
+    hasFixedWinPrices(snapshot) && isWithinMatchWindow(snapshot.advertised_start_at, kickoffAt));
 }
 
 /**
@@ -593,19 +615,20 @@ function isMissingLaligaSchemaError(error) {
 /**
  * Keeps official rows only when TAB fixed-win prices were captured for that match.
  */
-function filterToPricedMatches(matches, snapshots) {
+function filterToPricedMatches(matches, snapshots, includeSnapshotWindowFixtures) {
   if (!snapshots.length) {
     return [];
   }
 
   return matches.filter((match) => {
     const kickoffAt = getKickoffAt(match);
-
-    return snapshots.some((snapshot) =>
-      snapshot.home_fixed_win_price !== null
-      && snapshot.away_fixed_win_price !== null
+    const matchedPricedSnapshot = snapshots.some((snapshot) =>
+      hasFixedWinPrices(snapshot)
       && sameTeams(snapshot, match)
       && isWithinMatchWindow(snapshot.advertised_start_at, kickoffAt));
+
+    return matchedPricedSnapshot
+      || (includeSnapshotWindowFixtures && isInsidePricedSnapshotWindow(match, snapshots));
   });
 }
 
@@ -1052,13 +1075,14 @@ async function main() {
   ]);
   const writableMatches = allMatches.filter((match) => isWritableMatch(match, options.includeFixtures));
   const retainedMatches = options.pricedOnly
-    ? filterToPricedMatches(writableMatches, pricedSnapshots)
+    ? filterToPricedMatches(writableMatches, pricedSnapshots, options.includePricedSnapshotWindowFixtures)
     : writableMatches;
   const matchesToWrite = options.maxMatches ? retainedMatches.slice(0, options.maxMatches) : retainedMatches;
   const rows = await buildWriteSets(matchesToWrite, options);
   const summary = {
     allMatches: allMatches.length,
     includeFixtures: options.includeFixtures,
+    includePricedSnapshotWindowFixtures: options.includePricedSnapshotWindowFixtures,
     pricedOnly: options.pricedOnly,
     pricedSnapshots: pricedSnapshots.length,
     retainedMatches: retainedMatches.length,

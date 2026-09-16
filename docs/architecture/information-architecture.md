@@ -17,13 +17,19 @@ The rendered visual representation is:
 - `docs/architecture/information-architecture.png`
 - `docs/architecture/information-architecture.jpg`
 
-Note: the IA was updated on 2026-09-11 so German Bundesliga, Italian Serie A,
-French Ligue 1, and MLS appear as football branches in Insights, Predictions,
-and Prediction History, backed by sport-specific `*_` tables, fixed-win and
-fixed-draw rows, current single predictions, and explicit history empty states
-until sport-specific history RPCs are added. Goalscorer and Same Game % rows
-remain reserved until source-backed scorer events are validated. Rendered IA
-outputs should be regenerated from the YAML before being treated as current. It
+Note: the IA was updated on 2026-09-16 so UEFA Europa League and EFL Cup appear
+as football branches in Insights, backed by sport-specific `europaleague_*` and
+`eflcup_*` tables and fixed-win/fixed-draw rows. Prediction tables are
+scaffolded but the Predictions UI remains gated until enough matched
+price/result rows exist. Rendered IA outputs should be regenerated from the
+YAML before being treated as current. It was updated on 2026-09-11 so German
+Bundesliga, Italian Serie A, French Ligue 1, and MLS appear as football
+branches in Insights, Predictions, and Prediction History, backed by
+sport-specific `*_` tables, fixed-win and fixed-draw rows, current single
+predictions, and explicit history empty states until sport-specific history
+RPCs are added. Goalscorer and Same Game % rows remain reserved until
+source-backed scorer events are validated. Rendered IA outputs should be
+regenerated from the YAML before being treated as current. It
 was updated on 2026-09-15 so NFL appears under a new American Football Insights
 group as fixed-win-only Head To Head aggregates backed by `nfl_*` tables.
 Rendered IA outputs should be regenerated from the YAML before being treated as
@@ -263,7 +269,7 @@ Purpose:
   Football, American Football, and Combat Sports.
 - Toggle within each sport group by league or all-sport scope: All Rugby
   League/NRL, All Rugby Union/NPC, All Football/UCL/EPL/La Liga/Bundesliga/Serie
-  A/Ligue 1/MLS, All Tennis, NFL, and UFC/PFL.
+  A/Ligue 1/MLS/Europa League/EFL Cup, All Tennis, NFL, and UFC/PFL.
 - Break favourite finish-position rates down by final starter count.
 - Break favourite win percentage down by 50c fixed-win price bucket.
 - Break favourite performance down by the average fixed-win price of the other

@@ -48,6 +48,8 @@ const GROUP_CONFIGS = {
       { key: "seriea", table: "seriea_insight_aggregates", totalColumn: "total_goals" },
       { key: "ligue1", table: "ligue1_insight_aggregates", totalColumn: "total_goals" },
       { key: "mls", table: "mls_insight_aggregates", totalColumn: "total_goals" },
+      { key: "europaleague", table: "europaleague_insight_aggregates", totalColumn: "total_goals" },
+      { key: "eflcup", table: "eflcup_insight_aggregates", totalColumn: "total_goals" },
     ],
   },
   rugby_league: {

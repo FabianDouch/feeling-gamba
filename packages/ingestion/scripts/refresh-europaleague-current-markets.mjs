@@ -1,0 +1,210 @@
+import { spawn } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
+const DEFAULT_EVENT_COUNT = 20;
+const DEFAULT_ENTRANTS_FIRST = 60;
+const DEFAULT_MARKETS_FIRST = 500;
+const DEFAULT_COMPETITION_SLUG = "uefa-europa-league";
+
+/**
+ * Parses the Europa League current-market refresh orchestration options.
+ */
+function parseArgs(argv) {
+  const options = {
+    batchSize: null,
+    competitionSlug: DEFAULT_COMPETITION_SLUG,
+    dryRun: false,
+    entrantsFirst: DEFAULT_ENTRANTS_FIRST,
+    eventCount: DEFAULT_EVENT_COUNT,
+    marketsFirst: DEFAULT_MARKETS_FIRST,
+    requireSupabase: false,
+    skipFixedWin: false,
+    skipInsights: false,
+    skipPredictions: false,
+    skipReconcile: false,
+    skipGoalScorers: true,
+  };
+
+  for (const arg of argv) {
+    if (arg === "--dry-run") {
+      options.dryRun = true;
+    } else if (arg === "--require-supabase") {
+      options.requireSupabase = true;
+    } else if (arg === "--skip-fixed-win") {
+      options.skipFixedWin = true;
+    } else if (arg === "--skip-insights") {
+      options.skipInsights = true;
+    } else if (arg === "--skip-predictions") {
+      options.skipPredictions = true;
+    } else if (arg === "--skip-reconcile") {
+      options.skipReconcile = true;
+    } else if (arg === "--skip-goal-scorers") {
+      options.skipGoalScorers = true;
+    } else if (arg.startsWith("--batch-size=")) {
+      options.batchSize = Number(arg.slice("--batch-size=".length));
+    } else if (arg.startsWith("--competition-slug=")) {
+      options.competitionSlug = arg.slice("--competition-slug=".length);
+    } else if (arg.startsWith("--entrants-first=")) {
+      options.entrantsFirst = Number(arg.slice("--entrants-first=".length));
+    } else if (arg.startsWith("--event-count=")) {
+      options.eventCount = Number(arg.slice("--event-count=".length));
+    } else if (arg.startsWith("--markets-first=")) {
+      options.marketsFirst = Number(arg.slice("--markets-first=".length));
+    }
+  }
+
+  if (!isPositiveInteger(options.entrantsFirst)) {
+    throw new Error("--entrants-first must be a positive integer.");
+  }
+
+  if (!isPositiveInteger(options.eventCount)) {
+    throw new Error("--event-count must be a positive integer.");
+  }
+
+  if (!isPositiveInteger(options.marketsFirst)) {
+    throw new Error("--markets-first must be a positive integer.");
+  }
+
+  if (options.batchSize !== null && !isPositiveInteger(options.batchSize)) {
+    throw new Error("--batch-size must be a positive integer.");
+  }
+
+  if (!options.competitionSlug) {
+    throw new Error("--competition-slug is required.");
+  }
+
+  return options;
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function buildCommand(label, scriptName, args) {
+  return {
+    args: [path.join(SCRIPT_DIR, scriptName), ...args],
+    command: process.execPath,
+    label,
+  };
+}
+
+/**
+ * Builds the shared Supabase/write flags used by the child Europa League workers.
+ */
+function getWriteFlags(options) {
+  const flags = [];
+
+  if (options.dryRun) {
+    flags.push("--dry-run");
+  }
+
+  if (options.requireSupabase) {
+    flags.push("--require-supabase");
+  }
+
+  if (options.batchSize !== null) {
+    flags.push(`--batch-size=${options.batchSize}`);
+  }
+
+  return flags;
+}
+
+/**
+ * Builds the ordered Europa League current-market refresh command list.
+ */
+function buildRefreshCommands(options) {
+  const commands = [];
+  const writeFlags = getWriteFlags(options);
+
+  if (!options.skipFixedWin) {
+    commands.push(buildCommand("capture_europaleague_fixed_win_markets", "refresh-europaleague-market-snapshots-from-tab.mjs", [
+      `--competition-slug=${options.competitionSlug}`,
+      `--event-count=${options.eventCount}`,
+      `--markets-first=${options.marketsFirst}`,
+      ...writeFlags,
+    ]));
+  }
+
+  if (!options.skipGoalScorers || !options.skipReconcile || !options.skipPredictions) {
+    commands.push(buildCommand("refresh_priced_europaleague_official_matches", "refresh-football-league-results-from-json.mjs", [
+      "--league=europaleague",
+      "--include-fixtures",
+      "--priced-only",
+      ...writeFlags,
+    ]));
+  }
+
+  if (!options.skipGoalScorers) {
+    commands.push(buildCommand("capture_europaleague_goal_scorer_markets", "refresh-europaleague-goal-scorer-market-snapshots-from-tab.mjs", [
+      `--competition-slug=${options.competitionSlug}`,
+      `--entrants-first=${options.entrantsFirst}`,
+      `--event-count=${options.eventCount}`,
+      `--markets-first=${options.marketsFirst}`,
+      ...writeFlags,
+    ]));
+  }
+
+  if (!options.skipReconcile) {
+    commands.push(buildCommand("reconcile_europaleague_fixed_win", "reconcile-europaleague-fixed-win-snapshots.mjs", writeFlags));
+  }
+
+  if (!options.skipInsights) {
+    commands.push(buildCommand("rebuild_europaleague_insights", "rebuild-europaleague-insight-aggregates.mjs", writeFlags));
+  }
+
+  if (!options.skipPredictions) {
+    commands.push(buildCommand("generate_europaleague_single_predictions", "generate-europaleague-single-predictions.mjs", writeFlags));
+  }
+
+  return commands;
+}
+
+/**
+ * Runs one child ingestion command while streaming logs for auditability.
+ */
+async function runCommand(command) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command.command, command.args, {
+      cwd: REPO_ROOT,
+      env: process.env,
+      stdio: "inherit",
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`${command.label} failed with exit code ${code}.`));
+    });
+  });
+}
+
+/**
+ * Runs the Europa League current-market capture and derived read-model refresh pipeline.
+ */
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const commands = buildRefreshCommands(options);
+
+  for (const command of commands) {
+    console.log(`[${command.label}] ${command.command} ${command.args.join(" ")}`);
+    await runCommand(command);
+  }
+
+  console.log(JSON.stringify({
+    dryRun: options.dryRun,
+    ok: true,
+    steps: commands.map((command) => command.label),
+  }, null, 2));
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

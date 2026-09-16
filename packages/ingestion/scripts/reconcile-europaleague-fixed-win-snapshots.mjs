@@ -8,17 +8,10 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
 const MATCH_WINDOW_HOURS = 4;
-const TEAM_NAME_ALIASES = new Map([
-  ["1 fc cologne", "1 fc koln"],
-  ["bayer leverkusen", "bayer 04 leverkusen"],
-  ["bayern munich", "fc bayern munchen"],
-  ["sport club freiburg", "sc freiburg"],
-  ["sv 07 elversberg", "sv elversberg"],
-  ["tsg hoffenheim", "tsg 1899 hoffenheim"],
-]);
+const TEAM_NAME_ALIASES = new Map();
 
 /**
- * Parses LaLiga fixed-win snapshot reconciliation options.
+ * Parses football cup fixed-win snapshot reconciliation options.
  */
 function parseArgs(argv) {
   const options = {
@@ -127,7 +120,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for LaLiga fixed-win reconciliation.
+ * Minimal Supabase REST client for football cup fixed-win reconciliation.
  */
 function createSupabaseRestClient(config, batchSize) {
   /**
@@ -206,7 +199,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-Bundesliga club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Europa League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -260,32 +253,15 @@ function sameTeams(snapshot, match) {
     && namesMatch(snapshot.away_team_name, match.away_team_name);
 }
 
-/**
- * Scores duplicate fixture candidates so scored FixtureDownload rows beat stale pending rows.
- */
-function getMatchCandidateScore(match) {
-  let score = 0;
-
-  if (isSettledMatch(match)) {
-    score += 100;
-  }
-
-  if (String(match.source_url ?? "").includes("fixturedownload.com")) {
-    score += 10;
-  }
-
-  return score;
-}
-
-function matchExistingBundesligaMatch(snapshot, matches) {
+function matchExistingEuropaleagueMatch(snapshot, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
 
-  return candidates.sort((left, right) => getMatchCandidateScore(right) - getMatchCandidateScore(left))[0] ?? null;
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 /**
- * Confirms an official LaLiga match has final scores usable for settlement.
+ * Confirms an official football cup match has final scores usable for settlement.
  */
 function isSettledMatch(match) {
   return match?.result_status === "settled"
@@ -331,10 +307,10 @@ function calculateReturn(won, price) {
 }
 
 /**
- * Classifies one snapshot against its matched official LaLiga result state.
+ * Classifies one snapshot against its matched official football cup result state.
  */
 function mapOutcome(snapshot, match) {
-  if (!snapshot.matched_bundesliga_match_id) {
+  if (!snapshot.matched_europaleague_match_id) {
     return {
       outcomeStatus: "unmatched",
       row: buildResultRow(snapshot, null, null, {
@@ -440,7 +416,7 @@ function buildResultRow(snapshot, match, winner, outcome) {
     home_win_return: calculateReturn(outcome.homeTeamWon, snapshot.home_fixed_win_price),
     match_drawn: outcome.matchDrawn,
     market_snapshot_id: snapshot.id,
-    matched_bundesliga_match_id: snapshot.matched_bundesliga_match_id,
+    matched_europaleague_match_id: snapshot.matched_europaleague_match_id,
     outcome_status: outcome.outcomeStatus,
     raw: {
       match: {
@@ -478,7 +454,7 @@ async function readSnapshots(supabase, options) {
       "source_event_id",
       "source_event_url",
       "source_market_id",
-      "matched_bundesliga_match_id",
+      "matched_europaleague_match_id",
       "snapshot_at",
       "advertised_start_at",
       "home_team_name",
@@ -495,7 +471,7 @@ async function readSnapshots(supabase, options) {
     search.source = `eq.${options.source}`;
   }
 
-  const rows = await supabase.request("bundesliga_market_snapshots", {
+  const rows = await supabase.request("europaleague_market_snapshots", {
     search,
   });
 
@@ -525,7 +501,7 @@ function selectCanonicalSnapshots(snapshots) {
 }
 
 /**
- * Loads official LaLiga matches in the selected snapshot kickoff window.
+ * Loads official football cup matches in the selected snapshot kickoff window.
  */
 async function readMatches(supabase, snapshots) {
   const starts = snapshots
@@ -544,7 +520,7 @@ async function readMatches(supabase, snapshots) {
     return [];
   }
 
-  return await supabase.request("bundesliga_matches", {
+  return await supabase.request("europaleague_matches", {
     search: {
       and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
       order: "kickoff_at.asc",
@@ -563,7 +539,7 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
-      source: "eq.official_bundesliga",
+      source: "eq.fixture_download",
     },
   });
 }
@@ -575,14 +551,11 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
   const matchesById = new Map(officialMatches.map((row) => [row.id, row]));
   const updates = [];
   const resolvedSnapshots = snapshots.map((snapshot) => {
-    const currentMatch = snapshot.matched_bundesliga_match_id
-      ? matchesById.get(snapshot.matched_bundesliga_match_id)
-      : null;
-    const match = matchExistingBundesligaMatch(snapshot, officialMatches);
-
-    if (currentMatch && (!match || getMatchCandidateScore(currentMatch) >= getMatchCandidateScore(match))) {
+    if (snapshot.matched_europaleague_match_id && matchesById.has(snapshot.matched_europaleague_match_id)) {
       return snapshot;
     }
+
+    const match = matchExistingEuropaleagueMatch(snapshot, officialMatches);
 
     if (!match) {
       return snapshot;
@@ -590,12 +563,12 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
 
     updates.push({
       id: snapshot.id,
-      matched_bundesliga_match_id: match.id,
+      matched_europaleague_match_id: match.id,
     });
 
     return {
       ...snapshot,
-      matched_bundesliga_match_id: match.id,
+      matched_europaleague_match_id: match.id,
     };
   });
 
@@ -607,7 +580,7 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
 }
 
 /**
- * Builds fixed-win outcome rows from source snapshots and official LaLiga results.
+ * Builds fixed-win outcome rows from source snapshots and official football cup results.
  */
 function reconcileSnapshots(snapshots, matchesById) {
   const statuses = {
@@ -620,8 +593,8 @@ function reconcileSnapshots(snapshots, matchesById) {
   const rows = [];
 
   for (const snapshot of snapshots) {
-    const match = snapshot.matched_bundesliga_match_id
-      ? matchesById.get(snapshot.matched_bundesliga_match_id)
+    const match = snapshot.matched_europaleague_match_id
+      ? matchesById.get(snapshot.matched_europaleague_match_id)
       : null;
     const outcome = mapOutcome(snapshot, match);
 
@@ -643,9 +616,9 @@ function reconcileSnapshots(snapshots, matchesById) {
  */
 async function writeSnapshotMatchUpdates(supabase, updates) {
   for (const update of updates) {
-    await supabase.request("bundesliga_market_snapshots", {
+    await supabase.request("europaleague_market_snapshots", {
       body: {
-        matched_bundesliga_match_id: update.matched_bundesliga_match_id,
+        matched_europaleague_match_id: update.matched_europaleague_match_id,
       },
       method: "PATCH",
       prefer: "return=minimal",
@@ -663,13 +636,13 @@ async function writeSnapshotMatchUpdates(supabase, updates) {
 async function writeRows(supabase, rows, snapshotMatchUpdates) {
   await writeSnapshotMatchUpdates(supabase, snapshotMatchUpdates);
   await supabase.upsert(
-    "bundesliga_fixed_win_snapshot_results",
+    "europaleague_fixed_win_snapshot_results",
     rows,
     "source_snapshot_key",
   );
 
   return {
-    bundesligaFixedWinSnapshotResults: rows.length,
+    europaleagueFixedWinSnapshotResults: rows.length,
     ok: true,
     skipped: false,
   };
@@ -680,7 +653,7 @@ async function writeRows(supabase, rows, snapshotMatchUpdates) {
  */
 function summarize(snapshots, matchesById, reconciliation) {
   return {
-    matchedSnapshots: snapshots.filter((snapshot) => snapshot.matched_bundesliga_match_id).length,
+    matchedSnapshots: snapshots.filter((snapshot) => snapshot.matched_europaleague_match_id).length,
     officialMatchesChecked: matchesById.size,
     outcomeRows: reconciliation.rows.length,
     snapshotsChecked: snapshots.length,

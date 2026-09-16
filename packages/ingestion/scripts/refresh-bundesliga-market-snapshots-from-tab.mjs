@@ -19,7 +19,14 @@ const TAB_SOURCE = {
   label: "Bundesliga market source",
   source: "tab",
 };
-const TEAM_NAME_ALIASES = new Map();
+const TEAM_NAME_ALIASES = new Map([
+  ["1 fc cologne", "1 fc koln"],
+  ["bayer leverkusen", "bayer 04 leverkusen"],
+  ["bayern munich", "fc bayern munchen"],
+  ["sport club freiburg", "sc freiburg"],
+  ["sv 07 elversberg", "sv elversberg"],
+  ["tsg hoffenheim", "tsg 1899 hoffenheim"],
+]);
 
 const BUNDESLIGA_COMPETITION_QUERY = `
   query SportingCompetitionScreen(

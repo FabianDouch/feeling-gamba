@@ -356,22 +356,22 @@ per-match scorer event feed is validated.
 
 ## Additional Football League Current Market Capture
 
-German Bundesliga, Italian Serie A, French Ligue 1, and MLS use the same
-football-shaped pipeline as La Liga with separate `bundesliga_*`, `seriea_*`,
-`ligue1_*`, and `mls_*` tables. TAB `Match Result` capture stores one
-canonical row per source event with home, draw, and away prices. Fixed-win team
-selections settle home/away/favourite outcomes from matched public final
-scores, and full-time draws are counted as settled losses for those team
-selections. Fixed-draw rows are stored separately and win only when the final
-score is level.
+German Bundesliga, Italian Serie A, French Ligue 1, MLS, UEFA Europa League,
+and EFL Cup use the same football-shaped pipeline as La Liga with separate
+`bundesliga_*`, `seriea_*`, `ligue1_*`, `mls_*`, `europaleague_*`, and
+`eflcup_*` tables. TAB `Match Result` capture stores one canonical row per
+source event with home, draw, and away prices. Fixed-win team selections settle
+home/away/favourite outcomes from matched public final scores, and full-time
+draws are counted as settled losses for those team selections. Fixed-draw rows
+are stored separately and win only when the final score is level.
 
 Implemented scripts:
 
 - `refresh:{league}-market-snapshots`: captures current TAB `Match Result`
   prices for the selected league slug.
 - `refresh:{league}-results`: reads the shared public fixture/result loader for
-  Bundesliga, Serie A, Ligue 1, or MLS and writes priced official rows by
-  default.
+  Bundesliga, Serie A, Ligue 1, MLS, Europa League, or EFL Cup and writes
+  priced official rows by default.
 - `reconcile:{league}-fixed-win`: derives fixed-win snapshot result rows from
   matched public scores.
 - `rebuild:{league}-insight-aggregates`: rebuilds fixed-win and fixed-draw
@@ -382,11 +382,19 @@ Implemented scripts:
   `refresh:{league}-results-and-insights`: run the capture/result,
   reconciliation, aggregate, and prediction steps in order.
 
-Bundesliga, Serie A, and Ligue 1 use OpenFootball JSON fixture/result files.
-MLS uses FixtureDownload JSON. Historical calibration is not backfilled unless
-a matching TAB fixed-win/draw price snapshot exists. Goalscorer and Same Game %
-rows remain scaffolded until source-backed per-match scorer events and TAB
-goalscorer market mapping are validated for each league.
+As of 2026-09-16, Bundesliga, Serie A, Ligue 1, MLS, and Europa League use
+FixtureDownload JSON fixture/result files. EFL Cup uses TheSportsDB's public
+league event endpoints because FixtureDownload did not expose a validated
+Carabao/EFL Cup feed. Bundesliga, Serie A, Ligue 1, Europa League, and EFL Cup
+retain canonical `official_*` Supabase source values even where the fetch
+provider is not an official league API. Historical calibration is not
+backfilled unless a matching TAB fixed-win/draw price snapshot exists.
+Reconciliation links priced snapshots to the matched fixture row and leaves the
+result as `missing_result` when the feed has not supplied a usable final score.
+FixtureDownload blank score cells are treated as pending unknowns rather than
+`0-0` results. Goalscorer and Same Game % rows remain scaffolded until
+source-backed per-match scorer events and TAB goalscorer market mapping are
+validated for each league.
 As of 2026-09-15, additional-football TAB `Match Result` capture retries
 transient TAB GraphQL edge failures, including temporary 403/429/5xx responses
 and network resets, up to three attempts before failing the scheduled workflow.

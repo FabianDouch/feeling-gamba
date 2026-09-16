@@ -11,29 +11,17 @@ const DEFAULT_MARKETS_FIRST = 500;
 const GRAPHQL_MAX_ATTEMPTS = 3;
 const GRAPHQL_RETRY_STATUS_CODES = new Set([403, 408, 425, 429, 500, 502, 503, 504]);
 const MATCH_WINDOW_HOURS = 4;
-const LIGUE1_CATEGORY = "SOCCER";
-const LIGUE1_COMPETITION_SLUG = "french-ligue-1";
-const LIGUE1_FIXED_WIN_MARKET_NAME = "match result";
+const EUROPALEAGUE_CATEGORY = "SOCCER";
+const EUROPALEAGUE_COMPETITION_SLUG = "uefa-europa-league";
+const EUROPALEAGUE_FIXED_WIN_MARKET_NAME = "match result";
 const TAB_SOURCE = {
   endpoint: "https://api.tab.co.nz/graphql",
-  label: "Ligue 1 market source",
+  label: "Europa League market source",
   source: "tab",
 };
-const TEAM_NAME_ALIASES = new Map([
-  ["as monaco", "as monaco fc"],
-  ["estac troyes", "es troyes ac"],
-  ["havre athletic club", "le havre ac"],
-  ["losc lille", "lille osc"],
-  ["olympique lyon", "olympique lyonnais"],
-  ["olympique marseille", "olympique de marseille"],
-  ["paris saint germain", "paris saint germain fc"],
-  ["rc lens", "racing club de lens"],
-  ["stade brest 29", "stade brestois 29"],
-  ["stade rennais", "stade rennais fc 1901"],
-  ["stade rennais fc", "stade rennais fc 1901"],
-]);
+const TEAM_NAME_ALIASES = new Map();
 
-const LIGUE1_COMPETITION_QUERY = `
+const EUROPALEAGUE_COMPETITION_QUERY = `
   query SportingCompetitionScreen(
     $category: SportingCategory!
     $competitionSlug: String!
@@ -101,12 +89,12 @@ const LIGUE1_COMPETITION_QUERY = `
 `;
 
 /**
- * Parses the Ligue 1 fixed-win snapshot options for the current market source.
+ * Parses the Europa League fixed-win snapshot options for the current market source.
  */
 function parseArgs(argv) {
   const options = {
     batchSize: DEFAULT_BATCH_SIZE,
-    competitionSlug: LIGUE1_COMPETITION_SLUG,
+    competitionSlug: EUROPALEAGUE_COMPETITION_SLUG,
     dryRun: false,
     eventCount: DEFAULT_EVENT_COUNT,
     marketsFirst: DEFAULT_MARKETS_FIRST,
@@ -208,7 +196,7 @@ function getSupabaseWriteConfig() {
 }
 
 /**
- * Builds browser-like headers for the Ligue 1 market source request.
+ * Builds browser-like headers for the Europa League market source request.
  */
 function getGraphqlHeaders() {
   const origin = "https://www.tab.co.nz";
@@ -310,7 +298,7 @@ function normalizeName(value) {
 }
 
 /**
- * Applies explicit TAB-vs-Ligue 1 club aliases after basic name normalization.
+ * Applies explicit TAB-vs-Europa League club aliases after basic name normalization.
  */
 function normalizeTeamName(value) {
   const name = normalizeName(value);
@@ -353,7 +341,7 @@ function getSourceSnapshotKey(source, sourceEventId) {
 
 function findFixedWinMarket(event) {
   return (event.markets?.nodes ?? []).find((market) =>
-    normalizeName(market?.name) === LIGUE1_FIXED_WIN_MARKET_NAME);
+    normalizeName(market?.name) === EUROPALEAGUE_FIXED_WIN_MARKET_NAME);
 }
 
 function findEntrantByRole(market, role) {
@@ -443,7 +431,7 @@ function sameTeams(snapshot, match) {
     && namesMatch(snapshot.away_team_name, match.away_team_name);
 }
 
-function matchExistingLigue1Match(snapshot, matches) {
+function matchExistingEuropaleagueMatch(snapshot, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
 
@@ -508,16 +496,16 @@ function mapSnapshot(source, event, generatedAt, officialMatches) {
     source_market_id: sourceMarketId,
     source_snapshot_key: getSourceSnapshotKey(source, sourceEventId),
   };
-  const matchedMatch = matchExistingLigue1Match(snapshot, officialMatches);
+  const matchedMatch = matchExistingEuropaleagueMatch(snapshot, officialMatches);
 
   return {
     ...snapshot,
-    matched_ligue1_match_id: matchedMatch?.id ?? null,
+    matched_europaleague_match_id: matchedMatch?.id ?? null,
   };
 }
 
 /**
- * Fetches current Ligue 1 fixed-win snapshots from the selected public market source.
+ * Fetches current Europa League fixed-win snapshots from the selected public market source.
  */
 async function fetchSnapshots(options, officialMatches) {
   const generatedAt = new Date().toISOString();
@@ -525,8 +513,8 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", LIGUE1_COMPETITION_QUERY, {
-      category: LIGUE1_CATEGORY,
+    const response = await graphql(source, "SportingCompetitionScreen", EUROPALEAGUE_COMPETITION_QUERY, {
+      category: EUROPALEAGUE_CATEGORY,
       competitionSlug: options.competitionSlug,
       marketsFirst: options.marketsFirst,
       upcomingEventsCount: options.eventCount,
@@ -564,7 +552,7 @@ function chunk(items, size) {
 }
 
 /**
- * Minimal Supabase REST client for Ligue 1 market snapshot reads and writes.
+ * Minimal Supabase REST client for Europa League market snapshot reads and writes.
  */
 function createSupabaseRestClient(config, batchSize) {
   async function request(table, options = {}) {
@@ -647,16 +635,16 @@ async function fetchOfficialMatchesForWindow(config, rows, batchSize) {
   const supabase = createSupabaseRestClient(config, batchSize);
 
   try {
-    return await supabase.request("ligue1_matches", {
+    return await supabase.request("europaleague_matches", {
       search: {
         and: `(kickoff_at.gte.${from},kickoff_at.lte.${to})`,
         order: "kickoff_at.asc",
         select: "id,source,source_match_id,kickoff_at,home_team_name,away_team_name",
-        source: "eq.official_ligue1",
+        source: "eq.official_europa_league",
       },
     });
   } catch (error) {
-    if (isMissingLigue1SchemaError(error)) {
+    if (isMissingEuropaleagueSchemaError(error)) {
       return [];
     }
 
@@ -664,10 +652,10 @@ async function fetchOfficialMatchesForWindow(config, rows, batchSize) {
   }
 }
 
-function isMissingLigue1SchemaError(error) {
+function isMissingEuropaleagueSchemaError(error) {
   return error instanceof Error
     && error.message.includes("PGRST205")
-    && error.message.includes("ligue1_matches");
+    && error.message.includes("europaleague_matches");
 }
 
 async function rematchRows(config, rows, batchSize) {
@@ -683,7 +671,7 @@ async function rematchRows(config, rows, batchSize) {
   return {
     matchedRows: rows.map((row) => ({
       ...row,
-      matched_ligue1_match_id: matchExistingLigue1Match(row, officialMatches)?.id ?? null,
+      matched_europaleague_match_id: matchExistingEuropaleagueMatch(row, officialMatches)?.id ?? null,
     })),
     officialMatches,
   };
@@ -707,11 +695,11 @@ async function writeRows(rows, options) {
   const { matchedRows, officialMatches } = await rematchRows(config, rows, options.batchSize);
   const supabase = createSupabaseRestClient(config, options.batchSize);
 
-  await supabase.upsert("ligue1_market_snapshots", matchedRows, "source_snapshot_key");
+  await supabase.upsert("europaleague_market_snapshots", matchedRows, "source_snapshot_key");
 
   return {
-    matchedSnapshots: matchedRows.filter((row) => row.matched_ligue1_match_id).length,
-    ligue1MarketSnapshots: matchedRows.length,
+    matchedSnapshots: matchedRows.filter((row) => row.matched_europaleague_match_id).length,
+    europaleagueMarketSnapshots: matchedRows.length,
     officialMatchesChecked: officialMatches.length,
     ok: true,
     skipped: false,
@@ -721,8 +709,8 @@ async function writeRows(rows, options) {
 function summarize(snapshotResult, officialMatches) {
   return {
     generatedAt: snapshotResult.generatedAt,
-    matchedSnapshots: snapshotResult.rows.filter((row) => row.matched_ligue1_match_id).length,
-    ligue1MarketSnapshots: snapshotResult.rows.length,
+    matchedSnapshots: snapshotResult.rows.filter((row) => row.matched_europaleague_match_id).length,
+    europaleagueMarketSnapshots: snapshotResult.rows.length,
     officialMatchesChecked: officialMatches.length,
     sources: snapshotResult.sources,
   };
@@ -761,7 +749,7 @@ async function main() {
           name: row.home_team_name,
           price: row.home_fixed_win_price,
         },
-        matchedLigue1MatchId: row.matched_ligue1_match_id,
+        matchedEuropaleagueMatchId: row.matched_europaleague_match_id,
         source: row.source,
         sourceEventId: row.source_event_id,
       })),

@@ -19,7 +19,30 @@ const TAB_SOURCE = {
   label: "Serie A market source",
   source: "tab",
 };
-const TEAM_NAME_ALIASES = new Map();
+const TEAM_NAME_ALIASES = new Map([
+  ["atalanta", "atalanta bc"],
+  ["bologna fc", "bologna fc 1909"],
+  ["bologna", "bologna fc 1909"],
+  ["cagliari", "cagliari calcio"],
+  ["como", "como 1907"],
+  ["frosinone", "frosinone calcio"],
+  ["genoa", "genoa cfc"],
+  ["inter milan", "fc internazionale milano"],
+  ["internazionale", "fc internazionale milano"],
+  ["juventus fc", "juventus"],
+  ["lazio", "ss lazio"],
+  ["lecce", "us lecce"],
+  ["milan", "ac milan"],
+  ["monza", "ac monza"],
+  ["napoli", "ssc napoli"],
+  ["parma calcio", "parma calcio 1913"],
+  ["parma", "parma calcio 1913"],
+  ["roma", "as roma"],
+  ["sassuolo", "us sassuolo calcio"],
+  ["torino", "torino fc"],
+  ["udinese", "udinese calcio"],
+  ["venezia fc", "venezia"],
+]);
 
 const SERIEA_COMPETITION_QUERY = `
   query SportingCompetitionScreen(

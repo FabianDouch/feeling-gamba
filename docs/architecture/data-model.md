@@ -124,14 +124,22 @@ MLS support use the same football pipeline shape with `bundesliga_*`,
 `supabase/migrations/202609110003_bundesliga_pipeline.sql`,
 `supabase/migrations/202609110004_seriea_pipeline.sql`,
 `supabase/migrations/202609110005_ligue1_pipeline.sql`, and
-`supabase/migrations/202609110006_mls_pipeline.sql`. Bundesliga, Serie A, and
-Ligue 1 results are sourced from OpenFootball JSON, while MLS results are
-sourced from FixtureDownload. The first slice is fixed-win and fixed-draw
-only: official fixture/result rows are written by default only when they match
-captured TAB `Match Result` prices, full-time draws are non-paying losses for
+`supabase/migrations/202609110006_mls_pipeline.sql`. As of `2026-09-16`,
+UEFA Europa League and EFL Cup add the same table family in
+`supabase/migrations/202609160001_europa_league_pipeline.sql` and
+`supabase/migrations/202609160002_efl_cup_pipeline.sql`. Bundesliga, Serie A,
+Ligue 1, MLS, and Europa League fixture/result rows are sourced from
+FixtureDownload JSON while EFL Cup rows are sourced from TheSportsDB's public
+league event endpoints. They retain canonical `official_bundesliga`,
+`official_seriea`, `official_ligue1`, `fixture_download`,
+`official_europa_league`, and `official_efl_cup` source values in Supabase. The
+first slice is fixed-win and fixed-draw only: official
+fixture/result rows are written by default only when they match captured TAB
+`Match Result` prices, full-time draws are non-paying losses for
 home/away/favourite fixed-win team selections, and goalscorer/same-game rows
 remain scaffolded until source-backed scorer events and TAB scorer market
-mapping are validated.
+mapping are validated. A matched fixed-win snapshot can remain
+`missing_result` when the fixture feed has no final score for the matched row.
 As of `2026-09-11`,
 `supabase/migrations/202609110001_football_fixed_draw_insights.sql` allows UCL
 and EPL aggregate tables to store `fixed_draw_single` rows. These rows use the
@@ -167,7 +175,8 @@ The rebuild script combines compatible rows from league aggregate tables for
 `football`, `rugby_league`, and `rugby_union` by summing counts, stakes, and
 returns, then recalculating win percentage, average return, and ROI. League
 drilldowns continue to read their existing `nrl_*`, `npc_*`, `ucl_*`, `epl_*`,
-`laliga_*`, `bundesliga_*`, `seriea_*`, `ligue1_*`, and `mls_*` tables.
+`laliga_*`, `bundesliga_*`, `seriea_*`, `ligue1_*`, `mls_*`,
+`europaleague_*`, and `eflcup_*` tables.
 As of `2026-08-26`, PFL has a UFC-shaped current prediction branch and the
 first historical seed tables are defined in
 `supabase/migrations/202608260001_pfl_historical_data_and_insights.sql`.

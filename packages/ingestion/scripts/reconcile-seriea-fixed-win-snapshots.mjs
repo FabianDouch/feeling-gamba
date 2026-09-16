@@ -9,10 +9,28 @@ const DEFAULT_BATCH_SIZE = 300;
 const DEFAULT_LIMIT = 1000;
 const MATCH_WINDOW_HOURS = 4;
 const TEAM_NAME_ALIASES = new Map([
+  ["atalanta", "atalanta bc"],
   ["bologna fc", "bologna fc 1909"],
+  ["bologna", "bologna fc 1909"],
   ["cagliari", "cagliari calcio"],
+  ["como", "como 1907"],
+  ["frosinone", "frosinone calcio"],
+  ["genoa", "genoa cfc"],
   ["inter milan", "fc internazionale milano"],
+  ["internazionale", "fc internazionale milano"],
+  ["juventus fc", "juventus"],
+  ["lazio", "ss lazio"],
+  ["lecce", "us lecce"],
+  ["milan", "ac milan"],
+  ["monza", "ac monza"],
+  ["napoli", "ssc napoli"],
   ["parma calcio", "parma calcio 1913"],
+  ["parma", "parma calcio 1913"],
+  ["roma", "as roma"],
+  ["sassuolo", "us sassuolo calcio"],
+  ["torino", "torino fc"],
+  ["udinese", "udinese calcio"],
+  ["venezia fc", "venezia"],
 ]);
 
 /**
@@ -258,11 +276,28 @@ function sameTeams(snapshot, match) {
     && namesMatch(snapshot.away_team_name, match.away_team_name);
 }
 
+/**
+ * Scores duplicate fixture candidates so scored FixtureDownload rows beat stale pending rows.
+ */
+function getMatchCandidateScore(match) {
+  let score = 0;
+
+  if (isSettledMatch(match)) {
+    score += 100;
+  }
+
+  if (String(match.source_url ?? "").includes("fixturedownload.com")) {
+    score += 10;
+  }
+
+  return score;
+}
+
 function matchExistingSerieaMatch(snapshot, matches) {
   const candidates = matches.filter((match) =>
     sameTeams(snapshot, match) && isWithinMatchWindow(snapshot.advertised_start_at, match.kickoff_at));
 
-  return candidates.length === 1 ? candidates[0] : null;
+  return candidates.sort((left, right) => getMatchCandidateScore(right) - getMatchCandidateScore(left))[0] ?? null;
 }
 
 /**
@@ -544,7 +579,7 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
-      source: "eq.openfootball",
+      source: "eq.official_seriea",
     },
   });
 }
@@ -556,11 +591,14 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
   const matchesById = new Map(officialMatches.map((row) => [row.id, row]));
   const updates = [];
   const resolvedSnapshots = snapshots.map((snapshot) => {
-    if (snapshot.matched_seriea_match_id && matchesById.has(snapshot.matched_seriea_match_id)) {
+    const currentMatch = snapshot.matched_seriea_match_id
+      ? matchesById.get(snapshot.matched_seriea_match_id)
+      : null;
+    const match = matchExistingSerieaMatch(snapshot, officialMatches);
+
+    if (currentMatch && (!match || getMatchCandidateScore(currentMatch) >= getMatchCandidateScore(match))) {
       return snapshot;
     }
-
-    const match = matchExistingSerieaMatch(snapshot, officialMatches);
 
     if (!match) {
       return snapshot;
