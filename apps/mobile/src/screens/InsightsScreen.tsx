@@ -1,3 +1,5 @@
+import { getLeagueLabel, SPORT_OPTIONS, type SportScope, type LeagueScope } from "../navigation/sportLeagueScope";
+import { CombatLeagueSections } from "./CombatLeagueSections";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -117,8 +119,6 @@ const emptyInsights: InsightsData = {
 };
 
 type InsightMode = "win" | "place";
-type InsightSportGroup = "american_football" | "combat_sports" | "football" | "racing" | "rugby_league" | "rugby_union" | "tennis";
-type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "eflcup" | "epl" | "europaleague" | "laliga" | "nationsleague" | "ligue1" | "mls" | "nfl" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -245,69 +245,19 @@ const FIXED_WIN_PRICE_ROLE_OPTIONS: { label: string; value: NrlFixedWinPriceRole
   { label: "Away", value: "away" },
 ];
 
-const SPORT_GROUP_OPTIONS: { label: string; value: InsightSportGroup }[] = [
-  { label: "Racing", value: "racing" },
-  { label: "Tennis", value: "tennis" },
-  { label: "Rugby League", value: "rugby_league" },
-  { label: "Rugby Union", value: "rugby_union" },
-  { label: "Football", value: "football" },
-  { label: "American Football", value: "american_football" },
-  { label: "Combat Sports", value: "combat_sports" },
-];
-
-const LEAGUE_OPTIONS_BY_GROUP: Record<InsightSportGroup, { label: string; value: InsightSport }[]> = {
-  american_football: [
-    { label: "NFL", value: "nfl" },
-  ],
-  combat_sports: [
-    { label: "UFC", value: "ufc" },
-    { label: "PFL", value: "pfl" },
-  ],
-  football: [
-    { label: "All Football", value: "all_football" },
-    { label: "UCL", value: "ucl" },
-    { label: "EPL", value: "epl" },
-    { label: "La Liga", value: "laliga" },
-    { label: "UEFA Nations League", value: "nationsleague" },
-    { label: "Bundesliga", value: "bundesliga" },
-    { label: "Serie A", value: "seriea" },
-    { label: "Ligue 1", value: "ligue1" },
-    { label: "MLS", value: "mls" },
-    { label: "Europa League", value: "europaleague" },
-    { label: "EFL Cup", value: "eflcup" },
-  ],
-  racing: [
-    { label: "Racing", value: "racing" },
-  ],
-  rugby_league: [
-    { label: "All Rugby League", value: "all_rugby_league" },
-    { label: "NRL", value: "nrl" },
-  ],
-  rugby_union: [
-    { label: "All Rugby Union", value: "all_rugby_union" },
-    { label: "NPC", value: "npc" },
-  ],
-  tennis: [
-    { label: "All Tennis", value: "tennis" },
-  ],
-};
-
-const DEFAULT_LEAGUE_BY_GROUP: Record<InsightSportGroup, InsightSport> = {
-  american_football: "nfl",
-  combat_sports: "ufc",
-  football: "all_football",
-  racing: "racing",
-  rugby_league: "all_rugby_league",
-  rugby_union: "all_rugby_union",
-  tennis: "tennis",
-};
-
 /**
  * Shows sport-specific favourite-performance insights.
  */
-export function InsightsScreen() {
-  const [sportGroup, setSportGroup] = useState<InsightSportGroup>("racing");
-  const [sport, setSport] = useState<InsightSport>("racing");
+export function InsightsScreen({ scope, onSelectLeague }: { scope: SportScope; onSelectLeague: (league: string) => void }) {
+  if (scope.league === "all_combat_sports") return <CombatLeagueSections onSelectLeague={onSelectLeague}
+    renderLeague={(league) => <LeagueInsightsScreen scope={{ group: "combat_sports", league }} />} />;
+  return <LeagueInsightsScreen key={scope.league} scope={scope} />;
+}
+
+// Mount each league with clean request state so errors and cached rows cannot leak across scopes.
+function LeagueInsightsScreen({ scope }: { scope: SportScope }) {
+  const sport = scope.league as Exclude<LeagueScope, "all_combat_sports">;
+  const sportGroup = scope.group;
   const [filters, setFilters] = useState<InsightFilters>({
     country: "all",
     course: "all",
@@ -363,8 +313,7 @@ export function InsightsScreen() {
     () => getInsightCourseOptions(metadata, filters.country),
     [filters.country, metadata],
   );
-  const leagueOptions = LEAGUE_OPTIONS_BY_GROUP[sportGroup];
-  const selectedLeagueLabel = leagueOptions.find((option) => option.value === sport)?.label ?? "All";
+  const selectedLeagueLabel = getLeagueLabel(sport);
   const selectedCountryLabel = metadata?.countryOptions
     .find((option) => option.value === filters.country)
     ?.label ?? "All countries";
@@ -1175,25 +1124,6 @@ export function InsightsScreen() {
     };
   }, [sport]);
 
-  function updateSportGroup(value: string) {
-    if (isInsightSportGroup(value)) {
-      setSportGroup(value);
-      setSport(DEFAULT_LEAGUE_BY_GROUP[value]);
-      setOddsResult(null);
-      setOddsErrorMessage(null);
-      setErrorMessage(null);
-    }
-  }
-
-  function updateSport(value: string) {
-    if (isInsightSport(value)) {
-      setSport(value);
-      setOddsResult(null);
-      setOddsErrorMessage(null);
-      setErrorMessage(null);
-    }
-  }
-
   /**
    * Applies a country scope and clears the track scope so filters stay compatible.
    */
@@ -1274,22 +1204,8 @@ export function InsightsScreen() {
       <Text style={styles.trackNote}>
         {sport === "racing"
           ? `Showing ${selectedCountryLabel} · ${selectedTrackLabel} · ${selectedDisciplineLabel}`
-          : `Showing ${getSportGroupLabel(sportGroup)} · ${selectedLeagueLabel} insight signals`}
+          : `Showing ${SPORT_OPTIONS.find((option) => option.value === sportGroup)?.label} · ${selectedLeagueLabel} insight signals`}
       </Text>
-
-      <FilterGroup
-        label="Sport"
-        onChange={updateSportGroup}
-        options={SPORT_GROUP_OPTIONS}
-        selectedValue={sportGroup}
-      />
-
-      <FilterGroup
-        label={sportGroup === "tennis" ? "Competition" : "League"}
-        onChange={updateSport}
-        options={leagueOptions}
-        selectedValue={sport}
-      />
 
       {sport === "racing" ? (
         <>
@@ -1559,20 +1475,6 @@ function isRaceCode(value: string): value is "horse" | "harness" | "greyhound" {
 
 function stripCountrySuffix(label: string, country: string) {
   return label.replace(new RegExp(`\\s\\(${country}\\)$`), "");
-}
-
-function getSportGroupLabel(value: InsightSportGroup) {
-  return SPORT_GROUP_OPTIONS.find((option) => option.value === value)?.label ?? "Sport";
-}
-
-function isInsightSportGroup(value: string): value is InsightSportGroup {
-  return SPORT_GROUP_OPTIONS.some((option) => option.value === value);
-}
-
-function isInsightSport(value: string): value is InsightSport {
-  return Object.values(LEAGUE_OPTIONS_BY_GROUP).some((options) => (
-    options.some((option) => option.value === value)
-  ));
 }
 
 type InsightModeTabsProps = {

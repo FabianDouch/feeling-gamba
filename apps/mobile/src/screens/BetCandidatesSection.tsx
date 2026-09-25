@@ -167,6 +167,7 @@ const PREDICTION_FINALISATION_BUFFER_MS = 15 * 60 * 1000;
 type BetCandidateStatus = "empty" | "error" | "loading" | "supabase" | "unconfigured";
 
 type BetCandidatesSectionProps = {
+  allowAccountActions?: boolean;
   bundesligaSinglePredictionModelKey?: BundesligaSinglePredictionModelKey;
   eplSinglePredictionModelKey?: EplSinglePredictionModelKey;
   laligaSinglePredictionModelKey?: LaligaSinglePredictionModelKey;
@@ -222,6 +223,7 @@ const WIN_PERCENTAGE_MULTI_MODEL_LABELS: Partial<Record<WinPercentageMultiModelK
  * Shows current source-backed candidate races for one selected prediction family.
  */
 export function BetCandidatesSection({
+  allowAccountActions = true,
   bundesligaSinglePredictionModelKey = BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   eplSinglePredictionModelKey = EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   laligaSinglePredictionModelKey = LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
@@ -1431,42 +1433,42 @@ export function BetCandidatesSection({
             </Text>
           ) : predictionSport === "ucl" ? (
             <Text style={styles.sectionNote}>
-              {uclPredictions?.totalCount ?? 0} stored UCL predictions · source date{" "}
+              {uclPredictions?.totalCount ?? 0} upcoming UCL predictions · source date{" "}
               {uclPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "epl" ? (
             <Text style={styles.sectionNote}>
-              {eplPredictions?.totalCount ?? 0} stored EPL predictions · source date{" "}
+              {eplPredictions?.totalCount ?? 0} upcoming EPL predictions · source date{" "}
               {eplPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "nationsleague" ? (
             <Text style={styles.sectionNote}>
-              {nationsleaguePredictions?.totalCount ?? 0} stored UEFA Nations League predictions · source date{" "}
+              {nationsleaguePredictions?.totalCount ?? 0} upcoming UEFA Nations League predictions · source date{" "}
               {nationsleaguePredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "laliga" ? (
             <Text style={styles.sectionNote}>
-              {laligaPredictions?.totalCount ?? 0} stored La Liga predictions · source date{" "}
+              {laligaPredictions?.totalCount ?? 0} upcoming La Liga predictions · source date{" "}
               {laligaPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "bundesliga" ? (
             <Text style={styles.sectionNote}>
-              {bundesligaPredictions?.totalCount ?? 0} stored Bundesliga predictions · source date{" "}
+              {bundesligaPredictions?.totalCount ?? 0} upcoming Bundesliga predictions · source date{" "}
               {bundesligaPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "seriea" ? (
             <Text style={styles.sectionNote}>
-              {serieaPredictions?.totalCount ?? 0} stored Serie A predictions · source date{" "}
+              {serieaPredictions?.totalCount ?? 0} upcoming Serie A predictions · source date{" "}
               {serieaPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "ligue1" ? (
             <Text style={styles.sectionNote}>
-              {ligue1Predictions?.totalCount ?? 0} stored Ligue 1 predictions · source date{" "}
+              {ligue1Predictions?.totalCount ?? 0} upcoming Ligue 1 predictions · source date{" "}
               {ligue1Predictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "mls" ? (
             <Text style={styles.sectionNote}>
-              {mlsPredictions?.totalCount ?? 0} stored MLS predictions · source date{" "}
+              {mlsPredictions?.totalCount ?? 0} upcoming MLS predictions · source date{" "}
               {mlsPredictions?.sourceDate ?? "not generated"}
             </Text>
           ) : predictionSport === "ufc" ? (
@@ -1548,6 +1550,7 @@ export function BetCandidatesSection({
             </>
           )}
           <PredictionFinalisationNotice status={finalisationStatus} />
+          {allowAccountActions ? <>
           <CurrentPredictionLockControl
             disabledReason={currentPredictionLockDisabledReason}
             isLocked={Boolean(lockedCurrentPrediction)}
@@ -1561,6 +1564,7 @@ export function BetCandidatesSection({
             onToggle={toggleCurrentPredictionNotification}
             userIsSignedIn={Boolean(user)}
           />
+          </> : <Text style={styles.sectionNote}>Open this league for model locks and notification settings.</Text>}
         </View>
         {predictionSport === "nrl" || predictionSport === "npc" || predictionSport === "ucl" || predictionSport === "epl" || (predictionSport === "laliga" || predictionSport === "nationsleague") || predictionSport === "bundesliga" || predictionSport === "seriea" || predictionSport === "ligue1" || predictionSport === "mls" ? null : (
           <Pressable
@@ -1781,6 +1785,7 @@ export function BetCandidatesSection({
           <UfcWinPercentageMultiRecommendationsPanel
             isSigningIn={isSigningIn}
             lockedMultis={lockedUfcMultis}
+            locksEnabled={allowAccountActions}
             lockingCardId={lockingUfcCardId}
             modelKey={winPercentageMultiModelKey}
             modelRun={activeUfcModelRun}
@@ -2097,12 +2102,18 @@ function TeamSportSinglePredictionsPanel({
     return <StateMessage text={errorMessage} />;
   }
 
-  if (!result || !result.predictions.length) {
-    return <StateMessage text={`No ${sportLabel} single predictions have been generated yet.`} />;
-  }
-
+  const isFootball = result && "checkedAt" in result;
+  if (!result) return <StateMessage text={`No ${sportLabel} single predictions have been generated yet.`} />;
   return (
     <View style={styles.candidateGroup}>
+      {isFootball ? <Text style={styles.sectionNote}>
+        {result.sourceDate ? `Source date ${result.sourceDate} · generated ${result.generatedAt ? formatDateTime(result.generatedAt) : "unknown"}` : "No model run available."}
+        {result.stale ? " · Older than 24 hours; prices may have changed." : ""}
+        {` · Upcoming eligibility checked ${formatDateTime(result.checkedAt)}`}
+      </Text> : null}
+      {!result.predictions.length ? <StateMessage text={isFootball && result.sourceDate
+        ? `No upcoming ${sportLabel} predictions in the latest model run.`
+        : `No ${sportLabel} single predictions have been generated yet.`} /> : null}
       {result.predictions.map((prediction) => (
         <TeamSportSinglePredictionCard key={prediction.id} prediction={prediction} />
       ))}

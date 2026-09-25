@@ -531,28 +531,20 @@ Main content:
   TAB `Match Betting` favourites; try-scorer rows use official RU7 player/team
   try rates and current TAB `Anytime Try Scorer` prices where entrants match
   official player IDs.
-- UCL Singles -> Win % reads `ucl_single_predictions` and shows fixed-win
-  percentage and goalscorer percentage model tabs. Fixed-win rows use current
-  TAB `Match Result` favourites and treat draws as settled losses; goalscorer
-  rows use UEFA player/team goal rates and captured TAB `Anytime Goalscorer`
-  prices where entrants match official player IDs.
-- EPL Singles -> Win % reads `epl_single_predictions` and shows fixed-win
-  percentage and goalscorer percentage model tabs. Fixed-win rows use current
-  TAB `Match Result` favourites and treat draws as settled losses; goalscorer
-  rows use Premier League official goal rates, squad-roster proxy appearance
-  rows, and captured TAB `Anytime Goalscorer` prices where entrants match
-  official player IDs.
-- La Liga Singles -> Win % reads `laliga_single_predictions` and shows
-  fixed-win percentage and goalscorer percentage model tabs. Fixed-win rows use
-  current TAB `Match Result` favourites and treat draws as settled losses;
-  goalscorer rows stay empty until source-backed official scorer events are
-  validated.
+- All ten football leagues and All Football use Singles → Win % → the same six
+  variations as Prediction History: Price gap, Market odds, and Price gap +
+  context, each with $2.00–$2.49 and $2.00+ versions. Read frozen forward forecasts
+  from `football_price_gap_predictions`; show only upcoming pending matches with
+  the selected model's probability. Missing learned probabilities show an
+  insufficient-history count. Multis remains explicitly unavailable.
 - Percentage multi recommendation panel shown under Racing -> Multis -> Win %.
   Win-rate models use 65% favourite price-bucket win rate and 35%
   starter-count win rate. The placing model uses 65% favourite price-bucket
   place rate and 35% starter-count place rate, excludes races without an active
   place market, and does not show place-multi payout odds.
-- Sport selector for current Predictions: Racing, NRL, NPC, UCL, EPL, La Liga, PFL, or UFC.
+- Shared Sport → League selector for current Predictions, using the same seven
+  sport groups and league catalogue as Insights. Unconnected readers are explicit
+  unavailable states.
 - Racing prediction type selector: Cash, Win %, and Placing.
 - Racing Win percentage type selector with the original `multi_win_percentage_blend_v1`
   two-to-five leg model and stricter `multi_win_percentage_60_plus_v1` and
@@ -702,10 +694,9 @@ Purpose:
 
 Main content:
 
-- Shared prediction hierarchy matching the current Predictions page: Level 1
-  sport tabs (`Racing`, `NRL`, `NPC`, `UCL`, `EPL`, `PFL`, `UFC`); Level 2 format tabs (`Singles`, `Multis`);
-  Level 3 signal tabs (`Cash`, `Win %`, `Placing`); Level 4 model tabs filtered
-  to the selected sport/format/signal.
+- Shared prediction hierarchy matching the current Predictions page: Sport →
+  League → Singles/Multis → model type (Cash, Win %, Placing) → model variation.
+  Scope is shared with Insights; only supported readers render model content.
 - Model selectors sit beneath the sport/format/signal controls: cash prediction
   model tabs for Racing Cash singles and multis, the `60%+ win singles` and
   `65%+ win singles` models for Racing Singles -> Win %, percentage multi model
@@ -767,8 +758,8 @@ Main content:
   where available. Signed-in users with locked racing percentage multis see
   their own locked multi outcomes for the selected model/date range; users with
   no matching locks continue to see the shared tracked recommendation history.
-- Prediction History sport selector: Racing, NRL, NPC, UCL, EPL, La Liga, PFL, or UFC. UFC uses the same
-  hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
+- Prediction History shares Insights' Sport → League selector. UFC uses the same
+  prediction hierarchy and has stored history under Singles -> Win % and Multis -> Win %.
   UFC Singles -> Win % reads `ufc_single_predictions` through UFC-specific
   summary/history RPCs and hides racing-only country, discipline, and
   racecourse filters. UFC single history includes the bucket models plus the
@@ -780,8 +771,8 @@ Main content:
   show explicit empty states until NRL prediction reconciliation and history
   RPCs are added. NPC history branches show explicit empty states until official
   NPC result settlement and history RPCs are added. Football history now shows
-  the prospective price-gap trial described below; existing current single-model
-  history remains unimplemented.
+  historical backtests and the prospective forecasts used by current recommendations,
+  described below; legacy league single-model history remains unimplemented.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 2-5 for the
@@ -1091,7 +1082,7 @@ flowchart LR
 
 ## Football experimental history (2026-09-25)
 
-Football Prediction History follows the shared hierarchy: league → Singles/Multis
+Football Prediction History follows the shared hierarchy: Sport → League → Singles/Multis
 → Win % → model variation. Win % is the supported football model type. Singles
 has six variations: Price gap, Market odds, and Price gap + context, each with
 `$2.00–$2.49` and `$2.00+` versions. The default is Price gap $2.00–$2.49.
@@ -1099,9 +1090,10 @@ Multis shows an explicit empty state until a football multi model exists.
 This replaces the initial custom trial dashboard, which bypassed the shared
 format/type controls and displayed all three models together.
 
-All football is a league-level option alongside the shared sport/league tabs.
-It includes Europa League and EFL Cup even though they do not have standalone
-Prediction sport tabs. Existing current recommendations are unchanged.
+All Football is a league-level option beneath the Football sport tab.
+It includes Europa League and EFL Cup, which also have individual League choices.
+Current recommendations use these same six variations and frozen forward records;
+the existing forecast generation rules are unchanged.
 
 History source sits below model selection. Historical backtest is the default,
 reconstructed from collected prices/results; Forward trial is a separate option.
@@ -1119,3 +1111,44 @@ a reconstruction cutoff as a forecast actually saved in the past. Exact and
 cumulative cohorts overlap and are never combined. The YAML reflects this
 hierarchy; rendered information architecture HTML/PNG/JPEG outputs need
 regeneration.
+
+## Shared Sport → League navigation (2026-09-25)
+
+The shared navigation gives Insights, Predictions and Prediction
+History shared Sport → League controls above each view's existing controls.
+Predictions and history continue with Singles/Multis → Model type → Variation.
+Session scope persists across these views and remembers a league per sport.
+Racing retains Cash/Win %/Placing; other connected prediction leagues expose only
+Win %. Football format and model variation survive combined/individual drilldowns.
+UFC/PFL remember their own format/model independently within each view, including
+when opened from or returned to All Combat Sports; a first visit uses the valid
+league default. The header and scope controls wrap on narrow screens.
+All Football is the default football scope; football history supports all ten
+leagues and the combined read. Rugby all-sport scopes use their sole existing
+league. Racing retains Racing as its league option.
+
+This supersedes the flat mixed sport/league selector and history-only All football
+tab. All Football combines frozen upcoming forecasts across all ten configured
+leagues, ordered by kickoff and labelled with league, variation, selected-model
+win probability, captured favourite odds, price gap and forecast/price timestamps.
+Individual leagues use the same reader. Recommendations expire at kickoff while
+open. Lists page by 20 after complete source reads; failures show a retry state
+rather than partial totals. The default variation is Price gap $2.00–$2.49.
+
+On 2026-09-25 the user requested promoting all six tracked variations to current
+recommendations, replacing the former Fixed win % / Goal scorer % controls.
+Forecasts remain frozen within 24 hours of kickoff using a snapshot at most one
+hour old. Null learned probabilities never fall back to market probabilities.
+No qualifying forecasts and insufficient training history have distinct messages.
+Historical reconstructions never appear as upcoming recommendations. These
+variations do not yet have account locks or notification subscriptions.
+
+All Combat Sports shows labelled UFC/PFL sections in all three views, preserving
+their model controls, denominators and same-card multis. Combined combat prediction
+views offer league links for account actions. PFL history and Tennis/NFL
+prediction views remain unavailable. Historical Data/Promos remain outside scope.
+
+See the [shared navigation plan](../branches/features/shared-sport-league-navigation/shared-sport-league-navigation_plan.md)
+for the catalogue, aggregation rules, source gaps and completed validation.
+Canonical YAML reflects the shared and combined views; rendered information architecture
+HTML/PNG/JPEG outputs require regeneration.

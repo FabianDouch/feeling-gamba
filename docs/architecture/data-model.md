@@ -2435,3 +2435,24 @@ atomically replace the derived dataset after a complete source read. Constraints
 roll back invalid replacements; a transaction lock and build-time check prevent
 older concurrent builds overwriting newer ones. Source corrections can rebuild
 historical predictions, which remain separate from immutable forward forecasts.
+
+## Current football combined read contract (2026-09-25)
+
+Current football recommendations now read `football_price_gap_predictions` for
+all ten leagues and individual league scopes, replacing the legacy current
+`*_single_predictions` screen readers. The latter tables and adapters remain
+available to legacy consumers; no schema or generation contract changes.
+
+Each of the six variation keys maps to exactly one cohort and probability column:
+`gap_*` to `bucket_probability`, `market_*` to `market_probability`, and
+`context_*` to `rich_probability`; `_exact` selects `exact_2`, `_plus` selects
+`plus_2`. Only pending, unstarted forward forecasts with a finite selected
+probability in [0,1] become recommendations. A null learned probability remains
+unavailable, never a baseline fallback. Exact and cumulative cohorts overlap.
+
+Reads page fully in stable kickoff/ID order before 20-row UI pagination, preserve
+league/forecast/variation identity, and fail visibly if any page fails. Forecast
+and price capture timestamps remain visible. Eligibility is rechecked while the
+screen is open; kickoff removes a card. Historic backtest rows are never current
+recommendations. These variations use existing forward settlement/history and
+have no account-lock or notification mapping.

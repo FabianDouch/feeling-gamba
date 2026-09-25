@@ -1,4 +1,5 @@
 import { publicEnv } from "../config/env";
+import { readFootballForecasts, type FootballForecast } from "./footballForecastReader";
 
 export type FootballHistoryMode = "backtest" | "forward";
 export type FootballTrialCohort = "exact_2" | "plus_2";
@@ -68,17 +69,34 @@ export async function fetchFootballTrial(league: string | null, cohort: Football
   return { summary: summary as TrialSummary, entries: entries as TrialEntry[], total };
 }
 
+// Current recommendations read only genuine forward forecasts, never the historical reconstruction table.
+export async function fetchUpcomingFootballForecasts(league: string | null, cohort: FootballTrialCohort) {
+  if (league && !FOOTBALL_TRIAL_LEAGUES.includes(league)) throw new Error("Unknown football league.");
+  const checkedAt = new Date().toISOString();
+  const entries = await readFootballForecasts(league, cohort, async (params) => {
+    const response = await requestTrial(`/rest/v1/football_price_gap_predictions?${new URLSearchParams(params)}`);
+    return await response.json() as FootballForecast[];
+  }, Date.parse(checkedAt));
+  return { entries: entries.filter((entry) => FOOTBALL_TRIAL_LEAGUES.includes(entry.league)), checkedAt };
+}
+
 // Match other public sporting read models without relying on a signed-in account.
 async function requestTrial(path: string, body?: Record<string, string | null>) {
   if (!publicEnv.supabaseUrl || !publicEnv.supabaseKey) throw new Error("Supabase is not configured.");
-  const response = await fetch(new URL(path, publicEnv.supabaseUrl).toString(), {
-    method: body ? "POST" : "GET",
-    headers: { apikey: publicEnv.supabaseKey, authorization: `Bearer ${publicEnv.supabaseKey}`,
-      "content-type": "application/json", prefer: "count=exact" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  let response: Response;
+  try {
+    response = await fetch(new URL(path, publicEnv.supabaseUrl).toString(), {
+      signal: controller.signal,
+      method: body ? "POST" : "GET",
+      headers: { apikey: publicEnv.supabaseKey, authorization: `Bearer ${publicEnv.supabaseKey}`,
+        "content-type": "application/json", prefer: "count=exact" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } finally { clearTimeout(timeout); }
   if (!response.ok) throw new Error(response.status === 404
-    ? "This football history view has not been activated on this database yet."
+    ? "Football forecast storage has not been activated on this database yet."
     : `Unable to load football trial (HTTP ${response.status}).`);
   return response;
 }

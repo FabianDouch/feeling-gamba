@@ -444,8 +444,11 @@ pooled performance, and do not optimise the cutoff against trial outcomes.
 
 Draws are losses for team wins. Excluded/unknown results do not enter scoring or
 returns. Notional $1 stake/return/net/ROI applies to the shared favourite cohort,
-not distinct model trading strategies. No staking, threshold betting policy,
-recommendation promotion, or profit claim is introduced.
+not distinct model trading strategies. On 2026-09-25 the user requested all six
+model/cohort variations as current recommendations. All qualifying upcoming
+favourites with an available selected probability are shown; this adds no
+probability threshold, staking policy or profit claim. Historical backtests
+remain research records, never prospective recommendations.
 
 User clarification on 2026-09-25 supersedes the initial forward-only scope:
 Prediction History defaults to Historical backtest using retained pre-match

@@ -1,3 +1,4 @@
+import type { PredictionLeague } from "../navigation/sportLeagueScope";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -9,81 +10,23 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "bundesliga" | "epl" | "laliga" | "nationsleague" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
+export type PredictionSport = PredictionLeague;
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
-const PREDICTION_SPORT_OPTIONS = [
-  {
-    label: "Racing",
-    value: "racing",
-  },
-  {
-    label: "NRL",
-    value: "nrl",
-  },
-  {
-    label: "NPC",
-    value: "npc",
-  },
-  {
-    label: "UCL",
-    value: "ucl",
-  },
-  {
-    label: "EPL",
-    value: "epl",
-  },
-  {
-    label: "La Liga",
-    value: "laliga",
-  },
-  {
-    label: "UEFA Nations League",
-    value: "nationsleague",
-  },
-  {
-    label: "Bundesliga",
-    value: "bundesliga",
-  },
-  {
-    label: "Serie A",
-    value: "seriea",
-  },
-  {
-    label: "Ligue 1",
-    value: "ligue1",
-  },
-  {
-    label: "MLS",
-    value: "mls",
-  },
-  {
-    label: "PFL",
-    value: "pfl",
-  },
-  {
-    label: "UFC",
-    value: "ufc",
-  },
-] satisfies {
-  label: string;
-  value: PredictionSport;
-}[];
-
 const PREDICTION_TYPE_OPTIONS = [
   {
-    description: "Current ranked favourites from the selected cash-return model.",
+    description: "Ranked favourites from the selected cash-return model.",
     label: "Cash",
     value: "cash",
   },
   {
-    description: "Current signals built from historical win percentages.",
+    description: "Signals built from historical win percentages.",
     label: "Win %",
     value: "win_percentage",
   },
   {
-    description: "Current favourite place signals using country-aware place depth.",
+    description: "Favourite place signals using country-aware place depth.",
     label: "Placing",
     value: "placing",
   },
@@ -121,50 +64,10 @@ type PredictionModelTabsProps<TModelKey extends string = PredictionModelKey> = {
   onChange: (value: TModelKey) => void;
 };
 
-type PredictionSportTabsProps = {
-  allFootball?: { selected: boolean; onSelect: () => void };
-  activeSport: PredictionSport;
-  onChange: (value: PredictionSport) => void;
-};
-
 type PredictionFormatTabsProps = {
   activeFormat: PredictionFormat;
   onChange: (value: PredictionFormat) => void;
 };
-
-/**
- * Switches prediction screens between sport-specific current and historical models.
- */
-export function PredictionSportTabs({ activeSport, allFootball, onChange }: PredictionSportTabsProps) {
-  return (
-    <View style={styles.typeTabs}>
-      {PREDICTION_SPORT_OPTIONS.map((option) => {
-        const isActive = option.value === activeSport && !allFootball?.selected;
-
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            aria-selected={isActive}
-            onPress={() => onChange(option.value)}
-            style={[styles.sportTab, isActive ? styles.typeTabActive : null]}
-          >
-            <Text style={[styles.typeTabText, isActive ? styles.typeTabTextActive : null]}>
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-      {allFootball ? (
-        <Pressable accessibilityRole="tab" accessibilityState={{ selected: allFootball.selected }} aria-selected={allFootball.selected}
-          onPress={allFootball.onSelect} style={[styles.sportTab, allFootball.selected ? styles.typeTabActive : null]}>
-          <Text style={[styles.typeTabText, allFootball.selected ? styles.typeTabTextActive : null]}>All football</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
 
 /**
  * Switches between single-runner and multi-runner prediction formats.
@@ -236,18 +139,20 @@ export function PredictionModelTabs<TModelKey extends string = PredictionModelKe
 }
 
 type PredictionTypeTabsProps = {
+  sport?: PredictionSport;
   options?: { label: string; description: string; value: CurrentPredictionType }[];
   activeType: CurrentPredictionType;
   onChange: (value: CurrentPredictionType) => void;
 };
 
 /**
- * Separates current prediction families so cash, win-rate, and placing signals do not blend together.
+ * Show only supported signal families, consistently across individual leagues and combined views.
  */
-export function PredictionTypeTabs({ activeType, onChange, options = PREDICTION_TYPE_OPTIONS }: PredictionTypeTabsProps) {
+export function PredictionTypeTabs({ activeType, onChange, options, sport }: PredictionTypeTabsProps) {
+  const supportedOptions = options ?? PREDICTION_TYPE_OPTIONS.filter((option) => !sport || sport === "racing" || option.value === "win_percentage");
   return (
     <View style={styles.typeTabs}>
-      {options.map((option) => {
+      {supportedOptions.map((option) => {
         const isActive = option.value === activeType;
 
         return (

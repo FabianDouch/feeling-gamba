@@ -13,6 +13,14 @@ purpose:
     - Developer/operator monitoring ingestion quality.
 
 scope:
+  shared_sport_league_navigation:
+    views: [insights, predictions, prediction_history]
+    owner: AppShell session state with remembered league per sport
+    catalogue: apps/mobile/src/navigation/sportLeagueScope.ts
+    routing: All ten football leagues and All Football use the six shared price-gap history variations from frozen forward forecasts. Combat combines labelled UFC/PFL sections with real league/model identities.
+    football_reads: Complete 1000-row paging of pending future football_price_gap_predictions by cohort and optional league, 20-second request timeout, visible whole-read failures, kickoff ordering and 20-row UI pages. Selected-model null probabilities abstain; cards expire at kickoff.
+    account_actions: Combined combat views link to individual leagues. Football price-gap variations have no lock or notification identities.
+    selection_state: Prediction views retain football format/model-variation state and separate UFC/PFL format/model selections above the combined/individual render branches; request and account state remain league scoped.
   race_day_coverage:
     mode: all_domestic
     countries:
@@ -114,8 +122,8 @@ systems:
         - Show UEFA Champions League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from UCL-specific Supabase tables.
         - Show English Premier League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from EPL-specific Supabase tables.
         - Show Spanish La Liga as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from La Liga-specific Supabase tables.
-        - Show UEFA Nations League in Football Insights and current Singles Win % predictions using nationsleague_* tables, TAB Match Result snapshots and official UEFA competition 2014 regulation-time results; include its aggregates in All Football and expose historical football price-gap backtests and the separate forward trial in Prediction History.
-        - Show German Bundesliga, Italian Serie A, French Ligue 1, MLS, UEFA Europa League, and EFL Cup as first-class Insights football sports, reading price-backed current-market and public fixture/result rows from sport-specific Supabase tables; Predictions remain exposed for Bundesliga, Serie A, Ligue 1, and MLS while Europa League and EFL Cup prediction tables are scaffolded pending data volume.
+        - Show UEFA Nations League in Football Insights and Insights using nationsleague_* tables and six current Singles Win % variations using football_price_gap_predictions, TAB Match Result snapshots and official UEFA competition 2014 regulation-time results; include its aggregates in All Football and expose historical football price-gap backtests and the separate forward trial in Prediction History.
+        - Show German Bundesliga, Italian Serie A, French Ligue 1, MLS, UEFA Europa League, and EFL Cup as first-class Insights football sports, reading price-backed current-market and public fixture/result rows from sport-specific Supabase tables; all ten football leagues share current price-gap recommendations when eligible forward forecasts exist.
         - Show Tennis as a first-class fixed-win-only Insights sport, reading TAB Match Betting snapshots and Odds API ATP/WTA tournament settlement rows from Tennis-specific Supabase tables.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
         - Let signed-in users maintain a manual balance ledger with initial balance, deposits, withdrawals, manual updates, and a balance history line graph.
@@ -585,7 +593,7 @@ data_model:
       purpose: Separately labelled historical reconstruction using captured odds and earlier results with a fixed 24-hour assumed availability delay; atomic service-role rebuilds and separate public summary.
       key: experiment, league, source_event_id, cohort
     football_price_gap_predictions:
-      purpose: Immutable prospective football favourite forecasts for exact 2.00-2.49 and cumulative 2.00+ gaps, with market, bucket and richer probabilities plus separately reconciled outcomes.
+      purpose: Source for current six-variation football recommendations and separate Forward trial history; immutable prospective favourite forecasts for exact 2.00-2.49 and cumulative 2.00+ gaps, with market, bucket and richer probabilities plus separately reconciled outcomes.
       key: experiment, league, source_event_id, cohort
     get_football_price_gap_summary:
       purpose: Server-side full-cohort counts, notional returns, probability scores, paired market baselines and calibration bins for the football trial.

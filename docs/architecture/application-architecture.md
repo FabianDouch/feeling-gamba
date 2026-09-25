@@ -927,8 +927,8 @@ Football Prediction History now exposes a separate prospective experiment throug
 `football_price_gap_predictions` and `get_football_price_gap_summary`. Scheduled
 `refresh-football-price-gap-trial.mjs` reads the existing ten league market/result
 tables, freezes pre-kickoff baseline/bucket/richer-model probabilities, and
-reconciles source-backed outcomes. Existing league single-model history remains
-unimplemented; this trial is distinct from those current recommendations.
+reconciles source-backed outcomes. The six model/cohort variations now also power current football recommendations;
+legacy league single-model history remains unimplemented.
 
 The database guards immutable forecast inputs, while an invoker RPC computes
 full-cohort evaluation metrics and paired baselines. Public app clients only
@@ -943,10 +943,50 @@ through an atomic service-role replacement RPC. Its summary RPC and the forward
 summary never mix their denominators. Canonical YAML reflects both modes;
 rendered architecture outputs still require regeneration.
 
-Football history uses the shared league → Singles/Multis → Win % → variation
+Football history uses the shared Sport → League → Singles/Multis → Win % → variation
 controls. The six singles variations pair baseline/bucket/context probabilities
 with exact/cumulative cohorts; the public read adapter selects one model's metrics
 and row probability without changing storage or summary contracts. All football
 is a league-level scope, Historical backtest/Forward trial is a secondary source
 filter, and Multis remains explicitly unavailable. Calibration is collapsed by
 default and cohort returns remain labelled separately from selected-model scores.
+
+## Shared navigation and combined reads (2026-09-25)
+
+`AppShell` owns session sport/league selection for Insights, Predictions and
+Prediction History. `sportLeagueScope.ts` provides the single catalogue,
+remembered per-sport league state, and existing prediction-reader capabilities;
+`SportLeagueSelector` renders both labelled rows once above the selected view.
+League changes cannot route unsupported choices to an arbitrary existing league.
+Existing rugby all scopes resolve to their sole NRL/NPC reader. Football history
+passes a real league key or null for all leagues to its existing read adapter.
+Football format/model-variation selection lives above combined and individual
+render branches. Each prediction view separately owns UFC/PFL format/model state
+through `useCombatPredictionSelections`, preserving a chosen model when opening
+or returning from a combined section. Scoped candidate/account state is still
+reset when the league changes. Shared type controls expose only supported model
+families; changing a view does not mix its local models with another view.
+
+`CombinedFootballPredictions` now handles all football scopes through the six
+shared history variations. `fetchUpcomingFootballForecasts` reads only
+`football_price_gap_predictions` with experiment/cohort/optional league filters,
+pending outcomes, stable 1000-row paging and a 20-second request timeout. A failed
+page fails the entire read. The pure `footballForecastReader` preserves IDs,
+orders by kickoff, validates prospective capture timing, and selects exactly the
+requested probability. Null probabilities remain unavailable; no model fallback.
+The UI pages 20 recommendations, shows capture dates/prices and unavailable counts,
+and rechecks kickoff eligibility every second. Refresh re-reads saved forecasts.
+
+The existing `supabaseFootballPredictions.ts` and eight legacy league adapters
+remain for legacy consumers; their Fixed win % / Goal scorer % models are no
+longer the current football screen's model choices. No forecast generation or
+schema change is needed. Forecast records continue into Forward trial history,
+while historical backtests remain separate. The new variations have no account
+lock or notification identities.
+
+All Combat Sports reuses separate UFC/PFL sections in each view. It never merges
+their model scores, history denominators or fight-card multis. Combined combat prediction
+views link to individual league scopes for lock/notification actions; existing
+individual identities and cutoff logic remain authoritative. No database/schema
+or ingestion changes are part of these slices. Canonical YAML is updated;
+rendered architecture outputs need regeneration.

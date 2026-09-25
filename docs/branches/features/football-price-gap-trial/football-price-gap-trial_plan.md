@@ -26,7 +26,8 @@ mutable per event, and historical result publication times are unavailable.
 - Show samples, unavailable model counts, Brier/log loss, paired market baseline,
   calibration bins, and notional $1 returns. All models assess the same favourite;
   returns describe the cohort, not separate model trading strategies.
-- New records stay outside current recommendations and notifications.
+- Updated 2026-09-25 by user request: expose all six model/cohort variations in
+  current football recommendations. Notifications remain outside this change.
 
 ## Implementation checkpoints
 
@@ -114,3 +115,30 @@ retained source data is corrected. No past records are labelled live forecasts.
   forward separation, the multi empty state and sibling sport controls, with no
   page errors. Desktop/mobile screenshots were reviewed. Final mobile typecheck passed.
 - Shared tabs expose their selected state on web as well as native accessibility.
+
+
+## Current recommendations (2026-09-25)
+
+- User requested recommending the same six tracked variations across All Football
+  and all ten league scopes, replacing the former Fixed win % / Goal scorer % UI.
+- One coherent slice implemented: shared variation controls, frozen-forward reader,
+  selected-probability recommendations, missing-history states, tests and docs.
+- Keep existing 24-hour entry window, one-hour source freshness, immutable forecast
+  probabilities, model sample thresholds and separate historical backtests.
+- Show league, selected probability, captured odds/gap and capture/forecast times.
+  Expire cards at kickoff; page 20 after complete reads. Failed pages show retry.
+- Null learned probabilities abstain and show an insufficient-history count.
+  Models do not silently substitute market probabilities or pool overlapping cohorts.
+- Multis, locks and notifications are not implemented for these variations.
+- Validation: all 22 mobile tests, mobile typecheck and lint passed. Browser checks
+  passed for all ten live league scopes and six controls, then browser-only fixtures
+  exercised model probabilities, abstention, pagination, drilldown retention,
+  multis, failed reads/retry and 1280/390/320px layouts with no page errors.
+- Existing generator dry run read 216 results and found zero eligible new forward
+  forecasts. Public app reads likewise showed no saved upcoming forecasts. No
+  database write is needed for an empty generation run; no past forecast was invented.
+- Source diagnostics found 75 upcoming snapshots, none within 24 hours of the
+  check. The earliest retained kickoff is 2026-10-09 18:30 UTC; this describes
+  stored source coverage, not a verified external fixture schedule.
+- No schema, ingestion rule, commit, push or release deployment change. Canonical
+  architecture/IA YAML updated; rendered diagrams still require regeneration.

@@ -1,3 +1,10 @@
+import { useCombatPredictionSelections, type CombatSelectionControl } from "../navigation/useCombatPredictionSelections";
+import type { FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
+import { CombinedFootballPredictions } from "./CombinedFootballPredictions";
+import { CombatLeagueSections } from "./CombatLeagueSections";
+import type { FootballModelFamily } from "../data/footballPredictionReader";
+import { getPredictionLeague, type SportScope } from "../navigation/sportLeagueScope";
+import { UnavailableSportScope } from "./UnavailableSportScope";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -45,49 +52,40 @@ import {
 import {
   UCL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   UCL_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type UclSinglePredictionModelKey,
 } from "../data/supabaseUclPredictions";
 import {
   EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   EPL_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type EplSinglePredictionModelKey,
 } from "../data/supabaseEplPredictions";
 import {
   LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type LaligaSinglePredictionModelKey,
 } from "../data/supabaseLaligaPredictions";
 
 import {
   NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type NationsleagueSinglePredictionModelKey,
 } from "../data/supabaseNationsleaguePredictions";
 import {
   BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type BundesligaSinglePredictionModelKey,
 } from "../data/supabaseBundesligaPredictions";
 import {
   SERIEA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type SerieaSinglePredictionModelKey,
 } from "../data/supabaseSerieaPredictions";
 import {
   LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type Ligue1SinglePredictionModelKey,
 } from "../data/supabaseLigue1Predictions";
 import {
   MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   MLS_SINGLE_PREDICTION_MODEL_VARIANTS,
-  type MlsSinglePredictionModelKey,
 } from "../data/supabaseMlsPredictions";
 import { BetCandidatesSection } from "./BetCandidatesSection";
 import {
   PredictionFormatTabs,
   PredictionModelTabs,
-  PredictionSportTabs,
   PredictionTypeTabs,
   WinPercentageMultiModelTabs,
   type CurrentPredictionType,
@@ -133,7 +131,24 @@ const PFL_WIN_PERCENTAGE_SINGLE_KEYS = [
 /**
  * Shows current pre-race prediction signals without mixing in settled history.
  */
-export function PredictionsScreen() {
+export function PredictionsScreen({ scope, onSelectLeague }: { scope: SportScope; onSelectLeague: (league: string) => void }) {
+  const combatControl = useCombatPredictionSelections();
+  const [footballFormat, setFootballFormat] = useState<PredictionFormat>("singles");
+  const [footballVariation, setFootballVariation] = useState<FootballHistoryVariationKey>("gap_exact");
+  const sport = getPredictionLeague(scope);
+  if (scope.group === "football") return <CombinedFootballPredictions
+    format={footballFormat} onFormatChange={setFootballFormat} league={scope.league === "all_football" ? null : scope.league} variationKey={footballVariation} onVariationChange={setFootballVariation} onSelectLeague={onSelectLeague} />;
+  if (scope.league === "all_combat_sports") return <CombatLeagueSections onSelectLeague={onSelectLeague}
+    renderLeague={(league) => <LeaguePredictionsScreen activeSport={league} combat={combatControl(league)} allowAccountActions={false} />} />;
+  if (!sport) return <UnavailableSportScope scope={scope} view="predictions" />;
+  return <LeaguePredictionsScreen key={scope.group === "combat_sports" ? sport : scope.group} activeSport={sport} combat={sport === "ufc" || sport === "pfl" ? combatControl(sport) : undefined} />;
+}
+
+// Reuse the existing league readers with a real league identity and valid defaults for its model family.
+function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win_percentage", onFootballModelChange, allowAccountActions = true, combat, footballFormat, onFootballFormatChange }: {
+  combat?: CombatSelectionControl; footballFormat?: PredictionFormat; onFootballFormatChange?: (format: PredictionFormat) => void;
+  activeSport: PredictionSport; footballModelFamily?: FootballModelFamily; onFootballModelChange?: (family: FootballModelFamily) => void; allowAccountActions?: boolean;
+}) {
   const [activeCashModelKey, setActiveCashModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
@@ -141,28 +156,42 @@ export function PredictionsScreen() {
     useState<NrlSinglePredictionModelKey>(NRL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeNpcSingleModelKey, setActiveNpcSingleModelKey] =
     useState<NpcSinglePredictionModelKey>(NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeUclSingleModelKey, setActiveUclSingleModelKey] =
-    useState<UclSinglePredictionModelKey>(UCL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeEplSingleModelKey, setActiveEplSingleModelKey] =
-    useState<EplSinglePredictionModelKey>(EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeLaligaSingleModelKey, setActiveLaligaSingleModelKey] =
-    useState<LaligaSinglePredictionModelKey>(LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+  const activeUclSingleModelKey = UCL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? UCL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeEplSingleModelKey = EPL_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeLaligaSingleModelKey = LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
 
-  const [activeNationsleagueSingleModelKey, setActiveNationsleagueSingleModelKey] =
-    useState<NationsleagueSinglePredictionModelKey>(NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeBundesligaSingleModelKey, setActiveBundesligaSingleModelKey] =
-    useState<BundesligaSinglePredictionModelKey>(BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeSerieaSingleModelKey, setActiveSerieaSingleModelKey] =
-    useState<SerieaSinglePredictionModelKey>(SERIEA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeLigue1SingleModelKey, setActiveLigue1SingleModelKey] =
-    useState<Ligue1SinglePredictionModelKey>(LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeMlsSingleModelKey, setActiveMlsSingleModelKey] =
-    useState<MlsSinglePredictionModelKey>(MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
-  const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
-  const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
-  const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
-  const [activeWinPercentageMultiModelKey, setActiveWinPercentageMultiModelKey] =
-    useState<WinPercentageMultiModelKey>(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  const activeNationsleagueSingleModelKey = NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeBundesligaSingleModelKey = BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeSerieaSingleModelKey = SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? SERIEA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeLigue1SingleModelKey = LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const activeMlsSingleModelKey = MLS_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key.endsWith(`_${footballModelFamily}_single_v1`))?.key ?? MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY;
+  const [localFormat, setLocalFormat] = useState<PredictionFormat>(activeSport === "ufc" || activeSport === "pfl" ? "multis" : "singles");
+  const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>(activeSport === "racing" ? "cash" : "win_percentage");
+  const [localWinPercentageMultiModelKey, setLocalWinPercentageMultiModelKey] =
+    useState<WinPercentageMultiModelKey>(activeSport === "ufc" ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY : activeSport === "pfl" ? PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY : WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  const activeFormat = combat?.selection.format ?? footballFormat ?? localFormat;
+  const activeWinPercentageMultiModelKey = combat?.selection.model ?? localWinPercentageMultiModelKey;
+
+  // Preserve the active family's format when drilling between combined and individual league views.
+  function setActiveFormat(value: PredictionFormat) {
+    if (combat) combat.update((current) => ({ ...current, format: value }));
+    else if (onFootballFormatChange) onFootballFormatChange(value);
+    else setLocalFormat(value);
+  }
+
+  // Keep combat model identity attached to its league, while racing retains its own local models.
+  function setActiveWinPercentageMultiModelKey(value: WinPercentageMultiModelKey) {
+    if (combat) combat.update((current) => ({ ...current, model: value }));
+    else setLocalWinPercentageMultiModelKey(value);
+  }
   const [multiBetModelKeys, setMultiBetModelKeys] = useState<PredictionModelKey[]>([]);
   const activeSingleWinPercentageModel = WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS.find((model) =>
     model.key === activeSingleWinPercentageModelKey)
@@ -225,42 +254,12 @@ export function PredictionsScreen() {
     activeWinPercentageModel,
   });
 
-  function updateSport(value: PredictionSport) {
-    setActiveSport(value);
-
-    if (value === "ufc") {
-      setActiveFormat("multis");
-      setActivePredictionType("win_percentage");
-      setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      return;
-    }
-
-    if (
-      value === "nrl"
-      || value === "npc"
-      || value === "ucl"
-      || value === "epl"
-      || (value === "laliga" || value === "nationsleague")
-      || value === "bundesliga"
-      || value === "seriea"
-      || value === "ligue1"
-      || value === "mls"
-    ) {
-      setActiveFormat("singles");
-      setActivePredictionType("win_percentage");
-      return;
-    }
-
-    if (value === "pfl") {
-      setActiveFormat("multis");
-      setActivePredictionType("win_percentage");
-      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      return;
-    }
-
-    setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  // Carry the same football model family into another league using that league's real model key.
+  function updateFootballModel(value: string) {
+    onFootballModelChange?.(value.includes("_goal_scorer_") ? "goal_scorer_percentage" : "fixed_win_percentage");
   }
 
+  // Switch format while selecting compatible combat-sport model defaults.
   function updateFormat(value: PredictionFormat) {
     setActiveFormat(value);
 
@@ -327,17 +326,13 @@ export function PredictionsScreen() {
         Review today's current candidates by sport and prediction type. Settled outcomes and history live in Prediction History.
       </Text>
 
-      <PredictionSportTabs
-        activeSport={activeSport}
-        onChange={updateSport}
-      />
-
       <PredictionFormatTabs
         activeFormat={activeFormat}
         onChange={updateFormat}
       />
 
       <PredictionTypeTabs
+        sport={activeSport}
         activeType={activePredictionType}
         onChange={updatePredictionType}
       />
@@ -379,7 +374,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeUclSingleModelKey}
           models={UCL_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveUclSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -387,7 +382,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeEplSingleModelKey}
           models={EPL_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveEplSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -395,7 +390,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeNationsleagueSingleModelKey}
           models={NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveNationsleagueSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -403,7 +398,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeLaligaSingleModelKey}
           models={LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveLaligaSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -411,7 +406,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeBundesligaSingleModelKey}
           models={BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveBundesligaSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -419,7 +414,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeSerieaSingleModelKey}
           models={SERIEA_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveSerieaSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -427,7 +422,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeLigue1SingleModelKey}
           models={LIGUE1_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveLigue1SingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -435,7 +430,7 @@ export function PredictionsScreen() {
         <PredictionModelTabs
           activeModelKey={activeMlsSingleModelKey}
           models={MLS_SINGLE_PREDICTION_MODEL_VARIANTS}
-          onChange={setActiveMlsSingleModelKey}
+          onChange={updateFootballModel}
         />
       ) : null}
 
@@ -506,6 +501,8 @@ export function PredictionsScreen() {
       ) : null}
 
       <BetCandidatesSection
+        key={activeSport}
+        allowAccountActions={allowAccountActions}
         npcSinglePredictionModelKey={activeNpcSingleModelKey}
         bundesligaSinglePredictionModelKey={activeBundesligaSingleModelKey}
         eplSinglePredictionModelKey={activeEplSingleModelKey}

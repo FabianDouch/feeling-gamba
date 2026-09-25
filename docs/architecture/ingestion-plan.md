@@ -2412,8 +2412,11 @@ not publish a partial-league model. Insert-ignore and a database guard preserve
 forecasts during retries. Source corrections reconcile outcomes separately.
 
 Disable the trial workflow to stop collection; retained history remains readable.
-The forward job does not backfill past forecasts. New current candidates/notifications are not
-created by this experiment. Trial timing and model rules are in statistics-plan.md.
+The forward job does not backfill past forecasts. Current football recommendations
+now read its pending upcoming forecasts through the six shared model/cohort
+variations. No additional job or schema change is required; locks and notifications
+remain unavailable for these variations. Trial timing and model rules are in
+statistics-plan.md.
 
 ### Historical football replay (2026-09-25 correction)
 

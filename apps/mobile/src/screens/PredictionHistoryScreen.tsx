@@ -1,8 +1,11 @@
+import { useCombatPredictionSelections, type CombatSelectionControl } from "../navigation/useCombatPredictionSelections";
+import { CombatLeagueSections } from "./CombatLeagueSections";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { FootballPriceGapHistory } from "./FootballPriceGapHistory";
-import { FOOTBALL_HISTORY_VARIATIONS, FOOTBALL_TRIAL_LEAGUES, type FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
+import { FootballPredictionHistoryScreen } from "./FootballPredictionHistoryScreen";
+import { getPredictionLeague, type SportScope } from "../navigation/sportLeagueScope";
+import { UnavailableSportScope } from "./UnavailableSportScope";
 
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
@@ -56,7 +59,6 @@ import {
 import {
   PredictionFormatTabs,
   PredictionModelTabs,
-  PredictionSportTabs,
   PredictionTypeTabs,
   WinPercentageMultiModelTabs,
   type CurrentPredictionType,
@@ -136,7 +138,20 @@ const PFL_WIN_PERCENTAGE_SINGLE_KEYS = [
 /**
  * Shows stored prediction outcomes and history without current-day candidate panels.
  */
-export function PredictionHistoryScreen() {
+export function PredictionHistoryScreen({ scope, onSelectLeague }: { scope: SportScope; onSelectLeague: (league: string) => void }) {
+  const combatControl = useCombatPredictionSelections();
+  if (scope.league === "all_combat_sports") return <CombatLeagueSections onSelectLeague={onSelectLeague}
+    renderLeague={(league) => <LeaguePredictionHistoryScreen activeSport={league} combat={combatControl(league)} />} />;
+  if (scope.group === "football") {
+    return <FootballPredictionHistoryScreen league={scope.league === "all_football" ? null : scope.league} />;
+  }
+  const sport = getPredictionLeague(scope);
+  if (!sport) return <UnavailableSportScope scope={scope} view="history" />;
+  return <LeaguePredictionHistoryScreen key={sport} activeSport={sport} combat={sport === "ufc" || sport === "pfl" ? combatControl(sport) : undefined} />;
+}
+
+// Isolate league-specific history state so scope changes cannot retain another league's rows or model defaults.
+function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: PredictionSport; combat?: CombatSelectionControl }) {
   const [filters, setFilters] = useState<PredictionHistoryFilters>({
     country: "all",
     course: "all",
@@ -149,19 +164,30 @@ export function PredictionHistoryScreen() {
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
-  const [allFootball, setAllFootball] = useState(false);
-  const [footballVariationKey, setFootballVariationKey] = useState<FootballHistoryVariationKey>("gap_exact");
-  const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
-  const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
-  const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
+  const [localFormat, setLocalFormat] = useState<PredictionFormat>(activeSport === "ufc" || activeSport === "pfl" ? "multis" : "singles");
+  const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>(activeSport === "racing" ? "cash" : "win_percentage");
   const [multiBetModelKeys, setMultiBetModelKeys] = useState<PredictionModelKey[]>([]);
   const [performanceFilters, setPerformanceFilters] = useState<PredictionPerformanceFilters>({
     discipline: "all",
     rank: "all",
     signal: "all",
   });
-  const [activeWinPercentageMultiModelKey, setActiveWinPercentageMultiModelKey] =
-    useState<WinPercentageMultiModelKey>(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  const [localWinPercentageMultiModelKey, setLocalWinPercentageMultiModelKey] =
+    useState<WinPercentageMultiModelKey>(activeSport === "ufc" ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY : activeSport === "pfl" ? PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY : WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  const activeFormat = combat?.selection.format ?? localFormat;
+  const activeWinPercentageMultiModelKey = combat?.selection.model ?? localWinPercentageMultiModelKey;
+
+  // Retain the selected combat format across all-sport and individual league history views.
+  function setActiveFormat(value: PredictionFormat) {
+    if (combat) combat.update((current) => ({ ...current, format: value }));
+    else setLocalFormat(value);
+  }
+
+  // Preserve the actual league model identity when returning to a combined history section.
+  function setActiveWinPercentageMultiModelKey(value: WinPercentageMultiModelKey) {
+    if (combat) combat.update((current) => ({ ...current, model: value }));
+    else setLocalWinPercentageMultiModelKey(value);
+  }
   const [winPercentageMultiRankFilter, setWinPercentageMultiRankFilter] =
     useState<WinPercentageMultiRankFilter>("all");
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
@@ -195,14 +221,7 @@ export function PredictionHistoryScreen() {
     activePredictionType,
     activeSport,
   });
-  const isFootballHistory = FOOTBALL_TRIAL_LEAGUES.includes(activeSport);
-  const footballVariation = FOOTBALL_HISTORY_VARIATIONS.find((variation) => variation.key === footballVariationKey)
-    ?? FOOTBALL_HISTORY_VARIATIONS[0];
-  const activeModelInfo = isFootballHistory ? activeFormat === "singles" ? footballVariation : {
-    label: "Football Win % multis",
-    description: "No football multi model is available yet.",
-    detail: "Football history currently contains individual match predictions only.",
-  } : getActiveHistoryModelInfo({
+  const activeModelInfo = getActiveHistoryModelInfo({
     activeCashModel,
     activeFormat,
     activePredictionType,
@@ -383,22 +402,6 @@ export function PredictionHistoryScreen() {
   ]);
 
   useEffect(() => {
-    if (activeSport === "ufc") {
-      if (!isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
-        setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      }
-    } else if (activeSport === "pfl") {
-      if (!isPflPercentageMultiModel(activeWinPercentageMultiModelKey)) {
-        setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      }
-    } else if (isUfcPercentageMultiModel(activeWinPercentageMultiModelKey)) {
-      setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
-    } else if (isPflPercentageMultiModel(activeWinPercentageMultiModelKey)) {
-      setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
-    }
-  }, [activeSport, activeWinPercentageMultiModelKey]);
-
-  useEffect(() => {
     const allowedRanks = new Set(winPercentageMultiRankOptions.map((option) => option.value));
 
     if (!allowedRanks.has(winPercentageMultiRankFilter)) {
@@ -406,40 +409,7 @@ export function PredictionHistoryScreen() {
     }
   }, [winPercentageMultiRankFilter, winPercentageMultiRankOptions]);
 
-  // Keep sport/league selection and its supported format/type defaults in sync.
-  function updateSport(value: PredictionSport) {
-    setAllFootball(false);
-    setActiveSport(value);
-
-    if (value === "ufc") {
-      setActiveFormat("multis");
-      setActivePredictionType("win_percentage");
-      setActiveWinPercentageMultiModelKey(UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      return;
-    }
-
-    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || (value === "laliga" || value === "nationsleague") || value === "bundesliga" || value === "seriea" || value === "ligue1" || value === "mls") {
-      setActiveFormat("singles");
-      setActivePredictionType("win_percentage");
-      return;
-    }
-
-    if (value === "pfl") {
-      setActiveFormat("multis");
-      setActivePredictionType("win_percentage");
-      setActiveWinPercentageMultiModelKey(PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY);
-      return;
-    }
-
-    setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
-  }
-
-  // All football is a league-level scope sharing the supported football model hierarchy.
-  function selectAllFootball() {
-    updateSport("epl");
-    setAllFootball(true);
-  }
-
+  // Switch format while selecting compatible combat-sport model defaults.
   function updateFormat(value: PredictionFormat) {
     setActiveFormat(value);
 
@@ -542,30 +512,16 @@ export function PredictionHistoryScreen() {
       <Text style={styles.sectionIntro}>
         Historical prediction outcomes split by type. These stats are stored results, not today's candidate list.
       </Text>
-      <PredictionSportTabs
-        activeSport={activeSport}
-        allFootball={{ selected: allFootball, onSelect: selectAllFootball }}
-        onChange={updateSport}
-      />
-
       <PredictionFormatTabs
         activeFormat={activeFormat}
         onChange={updateFormat}
       />
 
       <PredictionTypeTabs
+        sport={activeSport}
         activeType={activePredictionType}
         onChange={updatePredictionType}
-        options={isFootballHistory ? [{ label: "Win %", value: "win_percentage", description: "Probability-based fixed-win models." }] : undefined}
       />
-
-      {isFootballHistory && activeFormat === "singles" ? (
-        <PredictionModelTabs
-          activeModelKey={footballVariationKey}
-          models={FOOTBALL_HISTORY_VARIATIONS}
-          onChange={setFootballVariationKey}
-        />
-      ) : null}
 
       {activeSport === "racing" && activePredictionType === "cash" ? (
         <PredictionModelTabs
@@ -644,13 +600,7 @@ export function PredictionHistoryScreen() {
         <Text style={styles.modelInfoDetail}>{activeModelInfo.detail}</Text>
       </View>
 
-      {isFootballHistory ? (
-        activeFormat === "singles" ? (
-          <FootballPriceGapHistory league={allFootball ? null : activeSport} variation={footballVariation} />
-        ) : (
-          <StateMessage text="No football multi prediction history is available yet. Choose Singles to review individual match predictions." />
-        )
-      ) : unsupportedHistoryMessage ? (
+      {unsupportedHistoryMessage ? (
         <StateMessage text={unsupportedHistoryMessage} />
       ) : (
         <>

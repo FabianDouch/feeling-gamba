@@ -1,3 +1,5 @@
+import { SportLeagueSelector } from "./components/SportLeagueSelector";
+import { createSportScopeState, getSportScope, selectLeagueScope } from "./navigation/sportLeagueScope";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -26,7 +28,14 @@ export function App() {
   );
 }
 
+// Keep navigation scope in the shell so changing pages preserves the selected sport and league.
 function AppShell() {
+  const [sportScopeState, setSportScopeState] = useState(createSportScopeState);
+  const sportScope = getSportScope(sportScopeState);
+  // Drill down from a combined section through the same validated shared league selection.
+  function openLeague(league: string) {
+    setSportScopeState((current) => selectLeagueScope(current, league));
+  }
   const [activePage, setActivePage] = useState<AppPage>("insights");
   const [recommendationsRefreshSignal, setRecommendationsRefreshSignal] = useState(0);
   const { user } = useAuth();
@@ -123,14 +132,18 @@ function AppShell() {
             />
           </View>
 
+          {["insights", "predictions", "predictionHistory"].includes(activePage) ? (
+            <SportLeagueSelector state={sportScopeState} onChange={setSportScopeState} />
+          ) : null}
+
           {activePage === "insights" ? (
-            <InsightsScreen />
+            <InsightsScreen scope={sportScope} onSelectLeague={openLeague} />
           ) : activePage === "recommendations" ? (
             <RecommendationsScreen refreshSignal={recommendationsRefreshSignal} />
           ) : activePage === "predictions" ? (
-            <PredictionsScreen />
+            <PredictionsScreen scope={sportScope} onSelectLeague={openLeague} />
           ) : activePage === "predictionHistory" ? (
-            <PredictionHistoryScreen />
+            <PredictionHistoryScreen scope={sportScope} onSelectLeague={openLeague} />
           ) : activePage === "account" ? (
             <AccountScreen />
           ) : (
@@ -163,6 +176,7 @@ function PageNavButton({ active, label, onPress }: PageNavButtonProps) {
 
 const styles = StyleSheet.create({
   appHeader: {
+    flexWrap: "wrap",
     alignItems: "flex-start",
     flexDirection: "row",
     gap: 14,
