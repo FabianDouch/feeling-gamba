@@ -1,5 +1,9 @@
 # Application Architecture
 
+Updated 2026-09-23: the canonical YAML adds UEFA Nations League with TAB markets,
+official UEFA regulation-time results, Football insights and current singles.
+Rendered architecture outputs need regeneration before being treated as current.
+
 ## Context
 
 This diagram describes the MVP architecture for Feeling Gamba. The canonical
@@ -789,10 +793,9 @@ repo-root public Supabase env values before Metro bundles the app.
   models based on each fight's strongest UFC bucket signal. NRL prediction
   history is intentionally empty until NRL single prediction reconciliation and
   history RPCs are added. NPC prediction history is intentionally empty until
-  official NPC result refresh and NPC history RPCs are added. UCL prediction
-  history is intentionally empty until UCL prediction reconciliation and history
-  RPCs are added. EPL prediction history is intentionally empty until EPL
-  prediction reconciliation and history RPCs are added. PFL prediction
+  official NPC result refresh and NPC history RPCs are added. Football history now
+  exposes historical price-gap backtests and the separate prospective trial described below.
+  Existing UCL/EPL current single-model history remains unimplemented. PFL prediction
   history is also intentionally empty:
   the app shows the same PFL Win % tab shape as UFC, but does not read UFC
   tables because they do not distinguish PFL rows.
@@ -917,3 +920,33 @@ A future `architecture-diagram-renderer` skill should read
 `application-architecture.yaml`, validate the expected sections, and generate
 Mermaid, SVG, or PNG outputs. The skill should treat the YAML as the source of
 truth and any rendered diagram as generated output.
+
+## Football prospective price-gap trial (2026-09-25)
+
+Football Prediction History now exposes a separate prospective experiment through
+`football_price_gap_predictions` and `get_football_price_gap_summary`. Scheduled
+`refresh-football-price-gap-trial.mjs` reads the existing ten league market/result
+tables, freezes pre-kickoff baseline/bucket/richer-model probabilities, and
+reconciles source-backed outcomes. Existing league single-model history remains
+unimplemented; this trial is distinct from those current recommendations.
+
+The database guards immutable forecast inputs, while an invoker RPC computes
+full-cohort evaluation metrics and paired baselines. Public app clients only
+read. No current-prediction locks, notifications or wagering flows are added.
+The YAML includes the trial; rendered architecture HTML/PDF/PNG/JPEG outputs
+need regeneration after this change.
+
+The 2026-09-25 user clarification adds historical reconstruction as the default
+football history mode. `backfill-football-price-gap-history.mjs` reads existing
+priced results and writes a separate `football_price_gap_backtests` read model
+through an atomic service-role replacement RPC. Its summary RPC and the forward
+summary never mix their denominators. Canonical YAML reflects both modes;
+rendered architecture outputs still require regeneration.
+
+Football history uses the shared league → Singles/Multis → Win % → variation
+controls. The six singles variations pair baseline/bucket/context probabilities
+with exact/cumulative cohorts; the public read adapter selects one model's metrics
+and row probability without changing storage or summary contracts. All football
+is a league-level scope, Historical backtest/Forward trial is a secondary source
+filter, and Multis remains explicitly unavailable. Calibration is collapsed by
+default and cohort returns remain labelled separately from selected-model scores.

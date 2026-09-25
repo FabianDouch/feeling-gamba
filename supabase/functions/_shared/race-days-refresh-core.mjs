@@ -1922,15 +1922,48 @@ async function selectRowsByIn(supabase, table, column, values, select, extraSear
 }
 
 /**
+ * Adds an optional inclusive source-date window to a PostgREST search object.
+ */
+function addDateWindowSearch(search, column, { from = null, to = null } = {}) {
+  if (from && to) {
+    return {
+      ...search,
+      and: `(${column}.gte.${from},${column}.lte.${to})`,
+    };
+  }
+
+  if (from) {
+    return {
+      ...search,
+      [column]: `gte.${from}`,
+    };
+  }
+
+  if (to) {
+    return {
+      ...search,
+      [column]: `lte.${to}`,
+    };
+  }
+
+  return search;
+}
+
+/**
  * Matches stored Betcha candidate predictions to refreshed race results and stores outcomes.
  */
-export async function reconcilePromotionPredictionOutcomesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, config }) {
+export async function reconcilePromotionPredictionOutcomesFromSupabase({
+  batchSize = DEFAULT_BATCH_SIZE,
+  config,
+  from = null,
+  to = null,
+}) {
   const supabase = createSupabaseRestClient(config, batchSize);
-  const predictions = await supabase.selectAll("promotion_predictions", {
+  const predictions = await supabase.selectAll("promotion_predictions", addDateWindowSearch({
     order: "advertised_start.asc",
     outcome_status: "neq.settled",
     source: "eq.betcha",
-  }, [
+  }, "source_date", { from, to }), [
     "id",
     "advertised_start",
     "prediction_model",
@@ -2156,13 +2189,18 @@ function createMultiBetRecommendationOutcomePatch(recommendation, legPatches) {
 /**
  * Matches stored multi-bet recommendation legs to refreshed race results and stores cash-only outcomes.
  */
-export async function reconcileMultiBetRecommendationOutcomesFromSupabase({ batchSize = DEFAULT_BATCH_SIZE, config }) {
+export async function reconcileMultiBetRecommendationOutcomesFromSupabase({
+  batchSize = DEFAULT_BATCH_SIZE,
+  config,
+  from = null,
+  to = null,
+}) {
   const supabase = createSupabaseRestClient(config, batchSize);
-  const recommendations = await supabase.selectAll("multi_bet_recommendations", {
+  const recommendations = await supabase.selectAll("multi_bet_recommendations", addDateWindowSearch({
     order: "source_date.asc,predicted_at.asc",
     outcome_status: "neq.settled",
     source: "eq.betcha",
-  }, [
+  }, "source_date", { from, to }), [
     "id",
     "combined_fixed_win_price",
     "leg_count",
@@ -2279,8 +2317,23 @@ function getUfcLegEventDateCandidates(leg) {
   return dates;
 }
 
+const UFC_FIGHTER_NAME_ALIASES = new Map([
+  ["doo ho choi", "dooho choi"],
+  ["joo sang yoo", "joosang yoo"],
+  ["patricio freire", "patricio pitbull"],
+]);
+
+/**
+ * Normalizes UFC fighter names across Betcha and result-source spelling or nickname differences.
+ */
+function normalizeUfcFighterName(value) {
+  const normalizedName = normalizeName(value);
+
+  return UFC_FIGHTER_NAME_ALIASES.get(normalizedName) ?? normalizedName;
+}
+
 function getUfcFightPairKey(leftName, rightName) {
-  return [normalizeName(leftName), normalizeName(rightName)].sort().join("|");
+  return [normalizeUfcFighterName(leftName), normalizeUfcFighterName(rightName)].sort().join("|");
 }
 
 function createUfcFightLookup(fights) {
@@ -2335,7 +2388,8 @@ function createUfcMultiLegOutcomePatch(leg, fight) {
     };
   }
 
-  const predictedFighterWon = normalizeName(fight.winner_name) === normalizeName(leg.predicted_fighter_name);
+  const predictedFighterWon =
+    normalizeUfcFighterName(fight.winner_name) === normalizeUfcFighterName(leg.predicted_fighter_name);
   const winReturn = predictedFighterWon ? Number(leg.predicted_fixed_win_price ?? 0) : 0;
 
   return {
@@ -2390,7 +2444,8 @@ function createUfcSinglePredictionOutcomePatch(prediction, fight) {
     };
   }
 
-  const predictedFighterWon = normalizeName(fight.winner_name) === normalizeName(prediction.predicted_fighter_name);
+  const predictedFighterWon =
+    normalizeUfcFighterName(fight.winner_name) === normalizeUfcFighterName(prediction.predicted_fighter_name);
   const winReturn = predictedFighterWon ? Number(prediction.predicted_fixed_win_price ?? 0) : 0;
 
   return {
@@ -3010,12 +3065,16 @@ export async function runRaceDaysAndInsightsRefresh({
       ? await reconcilePromotionPredictionOutcomesFromSupabase({
           batchSize,
           config,
+          from: window.from,
+          to: window.to,
         })
       : null;
     const multiBetRecommendationOutcomeWrite = shouldReconcileMultiBetRecommendationOutcomes
       ? await reconcileMultiBetRecommendationOutcomesFromSupabase({
           batchSize,
           config,
+          from: window.from,
+          to: window.to,
         })
       : null;
     const ufcMultiRecommendationOutcomeWrite = shouldReconcileUfcMultiRecommendationOutcomes

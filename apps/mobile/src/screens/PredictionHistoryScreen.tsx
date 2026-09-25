@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { FootballPriceGapHistory } from "./FootballPriceGapHistory";
+import { FOOTBALL_HISTORY_VARIATIONS, FOOTBALL_TRIAL_LEAGUES, type FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
+
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { RaceDisciplineIcon } from "../components/RaceDisciplineIcon";
 import {
@@ -146,6 +149,8 @@ export function PredictionHistoryScreen() {
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
+  const [allFootball, setAllFootball] = useState(false);
+  const [footballVariationKey, setFootballVariationKey] = useState<FootballHistoryVariationKey>("gap_exact");
   const [activeSport, setActiveSport] = useState<PredictionSport>("racing");
   const [activeFormat, setActiveFormat] = useState<PredictionFormat>("singles");
   const [activePredictionType, setActivePredictionType] = useState<CurrentPredictionType>("cash");
@@ -190,7 +195,14 @@ export function PredictionHistoryScreen() {
     activePredictionType,
     activeSport,
   });
-  const activeModelInfo = getActiveHistoryModelInfo({
+  const isFootballHistory = FOOTBALL_TRIAL_LEAGUES.includes(activeSport);
+  const footballVariation = FOOTBALL_HISTORY_VARIATIONS.find((variation) => variation.key === footballVariationKey)
+    ?? FOOTBALL_HISTORY_VARIATIONS[0];
+  const activeModelInfo = isFootballHistory ? activeFormat === "singles" ? footballVariation : {
+    label: "Football Win % multis",
+    description: "No football multi model is available yet.",
+    detail: "Football history currently contains individual match predictions only.",
+  } : getActiveHistoryModelInfo({
     activeCashModel,
     activeFormat,
     activePredictionType,
@@ -334,7 +346,7 @@ export function PredictionHistoryScreen() {
           performanceFilters,
           winPercentageMultiRankFilter,
           activeWinPercentageMultiModelKey,
-          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" || activeSport === "epl" || activeSport === "laliga" || activeSport === "bundesliga" || activeSport === "seriea" || activeSport === "ligue1" || activeSport === "mls" ? undefined : activeSport,
+          activeSport === "nrl" || activeSport === "npc" || activeSport === "ucl" || activeSport === "epl" || (activeSport === "laliga" || activeSport === "nationsleague") || activeSport === "bundesliga" || activeSport === "seriea" || activeSport === "ligue1" || activeSport === "mls" ? undefined : activeSport,
           activeFormat as PredictionStatsFormat,
         );
 
@@ -394,7 +406,9 @@ export function PredictionHistoryScreen() {
     }
   }, [winPercentageMultiRankFilter, winPercentageMultiRankOptions]);
 
+  // Keep sport/league selection and its supported format/type defaults in sync.
   function updateSport(value: PredictionSport) {
+    setAllFootball(false);
     setActiveSport(value);
 
     if (value === "ufc") {
@@ -404,7 +418,7 @@ export function PredictionHistoryScreen() {
       return;
     }
 
-    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || value === "laliga" || value === "bundesliga" || value === "seriea" || value === "ligue1" || value === "mls") {
+    if (value === "nrl" || value === "npc" || value === "ucl" || value === "epl" || (value === "laliga" || value === "nationsleague") || value === "bundesliga" || value === "seriea" || value === "ligue1" || value === "mls") {
       setActiveFormat("singles");
       setActivePredictionType("win_percentage");
       return;
@@ -418,6 +432,12 @@ export function PredictionHistoryScreen() {
     }
 
     setActiveWinPercentageMultiModelKey(WIN_PERCENTAGE_MULTI_MODEL_KEY);
+  }
+
+  // All football is a league-level scope sharing the supported football model hierarchy.
+  function selectAllFootball() {
+    updateSport("epl");
+    setAllFootball(true);
   }
 
   function updateFormat(value: PredictionFormat) {
@@ -524,6 +544,7 @@ export function PredictionHistoryScreen() {
       </Text>
       <PredictionSportTabs
         activeSport={activeSport}
+        allFootball={{ selected: allFootball, onSelect: selectAllFootball }}
         onChange={updateSport}
       />
 
@@ -535,7 +556,16 @@ export function PredictionHistoryScreen() {
       <PredictionTypeTabs
         activeType={activePredictionType}
         onChange={updatePredictionType}
+        options={isFootballHistory ? [{ label: "Win %", value: "win_percentage", description: "Probability-based fixed-win models." }] : undefined}
       />
+
+      {isFootballHistory && activeFormat === "singles" ? (
+        <PredictionModelTabs
+          activeModelKey={footballVariationKey}
+          models={FOOTBALL_HISTORY_VARIATIONS}
+          onChange={setFootballVariationKey}
+        />
+      ) : null}
 
       {activeSport === "racing" && activePredictionType === "cash" ? (
         <PredictionModelTabs
@@ -614,7 +644,13 @@ export function PredictionHistoryScreen() {
         <Text style={styles.modelInfoDetail}>{activeModelInfo.detail}</Text>
       </View>
 
-      {unsupportedHistoryMessage ? (
+      {isFootballHistory ? (
+        activeFormat === "singles" ? (
+          <FootballPriceGapHistory league={allFootball ? null : activeSport} variation={footballVariation} />
+        ) : (
+          <StateMessage text="No football multi prediction history is available yet. Choose Singles to review individual match predictions." />
+        )
+      ) : unsupportedHistoryMessage ? (
         <StateMessage text={unsupportedHistoryMessage} />
       ) : (
         <>
@@ -1239,6 +1275,10 @@ function getUnsupportedHistoryBranchMessage({
     return "La Liga prediction history is not tracked yet. Current La Liga single predictions are available on the Predictions tab.";
   }
 
+  if (activeSport === "nationsleague") {
+    return "UEFA Nations League prediction history is not tracked yet. Current UEFA Nations League single predictions are available on the Predictions tab.";
+  }
+
   if (activeSport === "bundesliga") {
     return "Bundesliga prediction history is not tracked yet. Current Bundesliga single predictions are available on the Predictions tab.";
   }
@@ -1375,6 +1415,10 @@ function getPredictionSportLabel(sport: PredictionSport) {
 
   if (sport === "laliga") {
     return "La Liga";
+  }
+
+  if (sport === "nationsleague") {
+    return "UEFA Nations League";
   }
 
   if (sport === "bundesliga") {

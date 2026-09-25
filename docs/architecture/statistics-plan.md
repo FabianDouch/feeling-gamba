@@ -407,3 +407,54 @@ Planned checks:
   time, or ingestion date?
 - For historical backfills, should return calculations prefer retained pre-race
   fixed-win price or final official win dividend when both are available?
+
+## Football price-gap trial (2026-09-25)
+
+Experiment `football_price_gap_v1` compares three favourite-win
+probabilities: normalised three-way TAB implied probability, pooled historical
+cohort win rate, and ridge logistic calibration with the market logit as offset.
+The richer model includes log favourite odds, log(1+gap)/3, normalised draw
+probability, home-favourite flag and league indicators. All weights use L2=0.1;
+600 fixed gradient steps of size 0.1 avoid tuning on trial outcomes.
+
+Exact `$2.00–$2.49` and cumulative `$2.00+` opponent-minus-favourite gaps are
+separate overlapping cohorts. One frozen forecast per league/event/cohort uses
+the first eligible snapshot no older than one hour, within 24 hours of kickoff.
+Equal team prices, missing three-way prices, and post-kickoff captures are
+ineligible for the forward trial. Historical reconstruction is stored separately
+and does not apply the forward 24-hour entry window or one-hour freshness limit.
+
+Training uses one captured pre-kickoff priced result per league/event, observed
+before generation, with kickoff before generation and consistent settled
+home/away/draw flags. Historical source result rows are read as currently known;
+they have no reliable first-settlement timestamp, so reconstructed backtests
+cannot claim verified historical result availability. Price snapshots may be closer to kickoff than trial captures;
+prospective evaluation must test this timing mismatch. Historical rate requires
+30 cohort matches. Rich calibration requires 100 matches, 10 wins and 10 losses,
+and 20 matches from the target league. These fixed experimental thresholds
+control availability, not statistical significance. Sparse models abstain and
+retain their sample counts; there is no silently substituted market forecast.
+
+Evaluate forward forecasts and reconstructed backtests separately. Report Brier score and clipped
+binary log loss (epsilon 1e-6), with a paired market baseline on the exact same
+scored matches, plus 10-percentage-point calibration bins and denominators.
+Learned models may train on earlier settled trial matches as collection expands;
+previous probabilities remain immutable. Compare league results before interpreting
+pooled performance, and do not optimise the cutoff against trial outcomes.
+
+Draws are losses for team wins. Excluded/unknown results do not enter scoring or
+returns. Notional $1 stake/return/net/ROI applies to the shared favourite cohort,
+not distinct model trading strategies. No staking, threshold betting policy,
+recommendation promotion, or profit claim is introduced.
+
+User clarification on 2026-09-25 supersedes the initial forward-only scope:
+Prediction History defaults to Historical backtest using retained pre-match
+prices and already settled results. `replayFootballHistory` reconstructs each
+match at its stored capture timestamp. Training includes only distinct events
+whose kickoff was at least 24 hours before that timestamp; target, simultaneous
+and future results cannot train their own forecast. The fixed embargo is an
+availability assumption, not evidence that a particular result was published
+then. Current source corrections and incomplete captured history remain limits.
+Retain method `chronological_24h_embargo_v1`, cutoff, build timestamp, latest
+training kickoff, samples, weights and digest. Null learned probabilities stay
+null; the baseline and historical favourite returns remain visible during warm-up.

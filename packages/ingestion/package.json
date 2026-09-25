@@ -128,7 +128,16 @@
     "typecheck": "tsc --noEmit",
     "validate:nrl-try-scorer-markets": "node scripts/validate-nrl-try-scorer-markets.mjs",
     "lint": "eslint . --ext .ts",
-    "test": "echo \"No ingestion tests configured yet\""
+    "test": "node --test test/*.test.mjs",
+    "refresh:nationsleague-current-markets": "node scripts/refresh-nationsleague-current-markets.mjs",
+    "refresh:nationsleague-market-snapshots": "node scripts/refresh-nationsleague-market-snapshots-from-tab.mjs",
+    "refresh:nationsleague-results-and-insights": "node scripts/refresh-nationsleague-results-and-insights.mjs",
+    "refresh:nationsleague-results": "node scripts/refresh-nationsleague-results-from-official.mjs",
+    "rebuild:nationsleague-insight-aggregates": "node scripts/rebuild-nationsleague-insight-aggregates.mjs",
+    "generate:nationsleague-single-predictions": "node scripts/generate-nationsleague-single-predictions.mjs",
+    "reconcile:nationsleague-fixed-win": "node scripts/reconcile-nationsleague-fixed-win-snapshots.mjs",
+    "refresh:football-price-gap-trial": "node scripts/refresh-football-price-gap-trial.mjs",
+    "backfill:football-price-gap-history": "node scripts/backfill-football-price-gap-history.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.8.1",

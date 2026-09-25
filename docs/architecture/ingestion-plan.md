@@ -206,6 +206,33 @@ Touchdown scorer, player prop, line, total, and same-game TAB markets remain
 reserved until an official player-event settlement source and stable TAB market
 mapping are validated.
 
+## UEFA Nations League Refresh
+
+Added 2026-09-23 using the existing football pipeline. Apply
+`202609230001_nations_league_pipeline.sql` before deploying the app or running
+`refresh:nationsleague-current-markets -- --require-supabase`. The market pass
+captures TAB Match Result prices, imports matching UEFA fixtures, reconciles
+fixed-win rows, rebuilds insights and generates current singles. The result pass
+(`refresh:nationsleague-results-and-insights`) also rebuilds All Football.
+Results use official UEFA competition 2014, default season 2027 for 2026/27,
+and explicit regulation scores; no scorer/SGM capture is enabled yet.
+
+GitHub Actions market capture runs at minutes 7/22/37/52 during 10:00-23:59 UTC
+every day; result passes run at minute 37 of 14/17/20/22/23 UTC every day.
+Both support manual dry runs and reuse the existing Supabase secrets. Schedules
+become active after the workflows reach the default branch. Manual season
+overrides can refresh older editions during overlapping play-offs.
+
+Validation: `npm --workspace @feeling-gamba/ingestion test`, mobile and ingestion
+typechecks, syntax checks for the new scripts, and live read-only TAB/UEFA probes.
+On 2026-09-23 those probes returned 34 priced TAB events and 156 UEFA fixtures.
+Five settlement/season regression tests, both typechecks, changed mobile-file
+lint and workflow YAML validation passed. Desktop/mobile browser smoke checks
+with empty REST fixtures verified league selection, model switching and the
+reserved history state; they do not validate a deployed database migration.
+Calibration starts with stored pre-match snapshots; fixture-only backfills do
+not supply betting-return history.
+
 ## UEFA Champions League Current Market Capture
 
 The first UCL slice mirrors the NRL/NPC pipeline with separate `ucl_*` tables.
@@ -733,7 +760,7 @@ Six-month catch-up command:
 - Upsert the same window to Supabase:
   `npm --workspace @feeling-gamba/ingestion run backfill:race-fixtures -- --from=2025-12-15 --to=2026-06-19 --all-domestic --require-supabase`
 - Reconcile prediction outcomes after the backfill:
-  `npm --workspace @feeling-gamba/ingestion run reconcile:predictions -- --require-supabase`
+  `npm --workspace @feeling-gamba/ingestion run reconcile:predictions -- --from=2025-12-15 --to=2026-06-19 --require-supabase`
 
 ### `backfill-ufc-kaggle`
 
@@ -1656,7 +1683,7 @@ Proposed recurring jobs:
 | `capture-market-snapshots` | `*/5 * * * *` | `capture-market-snapshots` | The function decides which races need snapshots. |
 | `collect-results` | `*/10 * * * *` | `collect-results` | Runs during and after race windows. |
 | `reconcile-race-day` | `30 21 * * *` and `0 6 * * *` NZ time | `reconcile-race-day` | Backfills failures and final results. |
-| `refresh-race-days-and-insights` | active: daily GitHub Actions schedules `10 18 * * *`, `10 20 * * *`, and `10 22 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and reconciliation requests. Multiple idempotent morning schedules reduce stale pending prediction outcomes when GitHub cron is delayed or misses a run. |
+| `refresh-race-days-and-insights` | active: daily GitHub Actions schedules `10 18 * * *`, `10 20 * * *`, and `10 22 * * *` UTC | `refresh-race-days-and-insights` | Refreshes the latest 4 completed Auckland source dates as one request per date/country/category slice, then runs separate aggregate and source-date-scoped reconciliation requests. Multiple idempotent morning schedules reduce stale pending prediction outcomes when GitHub cron is delayed or misses a run. |
 | `refresh-current-promotions` | daily, for example `0 7 * * *` NZ time, plus optional manual/app-triggered stale refreshes | `refresh-current-promotions` | Refreshes current public racing promotion cache. Function skips unnecessary source calls when cache is fresher than 15 minutes. |
 | `refresh-current-predictions` | active: daily GitHub Actions schedules `35 17 * * *` and `35 18 * * *` UTC; optional Supabase Cron backup `35 17,18 * * *` UTC | `refresh-current-predictions` | Captures the daily pre-finalisation prediction snapshot without waiting for an app open, writes racing model variants including the global cash blends, and refuses to write late refreshes after the selected sport's standard finalisation cutoff has passed. The scheduled workflow invokes racing and UFC as separate sport-scoped requests so one sport cannot consume the whole Edge timeout budget. App-triggered scoped UFC/PFL refreshes can refresh fight-card predictions independently before cutoff. Normalized prediction rows and tracked multi rows must be written before `current_prediction_snapshots` so Predictions and Prediction History share the same generated payload. |
 | `send-prediction-finalised-notifications` | optional Supabase Cron every 5 minutes | `send-prediction-finalised-notifications` | Checks user-favourited prediction models for the current Auckland source date, confirms the selected model has active current predictions after its sport finalisation timestamp, creates idempotent notification events, and sends neutral Expo push notifications to stored user push tokens. Use `supabase/sql/schedule-prediction-finalised-notifications.sql` after creating the `prediction_notification_admin_token` Vault secret and matching `PREDICTION_NOTIFICATION_ADMIN_TOKEN` Edge Function secret. |
@@ -1705,7 +1732,13 @@ rebuilds insights locally in the GitHub runner with
 `npm --workspace @feeling-gamba/ingestion run rebuild:insight-aggregates`,
 then runs separate hosted requests for promotion-prediction outcome
 reconciliation, multi-bet recommendation reconciliation, user race-bet
-reconciliation, and prediction aggregate rebuild. UFC result loading and UFC
+reconciliation, and prediction aggregate rebuild. Promotion-prediction and
+multi-bet recommendation reconciliation use the same inclusive completed
+source-date window passed to the hosted refresh request, so a daily settlement
+run does not scan the full historical pending backlog. The workflow records
+individual reconciliation failures and still attempts later independent
+reconciliation phases before failing at the end, so a single-prediction timeout
+does not leave tracked multis stale. UFC result loading and UFC
 multi recommendation reconciliation are handled by the separate
 `.github/workflows/ufc-result-refresh.yml` workflow so UFC source checks do not
 depend on the racing overnight schedule. The split is required because the combined final
@@ -1738,7 +1771,9 @@ ESPN's public UFC scoreboard, upserts completed fights into
 Imported ESPN rows are settlement-only: they set `price_match_status` to
 `result_only`, mark prices missing, and are excluded from UFC Insights. Manual
 dispatch can increase the lookback to 30 days for catch-up runs or run dry mode
-to verify source coverage without writing.
+to verify source coverage without writing. As of `2026-09-21`, reconciliation
+also applies a UFC-specific fighter alias map for known Betcha/ESPN naming
+differences such as spacing and fighter nicknames.
 
 The NRL result refresh is implemented as a manual local worker in
 `packages/ingestion/scripts/refresh-nrl-results-from-official.mjs`. It requires
@@ -2358,3 +2393,37 @@ Operational checks:
 - Betcha GraphQL notes: `../integrations/betcha-api.md`
 - TAB Form Guide notes: `../integrations/tab-form-guide.md`
 - Race ID discovery notes: `../integrations/race-id-discovery.md`
+
+## Football price-gap experiment (2026-09-25)
+
+Apply `202609250001_football_price_gap_trial.sql` before enabling
+`.github/workflows/football-price-gap-trial.yml`. It runs at UTC minute 7 and 37
+every hour, using existing league market snapshots and reconciled result tables
+for EPL, UCL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Europa League, EFL Cup
+and Nations League. Existing league capture/settlement jobs remain prerequisites;
+the trial does not fetch bookmaker markets or fabricate missing history.
+
+Manual read-only check:
+`npm --workspace @feeling-gamba/ingestion run refresh:football-price-gap-trial -- --dry-run`.
+Normal run uses `--require-supabase`. Both need configured Supabase read access
+through the existing service key environment. Manual workflow dispatch defaults
+to dry run. The job fails visibly on missing tables/source read errors; it does
+not publish a partial-league model. Insert-ignore and a database guard preserve
+forecasts during retries. Source corrections reconcile outcomes separately.
+
+Disable the trial workflow to stop collection; retained history remains readable.
+The forward job does not backfill past forecasts. New current candidates/notifications are not
+created by this experiment. Trial timing and model rules are in statistics-plan.md.
+
+### Historical football replay (2026-09-25 correction)
+
+After `202609250002_football_price_gap_backtest.sql` and
+`202609250003_football_backtest_scoped_replace.sql`, run
+`npm --workspace @feeling-gamba/ingestion run backfill:football-price-gap-history -- --require-supabase`
+to reconstruct history from existing reconciled results across all ten leagues.
+`--dry-run` reads and computes without requiring the backtest schema or writing.
+Read all sources successfully before atomically replacing the derived backtest;
+never replace from a partial-league read. This is a manual rebuild, independent
+of the twice-hourly forward trial. Rebuild after more settlements or corrections.
+Only captured pre-kickoff odds and consistent settled outcomes enter the replay;
+no new bookmaker requests or invented historical odds are needed.

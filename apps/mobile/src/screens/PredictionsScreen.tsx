@@ -57,6 +57,12 @@ import {
   LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
   type LaligaSinglePredictionModelKey,
 } from "../data/supabaseLaligaPredictions";
+
+import {
+  NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS,
+  type NationsleagueSinglePredictionModelKey,
+} from "../data/supabaseNationsleaguePredictions";
 import {
   BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS,
@@ -141,6 +147,9 @@ export function PredictionsScreen() {
     useState<EplSinglePredictionModelKey>(EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeLaligaSingleModelKey, setActiveLaligaSingleModelKey] =
     useState<LaligaSinglePredictionModelKey>(LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
+
+  const [activeNationsleagueSingleModelKey, setActiveNationsleagueSingleModelKey] =
+    useState<NationsleagueSinglePredictionModelKey>(NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeBundesligaSingleModelKey, setActiveBundesligaSingleModelKey] =
     useState<BundesligaSinglePredictionModelKey>(BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY);
   const [activeSerieaSingleModelKey, setActiveSerieaSingleModelKey] =
@@ -173,6 +182,10 @@ export function PredictionsScreen() {
   const activeLaligaSingleModel = LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
     model.key === activeLaligaSingleModelKey)
     ?? LALIGA_SINGLE_PREDICTION_MODEL_VARIANTS[0];
+
+  const activeNationsleagueSingleModel = NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
+    model.key === activeNationsleagueSingleModelKey)
+    ?? NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS[0];
   const activeBundesligaSingleModel = BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS.find((model) =>
     model.key === activeBundesligaSingleModelKey)
     ?? BUNDESLIGA_SINGLE_PREDICTION_MODEL_VARIANTS[0];
@@ -199,6 +212,7 @@ export function PredictionsScreen() {
     activeEplSingleModel,
     activeFormat,
     activeLaligaSingleModel,
+    activeNationsleagueSingleModel,
     activeLigue1SingleModel,
     activeMlsSingleModel,
     activeNpcSingleModel,
@@ -226,7 +240,7 @@ export function PredictionsScreen() {
       || value === "npc"
       || value === "ucl"
       || value === "epl"
-      || value === "laliga"
+      || (value === "laliga" || value === "nationsleague")
       || value === "bundesliga"
       || value === "seriea"
       || value === "ligue1"
@@ -377,6 +391,14 @@ export function PredictionsScreen() {
         />
       ) : null}
 
+      {activeSport === "nationsleague" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
+        <PredictionModelTabs
+          activeModelKey={activeNationsleagueSingleModelKey}
+          models={NATIONSLEAGUE_SINGLE_PREDICTION_MODEL_VARIANTS}
+          onChange={setActiveNationsleagueSingleModelKey}
+        />
+      ) : null}
+
       {activeSport === "laliga" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
         <PredictionModelTabs
           activeModelKey={activeLaligaSingleModelKey}
@@ -488,6 +510,7 @@ export function PredictionsScreen() {
         bundesligaSinglePredictionModelKey={activeBundesligaSingleModelKey}
         eplSinglePredictionModelKey={activeEplSingleModelKey}
         laligaSinglePredictionModelKey={activeLaligaSingleModelKey}
+        nationsleagueSinglePredictionModelKey={activeNationsleagueSingleModelKey}
         ligue1SinglePredictionModelKey={activeLigue1SingleModelKey}
         mlsSinglePredictionModelKey={activeMlsSingleModelKey}
         nrlSinglePredictionModelKey={activeNrlSingleModelKey}
@@ -517,6 +540,11 @@ type ActiveModelInfoInput = {
   };
   activeFormat: PredictionFormat;
   activeLaligaSingleModel: {
+    description: string;
+    detail: string;
+    label: string;
+  };
+  activeNationsleagueSingleModel: {
     description: string;
     detail: string;
     label: string;
@@ -570,6 +598,7 @@ function getActiveModelInfo({
   activeEplSingleModel,
   activeFormat,
   activeLaligaSingleModel,
+  activeNationsleagueSingleModel,
   activeLigue1SingleModel,
   activeMlsSingleModel,
   activeNpcSingleModel,
@@ -658,11 +687,28 @@ function getActiveModelInfo({
     };
   }
 
+  if (activeSport === "nationsleague" && (activeFormat !== "singles" || activePredictionType !== "win_percentage")) {
+    return {
+      description: "This branch is reserved for future UEFA Nations League prediction models.",
+      detail: "UEFA Nations League cash and multi branches need more source-backed calibration before they can be tracked.",
+      empty: `No UEFA Nations League ${activeFormat === "singles" ? "single" : "multi"} ${getPredictionTypeLabel(activePredictionType).toLowerCase()} models are tracked yet.`,
+      label: `UEFA Nations League ${getPredictionTypeLabel(activePredictionType)} ${activeFormat}`,
+    };
+  }
+
   if (activeSport === "laliga") {
     return {
       description: activeLaligaSingleModel.description,
       detail: activeLaligaSingleModel.detail,
       label: activeLaligaSingleModel.label,
+    };
+  }
+
+  if (activeSport === "nationsleague") {
+    return {
+      description: activeNationsleagueSingleModel.description,
+      detail: activeNationsleagueSingleModel.detail,
+      label: activeNationsleagueSingleModel.label,
     };
   }
 

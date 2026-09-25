@@ -9,7 +9,7 @@ import {
   type WinPercentageMultiModelKey,
 } from "../data/supabasePredictions";
 
-export type PredictionSport = "bundesliga" | "epl" | "laliga" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
+export type PredictionSport = "bundesliga" | "epl" | "laliga" | "nationsleague" | "ligue1" | "mls" | "npc" | "nrl" | "pfl" | "racing" | "seriea" | "ucl" | "ufc";
 export type PredictionFormat = "multis" | "singles";
 export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
 
@@ -37,6 +37,10 @@ const PREDICTION_SPORT_OPTIONS = [
   {
     label: "La Liga",
     value: "laliga",
+  },
+  {
+    label: "UEFA Nations League",
+    value: "nationsleague",
   },
   {
     label: "Bundesliga",
@@ -118,6 +122,7 @@ type PredictionModelTabsProps<TModelKey extends string = PredictionModelKey> = {
 };
 
 type PredictionSportTabsProps = {
+  allFootball?: { selected: boolean; onSelect: () => void };
   activeSport: PredictionSport;
   onChange: (value: PredictionSport) => void;
 };
@@ -130,17 +135,18 @@ type PredictionFormatTabsProps = {
 /**
  * Switches prediction screens between sport-specific current and historical models.
  */
-export function PredictionSportTabs({ activeSport, onChange }: PredictionSportTabsProps) {
+export function PredictionSportTabs({ activeSport, allFootball, onChange }: PredictionSportTabsProps) {
   return (
     <View style={styles.typeTabs}>
       {PREDICTION_SPORT_OPTIONS.map((option) => {
-        const isActive = option.value === activeSport;
+        const isActive = option.value === activeSport && !allFootball?.selected;
 
         return (
           <Pressable
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => onChange(option.value)}
             style={[styles.sportTab, isActive ? styles.typeTabActive : null]}
           >
@@ -150,6 +156,12 @@ export function PredictionSportTabs({ activeSport, onChange }: PredictionSportTa
           </Pressable>
         );
       })}
+      {allFootball ? (
+        <Pressable accessibilityRole="tab" accessibilityState={{ selected: allFootball.selected }} aria-selected={allFootball.selected}
+          onPress={allFootball.onSelect} style={[styles.sportTab, allFootball.selected ? styles.typeTabActive : null]}>
+          <Text style={[styles.typeTabText, allFootball.selected ? styles.typeTabTextActive : null]}>All football</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -168,6 +180,7 @@ export function PredictionFormatTabs({ activeFormat, onChange }: PredictionForma
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => onChange(option.value)}
             style={[styles.sportTab, isActive ? styles.typeTabActive : null]}
           >
@@ -201,6 +214,9 @@ export function PredictionModelTabs<TModelKey extends string = PredictionModelKe
         return (
           <Pressable
             key={model.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => onChange(model.key)}
             style={[styles.tab, isActive ? styles.tabActive : null]}
           >
@@ -220,6 +236,7 @@ export function PredictionModelTabs<TModelKey extends string = PredictionModelKe
 }
 
 type PredictionTypeTabsProps = {
+  options?: { label: string; description: string; value: CurrentPredictionType }[];
   activeType: CurrentPredictionType;
   onChange: (value: CurrentPredictionType) => void;
 };
@@ -227,10 +244,10 @@ type PredictionTypeTabsProps = {
 /**
  * Separates current prediction families so cash, win-rate, and placing signals do not blend together.
  */
-export function PredictionTypeTabs({ activeType, onChange }: PredictionTypeTabsProps) {
+export function PredictionTypeTabs({ activeType, onChange, options = PREDICTION_TYPE_OPTIONS }: PredictionTypeTabsProps) {
   return (
     <View style={styles.typeTabs}>
-      {PREDICTION_TYPE_OPTIONS.map((option) => {
+      {options.map((option) => {
         const isActive = option.value === activeType;
 
         return (
@@ -238,6 +255,7 @@ export function PredictionTypeTabs({ activeType, onChange }: PredictionTypeTabsP
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => onChange(option.value)}
             style={[styles.typeTab, isActive ? styles.typeTabActive : null]}
           >
@@ -291,6 +309,7 @@ export function WinPercentageMultiModelTabs({
             key={model.key}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => onChange(model.key)}
             style={[styles.typeTab, isActive ? styles.typeTabActive : null]}
           >

@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Application Architecture
-last_updated: "2026-09-02"
+last_updated: "2026-09-25"
 
 purpose:
   summary: >
@@ -114,6 +114,7 @@ systems:
         - Show UEFA Champions League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from UCL-specific Supabase tables.
         - Show English Premier League as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from EPL-specific Supabase tables.
         - Show Spanish La Liga as a first-class Insights and Predictions sport, reading price-backed current-market and official result rows from La Liga-specific Supabase tables.
+        - Show UEFA Nations League in Football Insights and current Singles Win % predictions using nationsleague_* tables, TAB Match Result snapshots and official UEFA competition 2014 regulation-time results; include its aggregates in All Football and expose historical football price-gap backtests and the separate forward trial in Prediction History.
         - Show German Bundesliga, Italian Serie A, French Ligue 1, MLS, UEFA Europa League, and EFL Cup as first-class Insights football sports, reading price-backed current-market and public fixture/result rows from sport-specific Supabase tables; Predictions remain exposed for Bundesliga, Serie A, Ligue 1, and MLS while Europa League and EFL Cup prediction tables are scaffolded pending data volume.
         - Show Tennis as a first-class fixed-win-only Insights sport, reading TAB Match Betting snapshots and Odds API ATP/WTA tournament settlement rows from Tennis-specific Supabase tables.
         - Show bookmaker-scoped personal tracked promo-bet statistics from settled user-owned rows only.
@@ -580,6 +581,15 @@ data_model:
     ufc_single_predictions:
       purpose: UFC single prediction rows for base UFC bucket models plus 65%+, 75%+, and 85%+ threshold single models, keyed by model, source date, card, and event.
       key: prediction_model, source, source_date, source_card_id, source_event_id
+    football_price_gap_backtests:
+      purpose: Separately labelled historical reconstruction using captured odds and earlier results with a fixed 24-hour assumed availability delay; atomic service-role rebuilds and separate public summary.
+      key: experiment, league, source_event_id, cohort
+    football_price_gap_predictions:
+      purpose: Immutable prospective football favourite forecasts for exact 2.00-2.49 and cumulative 2.00+ gaps, with market, bucket and richer probabilities plus separately reconciled outcomes.
+      key: experiment, league, source_event_id, cohort
+    get_football_price_gap_summary:
+      purpose: Server-side full-cohort counts, notional returns, probability scores, paired market baselines and calibration bins for the football trial.
+      key: rpc
     get_prediction_history_summary:
       purpose: Server-side model-scoped Prediction history summary for the selected date range, country, discipline, and racecourse filters.
       key: rpc
@@ -844,6 +854,8 @@ flows:
       - fetch source race dates for configured source coverage, using Pacific/Auckland only for calendar-date conversion where needed.
       - upsert normalized race data and app-facing race_day_entries.
       - run separate final phases after all source slices finish so insight rebuild, prediction outcome reconciliation, multi-bet recommendation reconciliation, user race-bet reconciliation, and prediction aggregate rebuild do not share one 150-second idle-timeout window.
+      - scope promotion-prediction and multi-bet recommendation reconciliation to the same inclusive completed source-date window passed to the hosted refresh request so daily settlement does not scan the full historical pending backlog.
+      - continue attempting independent reconciliation phases after a reconciliation request fails, then fail the workflow at the end if any reconciliation phase failed, so single-prediction timeouts do not leave tracked multis stale.
       - rebuild insight_aggregates locally in the GitHub Actions runner through packages/ingestion/scripts/rebuild-insight-aggregates-from-supabase.mjs, paging through stored race_day_entries and accumulating aggregate buckets incrementally outside the Supabase Edge worker CPU budget.
       - reconcile pending or missing promotion_predictions against stored results in a dedicated final request, then rebuild model-scoped prediction_aggregates in a separate final request.
       - reconcile pending or missing user_race_bets against stored results in a dedicated final request so Account personal statistics can settle.

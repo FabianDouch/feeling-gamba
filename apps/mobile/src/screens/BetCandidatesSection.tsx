@@ -87,6 +87,15 @@ import {
   type LaligaSinglePredictionModelKey,
   type LaligaSinglePredictionsResult,
 } from "../data/supabaseLaligaPredictions";
+
+import {
+  fetchCurrentNationsleagueSinglePredictions,
+  hasSupabaseNationsleaguePredictionsConfig,
+  NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  type NationsleagueSinglePredictionItem,
+  type NationsleagueSinglePredictionModelKey,
+  type NationsleagueSinglePredictionsResult,
+} from "../data/supabaseNationsleaguePredictions";
 import {
   fetchCurrentBundesligaSinglePredictions,
   hasSupabaseBundesligaPredictionsConfig,
@@ -161,6 +170,7 @@ type BetCandidatesSectionProps = {
   bundesligaSinglePredictionModelKey?: BundesligaSinglePredictionModelKey;
   eplSinglePredictionModelKey?: EplSinglePredictionModelKey;
   laligaSinglePredictionModelKey?: LaligaSinglePredictionModelKey;
+  nationsleagueSinglePredictionModelKey?: NationsleagueSinglePredictionModelKey;
   ligue1SinglePredictionModelKey?: Ligue1SinglePredictionModelKey;
   mlsSinglePredictionModelKey?: MlsSinglePredictionModelKey;
   npcSinglePredictionModelKey?: NpcSinglePredictionModelKey;
@@ -215,6 +225,7 @@ export function BetCandidatesSection({
   bundesligaSinglePredictionModelKey = BUNDESLIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   eplSinglePredictionModelKey = EPL_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   laligaSinglePredictionModelKey = LALIGA_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
+  nationsleagueSinglePredictionModelKey = NATIONSLEAGUE_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   ligue1SinglePredictionModelKey = LIGUE1_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   mlsSinglePredictionModelKey = MLS_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
   npcSinglePredictionModelKey = NPC_FIXED_WIN_PERCENTAGE_SINGLE_MODEL_KEY,
@@ -253,8 +264,14 @@ export function BetCandidatesSection({
   const [eplPredictionError, setEplPredictionError] = useState<string | null>(null);
   const [isLoadingEplPredictions, setIsLoadingEplPredictions] = useState(false);
   const [laligaPredictions, setLaligaPredictions] = useState<LaligaSinglePredictionsResult | null>(null);
+
+  const [nationsleaguePredictions, setNationsleaguePredictions] = useState<NationsleagueSinglePredictionsResult | null>(null);
   const [laligaPredictionError, setLaligaPredictionError] = useState<string | null>(null);
+
+  const [nationsleaguePredictionError, setNationsleaguePredictionError] = useState<string | null>(null);
   const [isLoadingLaligaPredictions, setIsLoadingLaligaPredictions] = useState(false);
+
+  const [isLoadingNationsleaguePredictions, setIsLoadingNationsleaguePredictions] = useState(false);
   const [bundesligaPredictions, setBundesligaPredictions] = useState<BundesligaSinglePredictionsResult | null>(null);
   const [bundesligaPredictionError, setBundesligaPredictionError] = useState<string | null>(null);
   const [isLoadingBundesligaPredictions, setIsLoadingBundesligaPredictions] = useState(false);
@@ -333,11 +350,13 @@ export function BetCandidatesSection({
     uclPredictions,
     eplPredictions,
     laligaPredictions,
+    nationsleaguePredictions,
   });
   const currentPredictionModel = getCurrentPredictionModel({
     bundesligaSinglePredictionModelKey,
     eplSinglePredictionModelKey,
     laligaSinglePredictionModelKey,
+    nationsleagueSinglePredictionModelKey,
     ligue1SinglePredictionModelKey,
     mlsSinglePredictionModelKey,
     npcSinglePredictionModelKey,
@@ -368,7 +387,8 @@ export function BetCandidatesSection({
         ? uclPredictions?.sourceDate ?? null
         : predictionSport === "epl"
           ? eplPredictions?.sourceDate ?? null
-          : predictionSport === "laliga"
+          : predictionSport === "nationsleague"
+            ? nationsleaguePredictions?.sourceDate ?? null : predictionSport === "laliga"
             ? laligaPredictions?.sourceDate ?? null
             : predictionSport === "bundesliga"
               ? bundesligaPredictions?.sourceDate ?? null
@@ -387,7 +407,8 @@ export function BetCandidatesSection({
         ? uclPredictions?.generatedAt ?? null
         : predictionSport === "epl"
           ? eplPredictions?.generatedAt ?? null
-          : predictionSport === "laliga"
+          : predictionSport === "nationsleague"
+            ? nationsleaguePredictions?.generatedAt ?? null : predictionSport === "laliga"
             ? laligaPredictions?.generatedAt ?? null
             : predictionSport === "bundesliga"
               ? bundesligaPredictions?.generatedAt ?? null
@@ -406,7 +427,8 @@ export function BetCandidatesSection({
         ? null
       : predictionSport === "epl"
         ? null
-      : predictionSport === "laliga"
+      : predictionSport === "nationsleague"
+        ? null : predictionSport === "laliga"
         ? null
       : predictionSport === "bundesliga"
         ? null
@@ -423,7 +445,7 @@ export function BetCandidatesSection({
           : payload?.generatedAtNz ?? null;
   const currentPredictionLockDisabledReason = getCurrentPredictionLockDisabledReason({
     finalisesAt: finalisationStatus.finalisesAt,
-    hasCurrentView: Boolean(predictionSport === "nrl" ? nrlPredictions : predictionSport === "npc" ? npcPredictions : predictionSport === "ucl" ? uclPredictions : predictionSport === "epl" ? eplPredictions : predictionSport === "laliga" ? laligaPredictions : predictionSport === "bundesliga" ? bundesligaPredictions : predictionSport === "seriea" ? serieaPredictions : predictionSport === "ligue1" ? ligue1Predictions : predictionSport === "mls" ? mlsPredictions : payload),
+    hasCurrentView: Boolean(predictionSport === "nrl" ? nrlPredictions : predictionSport === "npc" ? npcPredictions : predictionSport === "ucl" ? uclPredictions : predictionSport === "epl" ? eplPredictions : predictionSport === "nationsleague" ? nationsleaguePredictions : predictionSport === "laliga" ? laligaPredictions : predictionSport === "bundesliga" ? bundesligaPredictions : predictionSport === "seriea" ? serieaPredictions : predictionSport === "ligue1" ? ligue1Predictions : predictionSport === "mls" ? mlsPredictions : payload),
     isLocked: Boolean(lockedCurrentPrediction),
     isSignedIn: Boolean(user),
     sourceDate: currentPredictionSourceDate,
@@ -717,6 +739,47 @@ export function BetCandidatesSection({
       isActive = false;
     };
   }, [laligaSinglePredictionModelKey, predictionSport]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadNationsleaguePredictions() {
+      if (predictionSport !== "nationsleague") {
+        return;
+      }
+
+      if (!hasSupabaseNationsleaguePredictionsConfig) {
+        setNationsleaguePredictions(null);
+        setNationsleaguePredictionError("Supabase is not configured for UEFA Nations League predictions.");
+        return;
+      }
+
+      try {
+        setIsLoadingNationsleaguePredictions(true);
+        setNationsleaguePredictionError(null);
+        const nextPredictions = await fetchCurrentNationsleagueSinglePredictions(nationsleagueSinglePredictionModelKey);
+
+        if (isActive) {
+          setNationsleaguePredictions(nextPredictions);
+        }
+      } catch (error) {
+        if (isActive) {
+          setNationsleaguePredictions(null);
+          setNationsleaguePredictionError(error instanceof Error ? error.message : "UEFA Nations League predictions failed to load.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingNationsleaguePredictions(false);
+        }
+      }
+    }
+
+    loadNationsleaguePredictions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [nationsleagueSinglePredictionModelKey, predictionSport]);
 
   useEffect(() => {
     let isActive = true;
@@ -1139,7 +1202,7 @@ export function BetCandidatesSection({
       if (hasPredictionRefreshEndpoint) {
         try {
           refreshedPayload = await requestPredictionRefresh<RecommendationPayload>({
-            sport: predictionSport === "nrl" || predictionSport === "npc" || predictionSport === "ucl" || predictionSport === "epl" || predictionSport === "laliga" || predictionSport === "bundesliga" || predictionSport === "seriea" || predictionSport === "ligue1" || predictionSport === "mls" ? "racing" : predictionSport,
+            sport: predictionSport === "nrl" || predictionSport === "npc" || predictionSport === "ucl" || predictionSport === "epl" || (predictionSport === "laliga" || predictionSport === "nationsleague") || predictionSport === "bundesliga" || predictionSport === "seriea" || predictionSport === "ligue1" || predictionSport === "mls" ? "racing" : predictionSport,
           });
         } catch (error) {
           refreshError = error instanceof Error ? error : new Error("Prediction refresh failed.");
@@ -1207,7 +1270,8 @@ export function BetCandidatesSection({
           ? uclPredictions
           : predictionSport === "epl"
             ? eplPredictions
-            : predictionSport === "laliga"
+            : predictionSport === "nationsleague"
+              ? nationsleaguePredictions : predictionSport === "laliga"
               ? laligaPredictions
               : predictionSport === "bundesliga"
                 ? bundesligaPredictions
@@ -1375,6 +1439,11 @@ export function BetCandidatesSection({
               {eplPredictions?.totalCount ?? 0} stored EPL predictions · source date{" "}
               {eplPredictions?.sourceDate ?? "not generated"}
             </Text>
+          ) : predictionSport === "nationsleague" ? (
+            <Text style={styles.sectionNote}>
+              {nationsleaguePredictions?.totalCount ?? 0} stored UEFA Nations League predictions · source date{" "}
+              {nationsleaguePredictions?.sourceDate ?? "not generated"}
+            </Text>
           ) : predictionSport === "laliga" ? (
             <Text style={styles.sectionNote}>
               {laligaPredictions?.totalCount ?? 0} stored La Liga predictions · source date{" "}
@@ -1439,6 +1508,10 @@ export function BetCandidatesSection({
             <Text style={styles.sectionNote}>
               {isLoadingEplPredictions ? "Loading EPL predictions" : "Loaded from EPL single prediction rows"}
             </Text>
+          ) : predictionSport === "nationsleague" ? (
+            <Text style={styles.sectionNote}>
+              {isLoadingNationsleaguePredictions ? "Loading UEFA Nations League predictions" : "Loaded from UEFA Nations League single prediction rows"}
+            </Text>
           ) : predictionSport === "laliga" ? (
             <Text style={styles.sectionNote}>
               {isLoadingLaligaPredictions ? "Loading La Liga predictions" : "Loaded from La Liga single prediction rows"}
@@ -1489,7 +1562,7 @@ export function BetCandidatesSection({
             userIsSignedIn={Boolean(user)}
           />
         </View>
-        {predictionSport === "nrl" || predictionSport === "npc" || predictionSport === "ucl" || predictionSport === "epl" || predictionSport === "laliga" || predictionSport === "bundesliga" || predictionSport === "seriea" || predictionSport === "ligue1" || predictionSport === "mls" ? null : (
+        {predictionSport === "nrl" || predictionSport === "npc" || predictionSport === "ucl" || predictionSport === "epl" || (predictionSport === "laliga" || predictionSport === "nationsleague") || predictionSport === "bundesliga" || predictionSport === "seriea" || predictionSport === "ligue1" || predictionSport === "mls" ? null : (
           <Pressable
             disabled={isRequestingRefresh}
             onPress={refreshCandidates}
@@ -1505,7 +1578,7 @@ export function BetCandidatesSection({
         )}
       </View>
 
-      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && predictionSport !== "laliga" && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && predictionSport !== "pfl" && candidatesAreStale ? (
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && (predictionSport !== "laliga" && predictionSport !== "nationsleague") && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && predictionSport !== "pfl" && candidatesAreStale ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Bet candidates were captured before finalisation, but prices may still change while the window is open. Refresh before predictions finalise.
@@ -1519,7 +1592,7 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && predictionSport !== "laliga" && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && predictionSport !== "pfl" && predictionWindowClosedNow ? (
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && (predictionSport !== "laliga" && predictionSport !== "nationsleague") && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && predictionSport !== "pfl" && predictionWindowClosedNow ? (
         <View style={styles.staleState}>
           <Text style={styles.staleStateText}>
             Prediction window is closed for today. Showing the stored snapshot captured before {payload?.predictionWindow?.finalisesAtNz ?? payload?.predictionWindow?.finalisesAt ?? "finalisation"}.
@@ -1527,8 +1600,8 @@ export function BetCandidatesSection({
         </View>
       ) : null}
 
-      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && predictionSport !== "laliga" && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
-      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && predictionSport !== "laliga" && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && (predictionSport !== "laliga" && predictionSport !== "nationsleague") && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
+      {predictionSport !== "nrl" && predictionSport !== "npc" && predictionSport !== "ucl" && predictionSport !== "epl" && (predictionSport !== "laliga" && predictionSport !== "nationsleague") && predictionSport !== "bundesliga" && predictionSport !== "seriea" && predictionSport !== "ligue1" && predictionSport !== "mls" && refreshMessage ? <Text style={styles.contextText}>{refreshMessage}</Text> : null}
       {trackedBetError ? (
         <Text style={styles.errorText}>{trackedBetError}</Text>
       ) : trackedBetMessage ? (
@@ -1621,6 +1694,17 @@ export function BetCandidatesSection({
           />
         ) : (
           <StateMessage text={unsupportedBranchMessage ?? "No EPL models are tracked for this branch yet."} />
+        )
+      ) : predictionSport === "nationsleague" ? (
+        predictionFormat === "singles" && predictionType === "win_percentage" ? (
+          <TeamSportSinglePredictionsPanel
+            errorMessage={nationsleaguePredictionError}
+            isLoading={isLoadingNationsleaguePredictions}
+            result={nationsleaguePredictions}
+            sportLabel="UEFA Nations League"
+          />
+        ) : (
+          <StateMessage text={unsupportedBranchMessage ?? "No UEFA Nations League models are tracked for this branch yet."} />
         )
       ) : predictionSport === "laliga" ? (
         predictionFormat === "singles" && predictionType === "win_percentage" ? (
@@ -1938,6 +2022,10 @@ function getUnsupportedPredictionBranchMessage({
     return `No La Liga ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
 
+  if (predictionSport === "nationsleague" && (predictionFormat !== "singles" || predictionType !== "win_percentage")) {
+    return `No UEFA Nations League ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
+  }
+
   if (predictionSport === "bundesliga" && (predictionFormat !== "singles" || predictionType !== "win_percentage")) {
     return `No Bundesliga ${predictionFormat === "singles" ? "single" : "multi"} ${predictionType} models are tracked yet.`;
   }
@@ -1966,6 +2054,7 @@ type TeamSportSinglePredictionItem =
   | BundesligaSinglePredictionItem
   | EplSinglePredictionItem
   | LaligaSinglePredictionItem
+  | NationsleagueSinglePredictionItem
   | Ligue1SinglePredictionItem
   | MlsSinglePredictionItem
   | NpcSinglePredictionItem
@@ -1976,6 +2065,7 @@ type TeamSportSinglePredictionsResult =
   | BundesligaSinglePredictionsResult
   | EplSinglePredictionsResult
   | LaligaSinglePredictionsResult
+  | NationsleagueSinglePredictionsResult
   | Ligue1SinglePredictionsResult
   | MlsSinglePredictionsResult
   | NpcSinglePredictionsResult
@@ -3734,6 +3824,7 @@ function getPredictionFinalisationStatus({
   bundesligaPredictions,
   eplPredictions,
   laligaPredictions,
+  nationsleaguePredictions,
   ligue1Predictions,
   mlsPredictions,
   npcPredictions,
@@ -3746,6 +3837,7 @@ function getPredictionFinalisationStatus({
   bundesligaPredictions: BundesligaSinglePredictionsResult | null;
   eplPredictions: EplSinglePredictionsResult | null;
   laligaPredictions: LaligaSinglePredictionsResult | null;
+  nationsleaguePredictions: NationsleagueSinglePredictionsResult | null;
   ligue1Predictions: Ligue1SinglePredictionsResult | null;
   mlsPredictions: MlsSinglePredictionsResult | null;
   npcPredictions: NpcSinglePredictionsResult | null;
@@ -3793,7 +3885,8 @@ function getPredictionFinalisationStatus({
 
   const teamSportPredictions = predictionSport === "epl"
     ? eplPredictions
-    : predictionSport === "laliga"
+    : predictionSport === "nationsleague"
+      ? nationsleaguePredictions : predictionSport === "laliga"
       ? laligaPredictions
       : predictionSport === "bundesliga"
         ? bundesligaPredictions
@@ -3824,6 +3917,7 @@ function getCurrentPredictionModel({
   bundesligaSinglePredictionModelKey,
   eplSinglePredictionModelKey,
   laligaSinglePredictionModelKey,
+  nationsleagueSinglePredictionModelKey,
   ligue1SinglePredictionModelKey,
   mlsSinglePredictionModelKey,
   npcSinglePredictionModelKey,
@@ -3839,6 +3933,7 @@ function getCurrentPredictionModel({
   bundesligaSinglePredictionModelKey: BundesligaSinglePredictionModelKey;
   eplSinglePredictionModelKey: EplSinglePredictionModelKey;
   laligaSinglePredictionModelKey: LaligaSinglePredictionModelKey;
+  nationsleagueSinglePredictionModelKey: NationsleagueSinglePredictionModelKey;
   ligue1SinglePredictionModelKey: Ligue1SinglePredictionModelKey;
   mlsSinglePredictionModelKey: MlsSinglePredictionModelKey;
   npcSinglePredictionModelKey: NpcSinglePredictionModelKey;
@@ -3869,6 +3964,10 @@ function getCurrentPredictionModel({
 
   if (predictionSport === "laliga") {
     return laligaSinglePredictionModelKey;
+  }
+
+  if (predictionSport === "nationsleague") {
+    return nationsleagueSinglePredictionModelKey;
   }
 
   if (predictionSport === "bundesliga") {
@@ -3959,6 +4058,10 @@ function getSportLabel(sport: PredictionSport) {
     return "La Liga";
   }
 
+  if (sport === "nationsleague") {
+    return "UEFA Nations League";
+  }
+
   if (sport === "bundesliga") {
     return "Bundesliga";
   }
@@ -3988,7 +4091,7 @@ function getSportStartLabel(sportLabel: string) {
     || sportLabel === "NPC"
     || sportLabel === "UCL"
     || sportLabel === "EPL"
-    || sportLabel === "La Liga"
+    || (sportLabel === "La Liga" || sportLabel === "UEFA Nations League")
     || sportLabel === "Bundesliga"
     || sportLabel === "Serie A"
     || sportLabel === "Ligue 1"

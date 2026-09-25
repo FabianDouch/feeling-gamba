@@ -96,11 +96,14 @@ jobs:
           start_epoch="$(TZ=Pacific/Auckland date -d "${today} - ${lookback_days} days" +%s)"
           countries="NZ AUS HK"
           categories="HORSE HARNESS GREYHOUND"
+          first_source_date=""
           final_source_date=""
+          reconciliation_failed=0
 
           invoke_refresh() {
             step_name="$1"
             payload="$2"
+            allow_failure="${3:-false}"
             response_file="$(mktemp)"
 
             http_status="$(
@@ -118,6 +121,9 @@ jobs:
 
             if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
               echo "refresh-race-days-and-insights returned HTTP ${http_status} during ${step_name}"
+              if [ "$allow_failure" = "true" ]; then
+                return 1
+              fi
               exit 1
             fi
           }
@@ -125,6 +131,9 @@ jobs:
           for day_offset in $(seq 0 "$((lookback_days - 1))"); do
             source_epoch="$((start_epoch + day_offset * 86400))"
             source_date="$(TZ=Pacific/Auckland date -d "@${source_epoch}" +%F)"
+            if [ -z "$first_source_date" ]; then
+              first_source_date="$source_date"
+            fi
             final_source_date="$source_date"
 
             for country in $countries; do
@@ -192,7 +201,7 @@ jobs:
 
           payload="$(
             jq -nc \
-              --arg from "$final_source_date" \
+              --arg from "$first_source_date" \
               --arg to "$final_source_date" \
               --argjson dryRun "$dry_run" \
               --argjson force "$force_refresh" \
@@ -208,13 +217,13 @@ jobs:
                 to: $to
               }'
           )"
-          invoke_refresh "prediction outcome reconciliation" "$payload"
+          invoke_refresh "prediction outcome reconciliation" "$payload" true || reconciliation_failed=1
 
           echo "Reconciling multi-bet recommendation outcomes through ${final_source_date}"
 
           payload="$(
             jq -nc \
-              --arg from "$final_source_date" \
+              --arg from "$first_source_date" \
               --arg to "$final_source_date" \
               --argjson dryRun "$dry_run" \
               --argjson force "$force_refresh" \
@@ -230,13 +239,13 @@ jobs:
                 to: $to
               }'
           )"
-          invoke_refresh "multi-bet recommendation outcome reconciliation" "$payload"
+          invoke_refresh "multi-bet recommendation outcome reconciliation" "$payload" true || reconciliation_failed=1
 
           echo "Reconciling user race-bet outcomes through ${final_source_date}"
 
           payload="$(
             jq -nc \
-              --arg from "$final_source_date" \
+              --arg from "$first_source_date" \
               --arg to "$final_source_date" \
               --argjson dryRun "$dry_run" \
               --argjson force "$force_refresh" \
@@ -252,13 +261,13 @@ jobs:
                 to: $to
               }'
           )"
-          invoke_refresh "user race-bet outcome reconciliation" "$payload"
+          invoke_refresh "user race-bet outcome reconciliation" "$payload" true || reconciliation_failed=1
 
           echo "Rebuilding prediction aggregates through ${final_source_date}"
 
           payload="$(
             jq -nc \
-              --arg from "$final_source_date" \
+              --arg from "$first_source_date" \
               --arg to "$final_source_date" \
               --argjson dryRun "$dry_run" \
               --argjson force "$force_refresh" \
@@ -275,3 +284,8 @@ jobs:
               }'
           )"
           invoke_refresh "prediction aggregate rebuild" "$payload"
+
+          if [ "$reconciliation_failed" -ne 0 ]; then
+            echo "One or more reconciliation phases failed."
+            exit 1
+          fi

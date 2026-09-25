@@ -64,7 +64,30 @@ prices have been captured before kickoff.
   before failing the workflow. A persistent 403 is still treated as a source
   access failure rather than silently reusing stale market data.
 
-## Current Gaps
+## UEFA Nations League
+
+Validated on 2026-09-23. Nations League uses the same fixed-win/draw pipeline
+under `nationsleague_*`, with TAB `SOCCER` / `uefa-nations-league` markets
+and the official UEFA endpoint
+`https://match.uefa.com/v5/matches?competitionId=2014&seasonYear=2027&limit=500&offset=0&order=ASC`.
+Read-only probes returned 34 TAB Match Result snapshots and 156 UEFA fixtures
+across 54 teams. Market refresh defaults to 60 events to cover the international
+window. These probes did not persist prices or deploy the schema.
+
+UEFA season years are biennial ending years: the 2026/27 edition is `2027`,
+including March 2028 promotion/relegation play-offs. The default remains 2027
+until July 2028; manual result refreshes accept `--season` for older editions.
+Country aliases are shared across capture, import, reconciliation and prediction
+generation (Czech Republic/Czechia, Turkey/Turkiye, Ireland/Republic of Ireland,
+Slovak Republic/Slovakia).
+
+Only explicit `score.regular` values settle Match Result markets. Missing scores
+stay pending; extra time, aggregate scores and penalty shootouts never determine
+90-minute returns. Goal-event and scorer-price capture are disabled for this
+initial slice, so goalscorer/same-game rows remain empty. Default imports retain
+only matches with captured TAB prices; no historical odds are invented.
+
+## Shared Gaps
 
 - No stable per-match scorer event feed has been validated for these leagues in
   this app.

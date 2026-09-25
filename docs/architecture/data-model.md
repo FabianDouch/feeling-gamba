@@ -119,6 +119,16 @@ settlement when they match captured TAB fixed-win snapshots, and official-only
 history is not backfilled without stored prices. The scorer/same-game table
 shape is present, but goalscorer settlement remains a source-confidence gap
 until a stable per-match La Liga goal-event feed is validated.
+As of `2026-09-23`, UEFA Nations League uses the additional-football table shape
+under `nationsleague_*` via
+`202609230001_nations_league_pipeline.sql`, with public-read RLS, service-role
+writes, underdog aggregate selection support and the shared prediction-lock /
+model-preference sport constraints extended. Official matches use `official_uefa`,
+competition `2014` and UEFA's biennial ending-year season. Match scores represent
+regulation time only. Nations League aggregates also feed All Football; current
+singles read `nationsleague_single_predictions`. History remains a reserved
+state matching EPL/UCL. Scorer and same-game tables are scaffolded only.
+
 As of `2026-09-11`, German Bundesliga, Italian Serie A, French Ligue 1, and
 MLS support use the same football pipeline shape with `bundesliga_*`,
 `seriea_*`, `ligue1_*`, and `mls_*` tables in
@@ -1172,10 +1182,11 @@ Rules:
 - UFC locks close from the stored `lock_cutoff_at`, currently 15 minutes before
   the first fight on the card, not at the racing first-eligible-race cutoff.
 - UFC reconciliation matches leg fighter pairs to stored `ufc_fight_entries`
-  result rows within a small event-date window. Matched settled fights store the
-  winner and `$1` leg return; unmatched legs more than four hours after
-  advertised start become `missing_result` open issues instead of remaining
-  pending indefinitely.
+  result rows within a small event-date window. Matching applies a small
+  UFC-specific alias map for known Betcha/ESPN spelling or nickname differences.
+  Matched settled fights store the winner and `$1` leg return; unmatched legs
+  more than four hours after advertised start become `missing_result` open
+  issues instead of remaining pending indefinitely.
 
 ### `ufc_multi_recommendation_legs`
 
@@ -2381,3 +2392,46 @@ Rules:
 - Keep normalized source/raw tables server-side. The public client read surface
   should be app-facing read models such as `race_day_entries`,
   `insight_aggregates`, and current promotion snapshots.
+
+## Football price-gap prospective predictions (2026-09-25)
+
+`202609250001_football_price_gap_trial.sql` adds
+`football_price_gap_predictions`, unique on experiment/league/source event/cohort.
+It freezes forecast time, kickoff, source capture time, names, selected home/away
+role, all three prices, gap, three probabilities, historical sample sizes and
+training audit metadata (sorted input SHA-256, league sample, fitted weights and
+fixed hyperparameters). Missing learned probabilities explicitly mean insufficient
+history. RLS permits public reads and service-role writes only.
+
+An insert/update trigger rejects late/backdated forecasts and changes to frozen
+fields. Only outcome status, won, unit return and settlement time can change.
+Settlement uses the frozen selected team and price with existing football result
+flags. Team changes, non-standard settlement, or a corrected kickoff before
+forecast generation exclude the record; missing/ambiguous results stay pending.
+Reruns use insert-ignore and revisit settled rows to reflect source corrections.
+
+`get_football_price_gap_summary` computes filtered full-history counts, returns,
+model availability, Brier/log loss, paired market scores and calibration bins on
+the server. Its optional date bounds use Pacific/Auckland kickoff dates; the first
+UI exposes all collected dates. History pages never supply summary denominators.
+Forward evaluation starts after collection. The separate reconstruction below
+uses historical priced results for both chronological training and evaluation.
+Existing league single prediction tables are unchanged.
+
+### Historical backtest reconstruction (2026-09-25 correction)
+
+`202609250002_football_price_gap_backtest.sql` adds `football_price_gap_backtests`
+with the same price/probability/outcome shape and unique event/cohort key, but
+without the forward-only insert trigger. `predicted_at = snapshot_at` denotes a
+reconstructed cutoff; `created_at`/`training.backtest.generatedAt` record the real
+build time. Required metadata labels the 24-hour assumed result delay and
+unverified historical availability. These rows are settled reconstructions only.
+
+Public users can read this table and `get_football_price_gap_backtest_summary`.
+`202609250003_football_backtest_scoped_replace.sql` scopes replacement to the
+named experiment to satisfy hosted PostgREST safe-update rules. Only service-role
+callers can use `replace_football_price_gap_backtests` to
+atomically replace the derived dataset after a complete source read. Constraints
+roll back invalid replacements; a transaction lock and build-time check prevent
+older concurrent builds overwriting newer ones. Source corrections can rebuild
+historical predictions, which remain separate from immutable forward forecasts.

@@ -24,7 +24,9 @@ const DOT_ENV_FILES = [".env.local", ".env"];
 function parseArgs(argv) {
   const options = {
     batchSize: DEFAULT_BATCH_SIZE,
+    from: null,
     requireSupabase: false,
+    to: null,
   };
 
   for (const arg of argv) {
@@ -32,7 +34,19 @@ function parseArgs(argv) {
       options.requireSupabase = true;
     } else if (arg.startsWith("--batch-size=")) {
       options.batchSize = Number(arg.slice("--batch-size=".length));
+    } else if (arg.startsWith("--from=")) {
+      options.from = arg.slice("--from=".length);
+    } else if (arg.startsWith("--to=")) {
+      options.to = arg.slice("--to=".length);
     }
+  }
+
+  if ((options.from && !options.to) || (!options.from && options.to)) {
+    throw new Error("Pass both --from=YYYY-MM-DD and --to=YYYY-MM-DD, or neither.");
+  }
+
+  if (options.from && (!isValidDate(options.from) || !isValidDate(options.to))) {
+    throw new Error("Pass --from and --to as YYYY-MM-DD.");
   }
 
   if (!Number.isInteger(options.batchSize) || options.batchSize < 1) {
@@ -40,6 +54,15 @@ function parseArgs(argv) {
   }
 
   return options;
+}
+
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ""))) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 /**
@@ -111,6 +134,8 @@ async function main() {
   const predictionOutcomeWrite = await reconcilePromotionPredictionOutcomesFromSupabase({
     batchSize: options.batchSize,
     config,
+    from: options.from,
+    to: options.to,
   });
   const predictionAggregateWrite = await rebuildPredictionAggregatesFromSupabase({
     batchSize: options.batchSize,
@@ -119,6 +144,8 @@ async function main() {
   const multiBetRecommendationOutcomeWrite = await reconcileMultiBetRecommendationOutcomesFromSupabase({
     batchSize: options.batchSize,
     config,
+    from: options.from,
+    to: options.to,
   });
   const ufcMultiRecommendationOutcomeWrite = await reconcileUfcMultiRecommendationOutcomesFromSupabase({
     batchSize: options.batchSize,

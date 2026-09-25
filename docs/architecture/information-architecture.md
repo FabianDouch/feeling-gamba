@@ -1,5 +1,13 @@
 # Information Architecture
 
+Updated 2026-09-25: football history defaults to reconstructed Historical
+backtest with a separate Forward trial mode, replacing the earlier reserved
+history views. See Football experimental history below.
+
+Updated 2026-09-23: the canonical YAML adds UEFA Nations League to Football
+Insights, Predictions and the reserved Prediction History branches. Rendered
+information architecture outputs need regeneration before being treated as current.
+
 ## Context
 
 This document defines the MVP information architecture for the Feeling Gamba
@@ -771,12 +779,9 @@ Main content:
   PFL predictions can appear in the latest mixed snapshot. NRL history branches
   show explicit empty states until NRL prediction reconciliation and history
   RPCs are added. NPC history branches show explicit empty states until official
-  NPC result settlement and history RPCs are added. UCL history branches show
-  explicit empty states until UCL prediction reconciliation and history RPCs are
-  added. EPL history branches show explicit empty states until EPL prediction
-  reconciliation and history RPCs are added. La Liga history branches show
-  explicit empty states until La Liga prediction reconciliation and history RPCs
-  are added.
+  NPC result settlement and history RPCs are added. Football history now shows
+  the prospective price-gap trial described below; existing current single-model
+  history remains unimplemented.
 - Multi-bet percentage performance should include a local rank filter just
   above that performance section. It always includes All legs, then exposes
   top-N options up to the selected model's configured maximum: top 2-5 for the
@@ -1083,3 +1088,34 @@ flowchart LR
 - Backfill/admin tools for operators.
 - Authenticated or personalized promotion tracking if the product gains a clear
   use case and terms are confirmed.
+
+## Football experimental history (2026-09-25)
+
+Football Prediction History follows the shared hierarchy: league → Singles/Multis
+→ Win % → model variation. Win % is the supported football model type. Singles
+has six variations: Price gap, Market odds, and Price gap + context, each with
+`$2.00–$2.49` and `$2.00+` versions. The default is Price gap $2.00–$2.49.
+Multis shows an explicit empty state until a football multi model exists.
+This replaces the initial custom trial dashboard, which bypassed the shared
+format/type controls and displayed all three models together.
+
+All football is a league-level option alongside the shared sport/league tabs.
+It includes Europa League and EFL Cup even though they do not have standalone
+Prediction sport tabs. Existing current recommendations are unchanged.
+
+History source sits below model selection. Historical backtest is the default,
+reconstructed from collected prices/results; Forward trial is a separate option.
+The selected variation shows scored/unavailable counts, Brier/log loss and its
+paired market baseline. Calibration and build time sit behind Show model
+diagnostics. Match outcomes show cohort win rate and notional $1 returns,
+explicitly including matches without a model probability. The history list shows
+only the selected model's probability and sample, with pages of 20 matches.
+Changing league, cohort or source resets pagination. All collected dates apply.
+
+Sparse models show Insufficient history; no records and fetch failures have
+explicit states. Historical backtest labels the assumed 24-hour result delay,
+unverified historical availability and captured odds timestamp. Do not present
+a reconstruction cutoff as a forecast actually saved in the past. Exact and
+cumulative cohorts overlap and are never combined. The YAML reflects this
+hierarchy; rendered information architecture HTML/PNG/JPEG outputs need
+regeneration.

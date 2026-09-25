@@ -1,6 +1,6 @@
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-09-02"
+last_updated: "2026-09-25"
 
 purpose:
   summary: >
@@ -154,6 +154,7 @@ navigation:
           - For UCL, show the same fixed-win aggregate rows from ucl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus separate fixed-draw singles rows with the same price bucket controls, goalscorer percentage rows, and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched UEFA official result/event rows.
           - For EPL, show the same fixed-win aggregate rows from epl_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus separate fixed-draw singles rows with the same price bucket controls, goalscorer percentage rows, and Same Game % rows from captured TAB Match Result/Anytime Goalscorer prices and matched Premier League official result/goal rows.
           - For La Liga, show the same fixed-win aggregate rows from laliga_insight_aggregates, including 50c/25c and Exact/+ fixed-win price bucket controls, plus separate fixed-draw singles rows with the same price bucket controls. Goalscorer and Same Game % rows are present only when captured scorer prices can be matched to source-backed official scorer events.
+          - For UEFA Nations League, expose the same Football league selector, fixed-win/draw summaries and Favourite/Underdog/Home/Away price breakdowns from nationsleague_insight_aggregates, including All Football aggregation. Current Singles Win % uses nationsleague_single_predictions; Prediction History exposes the shared prospective price-gap trial. Scorer and same-game data remain empty until validated capture is enabled.
           - For Bundesliga, Serie A, Ligue 1, MLS, Europa League, and EFL Cup, show the same football fixed-win and fixed-draw aggregate rows from their sport-specific insight tables, including 50c/25c and Exact/+ price bucket controls. Goalscorer and Same Game % rows remain reserved until source-backed per-match scorer events and TAB scorer market mapping are validated.
           - For Tennis, show favourite-only fixed-win aggregate rows from tennis_insight_aggregates, grouped across result-backed ATP/WTA singles competitions, with 50c/25c and Exact/+ controls for favourite price, other-player price, and price-difference rows, and no home/away, multis, or prediction branches.
           - For NFL, show fixed-win Head To Head aggregate rows from nfl_insight_aggregates, including Favourite/Underdog/Home/Away role toggles, 50c/25c bucket-size controls, and Exact/+ fixed-win price bucket controls. Touchdown/player-prop and same-game rows remain empty until official player-event settlement is validated. Tied games are excluded from settled fixed-win return counts until TAB tie settlement is source-validated.
@@ -390,9 +391,9 @@ navigation:
           - PFL Prediction History shows the UFC-shaped PFL Win % model hierarchy as a reserved empty state until PFL prediction storage and RPCs are added.
           - NRL history branches remain explicit empty states until NRL prediction reconciliation and history RPCs are added.
           - NPC history branches remain explicit empty states until official NPC result settlement and NPC history RPCs are added.
-          - UCL history branches remain explicit empty states until UCL prediction reconciliation and history RPCs are added.
-          - EPL history branches remain explicit empty states until EPL prediction reconciliation and history RPCs are added.
-          - La Liga history branches remain explicit empty states until La Liga prediction reconciliation and history RPCs are added.
+          - Football history follows league -> Singles/Multis -> Win % -> model variation, with All football in the league selector. Singles variations are Price gap, Market odds, and Price gap + context, each with exact 2.00-2.49 and cumulative 2.00+ versions; Multis has an explicit empty state.
+          - Football History source is a secondary filter below model selection, defaulting to Historical backtest reconstructed from captured prices/results, with Forward trial separate. Show only the selected model's probabilities, sample counts, Brier/log loss and paired baseline; calibration/build details are collapsible. Page 20 matches across all collected dates, resetting pagination on league/cohort/source changes.
+          - Label sparse models Insufficient history and show pending/excluded outcomes explicitly. Label the backtest's assumed 24-hour result delay and unverified historical availability. Cohort notional returns include matches without a model probability; exact/cumulative cohorts overlap. Existing current single models remain outside this trial.
           - Show percentage multi model tabs under multi Win % and Placing branches so the original, 60%+, 65%+, 50/50 65%+, and place percentage models can be reviewed independently.
           - Add a local rank filter immediately above Multi-bet percentage performance with All legs plus model-aware top-N options: top 2-5 for the original win-percentage model, top 2-10 for the racing threshold win-percentage models including multi_win_percentage_50_50_65_plus_v1, top 2-8 for multi_place_percentage_v1, top 2-8 for most UFC percentage multi models, and top 2-6 for ufc_multi_other_fighter_price_win_percentage_top6_v1.
           - Show a selected-model Multi bet recommendation date-range breakdown for the selected history filters with recommendation count, settled/pending count, win rate, cash average, cash net, and open issues.
@@ -559,6 +560,10 @@ screen_data_relationships:
 
   prediction_history:
     reads:
+      - football_price_gap_backtests
+      - get_football_price_gap_backtest_summary
+      - football_price_gap_predictions
+      - get_football_price_gap_summary
       - prediction_aggregates
       - promotion_predictions
       - multi_bet_recommendations

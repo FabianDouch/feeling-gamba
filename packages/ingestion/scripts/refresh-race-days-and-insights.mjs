@@ -194,6 +194,8 @@ function buildRefreshCommands(options, window) {
   if (!options.skipPredictions) {
     commands.push(buildCommand("reconcile_prediction_outcomes", [
       path.join(SCRIPT_DIR, "reconcile-prediction-outcomes.mjs"),
+      `--from=${window.from}`,
+      `--to=${window.to}`,
       ...sharedBackfillFlags,
     ]));
   }

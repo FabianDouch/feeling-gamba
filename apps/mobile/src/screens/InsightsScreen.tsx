@@ -48,6 +48,12 @@ import {
   hasSupabaseLaligaConfig,
   type LaligaInsightsData,
 } from "../data/supabaseLaliga";
+
+import {
+  fetchNationsleagueInsights,
+  hasSupabaseNationsleagueConfig,
+  type NationsleagueInsightsData,
+} from "../data/supabaseNationsleague";
 import {
   fetchBundesligaInsights,
   hasSupabaseBundesligaConfig,
@@ -112,7 +118,7 @@ const emptyInsights: InsightsData = {
 
 type InsightMode = "win" | "place";
 type InsightSportGroup = "american_football" | "combat_sports" | "football" | "racing" | "rugby_league" | "rugby_union" | "tennis";
-type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "eflcup" | "epl" | "europaleague" | "laliga" | "ligue1" | "mls" | "nfl" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
+type InsightSport = "all_football" | "all_rugby_league" | "all_rugby_union" | "bundesliga" | "eflcup" | "epl" | "europaleague" | "laliga" | "nationsleague" | "ligue1" | "mls" | "nfl" | "npc" | "pfl" | "racing" | "nrl" | "seriea" | "tennis" | "ucl" | "ufc";
 type FixedWinPriceBucketMode = "exact" | "plus";
 
 const emptyUfcInsights: UfcInsightsData = {
@@ -262,6 +268,7 @@ const LEAGUE_OPTIONS_BY_GROUP: Record<InsightSportGroup, { label: string; value:
     { label: "UCL", value: "ucl" },
     { label: "EPL", value: "epl" },
     { label: "La Liga", value: "laliga" },
+    { label: "UEFA Nations League", value: "nationsleague" },
     { label: "Bundesliga", value: "bundesliga" },
     { label: "Serie A", value: "seriea" },
     { label: "Ligue 1", value: "ligue1" },
@@ -315,6 +322,8 @@ export function InsightsScreen() {
   const [uclInsights, setUclInsights] = useState<UclInsightsData>(emptyFootballInsights);
   const [eplInsights, setEplInsights] = useState<EplInsightsData>(emptyFootballInsights);
   const [laligaInsights, setLaligaInsights] = useState<LaligaInsightsData>(emptyFootballInsights);
+
+  const [nationsleagueInsights, setNationsleagueInsights] = useState<NationsleagueInsightsData>(emptyFootballInsights);
   const [bundesligaInsights, setBundesligaInsights] = useState<BundesligaInsightsData>(emptyFootballInsights);
   const [serieaInsights, setSerieaInsights] = useState<SerieaInsightsData>(emptyFootballInsights);
   const [ligue1Insights, setLigue1Insights] = useState<Ligue1InsightsData>(emptyFootballInsights);
@@ -337,6 +346,8 @@ export function InsightsScreen() {
   const [isLoadingUclInsights, setIsLoadingUclInsights] = useState(false);
   const [isLoadingEplInsights, setIsLoadingEplInsights] = useState(false);
   const [isLoadingLaligaInsights, setIsLoadingLaligaInsights] = useState(false);
+
+  const [isLoadingNationsleagueInsights, setIsLoadingNationsleagueInsights] = useState(false);
   const [isLoadingBundesligaInsights, setIsLoadingBundesligaInsights] = useState(false);
   const [isLoadingSerieaInsights, setIsLoadingSerieaInsights] = useState(false);
   const [isLoadingLigue1Insights, setIsLoadingLigue1Insights] = useState(false);
@@ -495,6 +506,8 @@ export function InsightsScreen() {
     || laligaInsights.tryScorerPlayerBreakdown.length > 0
     || hasPriceBreakdownRows(laligaInsights.tryScorerPriceBreakdown)
     || laligaInsights.tryScorerTeamBreakdown.length > 0;
+
+  const hasNationsleagueInsightRows = hasFootballInsightRows(nationsleagueInsights);
   const hasBundesligaInsightRows = hasFootballInsightRows(bundesligaInsights);
   const hasSerieaInsightRows = hasFootballInsightRows(serieaInsights);
   const hasLigue1InsightRows = hasFootballInsightRows(ligue1Insights);
@@ -1040,6 +1053,46 @@ export function InsightsScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadNationsleagueInsights() {
+      if (sport !== "nationsleague") {
+        return;
+      }
+
+      if (!hasSupabaseNationsleagueConfig) {
+        setErrorMessage("Supabase is not configured for UEFA Nations League Insights.");
+        return;
+      }
+
+      try {
+        setIsLoadingNationsleagueInsights(true);
+        setErrorMessage(null);
+        const nextInsights = await fetchNationsleagueInsights();
+
+        if (!cancelled) {
+          setNationsleagueInsights(nextInsights);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "UEFA Nations League Insights failed to load.");
+          setNationsleagueInsights(emptyFootballInsights);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingNationsleagueInsights(false);
+        }
+      }
+    }
+
+    loadNationsleagueInsights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadNpcInsights() {
       if (sport !== "npc") {
         return;
@@ -1374,6 +1427,16 @@ export function InsightsScreen() {
           <StateMessage text="No stored EPL insight aggregates are loaded yet." />
         ) : (
           <NrlInsightsPanel insights={eplInsights} scorerLabel="Goal scorer" />
+        )
+      ) : sport === "nationsleague" ? (
+        errorMessage ? (
+          <StateMessage tone="error" text={errorMessage} />
+        ) : isLoadingNationsleagueInsights ? (
+          <StateMessage text="Loading stored UEFA Nations League insight aggregates from Supabase." />
+        ) : !hasNationsleagueInsightRows ? (
+          <StateMessage text="No stored UEFA Nations League insight aggregates are loaded yet." />
+        ) : (
+          <NrlInsightsPanel insights={nationsleagueInsights} scorerLabel="Goal scorer" />
         )
       ) : sport === "laliga" ? (
         errorMessage ? (

@@ -1,0 +1,36 @@
+name: Football Price Gap Trial
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Read sources and report without writing trial records
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+concurrency:
+  group: football-price-gap-trial
+  cancel-in-progress: false
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Generate and reconcile prospective trial
+        run: |
+          args=(--require-supabase)
+          if [ "${DRY_RUN:-false}" = "true" ]; then args+=(--dry-run); fi
+          npm --workspace @feeling-gamba/ingestion run refresh:football-price-gap-trial -- "${args[@]}"
