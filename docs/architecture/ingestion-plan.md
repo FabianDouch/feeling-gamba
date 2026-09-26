@@ -233,6 +233,35 @@ reserved history state; they do not validate a deployed database migration.
 Calibration starts with stored pre-match snapshots; fixture-only backfills do
 not supply betting-return history.
 
+Investigation on 2026-09-27 NZ found a reconciliation source-filter defect:
+the importer stores `official_uefa`, but reconciliation queried
+`fixture_download`. Result workflow 36260865411 completed successfully while
+checking zero official matches and producing zero settled outcomes. Reconciliation
+now queries `official_uefa`; a read-only preview against 34 stored captures matched
+all 34, settled 12, left 22 pending and identified eight match links to repair.
+No schema change or replacement odds are needed. These counts describe stored
+results at the check time; a fresh UEFA import may settle additional matches.
+
+Market workflow 36271649401 separately failed with `ECONNRESET`, without TAB retry
+warnings. The log lacks endpoint context, so an unprotected Supabase request is
+the likely failing call, not a confirmed endpoint diagnosis. Capture's Supabase
+reads and conflict-key upserts now retry transient network/status errors up to
+three attempts, with 20-second timeouts covering response bodies and 1/2-second
+backoff. Errors identify table/method and attempt. Authentication/schema errors
+fail immediately; exhausted retries still fail the job. Existing TAB retries
+remain unchanged. Workflow 36260960225 exhausted those retries on HTTP 403;
+Supabase retry handling does not resolve persistent TAB access failures.
+
+Validation: 28 ingestion tests, ingestion typecheck, changed-script syntax and
+diff checks passed. Official importer and corrected reconciliation were checked
+with `--dry-run --require-supabase`; no live writes or workflow dispatch occurred.
+After deploying the correction, run
+`npm --workspace @feeling-gamba/ingestion run refresh:nationsleague-results-and-insights -- --require-supabase`
+to import current UEFA results, repair links/outcomes, rebuild league/All Football
+insights and regenerate legacy singles. The normal football forecast/history
+refreshes then consume the corrected result rows. Re-running the old workflow
+revision alone cannot fix the source filter.
+
 ## UEFA Champions League Current Market Capture
 
 The first UCL slice mirrors the NRL/NPC pipeline with separate `ucl_*` tables.

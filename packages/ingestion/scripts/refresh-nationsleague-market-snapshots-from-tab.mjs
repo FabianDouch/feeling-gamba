@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchTextWithRetry } from "./lib/retryable-http.mjs";
 import { NATIONSLEAGUE_TEAM_ALIASES } from "./lib/nationsleague.mjs";
 
 const DOT_ENV_FILES = [".env.local", ".env"];
@@ -555,7 +556,8 @@ function chunk(items, size) {
 /**
  * Minimal Supabase REST client for UEFA Nations League market snapshot reads and writes.
  */
-function createSupabaseRestClient(config, batchSize) {
+export function createSupabaseRestClient(config, batchSize, retryOptions = {}) {
+  // Retry reads and conflict-key upserts; include the table and operation in failures without logging credentials.
   async function request(table, options = {}) {
     const url = new URL(`${config.url}/rest/v1/${table}`);
 
@@ -565,7 +567,7 @@ function createSupabaseRestClient(config, batchSize) {
       }
     }
 
-    const response = await fetch(url, {
+    const text = await fetchTextWithRetry(url, {
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       headers: {
         apikey: config.key,
@@ -574,21 +576,14 @@ function createSupabaseRestClient(config, batchSize) {
         prefer: options.prefer ?? "return=representation",
       },
       method: options.method ?? "GET",
-    });
+    }, { ...retryOptions, label: `Supabase ${table} ${options.method ?? "GET"}` });
 
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Supabase ${table} ${options.method ?? "GET"} failed with HTTP ${response.status}: ${message.slice(0, 500)}`);
-    }
+    if (options.expectJson === false) return null;
 
-    if (options.expectJson === false) {
-      return null;
-    }
-
-    const text = await response.text();
     return text ? JSON.parse(text) : null;
   }
 
+  // Explicit conflict targets make replaying a batch safe after an uncertain transport failure.
   async function upsert(table, rows, onConflict, prefer = "resolution=merge-duplicates,return=minimal") {
     if (!rows.length) {
       return;
@@ -767,7 +762,7 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

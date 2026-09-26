@@ -67,3 +67,23 @@ test("country aliases apply to winner settlement", () => {
   assert.equal(outcome.row.favourite_won, true);
   assert.equal(outcome.row.favourite_win_return, 3.5);
 });
+
+test("reconciliation reads the importer's UEFA source, links older captures and settles their recorded prices", async () => {
+  const { readMatches, resolveSnapshotMatches, reconcileSnapshots } = await import('../scripts/reconcile-nationsleague-fixed-win-snapshots.mjs');
+  const official = { ...mapMatch({ ...match, score: { regular: { home: 0, away: 1 } } }, options),
+    id: 'official-id', kickoff_at: snapshot.advertised_start_at };
+  const captures = [{ ...snapshot, id: 'snapshot-id', matched_nationsleague_match_id: null }];
+  const client = { request: async (table, { search }) => {
+    assert.equal(table, 'nationsleague_matches');
+    return search.source === `eq.${official.source}` ? [official] : [];
+  } };
+  const matches = await readMatches(client, captures);
+  assert.equal(matches.length, 1);
+  const { resolvedSnapshots, matchesById, updates } = resolveSnapshotMatches(captures, matches);
+  assert.deepEqual(updates, [{id:'snapshot-id', matched_nationsleague_match_id:'official-id'}]);
+  const result = reconcileSnapshots(resolvedSnapshots, matchesById);
+  assert.equal(result.statuses.settled, 1);
+  assert.equal(result.rows[0].favourite_win_return, 1.9);
+  assert.equal(result.statuses.unmatched, 0);
+  assert.equal(result.statuses.missing_result, 0);
+});

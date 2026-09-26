@@ -504,9 +504,9 @@ function selectCanonicalSnapshots(snapshots) {
 }
 
 /**
- * Loads official football cup matches in the selected snapshot kickoff window.
+ * Loads UEFA-tagged Nations League matches; other football adapters use different source tags.
  */
-async function readMatches(supabase, snapshots) {
+export async function readMatches(supabase, snapshots) {
   const starts = snapshots
     .map((snapshot) => snapshot.advertised_start_at)
     .filter(Boolean)
@@ -542,7 +542,7 @@ async function readMatches(supabase, snapshots) {
         "winner_team_name",
         "winner_team_source_id",
       ].join(","),
-      source: "eq.fixture_download",
+      source: "eq.official_uefa",
     },
   });
 }
@@ -550,7 +550,7 @@ async function readMatches(supabase, snapshots) {
 /**
  * Backfills match links for previously captured snapshots after official rows arrive.
  */
-function resolveSnapshotMatches(snapshots, officialMatches) {
+export function resolveSnapshotMatches(snapshots, officialMatches) {
   const matchesById = new Map(officialMatches.map((row) => [row.id, row]));
   const updates = [];
   const resolvedSnapshots = snapshots.map((snapshot) => {
@@ -585,7 +585,7 @@ function resolveSnapshotMatches(snapshots, officialMatches) {
 /**
  * Builds fixed-win outcome rows from source snapshots and official football cup results.
  */
-function reconcileSnapshots(snapshots, matchesById) {
+export function reconcileSnapshots(snapshots, matchesById) {
   const statuses = {
     missing_result: 0,
     non_standard: 0,

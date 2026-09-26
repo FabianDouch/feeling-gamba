@@ -87,6 +87,16 @@ stay pending; extra time, aggregate scores and penalty shootouts never determine
 initial slice, so goalscorer/same-game rows remain empty. Default imports retain
 only matches with captured TAB prices; no historical odds are invented.
 
+On 2026-09-27 NZ, successful UEFA imports were confirmed in the linked database
+(34 priced matches, including 12 completed with regulation scores). Settlement
+was incorrectly filtering these rows as `fixture_download` rather than
+`official_uefa`; correcting that filter matched all 34 captures in a read-only
+preview and made the 12 completed outcomes settle. The official feed dry run
+still returned 156 fixtures with 34 matching retained prices. Capture failures
+are separate: recent Actions logs showed both exhausted TAB HTTP 403 retries and
+an unlabelled connection reset. Capture's Supabase requests now have bounded
+transport retries and operation labels; persistent TAB blocks still fail visibly.
+
 ## Shared Gaps
 
 - No stable per-match scorer event feed has been validated for these leagues in
