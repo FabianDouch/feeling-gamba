@@ -1097,9 +1097,13 @@ the existing forecast generation rules are unchanged.
 
 History source sits below model selection. Historical backtest is the default,
 reconstructed from collected prices/results; Forward trial is a separate option.
-The selected variation shows scored/unavailable counts, Brier/log loss and its
-paired market baseline. Calibration and build time sit behind Show model
-diagnostics. Match outcomes show cohort win rate and notional $1 returns,
+History coverage appears before model performance, showing recorded, settled,
+pending and excluded counts plus the visible backtest rebuild time. This keeps
+zero scored probabilities distinct from missing match records. When all recorded
+rows lack the selected probability, explain that match history exists but model
+training requirements were not met. The selected variation shows scored/unavailable
+counts, Brier/log loss and its paired market baseline. Calibration sits behind
+Show model diagnostics. Match outcomes show cohort win rate and notional $1 returns,
 explicitly including matches without a model probability. The history list shows
 only the selected model's probability and sample, with pages of 20 matches.
 Changing league, cohort or source resets pagination. All collected dates apply.

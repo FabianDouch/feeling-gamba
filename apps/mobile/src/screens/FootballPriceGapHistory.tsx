@@ -15,7 +15,7 @@ function modelProbability(entry: TrialEntry, model: TrialModel) {
   return model === "market" ? entry.market_probability : model === "bucket" ? entry.bucket_probability : entry.rich_probability;
 }
 
-// Render the selected football single variation beneath the shared league/format/type/model controls.
+// Keep recorded match coverage visible even when the selected model lacks enough history to score probabilities.
 export function FootballPriceGapHistory({ league, variation }: { league: string | null; variation: FootballHistoryVariation }) {
   const [mode, setMode] = useState<FootballHistoryMode>("backtest");
   const [pagination, setPagination] = useState({ scope: "", page: 0 });
@@ -61,7 +61,11 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
         : "Predictions saved before kickoff, with outcomes reconciled after the match."}</Text>
     </View>
     {error ? <Text style={styles.error}>History unavailable: {error}</Text> : !data ? <Text style={styles.note}>Loading football prediction history…</Text> : <>
-      <Text style={styles.heading}>Single prediction performance</Text>
+      <Text style={styles.heading}>History coverage</Text>
+      <Text style={styles.note}>{data.summary.recorded} {isBacktest ? "replayed matches" : "forecasts"} · {data.summary.settled} settled · {data.summary.pending} pending · {data.summary.excluded} excluded · all collected dates</Text>
+      {isBacktest && data.summary.built_at ? <Text style={styles.note}>Backtest updated {new Date(data.summary.built_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ.</Text> : null}
+      {data.summary.recorded > 0 && selectedModel?.unavailable === data.summary.recorded ? <Text style={styles.note}>Match history is available below. This variation has no probability estimates yet because its training requirements were not met.</Text> : null}
+      <Text style={styles.heading}>Selected model performance</Text>
       <View style={styles.statsRow}>
         <Metric value={String(selectedModel?.scored ?? 0)} label="Scored predictions" detail={`${selectedModel?.unavailable ?? 0} with insufficient history`} />
         <Metric value={score(selectedModel?.brier)} label="Brier score" detail="Lower is better" />
@@ -92,10 +96,8 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
         </Text>)}
         {!(selectedModel?.scored) ? <Text style={styles.note}>No scored probabilities for this variation yet.</Text> : null}
         <Text style={styles.note}>The $2.00+ group includes the $2.00–$2.49 group. Their counts must not be added together.</Text>
-        {data.summary.built_at ? <Text style={styles.note}>Backtest rebuilt {new Date(data.summary.built_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ.</Text> : null}
       </View> : null}
       <Text style={styles.heading}>Prediction history</Text>
-      <Text style={styles.note}>{data.summary.recorded} {isBacktest ? "replayed matches" : "forecasts"} · {data.summary.settled} settled · {data.summary.pending} pending · {data.summary.excluded} excluded · all collected dates</Text>
       {data.entries.map((entry) => {
         const p = modelProbability(entry, variation.model);
         const sample = variation.model === "bucket" ? entry.bucket_sample : entry.rich_sample;

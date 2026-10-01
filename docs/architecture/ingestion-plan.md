@@ -217,6 +217,15 @@ fixed-win rows, rebuilds insights and generates current singles. The result pass
 Results use official UEFA competition 2014, default season 2027 for 2026/27,
 and explicit regulation scores; no scorer/SGM capture is enabled yet.
 
+The Nations League market orchestrator now generates the six current football
+price-gap variations immediately after capture/import/reconciliation, before
+insight and legacy-single rebuilds. It calls the existing all-football forward
+refresh with only its supported dry-run/require-Supabase flags; `--skip-predictions`
+skips both current and legacy generation. Prepared on 2026-09-29 and included
+in the approved 2026-10-01 main-branch publication, this runs with each subsequent
+scheduled market refresh. The independent football workflow remains a
+settlement/generation catch-up pass.
+
 GitHub Actions market capture runs at minutes 7/22/37/52 during 10:00-23:59 UTC
 every day; result passes run at minute 37 of 14/17/20/22/23 UTC every day.
 Both support manual dry runs and reuse the existing Supabase secrets. Schedules
@@ -261,6 +270,45 @@ to import current UEFA results, repair links/outcomes, rebuild league/All Footba
 insights and regenerate legacy singles. The normal football forecast/history
 refreshes then consume the corrected result rows. Re-running the old workflow
 revision alone cannot fix the source filter.
+
+Live recovery completed later on 2026-09-27 NZ. The source-filter correction is
+on remote `main` at `b699379`; the result/insight pipeline was run against the
+linked database and settled 18 of 34 captured matches, leaving 16 pending and
+zero unmatched/missing-result rows. The separate forward refresh then settled
+five stored forecasts and saved four eligible upcoming Nations League forecasts.
+Rebuilding historical backtests added 11 Nations League $2.00+ matches (including
+one in $2.00–$2.49). Public RPC and live browser checks verified both screens.
+The four upcoming recommendations appear in Price gap $2.00+ and Market odds
+$2.00+; no upcoming exact-cohort forecast exists, and context probabilities remain
+unavailable. Refreshing league singles alone does not update these screens.
+
+On 2026-09-29 at 00:03 UTC, all upcoming forecast reads were empty although ten
+captured Nations League fixtures started within 24 hours. Their last prices were
+from 2026-09-28 18:07 UTC, almost six hours old. Market run 36497720571 exhausted
+TAB HTTP 403 retries; successful forecast run 36500547278 correctly produced zero
+eligible rows under the one-hour source-freshness rule. Even the preceding
+successful capture and forecast runs were over an hour apart. Separate GitHub
+cron schedules do not guarantee freshness or timely execution.
+
+A fresh local TAB probe succeeded. Running the updated capture pipeline saved
+18 upcoming market snapshots and nine cohort forecasts representing eight distinct
+matches on 2026-09-30 NZ. One match belongs to both exact/cumulative cohorts.
+No timing limits were relaxed, forecast timestamps backdated or odds invented.
+The exact bucket model still lacks its 30-match sample; market/context exact
+models can score the one exact match, and all three cumulative models are available.
+
+On 2026-10-01 NZ the same timing gap recurred without a capture failure. Market
+run 36796572950 saved prices at 00:31:06 UTC; forecast run 36801550654 evaluated
+them at approximately 01:32:20 UTC and returned zero eligible rows. The prices
+were just over one hour old. Both runs still used `b699379`, which does not include
+the local capture-to-forecast orchestration change. Of all ten leagues, only
+Nations League had stored matches within the next 24 hours (eight matches, four
+qualifying $2.00+ favourites). Running the updated local pipeline at 02:35 UTC
+captured 26 markets and saved four new forecasts with all three cumulative model
+probabilities. Exact-cohort models had no qualifying matches. Live repair is
+complete; publishing the existing pipeline fix remains necessary for scheduled
+reliability. The independent schedules are not evidence of an hourly freshness
+guarantee, and the forecast freshness rule was not relaxed.
 
 ## UEFA Champions League Current Market Capture
 
@@ -2455,7 +2503,22 @@ After `202609250002_football_price_gap_backtest.sql` and
 to reconstruct history from existing reconciled results across all ten leagues.
 `--dry-run` reads and computes without requiring the backtest schema or writing.
 Read all sources successfully before atomically replacing the derived backtest;
-never replace from a partial-league read. This is a manual rebuild, independent
-of the twice-hourly forward trial. Rebuild after more settlements or corrections.
+never replace from a partial-league read. On 2026-09-27 the football workflow was
+updated to run this rebuild after each successful forward refresh, sharing the
+manual dispatch's dry-run flag. This closes the gap where settlement updated
+forward history but the default Historical backtest remained stale. The workflow
+change is included in the approved 2026-10-01 main-branch publication; subsequent
+scheduled runs rebuild history. The recovery above already ran both commands
+manually against live data.
 Only captured pre-kickoff odds and consistent settled outcomes enter the replay;
 no new bookmaker requests or invented historical odds are needed.
+
+Live history was rebuilt again on 2026-09-29 at 01:57 UTC after the app's public
+reads confirmed the last backtest build was still 2026-09-26 22:55 UTC. The replay
+now includes 74 distinct qualifying matches, 15 from Nations League (nine overall
+and one Nations League match also appear in the overlapping exact cohort).
+Forward history remains separate with 17 distinct saved forecasts: nine settled,
+eight pending. The default exact historical-rate model still has zero scored
+probabilities because its earlier cohort sample is too small; that does not mean
+no matches were captured. The automatic historical rebuild is included in the
+approved 2026-10-01 publication of the prepared workflow change.

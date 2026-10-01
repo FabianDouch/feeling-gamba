@@ -34,3 +34,8 @@ jobs:
           args=(--require-supabase)
           if [ "${DRY_RUN:-false}" = "true" ]; then args+=(--dry-run); fi
           npm --workspace @feeling-gamba/ingestion run refresh:football-price-gap-trial -- "${args[@]}"
+      - name: Rebuild historical prediction backtests
+        run: |
+          args=(--require-supabase)
+          if [ "${DRY_RUN:-false}" = "true" ]; then args+=(--dry-run); fi
+          npm --workspace @feeling-gamba/ingestion run backfill:football-price-gap-history -- "${args[@]}"

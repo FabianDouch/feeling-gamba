@@ -97,6 +97,15 @@ are separate: recent Actions logs showed both exhausted TAB HTTP 403 retries and
 an unlabelled connection reset. Capture's Supabase requests now have bounded
 transport retries and operation labels; persistent TAB blocks still fail visibly.
 
+On 2026-09-29 NZ, Actions market run 36497720571 exhausted three TAB HTTP 403
+attempts. At 00:03 UTC the last stored upcoming prices were almost six hours old,
+so the forward model correctly rejected them despite available next-day fixtures.
+A local read-only probe then succeeded with 18 current markets; the subsequent
+capture saved fresh prices. This is intermittent source access, not evidence
+that missing/stale odds may be substituted. The market pipeline now invokes
+forecast generation directly so a successful capture need not wait for a separate
+cron run; the change is included in the approved 2026-10-01 main-branch publication.
+
 ## Shared Gaps
 
 - No stable per-match scorer event feed has been validated for these leagues in

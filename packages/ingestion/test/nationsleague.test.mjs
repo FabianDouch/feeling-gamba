@@ -87,3 +87,19 @@ test("reconciliation reads the importer's UEFA source, links older captures and 
   assert.equal(result.statuses.unmatched, 0);
   assert.equal(result.statuses.missing_result, 0);
 });
+
+test("market refresh generates current football forecasts in the same run as capture and reconciliation", async () => {
+  const { parseArgs, buildRefreshCommands } = await import('../scripts/refresh-nationsleague-current-markets.mjs');
+  const commands = buildRefreshCommands(parseArgs(['--require-supabase', '--batch-size=100']));
+  const labels = commands.map((command) => command.label);
+  const forecastIndex = labels.indexOf('refresh_football_price_gap_forecasts');
+  assert(forecastIndex > labels.indexOf('capture_nationsleague_fixed_win_markets'));
+  assert(forecastIndex > labels.indexOf('reconcile_nationsleague_fixed_win'));
+  assert(forecastIndex < labels.indexOf('rebuild_nationsleague_insights'));
+  assert(commands[forecastIndex].args[0].endsWith('/refresh-football-price-gap-trial.mjs'));
+  assert.deepEqual(commands[forecastIndex].args.slice(1), ['--require-supabase']);
+  const dry = buildRefreshCommands(parseArgs(['--dry-run', '--require-supabase']));
+  assert.deepEqual(dry.find((command) => command.label === 'refresh_football_price_gap_forecasts').args.slice(1), ['--dry-run', '--require-supabase']);
+  const skipped = buildRefreshCommands(parseArgs(['--skip-predictions']));
+  assert(!skipped.some((command) => command.label === 'refresh_football_price_gap_forecasts'));
+});

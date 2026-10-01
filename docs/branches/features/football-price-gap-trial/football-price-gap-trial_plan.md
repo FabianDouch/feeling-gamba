@@ -142,3 +142,84 @@ retained source data is corrected. No past records are labelled live forecasts.
   stored source coverage, not a verified external fixture schedule.
 - No schema, ingestion rule, commit, push or release deployment change. Canonical
   architecture/IA YAML updated; rendered diagrams still require regeneration.
+
+## Nations League visible-data recovery (2026-09-27)
+
+- Repaired live Nations League results and insights using the committed source
+  filter correction: 18 settled matches, 16 pending, no missing/unmatched results.
+- Ran the forward refresh after its dry run: five existing forecasts settled,
+  four upcoming forecasts saved without overwriting frozen probabilities.
+- Ran the historical rebuild after its dry run: 70 distinct qualifying football
+  matches overall, including 11 Nations League matches; exact cohorts overlap.
+- Real browser/public RPC checks confirmed four upcoming Nations League cards in
+  both Price gap $2.00+ and Market odds $2.00+, 11 cumulative historical matches,
+  one exact historical match, and forward history with five settled/four pending.
+- Exact upcoming models remain empty; context models explicitly lack sufficient
+  training history. All six variations checked, with no browser page errors.
+- Added historical rebuild to the existing football workflow after forward
+  refresh, preserving dry-run behavior. YAML and shell syntax validated. This
+  scheduling change is local until pushed; the live data recovery is complete.
+
+## Next-day forecast recovery (2026-09-29)
+
+- Empty upcoming predictions were caused by stale captured prices: TAB capture
+  failed with HTTP 403, and independently delayed forecast runs missed the
+  existing one-hour freshness window after successful captures.
+- Added forward generation to Nations League market orchestration after
+  capture/import/reconciliation, retaining all model and timing rules. Dry-run
+  and skip-prediction controls remain supported; unrelated batch flags are omitted.
+- Live capture recovered 18 market snapshots; forward generation saved nine
+  cohort rows for eight distinct matches on 30 September NZ. All eight have
+  cumulative bucket/market/context probabilities; one also has exact market/context
+  probabilities. Exact historical-rate probability remains unavailable.
+- All 29 ingestion tests and script syntax checks passed, including orchestration
+  order, dry-run flags and skipping predictions. Ingestion typecheck and diff
+  checks passed. Live browser verification confirmed counts across all six
+  variations and the same eight matches in All Football, with no page errors.
+  No commit or push performed;
+  pipeline and previously prepared history-workflow changes remain local.
+
+## History coverage clarity and refresh (2026-09-29)
+
+- Public app reads confirmed historical and forward records exist; the default
+  exact bucket model's zero scored probabilities obscured the recorded history.
+- Refreshed the stale historical backtest after a dry run: 74 distinct qualifying
+  matches overall, including 15 Nations League matches. Forward history remains
+  separate: nine settled forecasts and eight pending matches.
+- Moved recorded/settled/pending/excluded counts above model performance, exposed
+  the historical rebuild timestamp, and explained all-unavailable model scores.
+  No model thresholds, default filters or backtest/forward semantics changed.
+- Existing automatic historical-refresh workflow change is still local. Live
+  data is refreshed; the UI change is available in the local development app.
+- Canonical IA YAML updated; rendered IA outputs still need regeneration.
+- Validation passed: mobile typecheck/lint, IA YAML and diff checks. Live browser
+  checks verified All Football/Nations League backtest counts, separate forward
+  totals, recorded-versus-scored explanations, and desktop/mobile layout with no
+  page errors. Mobile screenshot reviewed.
+
+## Recurrence while pipeline fix remains unpublished (2026-10-01)
+
+- Actions still runs `b699379`: market capture succeeded at 00:31 UTC and forward
+  generation ran at 01:32 UTC, just beyond the one-hour freshness cutoff. No
+  qualifying forecast was saved despite both jobs reporting success.
+- Checked all ten leagues; only Nations League had stored fixtures inside the
+  24-hour window. Eight fixtures included four qualifying cumulative selections.
+- Ran the previously validated local pipeline against live data, saving four
+  new forecasts after a fresh capture. Existing probabilities remain immutable.
+- Browser verification confirmed four cards in each cumulative variation and
+  the same four matches in All Football; all exact variations correctly empty.
+- No new model/code changes were needed. The previously prepared scheduling,
+  history refresh and UI fixes are still local; publication remains outstanding.
+
+
+## Publication (2026-10-01)
+
+- User approved committing and pushing the prepared football fixes to `main`.
+- This publication includes capture-linked Nations League forecast generation,
+  scheduled historical backtest rebuilds, recorded-versus-scored history UI,
+  regression coverage and the documentation updates recorded above.
+- Prior checks passed: 29 ingestion tests, mobile/ingestion typechecks, mobile
+  lint, workflow/IA YAML and shell syntax, and live desktop/mobile browser checks.
+- No schema migration is required. Scheduled runs use the new pipeline once this
+  commit reaches `main`; four upcoming cumulative predictions were already restored
+  in the live database before publication. Source access failures can still occur.

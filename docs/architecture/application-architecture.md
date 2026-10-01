@@ -930,6 +930,14 @@ tables, freezes pre-kickoff baseline/bucket/richer-model probabilities, and
 reconciles source-backed outcomes. The six model/cohort variations now also power current football recommendations;
 legacy league single-model history remains unimplemented.
 
+Nations League current-market orchestration now invokes that same forward refresh
+after its capture/import/reconciliation steps, before rebuilding insights and
+legacy singles. Coupling these steps prevents independently delayed GitHub cron
+runs from missing the one-hour price-freshness window. The separate football
+workflow remains available for catch-up and settlement; immutable forecast keys
+keep overlapping runs from replacing probabilities. This 2026-09-29 pipeline
+change is included in the approved 2026-10-01 main-branch publication.
+
 The database guards immutable forecast inputs, while an invoker RPC computes
 full-cohort evaluation metrics and paired baselines. Public app clients only
 read. No current-prediction locks, notifications or wagering flows are added.
@@ -942,6 +950,12 @@ priced results and writes a separate `football_price_gap_backtests` read model
 through an atomic service-role replacement RPC. Its summary RPC and the forward
 summary never mix their denominators. Canonical YAML reflects both modes;
 rendered architecture outputs still require regeneration.
+
+The football workflow now also invokes historical reconstruction after a
+successful prospective refresh, with the same dry-run setting. This scheduling
+change was prepared on 2026-09-27 after repaired Nations League results remained
+absent from the manual-only backtest table; it is included in the approved
+2026-10-01 main-branch publication. Current forecasts still never read reconstructed backtest rows.
 
 Football history uses the shared Sport → League → Singles/Multis → Win % → variation
 controls. The six singles variations pair baseline/bucket/context probabilities
