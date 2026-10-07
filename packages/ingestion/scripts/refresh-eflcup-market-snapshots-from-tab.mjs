@@ -21,8 +21,9 @@ const TAB_SOURCE = {
 };
 const TEAM_NAME_ALIASES = new Map();
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const EFLCUP_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query FootballMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -513,7 +514,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", EFLCUP_COMPETITION_QUERY, {
+    const response = await graphql(source, "FootballMarketSnapshot", EFLCUP_COMPETITION_QUERY, {
       category: EFLCUP_CATEGORY,
       competitionSlug: options.competitionSlug,
       marketsFirst: options.marketsFirst,

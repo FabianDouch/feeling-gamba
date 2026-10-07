@@ -46,8 +46,9 @@ const TEAM_NAME_ALIASES = new Map([
   ["villarreal", "villarreal cf"],
 ]);
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const LALIGA_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query FootballMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -497,7 +498,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", LALIGA_COMPETITION_QUERY, {
+    const response = await graphql(source, "FootballMarketSnapshot", LALIGA_COMPETITION_QUERY, {
       category: LALIGA_CATEGORY,
       competitionSlug: options.competitionSlug,
       marketsFirst: options.marketsFirst,

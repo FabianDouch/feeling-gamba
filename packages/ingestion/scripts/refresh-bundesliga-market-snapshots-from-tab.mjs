@@ -28,8 +28,9 @@ const TEAM_NAME_ALIASES = new Map([
   ["tsg hoffenheim", "tsg 1899 hoffenheim"],
 ]);
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const BUNDESLIGA_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query FootballMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -520,7 +521,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", BUNDESLIGA_COMPETITION_QUERY, {
+    const response = await graphql(source, "FootballMarketSnapshot", BUNDESLIGA_COMPETITION_QUERY, {
       category: BUNDESLIGA_CATEGORY,
       competitionSlug: options.competitionSlug,
       marketsFirst: options.marketsFirst,

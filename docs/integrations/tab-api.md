@@ -15,6 +15,46 @@ GraphQL introspection is disabled. A request using `__schema` or `__type` return
 GraphQL introspection is disabled by Cosmo Router
 ```
 
+### Football market failure investigation — 2026-10-07 NZ
+
+The latest market Actions runs for all ten football leagues failed on the first
+fixed-win capture request with `SportingCompetitionScreen returned an empty
+response body`. Result refreshes for all ten leagues and the Football Price Gap
+Trial were successful in the inspected run window. Example failures:
+[EPL 37553033486](https://github.com/FabianDouch/feeling-gamba/actions/runs/37553033486)
+and [Nations League 37554033477](https://github.com/FabianDouch/feeling-gamba/actions/runs/37554033477).
+EPL's last successful run was 36795092765 on 1 October NZ; all 16 subsequent
+EPL market runs inspected failed. The intervening `7d0229c` commit did not change
+the EPL capture script.
+
+Read-only local probes reproduced HTTP 200 with `content-length: 0`, no content
+type and a Cloudflare server header. Reducing the request to one event/ten
+markets, removing the competition metadata field, or using `/gql/router` did
+not resolve it. A tennis request to `/graphql` returned valid JSON.
+Changing only the football query declaration and request `operationName` from
+`SportingCompetitionScreen` to `FootballMarketSnapshot` made the original full
+EPL query (20 events/500 markets) return valid JSON with 12 events. This isolates
+operation-name-dependent response behaviour; the upstream routing/filtering
+mechanism is unknown. It is not a valid empty market list or a Supabase failure.
+
+Implemented locally on 2026-10-07 NZ: all ten football fixed-win capture scripts
+now use `FootballMarketSnapshot` in both the query declaration and request
+operation name. Live capture dry runs passed for every league at 02:56 UTC:
+EPL 10, UCL 18, La Liga 10, Bundesliga 18, Serie A 10, Ligue 1 9 and Europa
+League 18 snapshots; MLS, EFL Cup and Nations League returned valid empty event
+lists. Bundesliga and Europa League had no matching stored official fixtures in
+these capture-only checks; fixture import/reconciliation still needs the normal
+pipeline. EPL excluded two events without qualifying Match Result snapshots.
+All 29 ingestion tests and all ten changed-script syntax checks passed.
+Publication and GitHub Actions verification remain pending; no market data was
+written and no workflows were dispatched during validation.
+
+Existing retries in the additional-league scripts do not classify
+empty successful responses as retryable; EPL/UCL/La Liga capture has no such
+retry loop. Better HTTP response diagnostics and bounded empty-body retries
+would improve resilience but do not establish source recovery on their own.
+Never interpret the empty body as zero markets or substitute stale odds.
+
 ## Race Card Lookup
 
 Race card lookups use GraphQL's `node(id: ...)` pattern.

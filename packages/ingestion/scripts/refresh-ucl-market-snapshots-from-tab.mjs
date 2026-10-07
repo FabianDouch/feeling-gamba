@@ -49,8 +49,9 @@ const TEAM_NAME_ALIASES = new Map([
   ["viking fk", "viking"],
 ]);
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const UCL_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query FootballMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -491,7 +492,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", UCL_COMPETITION_QUERY, {
+    const response = await graphql(source, "FootballMarketSnapshot", UCL_COMPETITION_QUERY, {
       category: UCL_CATEGORY,
       competitionSlug: UCL_COMPETITION_SLUG,
       marketsFirst: options.marketsFirst,

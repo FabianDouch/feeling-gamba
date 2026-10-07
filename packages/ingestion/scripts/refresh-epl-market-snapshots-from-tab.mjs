@@ -40,8 +40,9 @@ const TEAM_NAME_ALIASES = new Map([
   ["wolves", "wolverhampton wanderers"],
 ]);
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const EPL_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query FootballMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -482,7 +483,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", EPL_COMPETITION_QUERY, {
+    const response = await graphql(source, "FootballMarketSnapshot", EPL_COMPETITION_QUERY, {
       category: EPL_CATEGORY,
       competitionSlug: EPL_COMPETITION_SLUG,
       marketsFirst: options.marketsFirst,
