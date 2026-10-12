@@ -1794,6 +1794,25 @@ Historical backfill should start as a manual run in bounded chunks. Add a
 recurring schedule only after source terms, runtime, and parser reliability are
 confirmed.
 
+Operational check on 2026-10-13 NZ: latest observed overnight run
+`38191371488` completed successfully on 12 October NZ and refreshed source
+dates 8–11 October. Stored race-day entries stop at 11 October; all 162 single
+predictions and both multi recommendations for 12 October remain pending.
+Earlier data is not universally pending: 10 October has 274 settled race-day
+entries and 171 settled single predictions; 11 October has 205 settled races,
+five abandoned races, 104 settled singles and 24 missing-result singles.
+No overnight run for 13 October NZ was present in the inspected run history.
+Recovery needs a source refresh including 12 October followed by reconciliation;
+successful older workflow runs do not establish current source-date coverage.
+
+Recovered on 2026-10-13 NZ through manual workflow run
+`38320520150` with `lookback_days=1`, writes enabled and no forced lock override.
+The run succeeded; a subsequent database read confirmed 184 settled race-day
+entries for 12 October, all 162 single predictions settled, and both multi
+recommendations settled. Today's predictions remain pending as expected.
+The existing scheduled catch-up windows are unchanged; GitHub scheduling delays
+can still delay future completed-date imports.
+
 The daily race-day refresh is deployed as `refresh-race-days-and-insights` and
 scheduled through `.github/workflows/overnight-race-refresh.yml`. The workflow
 calls the hosted Edge Function at `18:10`, `20:10`, and `22:10` UTC, which gives
@@ -2472,6 +2491,32 @@ Operational checks:
 - Race ID discovery notes: `../integrations/race-id-discovery.md`
 
 ## Football price-gap experiment (2026-09-25)
+
+Operational check on 2026-10-13 NZ: no stored forward forecasts had future
+kickoffs. Latest trial run `38294356608` at 07:57 NZDT produced zero eligible
+forecasts. UCL capture `38309136698` at 10:12 NZDT subsequently stored 18
+snapshots, including nine matches within the next 24 hours, five meeting the
+$2+ price-gap threshold. Those prices were older than one hour at the database
+check, with no intervening trial run in the inspected history. UCL's market
+wrapper generates legacy singles but does not invoke the shared forward trial
+used by the app; only Nations League currently chains that trial after capture.
+The other leagues' retained upcoming markets were outside the 24-hour window
+or absent.
+
+Implemented locally on 2026-10-13 NZ: all ten league market wrappers now invoke
+the shared trial after fixed-win reconciliation and before aggregate rebuilds.
+`--skip-predictions` skips it, and dry-run/write flags pass through without
+unsupported batch-size flags. This avoids dependence on independent schedules
+landing within the freshness window; freshness and prospective-only rules are
+unchanged. Regression coverage checks ordering and flags across all ten wrappers;
+all 38 ingestion tests pass. Publication remains pending.
+
+A live run of the repaired UCL pipeline on 13 October NZ captured 18 current
+markets, reconciled them and saved six forward cohort records for five upcoming
+matches. The app-facing read confirmed one exact-cohort market forecast and five
+cumulative-cohort forecasts with market and historical-rate probabilities.
+The exact historical-rate and richer models still abstain for insufficient
+history. No forecast timestamps were backdated.
 
 Apply `202609250001_football_price_gap_trial.sql` before enabling
 `.github/workflows/football-price-gap-trial.yml`. It runs at UTC minute 7 and 37

@@ -12,7 +12,7 @@ const DEFAULT_COMPETITION_SLUG = "english-league-cup";
 /**
  * Parses the EFL Cup current-market refresh orchestration options.
  */
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     batchSize: null,
     competitionSlug: DEFAULT_COMPETITION_SLUG,
@@ -115,7 +115,7 @@ function getWriteFlags(options) {
 /**
  * Builds the ordered EFL Cup current-market refresh command list.
  */
-function buildRefreshCommands(options) {
+export function buildRefreshCommands(options) {
   const commands = [];
   const writeFlags = getWriteFlags(options);
 
@@ -149,6 +149,12 @@ function buildRefreshCommands(options) {
 
   if (!options.skipReconcile) {
     commands.push(buildCommand("reconcile_eflcup_fixed_win", "reconcile-eflcup-fixed-win-snapshots.mjs", writeFlags));
+  }
+
+  // Save current six-variation forecasts while this run's captured prices are still fresh.
+  if (!options.skipPredictions) {
+    const forecastFlags = writeFlags.filter((flag) => flag === "--dry-run" || flag === "--require-supabase");
+    commands.push(buildCommand("refresh_football_price_gap_forecasts", "refresh-football-price-gap-trial.mjs", forecastFlags));
   }
 
   if (!options.skipInsights) {
@@ -204,7 +210,9 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
