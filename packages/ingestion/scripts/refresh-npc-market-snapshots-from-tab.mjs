@@ -18,8 +18,9 @@ const TAB_SOURCE = {
   source: "tab",
 };
 
+// TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const NPC_COMPETITION_QUERY = `
-  query SportingCompetitionScreen(
+  query TeamSportMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -442,7 +443,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "SportingCompetitionScreen", NPC_COMPETITION_QUERY, {
+    const response = await graphql(source, "TeamSportMarketSnapshot", NPC_COMPETITION_QUERY, {
       category: NPC_CATEGORY,
       competitionSlug: NPC_COMPETITION_SLUG,
       marketsFirst: options.marketsFirst,

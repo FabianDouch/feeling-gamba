@@ -55,6 +55,56 @@ retry loop. Better HTTP response diagnostics and bounded empty-body retries
 would improve resilience but do not establish source recovery on their own.
 Never interpret the empty body as zero markets or substitute stale odds.
 
+History impact checked read-only at 03:07 UTC on 2026-10-07: the database retains
+22 forward cohort records for 21 distinct matches, all settled. The last saved
+forecast was at 02:35 UTC on 1 October. Twelve Nations League matches with
+qualifying retained $2.00+ price gaps have no forward record: seven kicked off
+on 3 October NZ and five on 4 October NZ; one also qualifies for the exact
+$2.00–$2.49 cohort. Their prices were last captured on 1 October, more than
+24 hours before kickoff, so they could not enter the forward window before
+those prices became stale. Qualification describes the retained odds; missing
+later prices cannot establish what a healthy live run would have selected.
+
+All twelve are already present in Historical backtest. Replaying the 286 retained
+result rows produced the same 109 backtest cohort keys (98 distinct matches),
+with zero missing saved keys; the stored backtest was rebuilt at 01:00 UTC on
+7 October. No other league had retained match kickoffs in the audited interval
+(1 October 02:35 UTC through the check). Because imports are priced-only, this
+does not prove coverage of fixtures whose odds were never captured. Historical
+reconstruction remains separate from live forecasts; missed past forecasts
+cannot be inserted retrospectively as genuine forward predictions. No data
+writes were performed for this audit.
+
+### NRL, NFL and NPC market failure investigation — 2026-10-13 NZ
+
+All three latest market refresh runs fail at fixed-win capture with
+`SportingCompetitionScreen returned an empty response body`:
+[NRL 38147051826](https://github.com/FabianDouch/feeling-gamba/actions/runs/38147051826),
+[NFL 38208060531](https://github.com/FabianDouch/feeling-gamba/actions/runs/38208060531),
+and [NPC 38136054664](https://github.com/FabianDouch/feeling-gamba/actions/runs/38136054664).
+The inspected history shows continuous market failures starting 1 October UTC
+for all three. Their latest result refresh runs succeeded. The 7 October
+football fix (`5f38f27`) did not change these three fixed-win adapters.
+
+Read-only probes using each adapter's full query (20 events, 500 markets)
+reproduced HTTP 200 with an empty body. Changing only the query declaration
+and request operation name to `TeamSportMarketSnapshot` restored valid JSON:
+NFL returned 15 events, NPC returned 2, and NRL returned competition metadata
+with `upcomingEvents: null`. The NRL response is a valid no-current-events
+response; the original empty HTTP body is not. This confirms operation-name-
+dependent behaviour, but does not identify TAB's upstream filtering mechanism.
+
+Implemented locally on 2026-10-13 NZ: all three fixed-win adapters now use
+`TeamSportMarketSnapshot` in both the query declaration and request operation
+name. Live capture dry runs at 11:06 NZDT passed: NFL returned 15 snapshots and
+NPC returned 2, all matched to stored official fixtures; NRL returned zero
+current events without errors. All three script syntax checks and all 29
+ingestion tests passed. Publication and GitHub Actions verification remain
+pending; no production writes or workflow dispatches were performed.
+Failed captures leave gaps in pre-kickoff price history;
+successful result refreshes cannot reconstruct those missing prices. NRL/NPC
+market wrappers abort before their subsequent try-scorer and HT/FT captures.
+
 ## Race Card Lookup
 
 Race card lookups use GraphQL's `node(id: ...)` pattern.
