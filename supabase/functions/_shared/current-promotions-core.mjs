@@ -1079,36 +1079,46 @@ function createMultiBetRecommendationSignature({ combinedFixedPlacePrice = null,
   });
 }
 
-async function fetchExistingPredictionSignatures({ rows, supabaseKey, supabaseUrl }) {
-  if (!rows.length) {
-    return new Map();
+/**
+ * Bounds and pages signature reads so repeated model rows cannot create oversized URLs.
+ */
+export async function fetchExistingPredictionSignatures({ rows, supabaseKey, supabaseUrl }) {
+  const existing = new Map();
+  const idsBySource = new Map();
+  for (const row of rows) {
+    if (!idsBySource.has(row.source)) idsBySource.set(row.source, new Set());
+    idsBySource.get(row.source).add(row.source_race_card_id);
   }
 
   const normalizedUrl = normalizeSupabaseProjectUrl(supabaseUrl);
-  const ids = rows.map((row) => `"${escapePostgrestInValue(row.source_race_card_id)}"`).join(",");
-  const url = new URL("/rest/v1/promotion_predictions", normalizedUrl);
-  url.searchParams.set("select", "prediction_model,source,source_race_card_id,prediction_signature");
-  url.searchParams.set("source", `eq.${rows[0].source}`);
-  url.searchParams.set("source_race_card_id", `in.(${ids})`);
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      apikey: supabaseKey,
-      authorization: `Bearer ${supabaseKey}`,
-    },
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Supabase promotion_predictions read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+  for (const [source, uniqueIds] of idsBySource) {
+    const ids = [...uniqueIds];
+    for (let start = 0; start < ids.length; start += 40) {
+      const batch = ids.slice(start, start + 40);
+      for (let offset = 0; ; offset += 1000) {
+        const url = new URL("/rest/v1/promotion_predictions", normalizedUrl);
+        url.searchParams.set("select", "id,prediction_model,source,source_race_card_id,prediction_signature");
+        url.searchParams.set("source", `eq.${source}`);
+        url.searchParams.set("source_race_card_id", `in.(${batch.map((id) => `"${escapePostgrestInValue(id)}"`).join(",")})`);
+        url.searchParams.set("order", "id.asc");
+        url.searchParams.set("limit", "1000");
+        url.searchParams.set("offset", String(offset));
+        const response = await fetch(url.toString(), {
+          headers: { apikey: supabaseKey, authorization: `Bearer ${supabaseKey}` },
+        });
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(`Supabase promotion_predictions read failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
+        }
+        const page = await response.json();
+        for (const row of page) {
+          existing.set(`${row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY}:${row.source}:${row.source_race_card_id}`, row.prediction_signature);
+        }
+        if (page.length < 1000) break;
+      }
+    }
   }
-
-  const existingRows = await response.json();
-
-  return new Map(existingRows.map((row) => [
-    `${row.prediction_model ?? DEFAULT_PREDICTION_MODEL_KEY}:${row.source}:${row.source_race_card_id}`,
-    row.prediction_signature,
-  ]));
+  return existing;
 }
 
 /**

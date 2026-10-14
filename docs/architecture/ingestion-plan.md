@@ -1921,6 +1921,23 @@ written, replay the saved payload with
 The replay rewrites `promotion_predictions`, `multi_bet_recommendations`,
 `ufc_multi_recommendations`, and `ufc_single_predictions`, reconciles outcomes
 unless `--skip-reconcile` is passed, and rebuilds `prediction_aggregates`.
+
+2026-10-15 NZ investigation: both 14 October racing capture runs
+(`38474159604`, `38481937108`) returned HTTP 500 on the existing-signature
+Supabase lookup with an HTTP/2 stream protocol error. The lookup constructed
+one unbounded URL containing duplicate race-card IDs across prediction models.
+No `promotion_predictions`, `multi_bet_recommendations`,
+`current_prediction_snapshots`, or `current_promotion_snapshots` rows were stored
+for 14 October. Snapshot persistence follows tracking writes, so this failure
+left no saved payload to replay. Do not reconstruct these as genuine forward
+predictions using later prices or outcomes.
+
+The local repair deduplicates race IDs per source, limits signature queries to
+40 IDs each, and pages results in stable ID order. Read errors still abort
+tracking rather than assuming existing history is absent. Regression tests cover
+duplicate model rows, bounded requests, pagination and failed reads; all 40
+ingestion tests pass. The changed shared module needs Edge Function deployment
+before hosted capture uses the repair.
 If only one model's aggregate rows are missing, rebuild that model without
 scanning every prediction model:
 `npm --workspace @feeling-gamba/ingestion run rebuild:prediction-aggregates -- --prediction-model=single_win_percentage_65_plus_v1 --require-supabase`.
