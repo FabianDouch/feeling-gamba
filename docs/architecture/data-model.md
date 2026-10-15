@@ -2469,3 +2469,20 @@ No existing rows, immutable-input guards, permissions or RPC signatures change.
 The seventh UI variation maps to `market_probability`; cohort-filtered summary
 RPCs support it unchanged. History reads now also return captured `other_price`.
 Overlapping cohorts remain separate and must never be summed as distinct matches.
+
+## Home-only cohort and blend metrics (2026-10-15)
+
+Migration `202610150002_football_home_and_blend_trials.sql` admits
+`home_opponent_3_50_plus` in forward/backtest tables only when `favourite_home`
+is true and `other_price >= 3.50`. All prior cohort constraints remain intact.
+The new home cohort freezes its own first eligible forecast and settles using
+existing source-backed home/away/draw outcomes. It never backfills forward rows.
+
+No blend probability column is needed: immutable market/bucket/rich components
+uniquely determine their equal average. Both invoker summary RPCs return model
+`blend`; SQL null propagation makes any missing component unavailable. Per-model
+wins/staked/returned/net/ROI include only settled rows with that model available.
+The app uses these denominators for blend returns; group-level coverage remains
+visible, with non-selections explicitly identified in match history. Scoring,
+paired-market scores and calibration use the same available probabilities.
+RLS, grants, immutable-input triggers and atomic backtest replacement are unchanged.

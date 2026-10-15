@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { footballForecastProbability } from "../data/footballForecastReader";
 import {
-  fetchFootballTrial, type FootballHistoryMode, type FootballHistoryVariation, type TrialEntry, type TrialModel,
+  fetchFootballTrial, type FootballHistoryMode, type FootballHistoryVariation,
 } from "../data/supabaseFootballTrial";
 
 // Display missing learned probabilities explicitly rather than replacing them with market odds.
@@ -10,14 +11,9 @@ function probability(value: number | null) { return value === null ? "Insufficie
 // Preserve unavailable accuracy metrics before the selected model has scored predictions.
 function score(value: number | null | undefined) { return value == null ? "—" : value.toFixed(4); }
 
-// Match each history row to the chosen variation without combining model probabilities.
-function modelProbability(entry: TrialEntry, model: TrialModel) {
-  return model === "market" ? entry.market_probability : model === "bucket" ? entry.bucket_probability : entry.rich_probability;
-}
-
 // Keep recorded match coverage visible even when the selected model lacks enough history to score probabilities.
 export function FootballPriceGapHistory({ league, variation }: { league: string | null; variation: FootballHistoryVariation }) {
-  const [mode, setMode] = useState<FootballHistoryMode>("backtest");
+  const [mode, setMode] = useState<FootballHistoryMode>(variation.experimental ? "forward" : "backtest");
   const [pagination, setPagination] = useState({ scope: "", page: 0 });
   const [reload, setReload] = useState(0);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -31,6 +27,9 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
   const data = loaded?.key === requestKey ? loaded.result : null;
   const error = loaded?.key === requestKey ? loaded.error : null;
   const selectedModel = data?.summary.models.find((model) => model.model === variation.model);
+
+  const outcomes = variation.model === "blend" ? selectedModel : data?.summary;
+  const settled = variation.model === "blend" ? selectedModel?.scored ?? 0 : data?.summary.settled ?? 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -77,15 +76,17 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
       {data.summary.recorded === 0 ? <Text style={styles.emptyState}>{isBacktest
         ? "No historical matches for this league and variation. Choose All football or another variation."
         : "No forward forecasts recorded for this league and variation yet."}</Text> : null}
-      <Text style={styles.heading}>Selected match outcomes</Text>
+      <Text style={styles.heading}>{variation.model === "blend" ? "Eligible blend match outcomes" : "Selected match outcomes"}</Text>
       <View style={styles.statsRow}>
-        <Metric value={`${data.summary.wins}/${data.summary.settled}`} label="Favourite wins"
-          detail={data.summary.settled ? `${(100 * data.summary.wins / data.summary.settled).toFixed(1)}% win rate` : "No settled matches"} />
-        <Metric value={`$${Number(data.summary.returned).toFixed(2)}`} label="Cash returned" detail={`$${Number(data.summary.staked).toFixed(2)} notional stake`} />
-        <Metric value={`$${Number(data.summary.net).toFixed(2)}`} label="Cash net"
-          detail={data.summary.roi === null ? "No settled return" : `${Number(data.summary.roi).toFixed(1)}% ROI`} />
+        <Metric value={`${outcomes?.wins ?? 0}/${settled}`} label="Favourite wins"
+          detail={settled ? `${(100 * (outcomes?.wins ?? 0) / settled).toFixed(1)}% win rate` : "No settled matches"} />
+        <Metric value={`$${Number(outcomes?.returned ?? 0).toFixed(2)}`} label="Cash returned" detail={`$${Number(outcomes?.staked ?? 0).toFixed(2)} notional stake`} />
+        <Metric value={`$${Number(outcomes?.net ?? 0).toFixed(2)}`} label="Cash net"
+          detail={outcomes?.roi == null ? "No settled return" : `${Number(outcomes.roi).toFixed(1)}% ROI`} />
       </View>
-      <Text style={styles.note}>Returns cover all {data.summary.settled} settled favourites in this selection group, including matches without a model probability. Each uses a notional $1 stake; draws lose.</Text>
+      <Text style={styles.note}>{variation.model === "blend"
+        ? `Returns cover only the ${settled} settled matches with all three frozen probabilities. Missing components are not blend selections.`
+        : `Returns cover all ${settled} settled favourites in this selection group, including matches without a model probability.`} Each uses a notional $1 stake; draws lose.</Text>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: showDiagnostics }} aria-expanded={showDiagnostics} onPress={() => setShowDiagnostics((value) => !value)}>
         <Text style={styles.detailToggle}>{showDiagnostics ? "Hide model diagnostics" : "Show model diagnostics"}</Text>
       </Pressable>
@@ -95,11 +96,11 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
           {bin.bin * 10}–{(bin.bin + 1) * 10}% band · predicted {probability(bin.predicted)} · observed {probability(bin.actual)} · {bin.sample} matches
         </Text>)}
         {!(selectedModel?.scored) ? <Text style={styles.note}>No scored probabilities for this variation yet.</Text> : null}
-        <Text style={styles.note}>The $2.00+ group includes the $2.00–$2.49 group. Their counts must not be added together.</Text>
+        <Text style={styles.note}>Selection groups overlap, and the blend uses the same opponent-price matches where all estimates exist. Do not add model counts or returns together.</Text>
       </View> : null}
       <Text style={styles.heading}>Prediction history</Text>
       {data.entries.map((entry) => {
-        const p = modelProbability(entry, variation.model);
+        const p = footballForecastProbability(entry, variation);
         const sample = variation.model === "bucket" ? entry.bucket_sample : entry.rich_sample;
         return <View key={entry.id} style={styles.historyRow}>
           <View style={styles.historyHeader}>
@@ -108,9 +109,9 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
           </View>
           <Text style={styles.note}>{entry.league.toUpperCase()} · {new Date(entry.kickoff_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ</Text>
           <Text style={styles.selection}>{entry.favourite_home ? entry.home_team_name : entry.away_team_name} · ${Number(entry.favourite_price).toFixed(2)} · opponent ${Number(entry.other_price).toFixed(2)} · gap ${Number(entry.price_gap).toFixed(2)}</Text>
-          <Text style={styles.prediction}>{probability(p)}{variation.model !== "market" ? ` · ${sample} earlier matches` : " · market-implied win probability"}</Text>
+          <Text style={styles.prediction}>{probability(p)}{variation.model === "blend" ? ` · ${entry.bucket_sample} cohort / ${entry.rich_sample} overall training matches` : variation.model !== "market" ? ` · ${sample} earlier matches` : " · market-implied win probability"}</Text>
           <Text style={styles.note}>{isBacktest ? "Replay odds captured" : "Forecast saved"} {new Date(entry.predicted_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ</Text>
-          <Text style={styles.selection}>{entry.unit_return === null ? entry.outcome_status === "excluded" ? "Return excluded" : "Return pending" : `$${Number(entry.unit_return).toFixed(2)} returned per $1`}</Text>
+          <Text style={styles.selection}>{variation.model === "blend" && p === null ? "Not a blend selection — insufficient history" : entry.unit_return === null ? entry.outcome_status === "excluded" ? "Return excluded" : "Return pending" : `$${Number(entry.unit_return).toFixed(2)} returned per $1`}</Text>
         </View>;
       })}
       <View style={styles.controls}>

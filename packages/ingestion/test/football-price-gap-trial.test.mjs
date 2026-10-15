@@ -84,7 +84,7 @@ test("a source-known settlement cannot become a prospective forecast after resch
 
 test("each event/cohort occurs once and future outcomes cannot change the forecast", () => {
   const rows = generateTrial([snapshot(), snapshot()], history(), now);
-  assert.equal(rows.length, 3);
+  assert.equal(rows.length, 4);
   assert.deepEqual(rows, generateTrial([snapshot()], [...history(), ...history().map((r) => ({
     ...r, source_event_id: `future-${r.source_event_id}`, observed_at: "2026-09-26T12:00:00Z",
   }))], now));
@@ -128,7 +128,7 @@ test("dry runs never write and reruns preserve already recorded forecasts", asyn
   assert.equal((await refreshTrial(client)).newForecasts, 0);
   assert.equal(writes.length, 0);
   client.all = async (table) => table === "epl_market_snapshots" ? [current] : [];
-  assert.equal((await refreshTrial(client, { dryRun: true })).newForecasts, 3);
+  assert.equal((await refreshTrial(client, { dryRun: true })).newForecasts, 4);
   assert.equal(writes.length, 0);
   await refreshTrial(client);
   assert.equal(writes.length, 1);
@@ -142,7 +142,7 @@ test("opponent $3.50 threshold is inclusive, independent of gap and available in
       const qualifying = snapshot({ league, home_fixed_win_price: awayFavourite ? 3.5 : 2.1,
         away_fixed_win_price: awayFavourite ? 2.1 : 3.5 });
       const rows = generateTrial([qualifying], [], now);
-      assert.deepEqual(rows.map((r) => r.cohort), ["opponent_3_50_plus"]);
+      assert.deepEqual(rows.map((r) => r.cohort), awayFavourite ? ["opponent_3_50_plus"] : ["opponent_3_50_plus", "home_opponent_3_50_plus"]);
       assert.equal(rows[0].favourite_home, !awayFavourite);
       assert.equal(rows[0].other_price, 3.5);
       assert.equal(rows[0].price_gap, 1.4);

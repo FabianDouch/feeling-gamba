@@ -1,0 +1,3549 @@
+{
+  "method": "fixed_rules_chronological_24h_embargo_v1",
+  "fetchedAt": "2026-10-15T03:39:15.459Z",
+  "inputSha256": "586746567b2730f7f18ddc54a4bee0ad4f209ac6fc3388004a7bfc1fb6ea3370",
+  "coverage": {
+    "sourceRows": 371,
+    "usable": 250,
+    "excludedOrDuplicate": 121,
+    "firstDay": "2026-09-09",
+    "lastDay": "2026-10-15",
+    "days": 27,
+    "recentFrom": "2026-10-02",
+    "earlier": 161,
+    "recent": 89,
+    "leagues": [
+      {
+        "league": "epl",
+        "source": 45,
+        "n": 29,
+        "days": 9,
+        "wins": 12,
+        "winRate": 41.37931034482759,
+        "meanOdds": 1.9389655172413798,
+        "net": -6.63,
+        "roi": -22.862068965517242
+      },
+      {
+        "league": "ucl",
+        "source": 36,
+        "n": 34,
+        "days": 5,
+        "wins": 23,
+        "winRate": 67.6470588235294,
+        "meanOdds": 1.656470588235294,
+        "net": 1.37,
+        "roi": 4.029411764705882
+      },
+      {
+        "league": "laliga",
+        "source": 53,
+        "n": 36,
+        "days": 13,
+        "wins": 21,
+        "winRate": 58.333333333333336,
+        "meanOdds": 1.8416666666666661,
+        "net": -0.8800000000000003,
+        "roi": -2.444444444444445
+      },
+      {
+        "league": "bundesliga",
+        "source": 45,
+        "n": 27,
+        "days": 9,
+        "wins": 15,
+        "winRate": 55.55555555555556,
+        "meanOdds": 1.815185185185185,
+        "net": -0.5400000000000003,
+        "roi": -2.000000000000001
+      },
+      {
+        "league": "seriea",
+        "source": 44,
+        "n": 28,
+        "days": 9,
+        "wins": 14,
+        "winRate": 50,
+        "meanOdds": 1.870357142857143,
+        "net": -4.43,
+        "roi": -15.821428571428571
+      },
+      {
+        "league": "ligue1",
+        "source": 42,
+        "n": 27,
+        "days": 9,
+        "wins": 16,
+        "winRate": 59.25925925925926,
+        "meanOdds": 1.9477777777777778,
+        "net": 1.3000000000000005,
+        "roi": 4.814814814814817
+      },
+      {
+        "league": "mls",
+        "source": 0,
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null
+      },
+      {
+        "league": "europaleague",
+        "source": 36,
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null
+      },
+      {
+        "league": "eflcup",
+        "source": 0,
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null
+      },
+      {
+        "league": "nationsleague",
+        "source": 70,
+        "n": 69,
+        "days": 8,
+        "wins": 39,
+        "winRate": 56.52173913043478,
+        "meanOdds": 1.8299999999999994,
+        "net": -3.48,
+        "roi": -5.043478260869565
+      }
+    ],
+    "opponentRichAvailable": 36,
+    "opponentBucketAvailable": 119
+  },
+  "overlaps": [
+    {
+      "key": "gap",
+      "identicalSelections": [
+        "intersection"
+      ]
+    },
+    {
+      "key": "opponent",
+      "identicalSelections": []
+    },
+    {
+      "key": "home",
+      "identicalSelections": []
+    },
+    {
+      "key": "short",
+      "identicalSelections": []
+    },
+    {
+      "key": "low_draw",
+      "identicalSelections": []
+    },
+    {
+      "key": "intersection",
+      "identicalSelections": [
+        "gap"
+      ]
+    },
+    {
+      "key": "bucket65",
+      "identicalSelections": []
+    },
+    {
+      "key": "context65",
+      "identicalSelections": [
+        "consensus65",
+        "blend65"
+      ]
+    },
+    {
+      "key": "consensus65",
+      "identicalSelections": [
+        "context65",
+        "blend65"
+      ]
+    },
+    {
+      "key": "blend65",
+      "identicalSelections": [
+        "context65",
+        "consensus65"
+      ]
+    },
+    {
+      "key": "blend_edge",
+      "identicalSelections": []
+    }
+  ],
+  "candidates": [
+    {
+      "key": "all",
+      "label": "All priced team favourites",
+      "full": {
+        "n": 250,
+        "days": 27,
+        "wins": 140,
+        "winRate": 56,
+        "meanOdds": 1.836360000000001,
+        "net": -13.29,
+        "roi": -5.316,
+        "roi95DayBootstrap": [
+          -18.14074074074074,
+          6.263157894736841
+        ]
+      },
+      "captureWithin24h": {
+        "n": 232,
+        "days": 25,
+        "wins": 128,
+        "winRate": 55.172413793103445,
+        "meanOdds": 1.8427155172413803,
+        "net": -15.389999999999986,
+        "roi": -6.633620689655166
+      },
+      "roiDifference95": null,
+      "recentRoiDifference95": null,
+      "earlier": {
+        "n": 161,
+        "days": 18,
+        "wins": 88,
+        "winRate": 54.6583850931677,
+        "meanOdds": 1.856770186335404,
+        "net": -13.109999999999998,
+        "roi": -8.14285714285714
+      },
+      "recent": {
+        "n": 89,
+        "days": 9,
+        "wins": 52,
+        "winRate": 58.42696629213483,
+        "meanOdds": 1.7994382022471909,
+        "net": -0.17999999999999927,
+        "roi": -0.20224719101123514,
+        "roi95DayBootstrap": [
+          -16.871428571428574,
+          13.18181818181818
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 29,
+          "days": 9,
+          "wins": 12,
+          "winRate": 41.37931034482759,
+          "meanOdds": 1.9389655172413798,
+          "net": -6.63,
+          "roi": -22.862068965517242
+        },
+        {
+          "league": "ucl",
+          "n": 34,
+          "days": 5,
+          "wins": 23,
+          "winRate": 67.6470588235294,
+          "meanOdds": 1.656470588235294,
+          "net": 1.37,
+          "roi": 4.029411764705882
+        },
+        {
+          "league": "laliga",
+          "n": 36,
+          "days": 13,
+          "wins": 21,
+          "winRate": 58.333333333333336,
+          "meanOdds": 1.8416666666666661,
+          "net": -0.8800000000000003,
+          "roi": -2.444444444444445
+        },
+        {
+          "league": "bundesliga",
+          "n": 27,
+          "days": 9,
+          "wins": 15,
+          "winRate": 55.55555555555556,
+          "meanOdds": 1.815185185185185,
+          "net": -0.5400000000000003,
+          "roi": -2.000000000000001
+        },
+        {
+          "league": "seriea",
+          "n": 28,
+          "days": 9,
+          "wins": 14,
+          "winRate": 50,
+          "meanOdds": 1.870357142857143,
+          "net": -4.43,
+          "roi": -15.821428571428571
+        },
+        {
+          "league": "ligue1",
+          "n": 27,
+          "days": 9,
+          "wins": 16,
+          "winRate": 59.25925925925926,
+          "meanOdds": 1.9477777777777778,
+          "net": 1.3000000000000005,
+          "roi": 4.814814814814817
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 69,
+          "days": 8,
+          "wins": 39,
+          "winRate": 56.52173913043478,
+          "meanOdds": 1.8299999999999994,
+          "net": -3.48,
+          "roi": -5.043478260869565
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 221,
+          "days": 27,
+          "wins": 128,
+          "winRate": 57.918552036199095,
+          "meanOdds": 1.822895927601811,
+          "net": -6.660000000000008,
+          "roi": -3.0135746606334877
+        },
+        {
+          "excluded": "ucl",
+          "n": 216,
+          "days": 22,
+          "wins": 117,
+          "winRate": 54.166666666666664,
+          "meanOdds": 1.8646759259259271,
+          "net": -14.659999999999995,
+          "roi": -6.7870370370370345
+        },
+        {
+          "excluded": "laliga",
+          "n": 214,
+          "days": 24,
+          "wins": 119,
+          "winRate": 55.60747663551402,
+          "meanOdds": 1.8354672897196265,
+          "net": -12.410000000000004,
+          "roi": -5.7990654205607495
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 223,
+          "days": 27,
+          "wins": 125,
+          "winRate": 56.053811659192824,
+          "meanOdds": 1.8389237668161447,
+          "net": -12.750000000000004,
+          "roi": -5.71748878923767
+        },
+        {
+          "excluded": "seriea",
+          "n": 222,
+          "days": 27,
+          "wins": 126,
+          "winRate": 56.75675675675676,
+          "meanOdds": 1.8320720720720731,
+          "net": -8.860000000000003,
+          "roi": -3.9909909909909924
+        },
+        {
+          "excluded": "ligue1",
+          "n": 223,
+          "days": 27,
+          "wins": 124,
+          "winRate": 55.60538116591928,
+          "meanOdds": 1.8228699551569516,
+          "net": -14.589999999999996,
+          "roi": -6.542600896860985
+        },
+        {
+          "excluded": "mls",
+          "n": 250,
+          "days": 27,
+          "wins": 140,
+          "winRate": 56,
+          "meanOdds": 1.836360000000001,
+          "net": -13.29,
+          "roi": -5.316
+        },
+        {
+          "excluded": "europaleague",
+          "n": 250,
+          "days": 27,
+          "wins": 140,
+          "winRate": 56,
+          "meanOdds": 1.836360000000001,
+          "net": -13.29,
+          "roi": -5.316
+        },
+        {
+          "excluded": "eflcup",
+          "n": 250,
+          "days": 27,
+          "wins": 140,
+          "winRate": 56,
+          "meanOdds": 1.836360000000001,
+          "net": -13.29,
+          "roi": -5.316
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 181,
+          "days": 19,
+          "wins": 101,
+          "winRate": 55.80110497237569,
+          "meanOdds": 1.8387845303867416,
+          "net": -9.810000000000006,
+          "roi": -5.419889502762434
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "gap",
+      "label": "Price gap $2+",
+      "full": {
+        "n": 131,
+        "days": 26,
+        "wins": 93,
+        "winRate": 70.99236641221374,
+        "meanOdds": 1.4784732824427478,
+        "net": 3.780000000000001,
+        "roi": 2.885496183206108,
+        "roi95DayBootstrap": [
+          -8.235714285714282,
+          14.351851851851855
+        ]
+      },
+      "captureWithin24h": {
+        "n": 119,
+        "days": 24,
+        "wins": 85,
+        "winRate": 71.42857142857143,
+        "meanOdds": 1.474369747899159,
+        "net": 4.2299999999999995,
+        "roi": 3.554621848739495
+      },
+      "roiDifference95": [
+        -6.11124219292158,
+        5.583076923076924
+      ],
+      "recentRoiDifference95": [
+        -13.772727272727266,
+        0.7429287504475474
+      ],
+      "earlier": {
+        "n": 82,
+        "days": 17,
+        "wins": 60,
+        "winRate": 73.17073170731707,
+        "meanOdds": 1.4843902439024386,
+        "net": 4.48,
+        "roi": 5.463414634146342
+      },
+      "recent": {
+        "n": 49,
+        "days": 9,
+        "wins": 33,
+        "winRate": 67.34693877551021,
+        "meanOdds": 1.4685714285714284,
+        "net": -0.7000000000000013,
+        "roi": -1.4285714285714313,
+        "roi95DayBootstrap": [
+          -26.2051282051282,
+          17.58695652173913
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 12,
+          "days": 4,
+          "wins": 6,
+          "winRate": 50,
+          "meanOdds": 1.5683333333333331,
+          "net": -2.6399999999999997,
+          "roi": -21.999999999999996
+        },
+        {
+          "league": "ucl",
+          "n": 22,
+          "days": 5,
+          "wins": 19,
+          "winRate": 86.36363636363636,
+          "meanOdds": 1.4200000000000002,
+          "net": 5.410000000000001,
+          "roi": 24.590909090909097
+        },
+        {
+          "league": "laliga",
+          "n": 20,
+          "days": 11,
+          "wins": 15,
+          "winRate": 75,
+          "meanOdds": 1.493,
+          "net": 1.63,
+          "roi": 8.15
+        },
+        {
+          "league": "bundesliga",
+          "n": 12,
+          "days": 6,
+          "wins": 8,
+          "winRate": 66.66666666666667,
+          "meanOdds": 1.4216666666666666,
+          "net": -0.6399999999999997,
+          "roi": -5.333333333333331
+        },
+        {
+          "league": "seriea",
+          "n": 16,
+          "days": 7,
+          "wins": 11,
+          "winRate": 68.75,
+          "meanOdds": 1.5537500000000002,
+          "net": 0.5699999999999998,
+          "roi": 3.562499999999999
+        },
+        {
+          "league": "ligue1",
+          "n": 10,
+          "days": 5,
+          "wins": 8,
+          "winRate": 80,
+          "meanOdds": 1.4869999999999999,
+          "net": 1.5799999999999996,
+          "roi": 15.799999999999997
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 39,
+          "days": 7,
+          "wins": 26,
+          "winRate": 66.66666666666667,
+          "meanOdds": 1.4607692307692306,
+          "net": -2.1299999999999994,
+          "roi": -5.46153846153846
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 119,
+          "days": 26,
+          "wins": 87,
+          "winRate": 73.10924369747899,
+          "meanOdds": 1.469411764705882,
+          "net": 6.420000000000001,
+          "roi": 5.394957983193279
+        },
+        {
+          "excluded": "ucl",
+          "n": 109,
+          "days": 21,
+          "wins": 74,
+          "winRate": 67.88990825688073,
+          "meanOdds": 1.4902752293577974,
+          "net": -1.6300000000000012,
+          "roi": -1.4954128440366983
+        },
+        {
+          "excluded": "laliga",
+          "n": 111,
+          "days": 22,
+          "wins": 78,
+          "winRate": 70.27027027027027,
+          "meanOdds": 1.475855855855855,
+          "net": 2.1500000000000012,
+          "roi": 1.936936936936938
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 119,
+          "days": 25,
+          "wins": 85,
+          "winRate": 71.42857142857143,
+          "meanOdds": 1.4842016806722684,
+          "net": 4.420000000000004,
+          "roi": 3.714285714285718
+        },
+        {
+          "excluded": "seriea",
+          "n": 115,
+          "days": 24,
+          "wins": 82,
+          "winRate": 71.30434782608695,
+          "meanOdds": 1.4679999999999995,
+          "net": 3.2100000000000017,
+          "roi": 2.7913043478260886
+        },
+        {
+          "excluded": "ligue1",
+          "n": 121,
+          "days": 26,
+          "wins": 85,
+          "winRate": 70.24793388429752,
+          "meanOdds": 1.477768595041322,
+          "net": 2.200000000000002,
+          "roi": 1.81818181818182
+        },
+        {
+          "excluded": "mls",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "europaleague",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "eflcup",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 92,
+          "days": 19,
+          "wins": 67,
+          "winRate": 72.82608695652173,
+          "meanOdds": 1.485978260869565,
+          "net": 5.909999999999999,
+          "roi": 6.42391304347826
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "opponent",
+      "label": "Opponent $3.50+",
+      "full": {
+        "n": 156,
+        "days": 27,
+        "wins": 106,
+        "winRate": 67.94871794871794,
+        "meanOdds": 1.5590384615384614,
+        "net": 4.250000000000001,
+        "roi": 2.724358974358975,
+        "roi95DayBootstrap": [
+          -8.44848484848485,
+          14.45774647887324
+        ]
+      },
+      "captureWithin24h": {
+        "n": 142,
+        "days": 25,
+        "wins": 96,
+        "winRate": 67.6056338028169,
+        "meanOdds": 1.5565492957746474,
+        "net": 2.75,
+        "roi": 1.9366197183098592
+      },
+      "roiDifference95": [
+        0,
+        0
+      ],
+      "recentRoiDifference95": [
+        0,
+        0
+      ],
+      "earlier": {
+        "n": 98,
+        "days": 18,
+        "wins": 67,
+        "winRate": 68.36734693877551,
+        "meanOdds": 1.5656122448979586,
+        "net": 2.2800000000000002,
+        "roi": 2.3265306122448983
+      },
+      "recent": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931,
+        "roi95DayBootstrap": [
+          -14.825396825396828,
+          19.96
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 14,
+          "days": 6,
+          "wins": 7,
+          "winRate": 50,
+          "meanOdds": 1.6235714285714287,
+          "net": -2.73,
+          "roi": -19.5
+        },
+        {
+          "league": "ucl",
+          "n": 26,
+          "days": 5,
+          "wins": 21,
+          "winRate": 80.76923076923077,
+          "meanOdds": 1.494230769230769,
+          "net": 5.220000000000001,
+          "roi": 20.07692307692308
+        },
+        {
+          "league": "laliga",
+          "n": 23,
+          "days": 11,
+          "wins": 17,
+          "winRate": 73.91304347826087,
+          "meanOdds": 1.558695652173913,
+          "net": 2.6199999999999997,
+          "roi": 11.391304347826084
+        },
+        {
+          "league": "bundesliga",
+          "n": 15,
+          "days": 7,
+          "wins": 8,
+          "winRate": 53.333333333333336,
+          "meanOdds": 1.5073333333333336,
+          "net": -3.6399999999999997,
+          "roi": -24.266666666666662
+        },
+        {
+          "league": "seriea",
+          "n": 18,
+          "days": 8,
+          "wins": 11,
+          "winRate": 61.111111111111114,
+          "meanOdds": 1.606666666666667,
+          "net": -1.4299999999999997,
+          "roi": -7.944444444444443
+        },
+        {
+          "league": "ligue1",
+          "n": 13,
+          "days": 6,
+          "wins": 10,
+          "winRate": 76.92307692307692,
+          "meanOdds": 1.5984615384615386,
+          "net": 2.3899999999999997,
+          "roi": 18.384615384615383
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 47,
+          "days": 8,
+          "wins": 32,
+          "winRate": 68.08510638297872,
+          "meanOdds": 1.5631914893617018,
+          "net": 1.8200000000000012,
+          "roi": 3.872340425531917
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 142,
+          "days": 27,
+          "wins": 99,
+          "winRate": 69.71830985915493,
+          "meanOdds": 1.5526760563380282,
+          "net": 6.98,
+          "roi": 4.915492957746479
+        },
+        {
+          "excluded": "ucl",
+          "n": 130,
+          "days": 22,
+          "wins": 85,
+          "winRate": 65.38461538461539,
+          "meanOdds": 1.572,
+          "net": -0.9700000000000011,
+          "roi": -0.7461538461538471
+        },
+        {
+          "excluded": "laliga",
+          "n": 133,
+          "days": 23,
+          "wins": 89,
+          "winRate": 66.9172932330827,
+          "meanOdds": 1.5590977443609022,
+          "net": 1.630000000000001,
+          "roi": 1.2255639097744369
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 141,
+          "days": 26,
+          "wins": 98,
+          "winRate": 69.50354609929079,
+          "meanOdds": 1.5645390070921983,
+          "net": 7.890000000000001,
+          "roi": 5.595744680851064
+        },
+        {
+          "excluded": "seriea",
+          "n": 138,
+          "days": 25,
+          "wins": 95,
+          "winRate": 68.84057971014492,
+          "meanOdds": 1.5528260869565216,
+          "net": 5.68,
+          "roi": 4.115942028985507
+        },
+        {
+          "excluded": "ligue1",
+          "n": 143,
+          "days": 27,
+          "wins": 96,
+          "winRate": 67.13286713286713,
+          "meanOdds": 1.5554545454545454,
+          "net": 1.860000000000001,
+          "roi": 1.3006993006993013
+        },
+        {
+          "excluded": "mls",
+          "n": 156,
+          "days": 27,
+          "wins": 106,
+          "winRate": 67.94871794871794,
+          "meanOdds": 1.5590384615384614,
+          "net": 4.250000000000001,
+          "roi": 2.724358974358975
+        },
+        {
+          "excluded": "europaleague",
+          "n": 156,
+          "days": 27,
+          "wins": 106,
+          "winRate": 67.94871794871794,
+          "meanOdds": 1.5590384615384614,
+          "net": 4.250000000000001,
+          "roi": 2.724358974358975
+        },
+        {
+          "excluded": "eflcup",
+          "n": 156,
+          "days": 27,
+          "wins": 106,
+          "winRate": 67.94871794871794,
+          "meanOdds": 1.5590384615384614,
+          "net": 4.250000000000001,
+          "roi": 2.724358974358975
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 109,
+          "days": 19,
+          "wins": 74,
+          "winRate": 67.88990825688073,
+          "meanOdds": 1.5572477064220183,
+          "net": 2.4300000000000006,
+          "roi": 2.2293577981651382
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "home",
+      "label": "Opponent $3.50+ and home favourite",
+      "full": {
+        "n": 105,
+        "days": 27,
+        "wins": 74,
+        "winRate": 70.47619047619048,
+        "meanOdds": 1.521333333333333,
+        "net": 5.419999999999999,
+        "roi": 5.16190476190476,
+        "roi95DayBootstrap": [
+          -7.752808988764045,
+          17.78217821782178
+        ]
+      },
+      "captureWithin24h": {
+        "n": 95,
+        "days": 25,
+        "wins": 67,
+        "winRate": 70.52631578947368,
+        "meanOdds": 1.5224210526315787,
+        "net": 5.37,
+        "roi": 5.652631578947369
+      },
+      "roiDifference95": [
+        -5.15655737704918,
+        9.057466291729755
+      ],
+      "recentRoiDifference95": [
+        -6.379310344827585,
+        16.577030812324924
+      ],
+      "earlier": {
+        "n": 67,
+        "days": 18,
+        "wins": 46,
+        "winRate": 68.65671641791045,
+        "meanOdds": 1.545373134328358,
+        "net": 2.05,
+        "roi": 3.059701492537313
+      },
+      "recent": {
+        "n": 38,
+        "days": 9,
+        "wins": 28,
+        "winRate": 73.6842105263158,
+        "meanOdds": 1.4789473684210523,
+        "net": 3.37,
+        "roi": 8.868421052631579,
+        "roi95DayBootstrap": [
+          -15.4,
+          29.58974358974359
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 11,
+          "days": 5,
+          "wins": 5,
+          "winRate": 45.45454545454545,
+          "meanOdds": 1.589090909090909,
+          "net": -3.26,
+          "roi": -29.636363636363637
+        },
+        {
+          "league": "ucl",
+          "n": 17,
+          "days": 5,
+          "wins": 15,
+          "winRate": 88.23529411764706,
+          "meanOdds": 1.4629411764705882,
+          "net": 5.1400000000000015,
+          "roi": 30.235294117647065
+        },
+        {
+          "league": "laliga",
+          "n": 17,
+          "days": 11,
+          "wins": 12,
+          "winRate": 70.58823529411765,
+          "meanOdds": 1.5523529411764707,
+          "net": 1.1599999999999997,
+          "roi": 6.823529411764704
+        },
+        {
+          "league": "bundesliga",
+          "n": 10,
+          "days": 7,
+          "wins": 6,
+          "winRate": 60,
+          "meanOdds": 1.4989999999999999,
+          "net": -1.4099999999999997,
+          "roi": -14.099999999999998
+        },
+        {
+          "league": "seriea",
+          "n": 11,
+          "days": 8,
+          "wins": 9,
+          "winRate": 81.81818181818181,
+          "meanOdds": 1.5145454545454546,
+          "net": 2.08,
+          "roi": 18.90909090909091
+        },
+        {
+          "league": "ligue1",
+          "n": 9,
+          "days": 5,
+          "wins": 8,
+          "winRate": 88.88888888888889,
+          "meanOdds": 1.5922222222222222,
+          "net": 3.709999999999999,
+          "roi": 41.22222222222221
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 30,
+          "days": 8,
+          "wins": 19,
+          "winRate": 63.333333333333336,
+          "meanOdds": 1.5006666666666666,
+          "net": -1.9999999999999996,
+          "roi": -6.666666666666665
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 94,
+          "days": 27,
+          "wins": 69,
+          "winRate": 73.40425531914893,
+          "meanOdds": 1.5134042553191482,
+          "net": 8.68,
+          "roi": 9.23404255319149
+        },
+        {
+          "excluded": "ucl",
+          "n": 88,
+          "days": 22,
+          "wins": 59,
+          "winRate": 67.04545454545455,
+          "meanOdds": 1.5326136363636358,
+          "net": 0.28000000000000114,
+          "roi": 0.31818181818181945
+        },
+        {
+          "excluded": "laliga",
+          "n": 88,
+          "days": 23,
+          "wins": 62,
+          "winRate": 70.45454545454545,
+          "meanOdds": 1.5153409090909087,
+          "net": 4.26,
+          "roi": 4.840909090909091
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 95,
+          "days": 26,
+          "wins": 68,
+          "winRate": 71.57894736842105,
+          "meanOdds": 1.5236842105263155,
+          "net": 6.829999999999999,
+          "roi": 7.189473684210525
+        },
+        {
+          "excluded": "seriea",
+          "n": 94,
+          "days": 25,
+          "wins": 65,
+          "winRate": 69.14893617021276,
+          "meanOdds": 1.5221276595744677,
+          "net": 3.3399999999999994,
+          "roi": 3.5531914893617014
+        },
+        {
+          "excluded": "ligue1",
+          "n": 96,
+          "days": 27,
+          "wins": 66,
+          "winRate": 68.75,
+          "meanOdds": 1.5146875,
+          "net": 1.7100000000000013,
+          "roi": 1.7812500000000016
+        },
+        {
+          "excluded": "mls",
+          "n": 105,
+          "days": 27,
+          "wins": 74,
+          "winRate": 70.47619047619048,
+          "meanOdds": 1.521333333333333,
+          "net": 5.419999999999999,
+          "roi": 5.16190476190476
+        },
+        {
+          "excluded": "europaleague",
+          "n": 105,
+          "days": 27,
+          "wins": 74,
+          "winRate": 70.47619047619048,
+          "meanOdds": 1.521333333333333,
+          "net": 5.419999999999999,
+          "roi": 5.16190476190476
+        },
+        {
+          "excluded": "eflcup",
+          "n": 105,
+          "days": 27,
+          "wins": 74,
+          "winRate": 70.47619047619048,
+          "meanOdds": 1.521333333333333,
+          "net": 5.419999999999999,
+          "roi": 5.16190476190476
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 75,
+          "days": 19,
+          "wins": 55,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.5296000000000003,
+          "net": 7.420000000000001,
+          "roi": 9.893333333333334
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "short",
+      "label": "Opponent $3.50+ and favourite <= $2",
+      "full": {
+        "n": 149,
+        "days": 27,
+        "wins": 103,
+        "winRate": 69.12751677852349,
+        "meanOdds": 1.531946308724832,
+        "net": 5.100000000000002,
+        "roi": 3.4228187919463102,
+        "roi95DayBootstrap": [
+          -7.969879518072288,
+          14.896296296296295
+        ]
+      },
+      "captureWithin24h": {
+        "n": 136,
+        "days": 25,
+        "wins": 94,
+        "winRate": 69.11764705882354,
+        "meanOdds": 1.530367647058823,
+        "net": 4.650000000000003,
+        "roi": 3.4191176470588256
+      },
+      "roiDifference95": [
+        -2.976056493434845,
+        3.948444444444444
+      ],
+      "recentRoiDifference95": [
+        -5.494871794871793,
+        6.847240051347882
+      ],
+      "earlier": {
+        "n": 94,
+        "days": 18,
+        "wins": 65,
+        "winRate": 69.14893617021276,
+        "meanOdds": 1.5402127659574463,
+        "net": 2.1800000000000024,
+        "roi": 2.3191489361702153
+      },
+      "recent": {
+        "n": 55,
+        "days": 9,
+        "wins": 38,
+        "winRate": 69.0909090909091,
+        "meanOdds": 1.5178181818181817,
+        "net": 2.92,
+        "roi": 5.3090909090909095,
+        "roi95DayBootstrap": [
+          -14.766666666666667,
+          21.46551724137931
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 14,
+          "days": 6,
+          "wins": 7,
+          "winRate": 50,
+          "meanOdds": 1.6235714285714287,
+          "net": -2.73,
+          "roi": -19.5
+        },
+        {
+          "league": "ucl",
+          "n": 26,
+          "days": 5,
+          "wins": 21,
+          "winRate": 80.76923076923077,
+          "meanOdds": 1.494230769230769,
+          "net": 5.220000000000001,
+          "roi": 20.07692307692308
+        },
+        {
+          "league": "laliga",
+          "n": 22,
+          "days": 11,
+          "wins": 16,
+          "winRate": 72.72727272727273,
+          "meanOdds": 1.5363636363636362,
+          "net": 1.5699999999999998,
+          "roi": 7.136363636363635
+        },
+        {
+          "league": "bundesliga",
+          "n": 15,
+          "days": 7,
+          "wins": 8,
+          "winRate": 53.333333333333336,
+          "meanOdds": 1.5073333333333336,
+          "net": -3.6399999999999997,
+          "roi": -24.266666666666662
+        },
+        {
+          "league": "seriea",
+          "n": 17,
+          "days": 8,
+          "wins": 11,
+          "winRate": 64.70588235294117,
+          "meanOdds": 1.5747058823529414,
+          "net": -0.43000000000000016,
+          "roi": -2.529411764705883
+        },
+        {
+          "league": "ligue1",
+          "n": 12,
+          "days": 6,
+          "wins": 10,
+          "winRate": 83.33333333333333,
+          "meanOdds": 1.5566666666666666,
+          "net": 3.3899999999999997,
+          "roi": 28.249999999999996
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 43,
+          "days": 8,
+          "wins": 30,
+          "winRate": 69.76744186046511,
+          "meanOdds": 1.507441860465116,
+          "net": 1.7200000000000015,
+          "roi": 4.0000000000000036
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 135,
+          "days": 27,
+          "wins": 96,
+          "winRate": 71.11111111111111,
+          "meanOdds": 1.5224444444444445,
+          "net": 7.83,
+          "roi": 5.8
+        },
+        {
+          "excluded": "ucl",
+          "n": 123,
+          "days": 22,
+          "wins": 82,
+          "winRate": 66.66666666666667,
+          "meanOdds": 1.5399186991869915,
+          "net": -0.12000000000000144,
+          "roi": -0.09756097560975727
+        },
+        {
+          "excluded": "laliga",
+          "n": 127,
+          "days": 23,
+          "wins": 87,
+          "winRate": 68.50393700787401,
+          "meanOdds": 1.5311811023622044,
+          "net": 3.530000000000001,
+          "roi": 2.779527559055119
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 134,
+          "days": 26,
+          "wins": 95,
+          "winRate": 70.8955223880597,
+          "meanOdds": 1.5347014925373132,
+          "net": 8.740000000000002,
+          "roi": 6.522388059701494
+        },
+        {
+          "excluded": "seriea",
+          "n": 132,
+          "days": 25,
+          "wins": 92,
+          "winRate": 69.6969696969697,
+          "meanOdds": 1.526439393939394,
+          "net": 5.530000000000003,
+          "roi": 4.189393939393942
+        },
+        {
+          "excluded": "ligue1",
+          "n": 137,
+          "days": 27,
+          "wins": 93,
+          "winRate": 67.88321167883211,
+          "meanOdds": 1.5297810218978103,
+          "net": 1.7100000000000037,
+          "roi": 1.2481751824817546
+        },
+        {
+          "excluded": "mls",
+          "n": 149,
+          "days": 27,
+          "wins": 103,
+          "winRate": 69.12751677852349,
+          "meanOdds": 1.531946308724832,
+          "net": 5.100000000000002,
+          "roi": 3.4228187919463102
+        },
+        {
+          "excluded": "europaleague",
+          "n": 149,
+          "days": 27,
+          "wins": 103,
+          "winRate": 69.12751677852349,
+          "meanOdds": 1.531946308724832,
+          "net": 5.100000000000002,
+          "roi": 3.4228187919463102
+        },
+        {
+          "excluded": "eflcup",
+          "n": 149,
+          "days": 27,
+          "wins": 103,
+          "winRate": 69.12751677852349,
+          "meanOdds": 1.531946308724832,
+          "net": 5.100000000000002,
+          "roi": 3.4228187919463102
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 106,
+          "days": 19,
+          "wins": 73,
+          "winRate": 68.86792452830188,
+          "meanOdds": 1.54188679245283,
+          "net": 3.3800000000000026,
+          "roi": 3.188679245283021
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "low_draw",
+      "label": "Opponent $3.50+ and implied draw <= 25%",
+      "full": {
+        "n": 112,
+        "days": 24,
+        "wins": 81,
+        "winRate": 72.32142857142857,
+        "meanOdds": 1.4359821428571427,
+        "net": 1.8300000000000007,
+        "roi": 1.6339285714285723,
+        "roi95DayBootstrap": [
+          -12.763636363636364,
+          15.563106796116505
+        ]
+      },
+      "captureWithin24h": {
+        "n": 105,
+        "days": 22,
+        "wins": 75,
+        "winRate": 71.42857142857143,
+        "meanOdds": 1.4418095238095237,
+        "net": 0.8300000000000012,
+        "roi": 0.7904761904761916
+      },
+      "roiDifference95": [
+        -7.807476635514017,
+        5.671414668672033
+      ],
+      "recentRoiDifference95": [
+        -10.310457516339868,
+        7.234498834498836
+      ],
+      "earlier": {
+        "n": 68,
+        "days": 15,
+        "wins": 50,
+        "winRate": 73.52941176470588,
+        "meanOdds": 1.4344117647058823,
+        "net": 1.0100000000000007,
+        "roi": 1.4852941176470598
+      },
+      "recent": {
+        "n": 44,
+        "days": 9,
+        "wins": 31,
+        "winRate": 70.45454545454545,
+        "meanOdds": 1.4384090909090905,
+        "net": 0.8200000000000005,
+        "roi": 1.8636363636363649,
+        "roi95DayBootstrap": [
+          -20.178571428571427,
+          19.000000000000007
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 10,
+          "days": 4,
+          "wins": 5,
+          "winRate": 50,
+          "meanOdds": 1.5479999999999998,
+          "net": -2.26,
+          "roi": -22.599999999999998
+        },
+        {
+          "league": "ucl",
+          "n": 25,
+          "days": 5,
+          "wins": 21,
+          "winRate": 84,
+          "meanOdds": 1.4779999999999998,
+          "net": 6.220000000000001,
+          "roi": 24.880000000000006
+        },
+        {
+          "league": "laliga",
+          "n": 13,
+          "days": 8,
+          "wins": 11,
+          "winRate": 84.61538461538461,
+          "meanOdds": 1.3423076923076922,
+          "net": 1.45,
+          "roi": 11.153846153846153
+        },
+        {
+          "league": "bundesliga",
+          "n": 15,
+          "days": 7,
+          "wins": 8,
+          "winRate": 53.333333333333336,
+          "meanOdds": 1.5073333333333336,
+          "net": -3.6399999999999997,
+          "roi": -24.266666666666662
+        },
+        {
+          "league": "seriea",
+          "n": 11,
+          "days": 6,
+          "wins": 8,
+          "winRate": 72.72727272727273,
+          "meanOdds": 1.440909090909091,
+          "net": 0.08000000000000007,
+          "roi": 0.727272727272728
+        },
+        {
+          "league": "ligue1",
+          "n": 10,
+          "days": 5,
+          "wins": 8,
+          "winRate": 80,
+          "meanOdds": 1.4869999999999999,
+          "net": 1.5799999999999996,
+          "roi": 15.799999999999997
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 28,
+          "days": 7,
+          "wins": 20,
+          "winRate": 71.42857142857143,
+          "meanOdds": 1.3435714285714284,
+          "net": -1.5999999999999992,
+          "roi": -5.714285714285711
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 102,
+          "days": 24,
+          "wins": 76,
+          "winRate": 74.50980392156863,
+          "meanOdds": 1.4249999999999996,
+          "net": 4.090000000000001,
+          "roi": 4.009803921568628
+        },
+        {
+          "excluded": "ucl",
+          "n": 87,
+          "days": 19,
+          "wins": 60,
+          "winRate": 68.96551724137932,
+          "meanOdds": 1.423908045977011,
+          "net": -4.390000000000002,
+          "roi": -5.045977011494256
+        },
+        {
+          "excluded": "laliga",
+          "n": 99,
+          "days": 22,
+          "wins": 70,
+          "winRate": 70.70707070707071,
+          "meanOdds": 1.4482828282828277,
+          "net": 0.3800000000000008,
+          "roi": 0.38383838383838464
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 97,
+          "days": 22,
+          "wins": 73,
+          "winRate": 75.25773195876289,
+          "meanOdds": 1.424948453608247,
+          "net": 5.470000000000001,
+          "roi": 5.63917525773196
+        },
+        {
+          "excluded": "seriea",
+          "n": 101,
+          "days": 22,
+          "wins": 73,
+          "winRate": 72.27722772277228,
+          "meanOdds": 1.4354455445544552,
+          "net": 1.7500000000000004,
+          "roi": 1.7326732673267333
+        },
+        {
+          "excluded": "ligue1",
+          "n": 102,
+          "days": 24,
+          "wins": 73,
+          "winRate": 71.56862745098039,
+          "meanOdds": 1.4309803921568625,
+          "net": 0.2500000000000018,
+          "roi": 0.245098039215688
+        },
+        {
+          "excluded": "mls",
+          "n": 112,
+          "days": 24,
+          "wins": 81,
+          "winRate": 72.32142857142857,
+          "meanOdds": 1.4359821428571427,
+          "net": 1.8300000000000007,
+          "roi": 1.6339285714285723
+        },
+        {
+          "excluded": "europaleague",
+          "n": 112,
+          "days": 24,
+          "wins": 81,
+          "winRate": 72.32142857142857,
+          "meanOdds": 1.4359821428571427,
+          "net": 1.8300000000000007,
+          "roi": 1.6339285714285723
+        },
+        {
+          "excluded": "eflcup",
+          "n": 112,
+          "days": 24,
+          "wins": 81,
+          "winRate": 72.32142857142857,
+          "meanOdds": 1.4359821428571427,
+          "net": 1.8300000000000007,
+          "roi": 1.6339285714285723
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 84,
+          "days": 17,
+          "wins": 61,
+          "winRate": 72.61904761904762,
+          "meanOdds": 1.4667857142857144,
+          "net": 3.4300000000000015,
+          "roi": 4.083333333333336
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "intersection",
+      "label": "Opponent $3.50+ and price gap $2+",
+      "full": {
+        "n": 131,
+        "days": 26,
+        "wins": 93,
+        "winRate": 70.99236641221374,
+        "meanOdds": 1.4784732824427478,
+        "net": 3.780000000000001,
+        "roi": 2.885496183206108,
+        "roi95DayBootstrap": [
+          -8.235714285714282,
+          14.351851851851855
+        ]
+      },
+      "captureWithin24h": {
+        "n": 119,
+        "days": 24,
+        "wins": 85,
+        "winRate": 71.42857142857143,
+        "meanOdds": 1.474369747899159,
+        "net": 4.2299999999999995,
+        "roi": 3.554621848739495
+      },
+      "roiDifference95": [
+        -6.11124219292158,
+        5.583076923076924
+      ],
+      "recentRoiDifference95": [
+        -13.772727272727266,
+        0.7429287504475474
+      ],
+      "earlier": {
+        "n": 82,
+        "days": 17,
+        "wins": 60,
+        "winRate": 73.17073170731707,
+        "meanOdds": 1.4843902439024386,
+        "net": 4.48,
+        "roi": 5.463414634146342
+      },
+      "recent": {
+        "n": 49,
+        "days": 9,
+        "wins": 33,
+        "winRate": 67.34693877551021,
+        "meanOdds": 1.4685714285714284,
+        "net": -0.7000000000000013,
+        "roi": -1.4285714285714313,
+        "roi95DayBootstrap": [
+          -26.2051282051282,
+          17.58695652173913
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 12,
+          "days": 4,
+          "wins": 6,
+          "winRate": 50,
+          "meanOdds": 1.5683333333333331,
+          "net": -2.6399999999999997,
+          "roi": -21.999999999999996
+        },
+        {
+          "league": "ucl",
+          "n": 22,
+          "days": 5,
+          "wins": 19,
+          "winRate": 86.36363636363636,
+          "meanOdds": 1.4200000000000002,
+          "net": 5.410000000000001,
+          "roi": 24.590909090909097
+        },
+        {
+          "league": "laliga",
+          "n": 20,
+          "days": 11,
+          "wins": 15,
+          "winRate": 75,
+          "meanOdds": 1.493,
+          "net": 1.63,
+          "roi": 8.15
+        },
+        {
+          "league": "bundesliga",
+          "n": 12,
+          "days": 6,
+          "wins": 8,
+          "winRate": 66.66666666666667,
+          "meanOdds": 1.4216666666666666,
+          "net": -0.6399999999999997,
+          "roi": -5.333333333333331
+        },
+        {
+          "league": "seriea",
+          "n": 16,
+          "days": 7,
+          "wins": 11,
+          "winRate": 68.75,
+          "meanOdds": 1.5537500000000002,
+          "net": 0.5699999999999998,
+          "roi": 3.562499999999999
+        },
+        {
+          "league": "ligue1",
+          "n": 10,
+          "days": 5,
+          "wins": 8,
+          "winRate": 80,
+          "meanOdds": 1.4869999999999999,
+          "net": 1.5799999999999996,
+          "roi": 15.799999999999997
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 39,
+          "days": 7,
+          "wins": 26,
+          "winRate": 66.66666666666667,
+          "meanOdds": 1.4607692307692306,
+          "net": -2.1299999999999994,
+          "roi": -5.46153846153846
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 119,
+          "days": 26,
+          "wins": 87,
+          "winRate": 73.10924369747899,
+          "meanOdds": 1.469411764705882,
+          "net": 6.420000000000001,
+          "roi": 5.394957983193279
+        },
+        {
+          "excluded": "ucl",
+          "n": 109,
+          "days": 21,
+          "wins": 74,
+          "winRate": 67.88990825688073,
+          "meanOdds": 1.4902752293577974,
+          "net": -1.6300000000000012,
+          "roi": -1.4954128440366983
+        },
+        {
+          "excluded": "laliga",
+          "n": 111,
+          "days": 22,
+          "wins": 78,
+          "winRate": 70.27027027027027,
+          "meanOdds": 1.475855855855855,
+          "net": 2.1500000000000012,
+          "roi": 1.936936936936938
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 119,
+          "days": 25,
+          "wins": 85,
+          "winRate": 71.42857142857143,
+          "meanOdds": 1.4842016806722684,
+          "net": 4.420000000000004,
+          "roi": 3.714285714285718
+        },
+        {
+          "excluded": "seriea",
+          "n": 115,
+          "days": 24,
+          "wins": 82,
+          "winRate": 71.30434782608695,
+          "meanOdds": 1.4679999999999995,
+          "net": 3.2100000000000017,
+          "roi": 2.7913043478260886
+        },
+        {
+          "excluded": "ligue1",
+          "n": 121,
+          "days": 26,
+          "wins": 85,
+          "winRate": 70.24793388429752,
+          "meanOdds": 1.477768595041322,
+          "net": 2.200000000000002,
+          "roi": 1.81818181818182
+        },
+        {
+          "excluded": "mls",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "europaleague",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "eflcup",
+          "n": 131,
+          "days": 26,
+          "wins": 93,
+          "winRate": 70.99236641221374,
+          "meanOdds": 1.4784732824427478,
+          "net": 3.780000000000001,
+          "roi": 2.885496183206108
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 92,
+          "days": 19,
+          "wins": 67,
+          "winRate": 72.82608695652173,
+          "meanOdds": 1.485978260869565,
+          "net": 5.909999999999999,
+          "roi": 6.42391304347826
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "bucket65",
+      "label": "Opponent $3.50+ and historical rate >= 65%",
+      "full": {
+        "n": 119,
+        "days": 21,
+        "wins": 81,
+        "winRate": 68.0672268907563,
+        "meanOdds": 1.5673109243697474,
+        "net": 4.489999999999999,
+        "roi": 3.7731092436974785,
+        "roi95DayBootstrap": [
+          -6.184210526315792,
+          13.974576271186443
+        ]
+      },
+      "captureWithin24h": {
+        "n": 105,
+        "days": 19,
+        "wins": 71,
+        "winRate": 67.61904761904762,
+        "meanOdds": 1.5650476190476186,
+        "net": 2.9899999999999984,
+        "roi": 2.847619047619046
+      },
+      "roiDifference95": [
+        0,
+        0
+      ],
+      "recentRoiDifference95": [
+        0,
+        0
+      ],
+      "earlier": {
+        "n": 61,
+        "days": 12,
+        "wins": 42,
+        "winRate": 68.85245901639344,
+        "meanOdds": 1.5857377049180323,
+        "net": 2.5199999999999987,
+        "roi": 4.131147540983604
+      },
+      "recent": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931,
+        "roi95DayBootstrap": [
+          -14.825396825396828,
+          19.96
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 10,
+          "days": 4,
+          "wins": 5,
+          "winRate": 50,
+          "meanOdds": 1.6480000000000001,
+          "net": -2.26,
+          "roi": -22.599999999999998
+        },
+        {
+          "league": "ucl",
+          "n": 11,
+          "days": 2,
+          "wins": 8,
+          "winRate": 72.72727272727273,
+          "meanOdds": 1.5000000000000002,
+          "net": 1.25,
+          "roi": 11.363636363636363
+        },
+        {
+          "league": "laliga",
+          "n": 18,
+          "days": 8,
+          "wins": 14,
+          "winRate": 77.77777777777777,
+          "meanOdds": 1.5827777777777778,
+          "net": 3.36,
+          "roi": 18.666666666666668
+        },
+        {
+          "league": "bundesliga",
+          "n": 9,
+          "days": 5,
+          "wins": 4,
+          "winRate": 44.44444444444444,
+          "meanOdds": 1.5066666666666666,
+          "net": -3.1099999999999994,
+          "roi": -34.55555555555555
+        },
+        {
+          "league": "seriea",
+          "n": 14,
+          "days": 6,
+          "wins": 10,
+          "winRate": 71.42857142857143,
+          "meanOdds": 1.5414285714285716,
+          "net": 0.7200000000000002,
+          "roi": 5.142857142857144
+        },
+        {
+          "league": "ligue1",
+          "n": 10,
+          "days": 5,
+          "wins": 8,
+          "winRate": 80,
+          "meanOdds": 1.643,
+          "net": 2.71,
+          "roi": 27.1
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 47,
+          "days": 8,
+          "wins": 32,
+          "winRate": 68.08510638297872,
+          "meanOdds": 1.5631914893617018,
+          "net": 1.8200000000000012,
+          "roi": 3.872340425531917
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 109,
+          "days": 21,
+          "wins": 76,
+          "winRate": 69.72477064220183,
+          "meanOdds": 1.5599082568807334,
+          "net": 6.749999999999998,
+          "roi": 6.192660550458713
+        },
+        {
+          "excluded": "ucl",
+          "n": 108,
+          "days": 19,
+          "wins": 73,
+          "winRate": 67.5925925925926,
+          "meanOdds": 1.574166666666666,
+          "net": 3.2399999999999984,
+          "roi": 2.9999999999999982
+        },
+        {
+          "excluded": "laliga",
+          "n": 101,
+          "days": 18,
+          "wins": 67,
+          "winRate": 66.33663366336634,
+          "meanOdds": 1.5645544554455442,
+          "net": 1.1299999999999994,
+          "roi": 1.1188118811881183
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 110,
+          "days": 20,
+          "wins": 77,
+          "winRate": 70,
+          "meanOdds": 1.5722727272727266,
+          "net": 7.599999999999998,
+          "roi": 6.909090909090907
+        },
+        {
+          "excluded": "seriea",
+          "n": 105,
+          "days": 19,
+          "wins": 71,
+          "winRate": 67.61904761904762,
+          "meanOdds": 1.5707619047619044,
+          "net": 3.7699999999999996,
+          "roi": 3.59047619047619
+        },
+        {
+          "excluded": "ligue1",
+          "n": 109,
+          "days": 21,
+          "wins": 73,
+          "winRate": 66.97247706422019,
+          "meanOdds": 1.560366972477064,
+          "net": 1.7800000000000005,
+          "roi": 1.6330275229357802
+        },
+        {
+          "excluded": "mls",
+          "n": 119,
+          "days": 21,
+          "wins": 81,
+          "winRate": 68.0672268907563,
+          "meanOdds": 1.5673109243697474,
+          "net": 4.489999999999999,
+          "roi": 3.7731092436974785
+        },
+        {
+          "excluded": "europaleague",
+          "n": 119,
+          "days": 21,
+          "wins": 81,
+          "winRate": 68.0672268907563,
+          "meanOdds": 1.5673109243697474,
+          "net": 4.489999999999999,
+          "roi": 3.7731092436974785
+        },
+        {
+          "excluded": "eflcup",
+          "n": 119,
+          "days": 21,
+          "wins": 81,
+          "winRate": 68.0672268907563,
+          "meanOdds": 1.5673109243697474,
+          "net": 4.489999999999999,
+          "roi": 3.7731092436974785
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 72,
+          "days": 13,
+          "wins": 49,
+          "winRate": 68.05555555555556,
+          "meanOdds": 1.5699999999999998,
+          "net": 2.669999999999999,
+          "roi": 3.7083333333333317
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 58,
+        "days": 9,
+        "wins": 39,
+        "winRate": 67.24137931034483,
+        "meanOdds": 1.5479310344827584,
+        "net": 1.97,
+        "roi": 3.396551724137931
+      }
+    },
+    {
+      "key": "context65",
+      "label": "Opponent $3.50+ and context probability >= 65%",
+      "full": {
+        "n": 15,
+        "days": 5,
+        "wins": 11,
+        "winRate": 73.33333333333333,
+        "meanOdds": 1.2479999999999998,
+        "net": -1.61,
+        "roi": -10.733333333333333,
+        "roi95DayBootstrap": [
+          -58.77777777777778,
+          22.4375
+        ]
+      },
+      "captureWithin24h": {
+        "n": 10,
+        "days": 3,
+        "wins": 7,
+        "winRate": 70,
+        "meanOdds": 1.2349999999999999,
+        "net": -1.5400000000000003,
+        "roi": -15.400000000000002
+      },
+      "roiDifference95": [
+        -50.931372549019606,
+        4.997979797979796
+      ],
+      "recentRoiDifference95": [
+        -65.11494252873564,
+        -4.1875
+      ],
+      "earlier": {
+        "n": 4,
+        "days": 1,
+        "wins": 4,
+        "winRate": 100,
+        "meanOdds": 1.1875,
+        "net": 0.75,
+        "roi": 18.75
+      },
+      "recent": {
+        "n": 11,
+        "days": 4,
+        "wins": 7,
+        "winRate": 63.63636363636363,
+        "meanOdds": 1.2699999999999998,
+        "net": -2.3600000000000003,
+        "roi": -21.454545454545457,
+        "roi95DayBootstrap": [
+          -75.6,
+          23.66666666666667
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ucl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "laliga",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        },
+        {
+          "league": "bundesliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "seriea",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ligue1",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ucl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "laliga",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "seriea",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ligue1",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "mls",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "europaleague",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "eflcup",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 27,
+        "days": 6,
+        "wins": 18,
+        "winRate": 66.66666666666667,
+        "meanOdds": 1.5537037037037038,
+        "net": 0.6299999999999999,
+        "roi": 2.3333333333333326
+      }
+    },
+    {
+      "key": "consensus65",
+      "label": "Opponent $3.50+ and historical/context both >= 65%",
+      "full": {
+        "n": 15,
+        "days": 5,
+        "wins": 11,
+        "winRate": 73.33333333333333,
+        "meanOdds": 1.2479999999999998,
+        "net": -1.61,
+        "roi": -10.733333333333333,
+        "roi95DayBootstrap": [
+          -58.77777777777778,
+          22.4375
+        ]
+      },
+      "captureWithin24h": {
+        "n": 10,
+        "days": 3,
+        "wins": 7,
+        "winRate": 70,
+        "meanOdds": 1.2349999999999999,
+        "net": -1.5400000000000003,
+        "roi": -15.400000000000002
+      },
+      "roiDifference95": [
+        -50.931372549019606,
+        4.997979797979796
+      ],
+      "recentRoiDifference95": [
+        -65.11494252873564,
+        -4.1875
+      ],
+      "earlier": {
+        "n": 4,
+        "days": 1,
+        "wins": 4,
+        "winRate": 100,
+        "meanOdds": 1.1875,
+        "net": 0.75,
+        "roi": 18.75
+      },
+      "recent": {
+        "n": 11,
+        "days": 4,
+        "wins": 7,
+        "winRate": 63.63636363636363,
+        "meanOdds": 1.2699999999999998,
+        "net": -2.3600000000000003,
+        "roi": -21.454545454545457,
+        "roi95DayBootstrap": [
+          -75.6,
+          23.66666666666667
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ucl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "laliga",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        },
+        {
+          "league": "bundesliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "seriea",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ligue1",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ucl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "laliga",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "seriea",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ligue1",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "mls",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "europaleague",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "eflcup",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 27,
+        "days": 6,
+        "wins": 18,
+        "winRate": 66.66666666666667,
+        "meanOdds": 1.5537037037037038,
+        "net": 0.6299999999999999,
+        "roi": 2.3333333333333326
+      }
+    },
+    {
+      "key": "blend65",
+      "label": "Opponent $3.50+ and equal market/context blend >= 65%",
+      "full": {
+        "n": 15,
+        "days": 5,
+        "wins": 11,
+        "winRate": 73.33333333333333,
+        "meanOdds": 1.2479999999999998,
+        "net": -1.61,
+        "roi": -10.733333333333333,
+        "roi95DayBootstrap": [
+          -58.77777777777778,
+          22.4375
+        ]
+      },
+      "captureWithin24h": {
+        "n": 10,
+        "days": 3,
+        "wins": 7,
+        "winRate": 70,
+        "meanOdds": 1.2349999999999999,
+        "net": -1.5400000000000003,
+        "roi": -15.400000000000002
+      },
+      "roiDifference95": [
+        -50.931372549019606,
+        4.997979797979796
+      ],
+      "recentRoiDifference95": [
+        -65.11494252873564,
+        -4.1875
+      ],
+      "earlier": {
+        "n": 4,
+        "days": 1,
+        "wins": 4,
+        "winRate": 100,
+        "meanOdds": 1.1875,
+        "net": 0.75,
+        "roi": 18.75
+      },
+      "recent": {
+        "n": 11,
+        "days": 4,
+        "wins": 7,
+        "winRate": 63.63636363636363,
+        "meanOdds": 1.2699999999999998,
+        "net": -2.3600000000000003,
+        "roi": -21.454545454545457,
+        "roi95DayBootstrap": [
+          -75.6,
+          23.66666666666667
+        ]
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ucl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "laliga",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        },
+        {
+          "league": "bundesliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "seriea",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ligue1",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ucl",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "laliga",
+          "n": 13,
+          "days": 4,
+          "wins": 9,
+          "winRate": 69.23076923076923,
+          "meanOdds": 1.2484615384615383,
+          "net": -2.1,
+          "roi": -16.153846153846153
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "seriea",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "ligue1",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "mls",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "europaleague",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "eflcup",
+          "n": 15,
+          "days": 5,
+          "wins": 11,
+          "winRate": 73.33333333333333,
+          "meanOdds": 1.2479999999999998,
+          "net": -1.61,
+          "roi": -10.733333333333333
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 2,
+          "days": 1,
+          "wins": 2,
+          "winRate": 100,
+          "meanOdds": 1.245,
+          "net": 0.49,
+          "roi": 24.5
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 27,
+        "days": 6,
+        "wins": 18,
+        "winRate": 66.66666666666667,
+        "meanOdds": 1.5537037037037038,
+        "net": 0.6299999999999999,
+        "roi": 2.3333333333333326
+      }
+    },
+    {
+      "key": "blend_edge",
+      "label": "Opponent $3.50+ and blended expected return >= 1.05",
+      "full": {
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null,
+        "roi95DayBootstrap": null
+      },
+      "captureWithin24h": {
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null
+      },
+      "roiDifference95": null,
+      "recentRoiDifference95": null,
+      "earlier": {
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null
+      },
+      "recent": {
+        "n": 0,
+        "days": 0,
+        "wins": 0,
+        "winRate": null,
+        "meanOdds": null,
+        "net": 0,
+        "roi": null,
+        "roi95DayBootstrap": null
+      },
+      "leagues": [
+        {
+          "league": "epl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ucl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "laliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "bundesliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "seriea",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "ligue1",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "league": "nationsleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        }
+      ],
+      "withoutLeague": [
+        {
+          "excluded": "epl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "ucl",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "laliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "bundesliga",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "seriea",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "ligue1",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "mls",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "europaleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "eflcup",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        },
+        {
+          "excluded": "nationsleague",
+          "n": 0,
+          "days": 0,
+          "wins": 0,
+          "winRate": null,
+          "meanOdds": null,
+          "net": 0,
+          "roi": null
+        }
+      ],
+      "recentSameCoverageBaseline": {
+        "n": 27,
+        "days": 6,
+        "wins": 18,
+        "winRate": 66.66666666666667,
+        "meanOdds": 1.5537037037037038,
+        "net": 0.6299999999999999,
+        "roi": 2.3333333333333326
+      }
+    }
+  ],
+  "probabilities": {
+    "full": {
+      "n": 36,
+      "leagues": {
+        "nationsleague": 29,
+        "laliga": 5,
+        "seriea": 2
+      },
+      "models": [
+        {
+          "model": "market",
+          "brier": 0.21263453147859837,
+          "logLoss": 0.6115058459137942,
+          "meanProbability": 0.6330701384061332,
+          "brierDifference95": [
+            0,
+            0
+          ]
+        },
+        {
+          "model": "bucket",
+          "brier": 0.2137438263475112,
+          "logLoss": 0.6190499809902633,
+          "meanProbability": 0.6785718456459291,
+          "brierDifference95": [
+            -0.028117992469955642,
+            0.021485495816246473
+          ]
+        },
+        {
+          "model": "context",
+          "brier": 0.2122067499507279,
+          "logLoss": 0.6113472338796919,
+          "meanProbability": 0.6491161682768827,
+          "brierDifference95": [
+            -0.009294951574759836,
+            0.009500020290077234
+          ]
+        },
+        {
+          "model": "marketContextBlend",
+          "brier": 0.21230751438684825,
+          "logLoss": 0.6110958805028834,
+          "meanProbability": 0.6410931533415078,
+          "brierDifference95": [
+            -0.004742311671339713,
+            0.00459959351341544
+          ]
+        },
+        {
+          "model": "threeWayBlend",
+          "brier": 0.2088394784818476,
+          "logLoss": 0.60575733492323,
+          "meanProbability": 0.6535860507763147,
+          "brierDifference95": [
+            -0.014442816822327538,
+            0.002810223768636861
+          ]
+        }
+      ]
+    },
+    "recent": {
+      "n": 27,
+      "leagues": {
+        "nationsleague": 20,
+        "laliga": 5,
+        "seriea": 2
+      },
+      "models": [
+        {
+          "model": "market",
+          "brier": 0.2276874882460828,
+          "logLoss": 0.6472260652707257,
+          "meanProbability": 0.6261532676277226,
+          "brierDifference95": [
+            0,
+            0
+          ]
+        },
+        {
+          "model": "bucket",
+          "brier": 0.22398226526048098,
+          "logLoss": 0.6405324125496966,
+          "meanProbability": 0.6797596234988503,
+          "brierDifference95": [
+            -0.017845031113917987,
+            0.010151501536819764
+          ]
+        },
+        {
+          "model": "context",
+          "brier": 0.22825374505295457,
+          "logLoss": 0.6504419059668317,
+          "meanProbability": 0.6455948003950567,
+          "brierDifference95": [
+            -0.012446722240817588,
+            0.012077827222588483
+          ]
+        },
+        {
+          "model": "marketContextBlend",
+          "brier": 0.22783293862402504,
+          "logLoss": 0.6484068880620546,
+          "meanProbability": 0.6358740340113898,
+          "brierDifference95": [
+            -0.0063439397967372775,
+            0.005834416809240469
+          ]
+        },
+        {
+          "model": "threeWayBlend",
+          "brier": 0.22286095758774294,
+          "logLoss": 0.6374381995019581,
+          "meanProbability": 0.6505025638405431,
+          "brierDifference95": [
+            -0.01273641067865433,
+            0.0010880255982682271
+          ]
+        }
+      ]
+    }
+  },
+  "frozenForward": [
+    {
+      "cohort": "exact_2",
+      "recorded": 5,
+      "settled": 5,
+      "pending": 0,
+      "wins": 4,
+      "net": 2.2899999999999996
+    },
+    {
+      "cohort": "plus_2",
+      "recorded": 54,
+      "settled": 54,
+      "pending": 0,
+      "wins": 38,
+      "net": 0.3900000000000008
+    },
+    {
+      "cohort": "opponent_3_50_plus",
+      "recorded": 0,
+      "settled": 0,
+      "pending": 0,
+      "wins": 0,
+      "net": 0
+    }
+  ]
+}

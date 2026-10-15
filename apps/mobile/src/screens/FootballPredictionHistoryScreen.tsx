@@ -23,7 +23,7 @@ export function FootballPredictionHistoryScreen({ league }: { league: string | n
         <Text style={styles.note}>{variation.description}</Text>
         <Text style={styles.note}>{variation.detail}</Text>
       </View>
-      <FootballPriceGapHistory league={league} variation={variation} />
+      <FootballPriceGapHistory key={variation.key} league={league} variation={variation} />
     </> : <Text style={styles.note}>No football multi prediction history is available yet. Choose Singles to review individual match predictions.</Text>}
   </View>;
 }

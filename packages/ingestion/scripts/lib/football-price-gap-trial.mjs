@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 export const LEAGUES = ["epl", "ucl", "laliga", "bundesliga", "seriea", "ligue1", "mls", "europaleague", "eflcup", "nationsleague"];
 export const EXPERIMENT = "football_price_gap_v1";
-export const COHORTS = ["exact_2", "plus_2", "opponent_3_50_plus"];
+export const COHORTS = ["exact_2", "plus_2", "opponent_3_50_plus", "home_opponent_3_50_plus"];
 export const MIN_BUCKET = 30;
 export const MIN_RICH = 100;
 
@@ -28,6 +28,7 @@ export function market(row) {
 
 // Keep opponent-price eligibility independent of the overlapping price-gap cohorts.
 export function inCohort(m, cohort) {
+  if (cohort === "home_opponent_3_50_plus") return m.homeFavourite && m.other >= 3.5;
   if (cohort === "opponent_3_50_plus") return m.other >= 3.5;
   return m.gap >= 2 && (cohort === "plus_2" || (cohort === "exact_2" && m.gap < 2.5));
 }

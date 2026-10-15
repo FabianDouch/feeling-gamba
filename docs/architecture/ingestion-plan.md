@@ -2598,3 +2598,20 @@ forecasts still require fresh prices within 24 hours of kickoff and cannot be
 backdated. Local implementation and migration validation are complete. The live migration
 was applied successfully on 2026-10-15 after a transient pooler authentication
 timeout. Data refresh and publication remain outstanding for this change.
+
+## Home and blend trial activation (2026-10-15)
+
+Apply `202610150002_football_home_and_blend_trials.sql` before publishing the
+updated generator. Existing per-league capture-linked refreshes and the shared
+football workflow generate an additional home-only cohort with the unchanged
+one-hour freshness/24-hour kickoff window. Blend uses frozen opponent-price
+components and needs no extra generator, job or model training. The normal
+backfill also reconstructs home-only history, separately from forward forecasts.
+Validation includes all existing SQL suites plus home eligibility, component
+immutability, null-aware blend scoring, matched return denominators and anon reads.
+
+Migration `202610150002` was applied to the linked database on 2026-10-15.
+The live history rebuild saved 105 home-only rows; blend summaries scored 36
+of 156 opponent-price rows. The initial forward refresh found zero eligible
+fresh upcoming matches. Code publication to `main` enables continued scheduled
+collection; no timestamps or prices were invented to seed the trials.

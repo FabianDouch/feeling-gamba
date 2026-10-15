@@ -475,3 +475,90 @@ results retain existing pending/excluded semantics. Reconstruct historical
 results separately from prospective forecasts, retaining the existing 24-hour
 training embargo and captured-odds limitations. Overlapping cohort returns
 must not be combined. No new staking or profit assumptions are introduced.
+
+## Football candidate research (2026-10-15)
+Exploratory, read-only analysis requested after the opponent-price model rollout.
+No new model, schedule, production data or UI behaviour is enabled by this research.
+### Dataset and method
+- Snapshot: 2026-10-15 16:39 NZDT; 371 source result rows across ten queried leagues.
+- Usable: 250 distinct settled, pre-match-priced events, 9 September–15 October NZ, across 27 match days and seven leagues.
+- Excluded: 114 non-settled rows and seven equal-team-price matches. MLS/EFL Cup have no source rows; Europa League has 27 unmatched and nine missing-result rows, no usable settlements.
+- Twelve fixed selection hypotheses and five probability estimates were specified before viewing outcome summaries; no threshold optimisation.
+- Learned models use the existing 24-hour result-availability embargo at each retained price timestamp, never target/future outcomes.
+- Earlier segment: first 18 match days, 161 matches. Later segment: 2–15 October, nine match days, 89 matches. Split whole NZ days; this retrospective split is not a pristine unseen prospective holdout.
+- Draws lose. Returns use one notional $1 per selected favourite at its captured odds. No multis, assumed cash-outs, synthetic odds or alternative markets.
+- Uncertainty uses 2,000 seeded day-cluster bootstrap samples, including paired candidate-minus-baseline comparisons. Intervals are exploratory, not adjusted for multiple comparisons; few days and repeated teams limit independence.
+- Existing market, pooled historical-rate and context models use repository thresholds unchanged. Probability comparisons require all estimates on the same matches.
+### Selection results
+| Fixed selection | Full matches | Wins | Full ROI | Later matches | Later ROI |
+|---|---:|---:|---:|---:|---:|
+| All priced team favourites | 250 | 140 | -5.32% | 89 | -0.20% |
+| Price gap $2+ | 131 | 93 | +2.89% | 49 | -1.43% |
+| Opponent $3.50+ | 156 | 106 | +2.72% | 58 | +3.40% |
+| Opponent $3.50+ and home favourite | 105 | 74 | +5.16% | 38 | +8.87% |
+| Opponent $3.50+ and favourite <= $2 | 149 | 103 | +3.42% | 55 | +5.31% |
+| Opponent $3.50+ and implied draw <= 25% | 112 | 81 | +1.63% | 44 | +1.86% |
+| Opponent $3.50+ and price gap $2+ | 131 | 93 | +2.89% | 49 | -1.43% |
+| Opponent $3.50+ and historical rate >= 65% | 119 | 81 | +3.77% | 58 | +3.40% |
+| Opponent $3.50+ and context probability >= 65% | 15 | 11 | -10.73% | 11 | -21.45% |
+| Opponent $3.50+ and historical/context both >= 65% | 15 | 11 | -10.73% | 11 | -21.45% |
+| Opponent $3.50+ and equal market/context blend >= 65% | 15 | 11 | -10.73% | 11 | -21.45% |
+| Opponent $3.50+ and blended expected return >= 1.05 | 0 | 0 | — | 0 | — |
+
+### Interpretation and next decision
+
+- **Home favourite + opponent $3.50+: first candidate for forward-only shadow tracking.** Full net +$5.42 on 105 selections, win rate 70.48%; later net +$3.37 on 38. Full ROI 95% day-bootstrap interval is -7.75% to +17.78%; uplift over opponent-only is +2.44 percentage points with paired interval -5.16 to +9.06 points. This is not established superiority.
+- Home-filter returns vary by league: EPL -29.64% (11), Bundesliga -14.10% (10), Nations League -6.67% (30), versus UCL +30.24% (17), La Liga +6.82% (17), Serie A +18.91% (11), Ligue 1 +41.22% (9). These small samples do not justify league-specific switches. Removing UCL reduces pooled ROI from +5.16% to +0.32%.
+- The favourite <= $2 filter removes only seven of 156 opponent-price selections; incremental evidence is weak. The draw <=25% filter raises win rate but lowers ROI versus the baseline.
+- Gap $2+ and the gap/opponent intersection select identical matches here. Historical rate >=65% accepts every match where that estimate is available, so its apparent difference is model warm-up coverage, not added discrimination.
+- Context >=65%, historical/context consensus >=65%, and market/context blend >=65% select the same 15 matches (11 wins) and lose $1.61 overall. Very short odds explain why a high hit rate does not imply positive returns. Blended expected return >=1.05 selects no matches.
+- No candidate has a clearly positive lower ROI bound. Trying multiple overlapping hypotheses increases selection bias; keep these thresholds fixed and evaluate newly recorded forward predictions before promotion.
+
+### Probability combinations
+
+On 36 identical matches with all three predictions available (29 Nations League,
+five La Liga, two Serie A), equal-weight market/historical-rate/context averaging
+has Brier 0.20884 versus market-only 0.21263 and log loss 0.60576 versus 0.61151
+(lower is better). In the later 27-match subset, Brier is 0.22286 versus 0.22769.
+The full paired Brier-difference interval is -0.01444 to +0.00281; later is
+-0.01274 to +0.00109. Both include no improvement. This blend is a second
+candidate for shadow probability tracking, not a validated profitable selection
+rule. Keep estimates unavailable if any component lacks its minimum history;
+do not average only whichever components happen to exist.
+
+### Timing and prospective evidence
+
+Restricting historical captures to within 24 hours of kickoff leaves 142
+opponent-price matches (+1.94% ROI) and 95 home-filter matches (+5.65%). This
+sensitivity check still cannot reproduce the first actually saved forecast;
+retained historical snapshots are mutable and may differ from live entry prices.
+The current frozen dataset contains 54 settled cumulative-gap forecasts
+(38 wins, +$0.39 net; +0.72% ROI), five overlapping exact-gap forecasts,
+and no opponent-price forward records. Never sum those overlapping cohorts or
+claim the historical opponent-price results were recorded forecasts.
+
+### Reproduction and validation
+
+- Runner: `packages/ingestion/scripts/analyse-football-model-candidates.mjs` (offline only; no database client or writes).
+- Input snapshot retained locally at `data/raw/research/football-model-candidates_2026-10-15.json` (git-ignored; no credentials).
+- Full report: [football-model-candidates_2026-10-15.json](../branches/features/football-price-gap-trial/football-model-candidates_2026-10-15.json), including source digest, league sensitivity, overlaps, paired intervals and model coverage.
+- Run `node packages/ingestion/scripts/analyse-football-model-candidates.mjs data/raw/research/football-model-candidates_2026-10-15.json /tmp/football-candidates.json` from the repository root.
+- Four new tests cover chronology/embargo, outcome leakage, unit-return arithmetic, deterministic uncertainty, day splitting and unavailable-model abstention. All 46 ingestion tests pass. Independent Python recomputation confirms source eligibility and four simple-rule results.
+- Method references: [time-ordered evaluation](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) and [probability scoring](https://sklearn.org/stable/modules/calibration.html). Brier/log loss assess more than calibration alone; small improvements do not establish a pricing edge.
+
+## Approved experimental trials (2026-10-15)
+
+Following the research above, the user requested both candidates alongside the
+existing models. Home favourite + opponent $3.50+ is a new independently frozen
+cohort using market-implied probability. The three-model blend uses the same
+opponent-price cohort and immutable component predictions with exactly 1/3 weight
+each; it requires all components and has no minimum probability/return threshold.
+No research thresholds were retuned. The historical-rate component uses the
+opponent-price cohort across both venues, exactly as tested, not the home-only
+subset. The home trial's displayed probability does not depend on learned models.
+
+Forward trial is the default for the two experimental views. Backtests retain
+the existing 24-hour result-availability assumption and do not become evidence
+of actual forward trial performance. Blend scoring/returns use only available
+blend forecasts with paired market scores on those same matches. No claims of
+proven improvement, new staking rules or league exclusions are introduced.

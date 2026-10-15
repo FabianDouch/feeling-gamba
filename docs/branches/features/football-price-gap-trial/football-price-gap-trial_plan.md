@@ -247,3 +247,31 @@ retained source data is corrected. No past records are labelled live forecasts.
 - A subsequent dry run connected and confirmed only `202610150001_football_opponent_price_model.sql` pending.
 - Retried `supabase db push --yes` successfully applied that migration to the linked project.
 - Forecast/history refresh, app verification and code publication remain outstanding.
+
+## Candidate-model research (2026-10-15)
+
+- User requested testing alternative football models/combinations after completing rollout.
+- Added an offline reproducible analysis runner and four temporal/metric tests; all 46 ingestion tests pass.
+- Read-only snapshot covers 250 usable settled matches from seven leagues; evaluated 12 fixed selection rules and five probability estimates with chronological and paired comparisons.
+- Home favourite + opponent $3.50+ and equal-weight market/history/context averaging merit prospective shadow trials, but neither establishes an advantage over baseline.
+- Current app rules and production records are unchanged. No new deployments or commits made.
+- Findings, source limitations and reproduction steps are in [statistics-plan.md](../../../architecture/statistics-plan.md#football-candidate-research-2026-10-15); full numeric report is [football-model-candidates_2026-10-15.json](./football-model-candidates_2026-10-15.json).
+
+## Implemented home-favourite and equal-blend trials (2026-10-15)
+
+- User approved the two research candidates alongside the seven existing football variations.
+- Added home-only opponent $3.50+ generation, storage constraints and history reconstruction across all ten leagues.
+- Added equal market/history/context blend from frozen opponent-price components, requiring all three without a probability cutoff.
+- Current/history screens expose both with Trial labels; experimental history defaults to Forward trial.
+- Added matched-sample blend returns and existing paired-market accuracy/calibration summaries.
+- Existing prospective freshness, settlement, immutability and read permissions remain unchanged.
+- Validation passed: 25 mobile tests, 46 ingestion tests, both workspace typechecks, mobile lint and four SQL suites in isolated PostgreSQL 15.
+
+### Activation checks (2026-10-15)
+
+- Applied migration `202610150002` successfully to the linked database after isolated SQL validation and a one-migration dry run.
+- Dry-run and live historical rebuild agree: 105 home-cohort matches, 74 wins, $110.42 returned; opponent-price history has 36 eligible equal-blend scores.
+- Ran forward refresh: zero fresh eligible upcoming matches, no fabricated/backdated trial forecasts.
+- Chrome verification at `http://localhost:8081/` confirmed both trial tabs, Forward trial defaults, separate historical data and matched blend outcomes (25/36 wins, $37.80 return).
+- Publication target is `main`: the existing twice-hourly football workflow and per-league market refreshes use the new cohort once this code reaches that branch. No schedule changes required.
+- Architecture and IA YAML parse successfully; rendered outputs remain explicitly marked for regeneration.

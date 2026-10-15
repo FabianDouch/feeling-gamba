@@ -72,3 +72,22 @@ test('opponent-price forecasts accept small gaps, enforce the boundary and keep 
   }, now);
   assert.deepEqual(entries.map(entry => entry.id), ['ucl']);
 });
+
+test('equal blend requires all three frozen probabilities and never silently substitutes', () => {
+  const complete = row({market_probability:0.6,bucket_probability:0.9,rich_probability:0.3});
+  assert.ok(Math.abs(footballForecastProbability(complete,{model:'blend'})-0.6)<1e-12);
+  for (const field of ['market_probability','bucket_probability','rich_probability']) {
+    for (const value of [null,undefined,NaN,Infinity,-0.1,1.1,'0.7']) {
+      assert.equal(footballForecastProbability({...complete,[field]:value},{model:'blend'}),null);
+    }
+  }
+  assert.equal(footballForecastProbability({...complete,bucket_probability:0},{model:'blend'}),0.3);
+});
+
+test('home opponent-price trial rejects away favourites and preserves original cohort eligibility', () => {
+  const candidate=row({cohort:'home_opponent_3_50_plus',favourite_home:true,other_price:3.5,favourite_price:2.1,price_gap:1.4});
+  assert.equal(isUpcomingFootballForecast(candidate,now),true);
+  for(const favourite_home of [false,null,undefined]) assert.equal(isUpcomingFootballForecast({...candidate,favourite_home},now),false);
+  assert.equal(isUpcomingFootballForecast({...candidate,other_price:3.49},now),false);
+  assert.equal(isUpcomingFootballForecast({...candidate,cohort:'opponent_3_50_plus',favourite_home:false},now),true);
+});

@@ -24,6 +24,11 @@ export async function readFootballForecasts(league: string | null, cohort: strin
 
 // Never substitute the market baseline for a learned model that has insufficient training data.
 export function footballForecastProbability(entry: TrialEntry, variation: FootballHistoryVariation): number | null {
+  if (variation.model === "blend") {
+    const components = [entry.market_probability, entry.bucket_probability, entry.rich_probability];
+    if (!components.every((p) => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1)) return null;
+    return (entry.market_probability + entry.bucket_probability! + entry.rich_probability!) / 3;
+  }
   const value = variation.model === "market" ? entry.market_probability : variation.model === "bucket" ? entry.bucket_probability : entry.rich_probability;
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
 }
@@ -37,8 +42,9 @@ export function isUpcomingFootballForecast(entry: FootballForecast, now: number)
     && kickoff <= generated + 86400000 && snapshot <= generated && snapshot >= generated - 3600000
     && typeof entry.favourite_price === "number" && entry.favourite_price > 1 && Number.isFinite(entry.favourite_price)
     && typeof entry.price_gap === "number" && Number.isFinite(entry.price_gap) && entry.price_gap >= 0
-    && (entry.cohort === "opponent_3_50_plus"
+    && (["opponent_3_50_plus", "home_opponent_3_50_plus"].includes(entry.cohort)
       ? typeof entry.other_price === "number" && Number.isFinite(entry.other_price)
         && entry.other_price >= 3.5 && entry.other_price > entry.favourite_price
+        && (entry.cohort !== "home_opponent_3_50_plus" || entry.favourite_home === true)
       : entry.price_gap >= 2 && (entry.cohort === "plus_2" || (entry.cohort === "exact_2" && entry.price_gap < 2.5)));
 }

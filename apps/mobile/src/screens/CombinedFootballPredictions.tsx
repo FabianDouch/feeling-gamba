@@ -66,7 +66,7 @@ function FootballPredictionList({ league, variation, onSelectLeague }: { league:
         <Text style={styles.title}>{item.favourite_home ? item.home_team_name : item.away_team_name} to win</Text>
         <Text style={styles.note}>{item.home_team_name} v {item.away_team_name} · {formatTime(item.kickoff_at)} NZ</Text>
         <Text style={styles.score}>{(footballForecastProbability(item, variation)! * 100).toFixed(1)}% {variation.model === "market" ? "market-implied win probability" : "win probability"} · ${item.favourite_price.toFixed(2)} captured odds</Text>
-        <Text style={styles.note}>Opponent ${item.other_price.toFixed(2)} · Price gap ${item.price_gap.toFixed(2)}{variation.model === "bucket" ? ` · ${item.bucket_sample} earlier matches in this range` : variation.model === "rich" ? ` · ${item.rich_sample} earlier training matches` : " · Normalised home/draw/away market"}</Text>
+        <Text style={styles.note}>Opponent ${item.other_price.toFixed(2)} · Price gap ${item.price_gap.toFixed(2)}{variation.model === "blend" ? ` · Equal market/history/context blend · ${item.bucket_sample} cohort / ${item.rich_sample} overall training matches` : variation.model === "bucket" ? ` · ${item.bucket_sample} earlier matches in this range` : variation.model === "rich" ? ` · ${item.rich_sample} earlier training matches` : " · Normalised home/draw/away market"}</Text>
         <Text style={styles.note}>Forecast saved {formatTime(item.predicted_at)} NZ · Prices captured {formatTime(item.snapshot_at)} NZ</Text>
         {league === null ? <Pressable accessibilityRole="button" onPress={() => onSelectLeague(item.league)}><Text style={styles.link}>Open {leagueLabel(item.league)}</Text></Pressable> : null}
       </View>)}

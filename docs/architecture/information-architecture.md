@@ -1168,3 +1168,20 @@ trial modes with settled counts, win rate and notional $1 returns. Draws lose;
 missing prices or tied team prices do not produce predictions. Empty-state and
 outcome copy now refers to the selection rule rather than only price gaps.
 Canonical IA YAML is updated; rendered IA outputs need regeneration.
+
+## Two experimental football trials (2026-10-15)
+
+Singles → Win % adds **Trial: Home favourite — opponent $3.50+** and
+**Trial: Three-model blend — opponent $3.50+** for All Football and all ten
+leagues. These sit alongside the seven existing models. Home requires the
+shorter-priced team to be at home; blend equally averages all three existing
+probability estimates and abstains if any is unavailable. Neither adds a score
+cutoff. Model descriptions label the trials experimental.
+
+Selecting an experimental model opens Forward trial history by default. Users
+may explicitly select Historical backtest; selecting another model resets its
+history source to that model's default. Blend return totals exclude missing-model
+matches, which remain visible as non-selections for coverage transparency.
+Blend cards show cohort and overall training counts separately. All groups can
+overlap: model counts and returns must not be summed. Canonical IA YAML is
+updated; rendered IA outputs need regeneration.

@@ -1018,3 +1018,17 @@ read permissions and separate historical reconstruction remain authoritative.
 Apply migration `202610150001_football_opponent_price_model.sql` before running
 the updated generators. No additional job or source integration is needed.
 Canonical YAML is updated; rendered architecture outputs need regeneration.
+
+## Home-favourite and equal-blend trials (2026-10-15)
+
+All ten football leagues and All Football now expose nine variations. The new
+experimental home favourite uses cohort `home_opponent_3_50_plus`; generation
+requires a home-team favourite and opposing odds >= 3.50, independent of gap.
+The equal-weight blend uses existing `opponent_3_50_plus` records and computes
+(market + bucket + rich) / 3 from immutable inputs. Missing components abstain;
+no retraining, partial averaging or probability cutoff is introduced.
+Migration `202610150002_football_home_and_blend_trials.sql` extends both stores
+and adds blend/paired return metrics to both summary RPCs. Experimental history
+defaults to Forward trial; backtests remain explicitly selectable and separate.
+Existing capture/result schedules drive the extra cohort after code publication.
+Canonical YAML is updated; rendered architecture outputs need regeneration.

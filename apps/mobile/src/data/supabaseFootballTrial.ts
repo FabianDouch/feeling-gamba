@@ -2,12 +2,12 @@ import { publicEnv } from "../config/env";
 import { readFootballForecasts, type FootballForecast } from "./footballForecastReader";
 
 export type FootballHistoryMode = "backtest" | "forward";
-export type FootballTrialCohort = "exact_2" | "plus_2" | "opponent_3_50_plus";
-export type TrialModel = "market" | "bucket" | "rich";
-export type FootballHistoryVariationKey = "gap_exact" | "gap_plus" | "market_exact" | "market_plus" | "context_exact" | "context_plus" | "opponent_3_50_plus";
+export type FootballTrialCohort = "exact_2" | "plus_2" | "opponent_3_50_plus" | "home_opponent_3_50_plus";
+export type TrialModel = "market" | "bucket" | "rich" | "blend";
+export type FootballHistoryVariationKey = "gap_exact" | "gap_plus" | "market_exact" | "market_plus" | "context_exact" | "context_plus" | "opponent_3_50_plus" | "home_opponent_3_50_plus" | "opponent_blend";
 export type FootballHistoryVariation = {
   key: FootballHistoryVariationKey; label: string; description: string; detail: string;
-  model: TrialModel; cohort: FootballTrialCohort;
+  model: TrialModel; cohort: FootballTrialCohort; experimental?: boolean;
 };
 export const FOOTBALL_HISTORY_VARIATIONS: FootballHistoryVariation[] = [
   { key: "gap_exact", label: "Price gap $2.00–$2.49", model: "bucket", cohort: "exact_2",
@@ -31,13 +31,19 @@ export const FOOTBALL_HISTORY_VARIATIONS: FootballHistoryVariation[] = [
   { key: "opponent_3_50_plus", label: "Favourite — opponent $3.50+", model: "market", cohort: "opponent_3_50_plus",
     description: "Selects the shorter-priced team when the opposing team’s win odds are at least $3.50.",
     detail: "No minimum price gap. Probability is market-implied from captured home, draw and away odds. Draws count as losses." },
+  { key: "home_opponent_3_50_plus", label: "Trial: Home favourite — opponent $3.50+", model: "market", cohort: "home_opponent_3_50_plus", experimental: true,
+    description: "Selects the home team when it is the shorter-priced team and the opponent’s odds are at least $3.50.",
+    detail: "Experimental forward trial. No minimum price gap. Probability is market-implied; draws count as losses." },
+  { key: "opponent_blend", label: "Trial: Three-model blend — opponent $3.50+", model: "blend", cohort: "opponent_3_50_plus", experimental: true,
+    description: "Averages market, historical-rate and context win probabilities equally for favourites with opponent odds of at least $3.50.",
+    detail: "Experimental forward trial with no probability cutoff. Requires all three estimates: 30 earlier cohort matches, 100 overall, 20 in this league, and at least 10 wins and 10 losses for context." },
 ];
 
 export type TrialSummary = {
   built_at?: string | null;
   recorded: number; pending: number; excluded: number; settled: number; wins: number;
   staked: number; returned: number; net: number; roi: number | null;
-  models: { model: TrialModel; recorded: number; unavailable: number; scored: number;
+  models: { wins: number; staked: number; returned: number; net: number; roi: number | null; model: TrialModel; recorded: number; unavailable: number; scored: number;
     brier: number | null; paired_market_brier: number | null; log_loss: number | null; paired_market_log_loss: number | null }[];
   calibration: { model: TrialModel; bin: number; sample: number; predicted: number; actual: number }[];
 };
