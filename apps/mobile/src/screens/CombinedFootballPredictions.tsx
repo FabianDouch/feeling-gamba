@@ -5,7 +5,7 @@ import { footballForecastProbability, isUpcomingFootballForecast } from "../data
 import { LEAGUE_OPTIONS } from "../navigation/sportLeagueScope";
 import { PredictionFormatTabs, PredictionModelTabs, PredictionTypeTabs, type PredictionFormat } from "./PredictionControls";
 
-// Use the same six variations as history for all football scopes, retaining selection during league drilldowns.
+// Use the same variations as history for all football scopes, retaining selection during league drilldowns.
 export function CombinedFootballPredictions({ league, variationKey, onVariationChange, onSelectLeague, format, onFormatChange }: {
   format: PredictionFormat; onFormatChange: (format: PredictionFormat) => void;
   league: string | null; variationKey: FootballHistoryVariationKey;
@@ -60,13 +60,13 @@ function FootballPredictionList({ league, variation, onSelectLeague }: { league:
       {unavailable > 0 ? <Text style={styles.note}>Insufficient history: {unavailable} qualifying {unavailable === 1 ? "match has" : "matches have"} no probability for this model yet. {variation.detail}</Text> : null}
       {predictions.length === 0 ? <Text style={styles.note}>{unavailable > 0
         ? "No recommendations are ready for this variation. Market odds variations can show these matches using their captured market probability."
-        : "No qualifying upcoming forecasts have been saved for this price-gap range yet. New forecasts appear after a scheduled check finds a match within 24 hours of kickoff with fresh three-way prices."}</Text> : null}
+        : "No qualifying upcoming forecasts have been saved for this selection rule yet. New forecasts appear after a scheduled check finds a match within 24 hours of kickoff with fresh three-way prices."}</Text> : null}
       {predictions.slice(activePage * 20, (activePage + 1) * 20).map((item) => <View key={`${item.league}:${variation.key}:${item.id}`} testID="football-prediction-card" style={styles.card}>
         <View style={styles.cardHeader}><Text style={styles.badge}>{leagueLabel(item.league)}</Text><Text style={styles.note}>{variation.label}</Text></View>
         <Text style={styles.title}>{item.favourite_home ? item.home_team_name : item.away_team_name} to win</Text>
         <Text style={styles.note}>{item.home_team_name} v {item.away_team_name} · {formatTime(item.kickoff_at)} NZ</Text>
-        <Text style={styles.score}>{(footballForecastProbability(item, variation)! * 100).toFixed(1)}% win probability · ${item.favourite_price.toFixed(2)} captured odds</Text>
-        <Text style={styles.note}>Price gap ${item.price_gap.toFixed(2)}{variation.model === "bucket" ? ` · ${item.bucket_sample} earlier matches in this range` : variation.model === "rich" ? ` · ${item.rich_sample} earlier training matches` : " · Normalised home/draw/away market"}</Text>
+        <Text style={styles.score}>{(footballForecastProbability(item, variation)! * 100).toFixed(1)}% {variation.model === "market" ? "market-implied win probability" : "win probability"} · ${item.favourite_price.toFixed(2)} captured odds</Text>
+        <Text style={styles.note}>Opponent ${item.other_price.toFixed(2)} · Price gap ${item.price_gap.toFixed(2)}{variation.model === "bucket" ? ` · ${item.bucket_sample} earlier matches in this range` : variation.model === "rich" ? ` · ${item.rich_sample} earlier training matches` : " · Normalised home/draw/away market"}</Text>
         <Text style={styles.note}>Forecast saved {formatTime(item.predicted_at)} NZ · Prices captured {formatTime(item.snapshot_at)} NZ</Text>
         {league === null ? <Pressable accessibilityRole="button" onPress={() => onSelectLeague(item.league)}><Text style={styles.link}>Open {leagueLabel(item.league)}</Text></Pressable> : null}
       </View>)}

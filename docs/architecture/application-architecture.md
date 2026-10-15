@@ -1004,3 +1004,17 @@ views link to individual league scopes for lock/notification actions; existing
 individual identities and cutoff logic remain authoritative. No database/schema
 or ingestion changes are part of these slices. Canonical YAML is updated;
 rendered architecture outputs need regeneration.
+
+## Football opponent-price selection (2026-10-15)
+
+A seventh shared variation, **Favourite — opponent $3.50+**, selects the
+shorter-priced home/away team when the opposing team's captured decimal odds
+are at least 3.50, independently of price gap. All Football and all ten league
+scopes use cohort `opponent_3_50_plus` in the existing forward/backtest stores.
+Its displayed probability is the normalised three-way market probability;
+there is no minimum historical sample or probability cutoff for this option.
+Existing capture freshness, frozen inputs, regulation-time settlement, public
+read permissions and separate historical reconstruction remain authoritative.
+Apply migration `202610150001_football_opponent_price_model.sql` before running
+the updated generators. No additional job or source integration is needed.
+Canonical YAML is updated; rendered architecture outputs need regeneration.

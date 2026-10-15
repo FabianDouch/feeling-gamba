@@ -1,4 +1,4 @@
-import { buildForecasts, trainingRows } from "./football-price-gap-trial.mjs";
+import { buildForecasts, trainingRows, COHORTS, inCohort } from "./football-price-gap-trial.mjs";
 
 export const BACKTEST_METHOD = "chronological_24h_embargo_v1";
 export const RESULT_EMBARGO_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +10,7 @@ export function replayFootballHistory(results, generatedAt) {
   const usable = trainingRows(results.map((row) => ({ ...row, observed_at: generatedAt })), generatedAt);
   const rows = [];
   for (const target of usable) {
-    if (target.m.gap < 2) continue;
+    if (!COHORTS.some((cohort) => inCohort(target.m, cohort))) continue;
     const cutoff = Date.parse(target.snapshot_at);
     const earlier = usable.filter((row) => Date.parse(row.advertised_start_at) + RESULT_EMBARGO_MS <= cutoff
       && !(row.league === target.league && row.source_event_id === target.source_event_id));
@@ -28,7 +28,7 @@ export function replayFootballHistory(results, generatedAt) {
   return { rows, summary: { method: BACKTEST_METHOD, generatedAt, sourceRows: results.length,
     usablePricedMatches: usable.length, excludedOrDuplicateSourceRows: results.length - usable.length,
     replayedMatches: new Set(rows.map((r) => `${r.league}:${r.source_event_id}`)).size,
-    cohorts: ["exact_2", "plus_2"].map((cohort) => {
+    cohorts: COHORTS.map((cohort) => {
       const group = rows.filter((r) => r.cohort === cohort);
       return { cohort, matches: group.length, wins: group.filter((r) => r.won).length,
         bucketScored: group.filter((r) => r.bucket_probability !== null).length,

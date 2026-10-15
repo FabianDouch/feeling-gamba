@@ -2,9 +2,9 @@ import { publicEnv } from "../config/env";
 import { readFootballForecasts, type FootballForecast } from "./footballForecastReader";
 
 export type FootballHistoryMode = "backtest" | "forward";
-export type FootballTrialCohort = "exact_2" | "plus_2";
+export type FootballTrialCohort = "exact_2" | "plus_2" | "opponent_3_50_plus";
 export type TrialModel = "market" | "bucket" | "rich";
-export type FootballHistoryVariationKey = "gap_exact" | "gap_plus" | "market_exact" | "market_plus" | "context_exact" | "context_plus";
+export type FootballHistoryVariationKey = "gap_exact" | "gap_plus" | "market_exact" | "market_plus" | "context_exact" | "context_plus" | "opponent_3_50_plus";
 export type FootballHistoryVariation = {
   key: FootballHistoryVariationKey; label: string; description: string; detail: string;
   model: TrialModel; cohort: FootballTrialCohort;
@@ -28,6 +28,9 @@ export const FOOTBALL_HISTORY_VARIATIONS: FootballHistoryVariation[] = [
   { key: "context_plus", label: "Price gap + context $2.00+", model: "rich", cohort: "plus_2",
     description: "Favourite win probability using price gap, favourite price, draw probability, venue and league.",
     detail: "For gaps of $2.00 or more. Needs 100 earlier matches, 20 from this league, and at least 10 wins and 10 losses." },
+  { key: "opponent_3_50_plus", label: "Favourite — opponent $3.50+", model: "market", cohort: "opponent_3_50_plus",
+    description: "Selects the shorter-priced team when the opposing team’s win odds are at least $3.50.",
+    detail: "No minimum price gap. Probability is market-implied from captured home, draw and away odds. Draws count as losses." },
 ];
 
 export type TrialSummary = {
@@ -41,7 +44,7 @@ export type TrialSummary = {
 export type TrialEntry = {
   id: string; league: string; source_event_id: string; kickoff_at: string; predicted_at: string;
   home_team_name: string; away_team_name: string; favourite_home: boolean;
-  favourite_price: number; price_gap: number; market_probability: number;
+  favourite_price: number; other_price: number; price_gap: number; market_probability: number;
   bucket_probability: number | null; rich_probability: number | null;
   bucket_sample: number; rich_sample: number; outcome_status: string; won: boolean | null; unit_return: number | null;
 };
@@ -53,7 +56,7 @@ export async function fetchFootballTrial(league: string | null, cohort: Football
   const rpc = mode === "backtest" ? "get_football_price_gap_backtest_summary" : "get_football_price_gap_summary";
   const entriesUrl = new URL(`/rest/v1/${table}`, publicEnv.supabaseUrl ?? "https://unconfigured.invalid");
   const params: Record<string, string> = {
-    select: "id,league,source_event_id,kickoff_at,predicted_at,home_team_name,away_team_name,favourite_home,favourite_price,price_gap,market_probability,bucket_probability,rich_probability,bucket_sample,rich_sample,outcome_status,won,unit_return",
+    select: "id,league,source_event_id,kickoff_at,predicted_at,home_team_name,away_team_name,favourite_home,favourite_price,other_price,price_gap,market_probability,bucket_probability,rich_probability,bucket_sample,rich_sample,outcome_status,won,unit_return",
     experiment: "eq.football_price_gap_v1", cohort: `eq.${cohort}`,
     order: "kickoff_at.desc,id.desc", offset: String(page * 20), limit: "20",
   };

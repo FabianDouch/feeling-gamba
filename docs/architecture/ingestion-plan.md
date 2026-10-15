@@ -2584,3 +2584,17 @@ eight pending. The default exact historical-rate model still has zero scored
 probabilities because its earlier cohort sample is too small; that does not mean
 no matches were captured. The automatic historical rebuild is included in the
 approved 2026-10-01 publication of the prepared workflow change.
+
+## Opponent-price model rollout (2026-10-15)
+
+The shared forward refresh and historical replay now also generate cohort
+`opponent_3_50_plus` across all ten leagues when the opponent price is >= 3.50.
+Historical replay no longer discards every sub-$2-gap match; it checks eligibility
+against all three cohorts. No schedule, source or freshness changes are needed.
+Apply `202610150001_football_opponent_price_model.sql` before publishing updated
+runners. Then use the existing forward refresh and historical backfill commands
+above (dry-run first); history uses only retained pre-kickoff prices. Current
+forecasts still require fresh prices within 24 hours of kickoff and cannot be
+backdated. Local implementation and migration validation are complete. The live migration
+was applied successfully on 2026-10-15 after a transient pooler authentication
+timeout. Data refresh and publication remain outstanding for this change.

@@ -77,7 +77,7 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
       {data.summary.recorded === 0 ? <Text style={styles.emptyState}>{isBacktest
         ? "No historical matches for this league and variation. Choose All football or another variation."
         : "No forward forecasts recorded for this league and variation yet."}</Text> : null}
-      <Text style={styles.heading}>Price-gap match outcomes</Text>
+      <Text style={styles.heading}>Selected match outcomes</Text>
       <View style={styles.statsRow}>
         <Metric value={`${data.summary.wins}/${data.summary.settled}`} label="Favourite wins"
           detail={data.summary.settled ? `${(100 * data.summary.wins / data.summary.settled).toFixed(1)}% win rate` : "No settled matches"} />
@@ -85,7 +85,7 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
         <Metric value={`$${Number(data.summary.net).toFixed(2)}`} label="Cash net"
           detail={data.summary.roi === null ? "No settled return" : `${Number(data.summary.roi).toFixed(1)}% ROI`} />
       </View>
-      <Text style={styles.note}>Returns cover all {data.summary.settled} settled favourites in this price-gap group, including matches without a model probability. Each uses a notional $1 stake; draws lose.</Text>
+      <Text style={styles.note}>Returns cover all {data.summary.settled} settled favourites in this selection group, including matches without a model probability. Each uses a notional $1 stake; draws lose.</Text>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: showDiagnostics }} aria-expanded={showDiagnostics} onPress={() => setShowDiagnostics((value) => !value)}>
         <Text style={styles.detailToggle}>{showDiagnostics ? "Hide model diagnostics" : "Show model diagnostics"}</Text>
       </Pressable>
@@ -107,7 +107,7 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
             <Text style={[styles.outcome, entry.won === true && styles.outcomeWin]}>{entry.outcome_status === "settled" ? entry.won ? "Won" : "Lost" : entry.outcome_status === "excluded" ? "Excluded" : "Pending"}</Text>
           </View>
           <Text style={styles.note}>{entry.league.toUpperCase()} · {new Date(entry.kickoff_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ</Text>
-          <Text style={styles.selection}>{entry.favourite_home ? entry.home_team_name : entry.away_team_name} · ${Number(entry.favourite_price).toFixed(2)} · gap ${Number(entry.price_gap).toFixed(2)}</Text>
+          <Text style={styles.selection}>{entry.favourite_home ? entry.home_team_name : entry.away_team_name} · ${Number(entry.favourite_price).toFixed(2)} · opponent ${Number(entry.other_price).toFixed(2)} · gap ${Number(entry.price_gap).toFixed(2)}</Text>
           <Text style={styles.prediction}>{probability(p)}{variation.model !== "market" ? ` · ${sample} earlier matches` : " · market-implied win probability"}</Text>
           <Text style={styles.note}>{isBacktest ? "Replay odds captured" : "Forecast saved"} {new Date(entry.predicted_at).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ</Text>
           <Text style={styles.selection}>{entry.unit_return === null ? entry.outcome_status === "excluded" ? "Return excluded" : "Return pending" : `$${Number(entry.unit_return).toFixed(2)} returned per $1`}</Text>

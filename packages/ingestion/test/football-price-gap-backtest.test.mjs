@@ -15,7 +15,7 @@ function result(id, kickoff, won = true, extra = {}) {
 
 test("replays existing settled history immediately without a forward collection window", () => {
   const replay = replayFootballHistory([result("old", "2026-08-01T10:00:00Z", false)], builtAt);
-  assert.equal(replay.rows.length, 2);
+  assert.equal(replay.rows.length, 3);
   assert.equal(replay.summary.replayedMatches, 1);
   assert.equal(replay.rows[0].won, false);
   assert.equal(replay.rows[0].unit_return, 0);
@@ -61,7 +61,7 @@ test("unpriced, late snapshots, unknown and future fixtures never enter replay s
   const replay = replayFootballHistory([base, base, ...invalid], builtAt);
   assert.equal(replay.summary.usablePricedMatches, 1);
   assert.equal(replay.summary.excludedOrDuplicateSourceRows, 6);
-  assert.equal(replay.rows.length, 2);
+  assert.equal(replay.rows.length, 3);
 });
 
 test("later stored captures cannot train earlier targets, even when results are known today", () => {
@@ -83,9 +83,21 @@ test("backfill dry run is read-only; writes replace only backtests after complet
   await backfillFootballHistory(client);
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "rpc/replace_football_price_gap_backtests");
-  assert.equal(calls[0][3].p_rows.length, 2);
+  assert.equal(calls[0][3].p_rows.length, 3);
   calls.length = 0;
   client.all = async (table) => { if (table.startsWith("ucl_")) throw new Error("source unavailable"); return []; };
   await assert.rejects(backfillFootballHistory(client), /source unavailable/);
   assert.equal(calls.length, 0);
+});
+
+
+test("historical opponent-price selections include sub-$2 gaps and keep cohorts separate", () => {
+  const replay = replayFootballHistory([
+    result("eligible", "2026-08-01T10:00:00Z", true, { home_fixed_win_price: 2.1, away_fixed_win_price: 3.5 }),
+    result("below", "2026-08-02T10:00:00Z", true, { home_fixed_win_price: 2.1, away_fixed_win_price: 3.49 }),
+  ], builtAt);
+  assert.equal(replay.rows.length, 1);
+  assert.equal(replay.rows[0].cohort, "opponent_3_50_plus");
+  assert.equal(replay.rows[0].unit_return, 2.1);
+  assert.deepEqual(replay.summary.cohorts.map((c) => c.matches), [0, 0, 1]);
 });

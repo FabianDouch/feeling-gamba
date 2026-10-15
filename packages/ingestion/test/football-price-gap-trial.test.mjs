@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { market, inCohort, trainingRows, generateTrial, settleTrial, fitRich } from "../scripts/lib/football-price-gap-trial.mjs";
+import { LEAGUES, market, inCohort, trainingRows, generateTrial, settleTrial, fitRich } from "../scripts/lib/football-price-gap-trial.mjs";
 import { refreshTrial } from "../scripts/refresh-football-price-gap-trial.mjs";
 
 const now = "2026-09-25T10:00:00Z";
@@ -84,7 +84,7 @@ test("a source-known settlement cannot become a prospective forecast after resch
 
 test("each event/cohort occurs once and future outcomes cannot change the forecast", () => {
   const rows = generateTrial([snapshot(), snapshot()], history(), now);
-  assert.equal(rows.length, 2);
+  assert.equal(rows.length, 3);
   assert.deepEqual(rows, generateTrial([snapshot()], [...history(), ...history().map((r) => ({
     ...r, source_event_id: `future-${r.source_event_id}`, observed_at: "2026-09-26T12:00:00Z",
   }))], now));
@@ -128,9 +128,30 @@ test("dry runs never write and reruns preserve already recorded forecasts", asyn
   assert.equal((await refreshTrial(client)).newForecasts, 0);
   assert.equal(writes.length, 0);
   client.all = async (table) => table === "epl_market_snapshots" ? [current] : [];
-  assert.equal((await refreshTrial(client, { dryRun: true })).newForecasts, 2);
+  assert.equal((await refreshTrial(client, { dryRun: true })).newForecasts, 3);
   assert.equal(writes.length, 0);
   await refreshTrial(client);
   assert.equal(writes.length, 1);
   assert.equal(writes[0][4], "resolution=ignore-duplicates,return=minimal");
+});
+
+
+test("opponent $3.50 threshold is inclusive, independent of gap and available in every league", () => {
+  for (const league of LEAGUES) {
+    for (const awayFavourite of [false, true]) {
+      const qualifying = snapshot({ league, home_fixed_win_price: awayFavourite ? 3.5 : 2.1,
+        away_fixed_win_price: awayFavourite ? 2.1 : 3.5 });
+      const rows = generateTrial([qualifying], [], now);
+      assert.deepEqual(rows.map((r) => r.cohort), ["opponent_3_50_plus"]);
+      assert.equal(rows[0].favourite_home, !awayFavourite);
+      assert.equal(rows[0].other_price, 3.5);
+      assert.equal(rows[0].price_gap, 1.4);
+      assert.ok(rows[0].market_probability > 0);
+      const loss = settleTrial(rows[0], { ...qualifying, outcome_status: "settled",
+        home_team_won: false, away_team_won: false, match_drawn: true }, "2026-09-25T14:00:00Z");
+      assert.equal(loss.unit_return, 0);
+    }
+  }
+  assert.equal(generateTrial([snapshot({ home_fixed_win_price: 2.1, away_fixed_win_price: 3.49 })], [], now).length, 0);
+  assert.equal(inCohort({ gap: 2, other: 3.8 }, "unknown"), false);
 });

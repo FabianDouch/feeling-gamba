@@ -461,3 +461,17 @@ then. Current source corrections and incomplete captured history remain limits.
 Retain method `chronological_24h_embargo_v1`, cutoff, build timestamp, latest
 training kickoff, samples, weights and digest. Null learned probabilities stay
 null; the baseline and historical favourite returns remain visible during warm-up.
+
+## Opponent $3.50+ rule (2026-10-15)
+
+The requested seventh football selection uses opposing-team decimal odds >= 3.50,
+not an opponent-minus-favourite gap threshold. Favourite means the shorter-priced
+home/away team even if draw is shorter. Equal team prices and incomplete markets
+are excluded. Display normalised three-way market-implied probability without
+requiring learned-model availability. The shared store may retain bucket/context
+outputs for this cohort, but this option exposes only the market probability.
+Score regulation-time favourite wins; draws lose, and unknown/non-standard
+results retain existing pending/excluded semantics. Reconstruct historical
+results separately from prospective forecasts, retaining the existing 24-hour
+training embargo and captured-odds limitations. Overlapping cohort returns
+must not be combined. No new staking or profit assumptions are introduced.

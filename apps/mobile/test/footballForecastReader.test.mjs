@@ -56,3 +56,19 @@ test('combined forecasts preserve league identity and fail visibly if a later pa
     throw new Error('Read failed');
   },now), /Read failed/);
 });
+
+
+test('opponent-price forecasts accept small gaps, enforce the boundary and keep league filters', async () => {
+  const candidate = row({cohort:'opponent_3_50_plus', favourite_price:2.1, other_price:3.5, price_gap:1.4});
+  assert.equal(isUpcomingFootballForecast(candidate, now), true);
+  for (const other_price of [3.49, null, undefined, Infinity, '3.5']) {
+    assert.equal(isUpcomingFootballForecast({...candidate, other_price}, now), false);
+  }
+  assert.equal(isUpcomingFootballForecast({...candidate, favourite_price:3.5}, now), false);
+  const entries = await readFootballForecasts('ucl', 'opponent_3_50_plus', async params => {
+    assert.equal(params.cohort, 'eq.opponent_3_50_plus');
+    assert.equal(params.league, 'eq.ucl');
+    return [{...candidate, id:'ucl', league:'ucl'}, candidate, row()];
+  }, now);
+  assert.deepEqual(entries.map(entry => entry.id), ['ucl']);
+});

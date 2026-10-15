@@ -36,6 +36,9 @@ export function isUpcomingFootballForecast(entry: FootballForecast, now: number)
   return entry.outcome_status === "pending" && now < kickoff && generated <= now && generated < kickoff
     && kickoff <= generated + 86400000 && snapshot <= generated && snapshot >= generated - 3600000
     && typeof entry.favourite_price === "number" && entry.favourite_price > 1 && Number.isFinite(entry.favourite_price)
-    && typeof entry.price_gap === "number" && entry.price_gap >= 2
-    && (entry.cohort === "plus_2" || (entry.cohort === "exact_2" && entry.price_gap < 2.5));
+    && typeof entry.price_gap === "number" && Number.isFinite(entry.price_gap) && entry.price_gap >= 0
+    && (entry.cohort === "opponent_3_50_plus"
+      ? typeof entry.other_price === "number" && Number.isFinite(entry.other_price)
+        && entry.other_price >= 3.5 && entry.other_price > entry.favourite_price
+      : entry.price_gap >= 2 && (entry.cohort === "plus_2" || (entry.cohort === "exact_2" && entry.price_gap < 2.5)));
 }

@@ -1156,3 +1156,15 @@ See the [shared navigation plan](../branches/features/shared-sport-league-naviga
 for the catalogue, aggregation rules, source gaps and completed validation.
 Canonical YAML reflects the shared and combined views; rendered information architecture
 HTML/PNG/JPEG outputs require regeneration.
+
+## Favourite — opponent $3.50+ (2026-10-15)
+
+Predictions and Prediction History add a seventh Singles → Win % variation to
+All Football and every supported league. Select the shorter-priced team when
+opponent odds are >= $3.50, including exactly $3.50, regardless of price gap.
+Cards show selected team, favourite and opponent odds, timestamps and explicitly
+market-implied probability. History retains separate Historical backtest/Forward
+trial modes with settled counts, win rate and notional $1 returns. Draws lose;
+missing prices or tied team prices do not produce predictions. Empty-state and
+outcome copy now refers to the selection rule rather than only price gaps.
+Canonical IA YAML is updated; rendered IA outputs need regeneration.

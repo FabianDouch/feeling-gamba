@@ -223,3 +223,27 @@ retained source data is corrected. No past records are labelled live forecasts.
 - No schema migration is required. Scheduled runs use the new pipeline once this
   commit reaches `main`; four upcoming cumulative predictions were already restored
   in the live database before publication. Source access failures can still occur.
+
+## Opponent $3.50+ variation (2026-10-15)
+
+- User approved adding a seventh model to All Football and all ten league scopes.
+- Select the shorter-priced team when opposing-team odds are >= $3.50; no minimum gap.
+- Reuse forward/backtest storage with a new cohort and market-implied probability.
+- Current and history cards expose opponent odds; existing six variations retain their rules.
+- Additive migration updates both tables' cohort-specific constraints; no source or schedule changes.
+- Historical rebuild includes qualifying sub-$2 gaps and remains separate from forward forecasts.
+- Validation covers boundaries, both favourite venues, all leagues, draws, freshness, filtering,
+  historical reconstruction, SQL constraints, RPC counts, frozen inputs and public permissions.
+- Migration and old/new SQL suites passed in isolated PostgreSQL 15; live migration,
+  data refresh and publication are not yet performed.
+- Final checks passed: 23 mobile tests, 42 ingestion tests, both workspace
+  typechecks, mobile lint, both architecture YAML parses and `git diff --check`.
+- Live browser/device verification was not run. Architecture/IA rendered outputs
+  are explicitly marked for regeneration.
+
+### Remote migration applied (2026-10-15)
+
+- Initial user CLI push failed during pooler authentication with `EAUTHQUERY`; no migration ran in that attempt.
+- A subsequent dry run connected and confirmed only `202610150001_football_opponent_price_model.sql` pending.
+- Retried `supabase db push --yes` successfully applied that migration to the linked project.
+- Forecast/history refresh, app verification and code publication remain outstanding.

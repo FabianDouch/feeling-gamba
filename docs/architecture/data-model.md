@@ -2456,3 +2456,16 @@ and price capture timestamps remain visible. Eligibility is rechecked while the
 screen is open; kickoff removes a card. Historic backtest rows are never current
 recommendations. These variations use existing forward settlement/history and
 have no account-lock or notification mapping.
+
+## Opponent-price cohort (2026-10-15)
+
+Migration `202610150001_football_opponent_price_model.sql` adds
+`opponent_3_50_plus` to both football stores under the existing experiment key.
+It replaces the universal minimum gap with cohort-specific constraints:
+new-cohort rows require `other_price >= 3.50` and nonnegative gap; existing
+`exact_2`/`plus_2` rows still require gap >= 2, and exact rows retain gap < 2.5.
+The existing `other_price > favourite_price` constraint rejects tied teams.
+No existing rows, immutable-input guards, permissions or RPC signatures change.
+The seventh UI variation maps to `market_probability`; cohort-filtered summary
+RPCs support it unchanged. History reads now also return captured `other_price`.
+Overlapping cohorts remain separate and must never be summed as distinct matches.
