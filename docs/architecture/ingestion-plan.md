@@ -2615,3 +2615,15 @@ The live history rebuild saved 105 home-only rows; blend summaries scored 36
 of 156 opponent-price rows. The initial forward refresh found zero eligible
 fresh upcoming matches. Code publication to `main` enables continued scheduled
 collection; no timestamps or prices were invented to seed the trials.
+
+## Sports source resilience update — 2026-10-20 NZ
+
+Sports market adapters share bounded GraphQL response handling: three attempts,
+20 seconds per attempt, retrying empty/invalid JSON, transient transport failures
+and HTTP 408/425/429/5xx. Access rejection (401/403), schema errors and missing data
+objects fail immediately; valid empty markets remain successful. Diagnostics
+record HTTP metadata and body size, never treating missing bodies as empty lists.
+Fixed-win queries use the live-validated `SportsMarketSnapshot` operation name;
+see TAB API notes for the recurring upstream operation-name dependency and its
+limitations. Schedules and freshness eligibility remain unchanged. EFL Cup result
+reads use TheSportsDB public key `123` after key `3` was permanently disabled.

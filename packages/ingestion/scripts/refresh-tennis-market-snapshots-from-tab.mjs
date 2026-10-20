@@ -1,3 +1,4 @@
+import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,7 +80,7 @@ const SUPPORTED_COMPETITION_ALIASES = new Map([
 ]);
 
 const TENNIS_COMPETITION_QUERY = `
-  query TennisMarketSnapshot(
+  query SportsMarketSnapshot(
     $category: SportingCategory!
     $marketsFirst: Int
     $upcomingEventsCount: Int
@@ -347,25 +348,10 @@ function getGraphqlHeaders() {
 }
 
 /**
- * Sends one public TAB sports GraphQL request and surfaces schema errors.
+ * Reads market data with bounded retries and shared response diagnostics.
  */
 async function graphql(source, operationName, query, variables) {
-  const response = await fetch(source.endpoint, {
-    body: JSON.stringify({
-      operationName,
-      query,
-      variables,
-    }),
-    headers: getGraphqlHeaders(),
-    method: "POST",
-  });
-
-  const payload = await response.json();
-
-  if (!response.ok || payload.errors?.length) {
-    throw new Error(`${source.source} GraphQL ${operationName} failed: ${JSON.stringify(payload.errors ?? payload).slice(0, 500)}`);
-  }
-
+  const payload = await fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders());
   return payload.data;
 }
 
@@ -619,7 +605,7 @@ function mapEventToSnapshot(event, officialMatches) {
  * Fetches current supported TAB Tennis fixed-win snapshots.
  */
 async function fetchCurrentSnapshots(options, supabase) {
-  const data = await graphql(TAB_SOURCE, "TennisMarketSnapshot", TENNIS_COMPETITION_QUERY, {
+  const data = await graphql(TAB_SOURCE, "SportsMarketSnapshot", TENNIS_COMPETITION_QUERY, {
     category: TENNIS_CATEGORY,
     marketsFirst: options.marketsFirst,
     upcomingEventsCount: options.eventCount,

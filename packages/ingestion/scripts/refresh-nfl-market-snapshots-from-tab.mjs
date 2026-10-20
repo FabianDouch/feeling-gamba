@@ -1,3 +1,4 @@
+import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +21,7 @@ const TAB_SOURCE = {
 
 // TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const NFL_COMPETITION_QUERY = `
-  query TeamSportMarketSnapshot(
+  query SportsMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -203,37 +204,10 @@ function getGraphqlHeaders() {
 }
 
 /**
- * Sends one public sports GraphQL request and surfaces schema errors.
+ * Reads market data with bounded retries and shared response diagnostics.
  */
 async function graphql(source, operationName, query, variables) {
-  const response = await fetch(source.endpoint, {
-    body: JSON.stringify({
-      operationName,
-      query,
-      variables,
-    }),
-    headers: getGraphqlHeaders(),
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${source.label} ${operationName} failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
-  }
-
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error(`${source.label} ${operationName} returned an empty response body`);
-  }
-
-  const payload = JSON.parse(text);
-
-  if (payload.errors?.length) {
-    const messages = payload.errors.map((error) => error.message).join("; ");
-    throw new Error(`${source.label} ${operationName} returned GraphQL errors: ${messages}`);
-  }
-
+  const payload = await fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders());
   return payload;
 }
 
@@ -454,7 +428,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "TeamSportMarketSnapshot", NFL_COMPETITION_QUERY, {
+    const response = await graphql(source, "SportsMarketSnapshot", NFL_COMPETITION_QUERY, {
       category: NFL_CATEGORY,
       competitionSlug: NFL_COMPETITION_SLUG,
       marketsFirst: options.marketsFirst,

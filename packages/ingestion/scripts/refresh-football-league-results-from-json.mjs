@@ -413,12 +413,13 @@ async function fetchTheSportsDbEvents(url) {
   return Array.isArray(payload?.events) ? payload.events : [];
 }
 
+// Use the supported public test key; retained event coverage still depends on the provider.
 async function fetchTheSportsDbMatches(config, options) {
   const seasonLabel = getTheSportsDbSeasonLabel(options.season);
   const urls = [
-    `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=${config.sportsDbLeagueId}&s=${seasonLabel}`,
-    `https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=${config.sportsDbLeagueId}`,
-    `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${config.sportsDbLeagueId}`,
+    `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${config.sportsDbLeagueId}&s=${seasonLabel}`,
+    `https://www.thesportsdb.com/api/v1/json/123/eventspastleague.php?id=${config.sportsDbLeagueId}`,
+    `https://www.thesportsdb.com/api/v1/json/123/eventsnextleague.php?id=${config.sportsDbLeagueId}`,
   ];
   const rowsById = new Map();
 

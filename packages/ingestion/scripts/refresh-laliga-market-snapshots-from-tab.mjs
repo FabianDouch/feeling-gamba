@@ -1,3 +1,4 @@
+import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,7 +49,7 @@ const TEAM_NAME_ALIASES = new Map([
 
 // TAB returned empty HTTP 200 bodies for the former SportingCompetitionScreen operation.
 const LALIGA_COMPETITION_QUERY = `
-  query FootballMarketSnapshot(
+  query SportsMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $marketsFirst: Int
@@ -238,37 +239,10 @@ function getGraphqlHeaders() {
 }
 
 /**
- * Sends one public sports GraphQL request and surfaces schema errors.
+ * Reads market data with bounded retries and shared response diagnostics.
  */
 async function graphql(source, operationName, query, variables) {
-  const response = await fetch(source.endpoint, {
-    body: JSON.stringify({
-      operationName,
-      query,
-      variables,
-    }),
-    headers: getGraphqlHeaders(),
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${source.label} ${operationName} failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
-  }
-
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error(`${source.label} ${operationName} returned an empty response body`);
-  }
-
-  const payload = JSON.parse(text);
-
-  if (payload.errors?.length) {
-    const messages = payload.errors.map((error) => error.message).join("; ");
-    throw new Error(`${source.label} ${operationName} returned GraphQL errors: ${messages}`);
-  }
-
+  const payload = await fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders());
   return payload;
 }
 
@@ -498,7 +472,7 @@ async function fetchSnapshots(options, officialMatches) {
   const sources = [];
 
   for (const source of [TAB_SOURCE]) {
-    const response = await graphql(source, "FootballMarketSnapshot", LALIGA_COMPETITION_QUERY, {
+    const response = await graphql(source, "SportsMarketSnapshot", LALIGA_COMPETITION_QUERY, {
       category: LALIGA_CATEGORY,
       competitionSlug: options.competitionSlug,
       marketsFirst: options.marketsFirst,

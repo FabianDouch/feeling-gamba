@@ -114,3 +114,12 @@ cron run; the change is included in the approved 2026-10-01 main-branch publicat
   prices can be matched to source-backed scorer events.
 - Historical calibration should not be backfilled from fixture-only results
   without captured TAB fixed-win and draw prices.
+
+## EFL Cup public key recovery — 2026-10-20 NZ
+
+TheSportsDB disabled public key `3`, returning HTTP 403 with an explicit migration
+message. All three EFL Cup event endpoints now use its replacement public test
+key `123`. A live dry run returned 17 source events, 16 writable mapped matches,
+and zero retained priced matches because no matching stored price snapshots were
+available. This fixes source access without inventing price history or expanding
+the existing priced-only import policy. Free-source coverage remains limited.

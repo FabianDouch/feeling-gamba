@@ -1,3 +1,4 @@
+import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +36,7 @@ const TEAM_NAME_ALIASES = new Map([
 ]);
 
 const EPL_GOAL_SCORER_SNAPSHOT_QUERY = `
-  query EplGoalScorerMarketSnapshot(
+  query SportsScorerMarketSnapshot(
     $category: SportingCategory!
     $competitionSlug: String!
     $entrantsFirst: Int!
@@ -215,37 +216,10 @@ function getGraphqlHeaders() {
 }
 
 /**
- * Sends one public sports GraphQL request and surfaces schema errors.
+ * Reads market data with bounded retries and shared response diagnostics.
  */
 async function graphql(source, operationName, query, variables) {
-  const response = await fetch(source.endpoint, {
-    body: JSON.stringify({
-      operationName,
-      query,
-      variables,
-    }),
-    headers: getGraphqlHeaders(),
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`${source.label} ${operationName} failed with HTTP ${response.status}: ${message.slice(0, 300)}`);
-  }
-
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error(`${source.label} ${operationName} returned an empty response body`);
-  }
-
-  const payload = JSON.parse(text);
-
-  if (payload.errors?.length) {
-    const messages = payload.errors.map((error) => error.message).join("; ");
-    throw new Error(`${source.label} ${operationName} returned GraphQL errors: ${messages}`);
-  }
-
+  const payload = await fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders());
   return payload;
 }
 
@@ -820,7 +794,7 @@ function createSupabaseRestClient(config, batchSize) {
  * Fetches current open EPL events from the market source.
  */
 async function fetchSourceEvents(options) {
-  const response = await graphql(TAB_SOURCE, "EplGoalScorerMarketSnapshot", EPL_GOAL_SCORER_SNAPSHOT_QUERY, {
+  const response = await graphql(TAB_SOURCE, "SportsScorerMarketSnapshot", EPL_GOAL_SCORER_SNAPSHOT_QUERY, {
     category: EPL_CATEGORY,
     competitionSlug: EPL_COMPETITION_SLUG,
     entrantsFirst: options.entrantsFirst,

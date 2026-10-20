@@ -15,6 +15,41 @@ GraphQL introspection is disabled. A request using `__schema` or `__type` return
 GraphQL introspection is disabled by Cosmo Router
 ```
 
+### Sports market recovery — 2026-10-20 NZ
+
+49 of the latest 100 Actions runs failed during the investigation: 41 football/NFL
+market runs, five tennis market runs and three EFL Cup result runs. The latest
+failure from each football league and NFL reported an empty body; tennis failed
+while parsing JSON. Local EPL probes reproduced HTTP 200, zero bytes and a
+Cloudflare server header on both `/graphql` and `/gql/router`; an anonymous query
+also failed. Changing only the operation name to `SportsMarketSnapshot` restored
+the original query. Fixed-win adapters now use that name consistently, including
+tennis, NRL and NPC. The upstream mechanism is unknown, and earlier operation-name
+workarounds also recurred; this is verified recovery at a point in time, not a
+permanent guarantee.
+
+All 14 fixed-win capture dry runs passed at 15:09 NZDT: EPL 10, UCL 18, La Liga 12,
+Bundesliga 18, Serie A 10, Ligue 1 9, Europa League 18, NFL 13 and NPC 1 snapshots.
+MLS, EFL Cup, Nations League and NRL returned valid no-current-event responses.
+UCL excluded one of 19 events without a supported price snapshot. Tennis returned
+50 source events but zero supported captured rows; transport recovery does not
+establish supported tennis market coverage. No database writes occurred in these
+checks.
+
+EPL and La Liga scorer requests also reproduced empty bodies and recovered with
+`SportsScorerMarketSnapshot`; scorer dry runs then passed for EPL, La Liga, UCL,
+NRL and NPC. NRL/NPC half-time capture uses `SportsMarketSnapshot` and passed
+live dry runs (NPC one snapshot, NRL valid zero events).
+
+Sports fixed-win, half-time and scorer captures now share `lib/tab-graphql.mjs`: at most
+three attempts with a 20-second per-attempt timeout, retrying empty/malformed JSON,
+transient network failures and HTTP 408/425/429/5xx. HTTP 401/403, GraphQL errors
+and missing data objects fail immediately. Diagnostics include status, content
+type, declared length, actual byte count and server, without dumping source bodies.
+Persistent failures still fail Actions; only valid GraphQL data can represent no
+markets. Tests cover recovery, exhausted retries, schema/access errors, transport
+failures and timeouts. No stale odds are substituted and schedules are unchanged.
+
 ### Football market failure investigation — 2026-10-07 NZ
 
 The latest market Actions runs for all ten football leagues failed on the first
