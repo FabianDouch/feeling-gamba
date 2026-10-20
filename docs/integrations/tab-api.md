@@ -50,6 +50,18 @@ Persistent failures still fail Actions; only valid GraphQL data can represent no
 markets. Tests cover recovery, exhausted retries, schema/access errors, transport
 failures and timeouts. No stale odds are substituted and schedules are unchanged.
 
+Published as `d670db0` on 20 October. All 14 market workflows and the EFL Cup
+result workflow passed full write-enabled runs on GitHub runners. Examples:
+[EPL](https://github.com/FabianDouch/feeling-gamba/actions/runs/39357491150),
+[UCL](https://github.com/FabianDouch/feeling-gamba/actions/runs/39357494242),
+[Tennis](https://github.com/FabianDouch/feeling-gamba/actions/runs/39357530766),
+[EFL Cup results](https://github.com/FabianDouch/feeling-gamba/actions/runs/39357533583).
+A subsequent database read confirmed 20 upcoming cohort forecast records across
+seven distinct football matches (seven opponent-$3.50+, seven $2+ gap, six home
+opponent-$3.50+). All 51 ingestion tests, ingestion typecheck/lint and changed
+script syntax checks passed. These runs establish current recovery; future
+scheduled runs remain subject to the upstream behaviour described above.
+
 ### Football market failure investigation — 2026-10-07 NZ
 
 The latest market Actions runs for all ten football leagues failed on the first
