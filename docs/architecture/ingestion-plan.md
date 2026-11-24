@@ -91,8 +91,11 @@ truncated. No authentication cookies or private session credentials are used.
 Pinned hashes and response contracts fail explicitly when retired or changed.
 See [source validation](../integrations/tab-api.md#public-persisted-query-recovery--2026-11-24-nz)
 for operation provenance, no-event semantics and live coverage limitations.
-Local dry runs recovered all 14 capture paths without writes; scheduled runner
-recovery is not established until the repair is published and verified there.
+Local dry runs recovered all 14 capture paths without writes; hosted runner
+EPL/NFL/NPC/Tennis dry runs and repository CI also passed. PR #8 publishes the
+repair to scheduled captures when merged to `main`; write-enabled runs must
+confirm newly stored data after rollout. Missing pre-match prices cannot be
+reconstructed by merely rerunning result refreshes.
 
 The racing prediction workflow also deliberately fails when its capture window
 has closed without a same-day snapshot; a closed window with an existing

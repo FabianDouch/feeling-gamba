@@ -62,8 +62,18 @@ must not be represented as new tennis coverage. EPL/UCL specials without
 supported Match Result markets were excluded. Scorer and half-time sample
 checks passed; UCL yielded 56 priced scorer selections across two matches plus
 one skipped specials event. Other sampled competitions had no applicable scorer
-or half-time markets. These checks wrote no data; GitHub runner verification and
-publication are pending.
+or half-time markets. These checks wrote no data. All 67 ingestion tests, ingestion typecheck/lint
+and repository CI passed. Hosted runner dry runs also passed for
+[EPL](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308742202),
+[NFL](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308753441),
+[NPC](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308749715) and
+[Tennis](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308757275).
+NFL runner logs confirm 16 new source snapshots; NPC confirms valid zero-event
+capture. [PR #8](https://github.com/FabianDouch/feeling-gamba/pull/8) carries the
+repair; merging it to `main` activates the corrected scheduled captures. The
+[UCL verification run](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308746023)
+exercises the larger scorer/result pipeline. Recovery does not backfill missing
+pre-match prices from the outage.
 
 ### Sports market recurrence — 2026-11-24 NZ
 
