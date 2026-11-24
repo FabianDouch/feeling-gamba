@@ -1,3 +1,5 @@
+import { THOROUGHBRED_MODEL, THOROUGHBRED_MODEL_TAB } from "../data/supabaseModelForecasts";
+import { ModelForecasts } from "./ModelForecasts";
 import { useCombatPredictionSelections, type CombatSelectionControl } from "../navigation/useCombatPredictionSelections";
 import type { FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
 import { CombinedFootballPredictions } from "./CombinedFootballPredictions";
@@ -133,10 +135,12 @@ const PFL_WIN_PERCENTAGE_SINGLE_KEYS = [
  */
 export function PredictionsScreen({ scope, onSelectLeague }: { scope: SportScope; onSelectLeague: (league: string) => void }) {
   const combatControl = useCombatPredictionSelections();
+  const [footballProbabilityType, setFootballProbabilityType] = useState<CurrentPredictionType>("win_percentage");
   const [footballFormat, setFootballFormat] = useState<PredictionFormat>("singles");
   const [footballVariation, setFootballVariation] = useState<FootballHistoryVariationKey>("gap_exact");
   const sport = getPredictionLeague(scope);
   if (scope.group === "football") return <CombinedFootballPredictions
+    probabilityType={footballProbabilityType} onProbabilityTypeChange={setFootballProbabilityType}
     format={footballFormat} onFormatChange={setFootballFormat} league={scope.league === "all_football" ? null : scope.league} variationKey={footballVariation} onVariationChange={setFootballVariation} onSelectLeague={onSelectLeague} />;
   if (scope.league === "all_combat_sports") return <CombatLeagueSections onSelectLeague={onSelectLeague}
     renderLeague={(league) => <LeaguePredictionsScreen activeSport={league} combat={combatControl(league)} allowAccountActions={false} />} />;
@@ -150,6 +154,7 @@ function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win
   activeSport: PredictionSport; footballModelFamily?: FootballModelFamily; onFootballModelChange?: (family: FootballModelFamily) => void; allowAccountActions?: boolean;
 }) {
   const [activeCashModelKey, setActiveCashModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [useThoroughbredBenchmark, setUseThoroughbredBenchmark] = useState(false);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
   const [activeNrlSingleModelKey, setActiveNrlSingleModelKey] =
@@ -179,6 +184,14 @@ function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win
     useState<WinPercentageMultiModelKey>(activeSport === "ufc" ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY : activeSport === "pfl" ? PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY : WIN_PERCENTAGE_MULTI_MODEL_KEY);
   const activeFormat = combat?.selection.format ?? footballFormat ?? localFormat;
   const activeWinPercentageMultiModelKey = combat?.selection.model ?? localWinPercentageMultiModelKey;
+  const showThoroughbredBenchmark = useThoroughbredBenchmark && activeSport === "racing"
+    && activeFormat === "singles" && activePredictionType === "win_percentage";
+
+  // Preserve the racing Win % model selection while switching to and from the benchmark.
+  function selectRacingWinModel(model: PredictionModelKey | typeof THOROUGHBRED_MODEL) {
+    setUseThoroughbredBenchmark(model === THOROUGHBRED_MODEL);
+    if (model !== THOROUGHBRED_MODEL) setActiveSingleWinPercentageModelKey(model);
+  }
 
   // Preserve the active family's format when drilling between combined and individual league views.
   function setActiveFormat(value: PredictionFormat) {
@@ -348,9 +361,9 @@ function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win
 
       {activeSport === "racing" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
         <PredictionModelTabs
-          activeModelKey={activeSingleWinPercentageModelKey}
-          models={WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS}
-          onChange={setActiveSingleWinPercentageModelKey}
+          activeModelKey={showThoroughbredBenchmark ? THOROUGHBRED_MODEL : activeSingleWinPercentageModelKey}
+          models={[...WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS, THOROUGHBRED_MODEL_TAB]}
+          onChange={selectRacingWinModel}
         />
       ) : null}
 
@@ -488,6 +501,7 @@ function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win
         />
       ) : null}
 
+      {showThoroughbredBenchmark ? <ModelForecasts model={THOROUGHBRED_MODEL} view="upcoming" /> : <>
       <View style={styles.modelInfo}>
         <Text style={styles.modelInfoTitle}>{activeModelInfo.label}</Text>
         <Text style={styles.modelInfoText}>{activeModelInfo.description}</Text>
@@ -519,6 +533,7 @@ function LeaguePredictionsScreen({ activeSport, footballModelFamily = "fixed_win
         uclSinglePredictionModelKey={activeUclSingleModelKey}
         winPercentageMultiModelKey={activeWinPercentageMultiModelKey}
       />
+      </>}
     </View>
   );
 }

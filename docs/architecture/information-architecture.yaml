@@ -1,7 +1,7 @@
-# Updated 2026-10-15: home-favourite and equal-blend trials added; rendered outputs need regeneration.
+# Updated 2026-11-24: draw and thoroughbred benchmark forecasts added; rendered outputs need regeneration.
 version: 1
 name: Feeling Gamba MVP Information Architecture
-last_updated: "2026-09-25"
+last_updated: "2026-11-24"
 
 purpose:
   summary: >
@@ -36,7 +36,7 @@ navigation:
       controls: Sport -> League -> view-specific controls
       state: Session selection shared across views, remembering the last league per sport; defaults to the first all-sport scope where available.
       availability: All Football current predictions and history include all ten league scopes; cup readers are connected. All Combat Sports shows separate UFC/PFL sections. Tennis/NFL prediction views and PFL prediction history remain explicitly unavailable.
-      model_controls: Racing exposes Cash/Win %/Placing; other connected prediction leagues expose Win % only. Football format/model variation survives all-league and individual drilldowns. UFC/PFL format/model selections are remembered independently within each view.
+      model_controls: Racing exposes Cash/Win %/Placing. Football Singles exposes Win % and Draw %; other connected leagues expose Win %. Football format/model variation survives all-league and individual drilldowns. UFC/PFL format/model selections are remembered independently within each view.
       responsive: Sport/League options and the application header wrap within narrow-screen bounds.
       league_catalogue: apps/mobile/src/navigation/sportLeagueScope.ts
     sections:
@@ -275,6 +275,7 @@ navigation:
           - Add experimental home favourite with opponent odds >= 3.50 and equal market/history/context blend on opponent-price matches. Require all blend components, use matched return denominators, and default experimental history to Forward trial.
           - All Football combines pending unstarted frozen football_price_gap_predictions with an available selected-model probability; read all pages before paging 20 cards, retaining league and variation identity in kickoff order.
           - Show captured favourite and opponent odds, price gap, forecast and price timestamps; expire cards at kickoff. Distinguish insufficient model history, no qualifying forecasts and read failures with retry. Historical backtests never become current recommendations.
+          - Football Singles → Draw % shows unstarted draw forecasts in the selected league scope. Racing Singles → Win % includes Thoroughbred favourite benchmark. Both show captured odds and separate baseline and model probabilities.
           - Combined combat prediction views link to individual leagues for account actions; never submit synthetic all-sport model identities or create cross-league multis.
           - Show the same cash prediction model list under Racing Singles -> Cash and Racing Multis -> Cash: Global bucket blend, Global cash bucket blend, Global cash 50/50 blend, Global cash price only, Global cash starters only, Other starters avg price, Country + discipline blend, and Distance + condition blend.
           - Show the cash prediction model selector and method summary only for cash-model branches.
@@ -332,6 +333,7 @@ navigation:
             multi_win_percentage_50_50_65_plus_v1, plus
             multi_place_percentage_v1.
           - Track candidate predictions made by independent current prediction scans.
+          - Football Singles → Draw % and Racing Singles → Win % → Thoroughbred favourite benchmark show saved forecasts from events that have started, with settled, pending and excluded counts, paired probability scores and observed rates. These branches contain forward records and page 20 at a time.
           - Compare stored predictions with settled race outcomes after race-day refreshes.
           - Compare prediction variations in parallel without mixing model denominators.
           - Include a global cash bucket blend variation that uses 65% favourite price-bucket cash average plus 35% starter-count cash average and excludes bonus-credit value.
@@ -565,6 +567,7 @@ screen_data_relationships:
 
   predictions:
     reads:
+      - get_model_forecasts
       - current_prediction_snapshots
     core_tables:
       - races
@@ -572,6 +575,7 @@ screen_data_relationships:
 
   prediction_history:
     reads:
+      - get_model_forecasts
       - football_price_gap_backtests
       - get_football_price_gap_backtest_summary
       - football_price_gap_predictions

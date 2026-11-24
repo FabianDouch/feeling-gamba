@@ -8,6 +8,16 @@ Updated 2026-09-23: the canonical YAML adds UEFA Nations League to Football
 Insights, Predictions and the reserved Prediction History branches. Rendered
 information architecture outputs need regeneration before being treated as current.
 
+Updated 2026-11-24 NZ: Predictions and Prediction History now include Football
+→ Singles → Draw % and Racing → Singles → Win % → Thoroughbred favourite
+benchmark. Football follows the All Football or selected league scope. Current
+shows only saved upcoming forecasts, and History shows recorded post-start rows
+and paired scores across that scope. Cards show captured odds separately from
+model estimates and label missing training or outcomes. The racing cards show
+price-band wins and sample. History pages 20 forecasts at a time and lists
+probability-bin estimates and observed rates. These models have no lock or
+notification controls. Rendered IA diagrams need regeneration.
+
 ## Context
 
 This document defines the MVP information architecture for the Feeling Gamba

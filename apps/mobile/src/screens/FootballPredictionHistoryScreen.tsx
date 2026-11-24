@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { FOOTBALL_HISTORY_VARIATIONS, type FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
+import { FOOTBALL_DRAW_MODEL, FOOTBALL_PROBABILITY_TYPES } from "../data/supabaseModelForecasts";
+import { ModelForecasts } from "./ModelForecasts";
 import { FootballPriceGapHistory } from "./FootballPriceGapHistory";
-import { PredictionFormatTabs, PredictionModelTabs, PredictionTypeTabs, type PredictionFormat } from "./PredictionControls";
+import { PredictionFormatTabs, PredictionModelTabs, PredictionTypeTabs, type CurrentPredictionType, type PredictionFormat } from "./PredictionControls";
 
 // Apply the shared football league scope to one selected historical model without proxying another league.
-export function FootballPredictionHistoryScreen({ league }: { league: string | null }) {
+export function FootballPredictionHistoryScreen({ league, onSelectLeague }: { league: string | null; onSelectLeague: (league: string) => void }) {
+  const [probabilityType, setProbabilityType] = useState<CurrentPredictionType>("win_percentage");
   const [format, setFormat] = useState<PredictionFormat>("singles");
   const [variationKey, setVariationKey] = useState<FootballHistoryVariationKey>("gap_exact");
   const variation = FOOTBALL_HISTORY_VARIATIONS.find((item) => item.key === variationKey) ?? FOOTBALL_HISTORY_VARIATIONS[0];
@@ -14,9 +17,9 @@ export function FootballPredictionHistoryScreen({ league }: { league: string | n
     <Text style={styles.heading}>Stored prediction outcomes</Text>
     <Text style={styles.note}>Review historical backtests and recorded forecasts for the selected football leagues.</Text>
     <PredictionFormatTabs activeFormat={format} onChange={setFormat} />
-    <PredictionTypeTabs activeType="win_percentage" onChange={() => undefined}
-      options={[{ label: "Win %", value: "win_percentage", description: "Probability-based fixed-win models." }]} />
-    {format === "singles" ? <>
+    {format === "singles" ? <PredictionTypeTabs activeType={probabilityType} onChange={setProbabilityType} options={FOOTBALL_PROBABILITY_TYPES} /> : null}
+    {format === "singles" ? probabilityType === "draw_percentage"
+      ? <ModelForecasts model={FOOTBALL_DRAW_MODEL} view="history" league={league} onSelectLeague={onSelectLeague} /> : <>
       <PredictionModelTabs activeModelKey={variationKey} models={FOOTBALL_HISTORY_VARIATIONS} onChange={setVariationKey} />
       <View style={styles.modelInfo}>
         <Text style={styles.modelTitle}>{variation.label}</Text>

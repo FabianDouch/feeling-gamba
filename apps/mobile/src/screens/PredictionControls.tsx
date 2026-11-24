@@ -12,7 +12,7 @@ import {
 
 export type PredictionSport = PredictionLeague;
 export type PredictionFormat = "multis" | "singles";
-export type CurrentPredictionType = "cash" | "placing" | "win_percentage";
+export type CurrentPredictionType = "cash" | "placing" | "win_percentage" | "draw_percentage";
 
 const PREDICTION_TYPE_OPTIONS = [
   {
@@ -140,7 +140,7 @@ export function PredictionModelTabs<TModelKey extends string = PredictionModelKe
 
 type PredictionTypeTabsProps = {
   sport?: PredictionSport;
-  options?: { label: string; description: string; value: CurrentPredictionType }[];
+  options?: readonly { label: string; description: string; value: CurrentPredictionType }[];
   activeType: CurrentPredictionType;
   onChange: (value: CurrentPredictionType) => void;
 };

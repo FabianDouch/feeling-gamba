@@ -567,8 +567,8 @@ proven improvement, new staking rules or league exclusions are introduced.
 
 The trials log forward forecasts for research. Source prices retain their decimal
 values, source identity and capture time. The baseline and model store separate
-probabilities. Existing Insights, Predictions and notifications continue to use
-their current data sources.
+probabilities. Predictions and Prediction History surface these saved forecasts
+through a read-only projection.
 
 - **Football draw (`football_draw_v1`)** uses all ten football league capture
   feeds. An eligible event has all three TAB prices, is within 24 hours of
@@ -582,7 +582,7 @@ their current data sources.
   exact source price from a saved pre-race prediction up to 24 hours old, with the
   race due in the next 24 hours. Compare the inverse price with a fitted
   price-only adjustment. Retain the historical number of wins and observations
-  in the same 50c price band, displaying the empirical rate in research records
+  in the same 50c price band, showing the empirical rate
   from 30 observations. This measures performance on races selected by the
   existing model and does not estimate coverage of all thoroughbred races.
 
@@ -602,5 +602,6 @@ counts, missing estimates and calibration bins. Also report paired scores by
 football league or racing source. Racing results require the same runner in the
 source reconciliation and a canonical start after the forecast. A changed
 selection is excluded, and missing data remains pending. Historical observations
-supply training only. Review prospective scores and coverage before any decision
-to surface the trials. No return ranking or stakes are part of these trials.
+supply training only. Users can review prospective scores and sample size in Prediction History.
+Each displayed score compares the same settled forecasts. Rankings based on
+returns and stakes are outside these model branches.
