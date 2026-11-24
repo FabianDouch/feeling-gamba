@@ -1,12 +1,15 @@
+import { writeFile } from 'node:fs/promises';
+
 const RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const NETWORK_CODES = new Set(['ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'ETIMEDOUT', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET']);
 
 // Pause between bounded attempts; injectable so tests never need real delays.
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Read market GraphQL safely: invalid bodies are failures, never empty market lists.
+// Read market GraphQL safely and record exhausted source outages without returning fake empty data.
 export async function fetchTabGraphql(source, operationName, query, variables, headers, {
   fetchImpl = fetch, sleep = wait, log = console.warn, maxAttempts = 3, timeoutMs = 20000,
+  failureFile = process.env.TAB_SOURCE_FAILURE_FILE,
 } = {}) {
   const label = `${source.label ?? source.source} ${operationName}`;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -14,6 +17,7 @@ export async function fetchTabGraphql(source, operationName, query, variables, h
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let failure;
     let retryable = false;
+    let accessDenied = false;
     let diagnostic = 'no HTTP response';
     try {
       const response = await fetchImpl(source.endpoint, {
@@ -25,6 +29,7 @@ export async function fetchTabGraphql(source, operationName, query, variables, h
       diagnostic += `; body-bytes=${Buffer.byteLength(text)}`;
       if (!response.ok) {
         retryable = RETRY_STATUSES.has(response.status);
+        accessDenied = response.status === 403;
         throw new Error('source rejected request');
       }
       if (!text.trim()) {
@@ -45,7 +50,14 @@ export async function fetchTabGraphql(source, operationName, query, variables, h
       const code = error?.cause?.code ?? error?.code;
       retryable ||= controller.signal.aborted || NETWORK_CODES.has(code);
       failure = new Error(`${label} attempt ${attempt}/${maxAttempts}: ${controller.signal.aborted ? 'request timed out' : error.message} (${diagnostic})`, { cause: error });
-      if (!retryable || attempt === maxAttempts) throw failure;
+      if (!retryable || attempt === maxAttempts) {
+        if ((retryable || accessDenied) && new URL(source.endpoint).hostname === 'api.tab.co.nz') {
+          failure.code = 'TAB_SOURCE_UNAVAILABLE';
+          // A unique per-run file carries typed evidence through existing child-process boundaries.
+          if (failureFile) await writeFile(failureFile, JSON.stringify({ code: failure.code, operationName, diagnostic }));
+        }
+        throw failure;
+      }
     } finally {
       clearTimeout(timer);
     }

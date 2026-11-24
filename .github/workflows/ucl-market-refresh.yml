@@ -90,7 +90,8 @@ jobs:
             exit 1
           fi
 
-      - name: Refresh current UCL market data
+      - id: capture
+        name: Refresh current UCL market data
         run: |
           args=(
             "--event-count=${EVENT_COUNT:-20}"
@@ -104,4 +105,13 @@ jobs:
             args+=("--require-supabase")
           fi
 
-          npm --workspace @feeling-gamba/ingestion run refresh:ucl-current-markets -- "${args[@]}"
+          node packages/ingestion/scripts/run-market-refresh.mjs ucl "${args[@]}"
+
+      - name: Record market source outcome
+        if: always() && steps.capture.outputs.status != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-market-${{ steps.capture.outputs.status }}-${{ github.run_attempt }}
+          path: ${{ steps.capture.outputs.outcome-path }}
+          if-no-files-found: error
+          retention-days: 30

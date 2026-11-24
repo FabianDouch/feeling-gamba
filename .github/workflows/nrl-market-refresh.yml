@@ -126,7 +126,8 @@ jobs:
             exit 1
           fi
 
-      - name: Refresh current NRL market data
+      - id: capture
+        name: Refresh current NRL market data
         run: |
           args=(
             "--event-count=${EVENT_COUNT:-20}"
@@ -152,4 +153,13 @@ jobs:
             args+=("--from-round=${FROM_ROUND}" "--to-round=${TO_ROUND}")
           fi
 
-          npm --workspace @feeling-gamba/ingestion run refresh:nrl-current-markets -- "${args[@]}"
+          node packages/ingestion/scripts/run-market-refresh.mjs nrl "${args[@]}"
+
+      - name: Record market source outcome
+        if: always() && steps.capture.outputs.status != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-market-${{ steps.capture.outputs.status }}-${{ github.run_attempt }}
+          path: ${{ steps.capture.outputs.outcome-path }}
+          if-no-files-found: error
+          retention-days: 30

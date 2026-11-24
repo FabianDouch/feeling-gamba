@@ -80,6 +80,8 @@ export function FootballPriceGapHistory({ league, variation }: { league: string 
       <View style={styles.statsRow}>
         <Metric value={`${outcomes?.wins ?? 0}/${settled}`} label="Favourite wins"
           detail={settled ? `${(100 * (outcomes?.wins ?? 0) / settled).toFixed(1)}% win rate` : "No settled matches"} />
+        <Metric value={outcomes && outcomes.staked > 0 ? `$${(outcomes.returned / outcomes.staked).toFixed(2)}` : "—"}
+          label="Cash avg" detail="Cash returned per $1 staked" />
         <Metric value={`$${Number(outcomes?.returned ?? 0).toFixed(2)}`} label="Cash returned" detail={`$${Number(outcomes?.staked ?? 0).toFixed(2)} notional stake`} />
         <Metric value={`$${Number(outcomes?.net ?? 0).toFixed(2)}`} label="Cash net"
           detail={outcomes?.roi == null ? "No settled return" : `${Number(outcomes.roi).toFixed(1)}% ROI`} />

@@ -4,6 +4,19 @@ Updated 2026-09-23: the canonical YAML adds UEFA Nations League with TAB markets
 official UEFA regulation-time results, Football insights and current singles.
 Rendered architecture outputs need regeneration before being treated as current.
 
+## Market source outage monitoring
+
+Implemented locally 2026-11-24 NZ: the 14 GitHub market capture workflows record
+structured run artifacts for healthy, source-unavailable and failed outcomes.
+An hourly GitHub Actions monitor reads scheduled default-branch outcomes and
+maintains one GitHub issue per shared TAB outage, failing once when it opens and
+closing it after all monitored workflows demonstrate recovery. This adds no
+Supabase tables or client-facing data. TAB transport errors still stop the
+capture pipeline; scheduled outage handling is not successful data collection.
+See [ingestion rules](./ingestion-plan.md#market-refresh-success-and-failure-semantics)
+for notification and deployment details. Existing rendered architecture outputs
+do not yet show this operational monitor.
+
 ## Context
 
 This diagram describes the MVP architecture for Feeling Gamba. The canonical

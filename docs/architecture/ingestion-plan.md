@@ -28,6 +28,64 @@ HTTP 200 with an empty body. Betcha racing ingestion now calls the web-bundle
 internal race-card shape while preserving `RacingRaceCard:<uuid>` as the stored
 source race-card key.
 
+## Market refresh success and failure semantics
+
+Rechecked 2026-11-24 NZ: valid GraphQL responses with no current events are
+successful zero-capture runs, including competition breaks. An empty HTTP body,
+access denial, exhausted transport retries or GraphQL error does not establish
+that a competition is inactive and must remain a source error. Do not infer an
+off-season from failed market retrieval or substitute stale odds. The recurring
+14-workflow TAB failure and unresolved source-access validation are recorded in
+[TAB API notes](../integrations/tab-api.md#sports-market-recurrence--2026-11-24-nz).
+
+Implemented locally on 2026-11-24 NZ: all 14 market workflows use
+`packages/ingestion/scripts/run-market-refresh.mjs`. The shared TAB client still
+throws after bounded retries, but records typed evidence for exhausted transport
+failures (including empty/malformed bodies) and HTTP 403. The wrapper stops the
+existing fail-fast pipeline and reports `source-unavailable`; scheduled runs
+complete with a warning and a 30-day outcome artifact instead of sending one
+failure email per competition. This means the scheduler handled a deferred run,
+not that market collection succeeded. Earlier steps may already have written
+partial data; no rollback or substitution of stale odds is attempted. Manual
+runs retain nonzero exits. HTTP 401/400, GraphQL/schema errors, database failures,
+configuration errors and unclassified exceptions still fail normally. Source
+requests continue on the existing schedules to detect recovery.
+
+`.github/workflows/tab-market-source-monitor.yml` runs hourly at minute 17 UTC
+(subject to GitHub scheduling delays) and can be dispatched manually. It reads
+the latest completed **scheduled default-branch** run and current-attempt
+artifact for every market workflow. A source outage opens one shared GitHub
+issue and fails the monitor once for the usual Actions failure notification.
+Further affected runs appear in summaries without repeated issue comments or
+source-outage failure emails. Recovery closes the issue only when all 14 latest
+scheduled runs have successful, non-expired healthy evidence; valid zero-event
+captures count as healthy. Missing/expired artifacts, failed runs and manual dry
+runs cannot prove recovery. Recovery notifications depend on subscribing to the
+incident (or repository issue notifications); Actions email preferences remain
+unchanged. Monitor/API/artifact-upload failures still fail loudly.
+
+The incident is durable state; do not manually close it while the outage remains
+active, because the next monitor pass would create another incident. The monitor
+requires Actions read and Issues write permissions with repository Issues enabled.
+Deploy the wrapper, client, all market workflows and monitor together on the
+default branch. Until deployed, existing notification behaviour remains. Validate
+a source repair with successful scheduled runner captures; closing an incident
+does not reconstruct odds missed during the outage. No calendar-based off-season
+skip is implemented: failed retrieval is not authoritative fixture evidence.
+
+Local validation on 2026-11-24 NZ: all 60 ingestion tests, ingestion typecheck
+and lint, changed-module syntax checks and all 15 market-workflow YAML parses
+passed. Tests include all 14 actual capture child-process pipelines with mocked
+TAB denial, valid empty lists, retry recovery, manual-run failures, unrelated
+errors, incident deduplication and recovery with incomplete evidence. Repository
+Issues is enabled. No live issue was created and no workflows were deployed or
+dispatched; runner verification remains pending deployment.
+
+The racing prediction workflow also deliberately fails when its capture window
+has closed without a same-day snapshot; a closed window with an existing
+snapshot is a normal skip. Competition inactivity must not suppress a missed
+prediction capture deadline.
+
 ## Recommendation
 
 Use Supabase Edge Functions plus Supabase Cron for the MVP.

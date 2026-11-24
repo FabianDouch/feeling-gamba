@@ -1108,6 +1108,14 @@ explicitly including matches without a model probability. The history list shows
 only the selected model's probability and sample, with pages of 20 matches.
 Changing league, cohort or source resets pagination. All collected dates apply.
 
+As of 2026-11-05, match outcomes also show **Cash avg**: total cash returned
+divided by total notional stake, including the returned stake, formatted as dollars
+returned per $1 staked. It uses the same eligible settled matches as the existing
+return totals (only scored selections for the blend), across all matching history
+rather than the current page, for both historical backtest and forward trial.
+Pending and excluded matches do not contribute stakes; no settled stakes shows
+`—`, while settled losses with no return show `$0.00`.
+
 Sparse models show Insufficient history; no records and fetch failures have
 explicit states. Historical backtest labels the assumed 24-hour result delay,
 unverified historical availability and captured odds timestamp. Do not present

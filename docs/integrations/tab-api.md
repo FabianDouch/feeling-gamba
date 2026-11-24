@@ -15,6 +15,41 @@ GraphQL introspection is disabled. A request using `__schema` or `__type` return
 GraphQL introspection is disabled by Cosmo Router
 ```
 
+### Sports market recurrence — 2026-11-24 NZ
+
+The latest failed run for each of the 14 market workflows (ten football
+leagues, NFL, NRL, NPC and tennis) again exhausted all three attempts with
+`SportsMarketSnapshot`: HTTP 200, zero response bytes, missing content type
+and `server=cloudflare`. Examples:
+[EPL](https://github.com/FabianDouch/feeling-gamba/actions/runs/45273220281),
+[NPC](https://github.com/FabianDouch/feeling-gamba/actions/runs/45034916331),
+[Tennis](https://github.com/FabianDouch/feeling-gamba/actions/runs/45295600009).
+This is a recurrence of the transport issue below, not evidence that a
+competition has ended. The inspected recent result-refresh runs were successful.
+
+Read-only local EPL probes returned HTTP 403, including with the current and
+previous operation names; no replacement request was validated. The October
+recovery is therefore historical evidence, not a current source-health guarantee.
+Source access/recovery remains unresolved. A same-day normal public frontend
+request also returned HTTP 403; no replacement request or source fallback has
+been validated. A repair must demonstrate valid GraphQL responses
+on the runner before treating capture as recovered. Empty bodies and access
+denials must remain distinguishable from valid responses containing no events.
+
+Implemented locally after this investigation: scheduled source outages are
+recorded as `source-unavailable` with a shared incident monitor, rather than
+repeated failure notifications from each competition. The shared client still
+throws and stops dependent processing. Manual runs and non-source errors remain
+failures. See [ingestion semantics](../architecture/ingestion-plan.md#market-refresh-success-and-failure-semantics)
+for classification, notification, recovery and deployment requirements. This
+change improves outage handling; it does not establish restored TAB access.
+
+The separate
+[Current Prediction Refresh failure](https://github.com/FabianDouch/feeling-gamba/actions/runs/44841790137)
+on 21 November reported a closed racing prediction window with no same-day
+snapshot (`generatedAt: null`). This is a missed capture deadline, not an
+inactive competition; subsequent inspected prediction runs succeeded.
+
 ### Sports market recovery — 2026-10-20 NZ
 
 49 of the latest 100 Actions runs failed during the investigation: 41 football/NFL
