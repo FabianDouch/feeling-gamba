@@ -1,4 +1,4 @@
-import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
+import { fetchTabSportsMarkets as fetchTabGraphql } from "./lib/tab-sports-markets.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -10,8 +10,15 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function fetchTabGraphql(source, operationName, query, variables, headers, {
   fetchImpl = fetch, sleep = wait, log = console.warn, maxAttempts = 3, timeoutMs = 20000,
   failureFile = process.env.TAB_SOURCE_FAILURE_FILE,
+  persistedHash,
 } = {}) {
   const label = `${source.label ?? source.source} ${operationName}`;
+  const endpoint = new URL(source.endpoint);
+  if (persistedHash) {
+    endpoint.searchParams.set('operationName', operationName);
+    endpoint.searchParams.set('variables', JSON.stringify(variables));
+    endpoint.searchParams.set('extensions', JSON.stringify({ persistedQuery: { version: 1, sha256Hash: persistedHash } }));
+  }
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -20,9 +27,9 @@ export async function fetchTabGraphql(source, operationName, query, variables, h
     let accessDenied = false;
     let diagnostic = 'no HTTP response';
     try {
-      const response = await fetchImpl(source.endpoint, {
-        method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify({ operationName, query, variables }),
+      const response = await fetchImpl(endpoint.toString(), {
+        method: persistedHash ? 'GET' : 'POST', headers, signal: controller.signal,
+        ...(persistedHash ? {} : { body: JSON.stringify({ operationName, query, variables }) }),
       });
       diagnostic = `HTTP ${response.status}; content-type=${response.headers.get('content-type') ?? 'missing'}; content-length=${response.headers.get('content-length') ?? 'unknown'}; server=${response.headers.get('server') ?? 'unknown'}`;
       const text = await response.text();

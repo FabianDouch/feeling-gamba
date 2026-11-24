@@ -81,6 +81,22 @@ errors, incident deduplication and recovery with incomplete evidence. Repository
 Issues is enabled. No live issue was created and no workflows were deployed or
 dispatched; runner verification remains pending deployment.
 
+TAB public request recovery (2026-11-24 NZ): market captures now use the
+frontend's published persisted-query GET operations on `/gql/router`, with the
+public sportsbook client header. Fixed-win capture reads primary-market cards;
+scorer/half-time capture reads complete lazy event groups. Only source-backed
+standard Fixed Win prices are normalized. Legacy market/entrant limit flags are
+accepted but cannot change the published query's limits; group results are not
+truncated. No authentication cookies or private session credentials are used.
+Pinned hashes and response contracts fail explicitly when retired or changed.
+See [source validation](../integrations/tab-api.md#public-persisted-query-recovery--2026-11-24-nz)
+for operation provenance, no-event semantics and live coverage limitations.
+Local dry runs recovered all 14 capture paths without writes; hosted runner
+EPL/NFL/NPC/Tennis dry runs and repository CI also passed. PR #8 publishes the
+repair to scheduled captures when merged to `main`; write-enabled runs must
+confirm newly stored data after rollout. Missing pre-match prices cannot be
+reconstructed by merely rerunning result refreshes.
+
 The racing prediction workflow also deliberately fails when its capture window
 has closed without a same-day snapshot; a closed window with an existing
 snapshot is a normal skip. Competition inactivity must not suppress a missed

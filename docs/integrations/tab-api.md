@@ -15,6 +15,66 @@ GraphQL introspection is disabled. A request using `__schema` or `__type` return
 GraphQL introspection is disabled by Cosmo Router
 ```
 
+### Public persisted-query recovery — 2026-11-24 NZ
+
+The local regional restriction was caused by the user's VPN. After the user
+turned it off, both the browser and normal HTTP access loaded TAB's homepage;
+the user also confirmed actual EPL matches/odds. The existing custom POST
+capture still returned empty HTTP 200 responses, reproducing the runner failure.
+
+The current public frontend (`/assets/vendor-graphql-ops-web-DFzR5PHG.js` and
+`/assets/useGraphQLClient-BtPQhUlh.js`) publishes persisted operations. Its active
+configuration selects `https://api.tab.co.nz/gql/router`. A GET with the published
+operation name, variables, persisted-query SHA-256 and `graphql-client-name:
+sportsbook` returned real market data. Changing headers alone on the old custom
+POST query did not recover it. Version/build headers were not necessary in the
+successful minimal request. The exact upstream filtering mechanism remains
+unknown; the repair follows the public frontend contract without user tokens,
+cookies, VPN routing or rotating arbitrary operation names.
+
+`lib/tab-sports-markets.mjs` now uses pinned public hashes for
+`SportingCompetitionScreen`, `SportingEvents`, `SportingEventScreenV2` and
+`SportingMarketGroupContainer`. Fixed-win captures use the public primary-market
+cards; scorer and half-time captures load every lazy market group and normalize
+source `Fixed Win` price buttons, deduplicating entrants by market/entrant ID.
+Boosted/other products are excluded. Conflicting duplicate prices and missing
+response fields fail explicitly. Captured entrant counts for grouped markets
+count observed unique entrants, not a separate declared field size. Tennis
+competition slugs come from the source competition URL. Source-returned event
+limits remain unchanged; the published card query returns at most the source's
+page of events (50 tennis events observed for a requested 200).
+
+The exact `league: null, upcomingEvents: null` response is a valid no-open-event
+result, unlike an empty HTTP body. Existing retries/outage classification remain
+in force. A retired persisted hash or schema mismatch fails; it must be reviewed
+against the current public frontend rather than silently replaced with no data.
+The legacy `markets-first`/`entrants-first` CLI flags remain accepted for
+compatibility, but the published operations do not expose those arguments: cards
+use source-defined primary limits and grouped detail retains all observed
+entrants without local truncation.
+
+Read-only live checks at approximately 14:54–14:56 NZDT passed all 14 fixed-win
+captures: EPL 10, UCL 18, La Liga 10, Bundesliga 18, Serie A 10, Ligue 1 9,
+Europa League 18, Nations League 8, NRL 9 and NFL 16 snapshots (126 total).
+MLS, EFL Cup and NPC returned valid zero-event responses. Tennis returned 50
+source events but zero supported ATP/WTA tournament rows; transport recovery
+must not be represented as new tennis coverage. EPL/UCL specials without
+supported Match Result markets were excluded. Scorer and half-time sample
+checks passed; UCL yielded 56 priced scorer selections across two matches plus
+one skipped specials event. Other sampled competitions had no applicable scorer
+or half-time markets. These checks wrote no data. All 67 ingestion tests, ingestion typecheck/lint
+and repository CI passed. Hosted runner dry runs also passed for
+[EPL](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308742202),
+[NFL](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308753441),
+[NPC](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308749715) and
+[Tennis](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308757275).
+NFL runner logs confirm 16 new source snapshots; NPC confirms valid zero-event
+capture. [PR #8](https://github.com/FabianDouch/feeling-gamba/pull/8) carries the
+repair; merging it to `main` activates the corrected scheduled captures. The
+[UCL verification run](https://github.com/FabianDouch/feeling-gamba/actions/runs/45308746023)
+exercises the larger scorer/result pipeline. Recovery does not backfill missing
+pre-match prices from the outage.
+
 ### Sports market recurrence — 2026-11-24 NZ
 
 The latest failed run for each of the 14 market workflows (ten football
@@ -43,6 +103,22 @@ throws and stops dependent processing. Manual runs and non-source errors remain
 failures. See [ingestion semantics](../architecture/ingestion-plan.md#market-refresh-success-and-failure-semantics)
 for classification, notification, recovery and deployment requirements. This
 change improves outage handling; it does not establish restored TAB access.
+
+Further access investigation on 2026-11-24 NZ: opening the normal TAB homepage
+in Chrome redirected to `https://tab.co.nz/cdn-cgi/error/1009`, displaying
+“TAB isn't available here” and a location restriction due to laws and regulations.
+This establishes a regional restriction for the current browser connection;
+it does not establish the cause of GitHub runners' empty HTTP 200 responses.
+No regional restriction was bypassed. Further source-request validation needs
+normal permitted access or a TAB-supported data-access route.
+
+The latest successful EPL workflow was
+[41364286391](https://github.com/FabianDouch/feeling-gamba/actions/runs/41364286391),
+started at 12:53 NZDT on 2 November 2026 (1 November 23:53 UTC). Its logs show
+11 fixed-win snapshots and 11 matched snapshots, confirming real market capture,
+not merely a successful empty-event run. This bounds EPL workflow recovery
+history only; other leagues and the exact retained database coverage require
+separate checks.
 
 The separate
 [Current Prediction Refresh failure](https://github.com/FabianDouch/feeling-gamba/actions/runs/44841790137)
