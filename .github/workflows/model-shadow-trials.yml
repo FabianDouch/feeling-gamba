@@ -1,0 +1,49 @@
+name: Model Shadow Trials
+
+on:
+  schedule:
+    - cron: '11,41 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Read sources and calculate scores without writing forecasts or outcomes
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  trial:
+    name: ${{ matrix.model }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: model-shadow-${{ matrix.model }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [football_draw_v1, thoroughbred_favourite_v1]
+    env:
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+      FEELING_GAMBA_SUPABASE_SECRET_KEY: ${{ secrets.FEELING_GAMBA_SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MODEL: ${{ matrix.model }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Record and score forecasts
+        run: |
+          set -o pipefail
+          args=("$MODEL")
+          if [ "${DRY_RUN:-false}" = 'true' ]; then args+=(--dry-run); fi
+          node packages/ingestion/scripts/refresh-model-shadow-trial.mjs "${args[@]}" | tee shadow-summary.json
+          {
+            echo '```json'
+            cat shadow-summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

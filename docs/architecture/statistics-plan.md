@@ -562,3 +562,45 @@ the existing 24-hour result-availability assumption and do not become evidence
 of actual forward trial performance. Blend scoring/returns use only available
 blend forecasts with paired market scores on those same matches. No claims of
 proven improvement, new staking rules or league exclusions are introduced.
+
+## Football draw and thoroughbred favourite shadow trials (2026-11-24)
+
+The trials log forward forecasts for research. Source prices retain their decimal
+values, source identity and capture time. The baseline and model store separate
+probabilities. Existing Insights, Predictions and notifications continue to use
+their current data sources.
+
+- **Football draw (`football_draw_v1`)** uses all ten football league capture
+  feeds. An eligible event has all three TAB prices, is within 24 hours of
+  kickoff and has odds captured in the previous hour. Normalize inverse odds
+  across home, draw and away for the market baseline. Fit a pooled adjustment
+  to the draw logit using a constant, centered market draw logit, the absolute
+  log ratio of team prices and the market overround. Allocate the remaining
+  probability in the baseline home-to-away ratio. Equal team prices are eligible.
+- **Thoroughbred favourite (`thoroughbred_favourite_v1`)** follows the same
+  runner selected by the existing `global_bucket_blend_v1` prediction. Use its
+  exact source price from a saved pre-race prediction up to 24 hours old, with the
+  race due in the next 24 hours. Compare the inverse price with a fitted
+  price-only adjustment. Retain the historical number of wins and observations
+  in the same 50c price band, displaying the empirical rate in research records
+  from 30 observations. This measures performance on races selected by the
+  existing model and does not estimate coverage of all thoroughbred races.
+
+Both adjustments use fixed L2 penalty 0.035 and 220 gradient steps of 0.35 from
+zero. Fit on already settled events read before generation, using only
+pre-event prices and a 24-hour embargo after the event start. Use one training
+row per league/source event or official race. Use the latest retained football
+price and earliest retained racing prediction per event. The embargo limits the
+chance of relying on unsettled outcomes and does not imply an authoritative
+first-result publication timestamp. Keep the sample, training digest and weights.
+Abstain below 100 training observations or fewer than 10 positives or negatives.
+
+The first eligible forecast in each model/source group/event is immutable. Pair
+both estimates on the same settled forecasts and report draw Brier and three-way
+log loss for football, win Brier and binary log loss for racing, plus sample
+counts, missing estimates and calibration bins. Also report paired scores by
+football league or racing source. Racing results require the same runner in the
+source reconciliation and a canonical start after the forecast. A changed
+selection is excluded, and missing data remains pending. Historical observations
+supply training only. Review prospective scores and coverage before any decision
+to surface the trials. No return ranking or stakes are part of these trials.

@@ -2486,3 +2486,16 @@ The app uses these denominators for blend returns; group-level coverage remains
 visible, with non-selections explicitly identified in match history. Scoring,
 paired-market scores and calibration use the same available probabilities.
 RLS, grants, immutable-input triggers and atomic backtest replacement are unchanged.
+
+### `model_shadow_forecasts`
+
+Service-role-only forward research records for `football_draw_v1` and
+`thoroughbred_favourite_v1`. Unique by model, source group and source event ID.
+The table freezes event, capture and forecast times, source identity and quoted
+prices, market baseline, nullable model estimate and training metadata. The
+racing training metadata includes the applicable 50c price band, wins and sample.
+
+The INSERT trigger requires a current pre-event timestamp. Retries ignore
+existing keys. Reconciliation can update only outcome status, outcome class
+and settlement time. Odds, baseline and model probabilities are stored in
+separate columns. Anonymous and signed-in app users have no table grants.
