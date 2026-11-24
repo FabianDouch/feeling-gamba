@@ -2701,3 +2701,27 @@ Fixed-win queries use the live-validated `SportsMarketSnapshot` operation name;
 see TAB API notes for the recurring upstream operation-name dependency and its
 limitations. Schedules and freshness eligibility remain unchanged. EFL Cup result
 reads use TheSportsDB public key `123` after key `3` was permanently disabled.
+
+## Shadow model trial operations
+
+Apply `202611240001_model_shadow_forecasts.sql` before enabling
+[Model Shadow Trials](../../.github/workflows/model-shadow-trials.yml). Two
+independent GitHub Actions jobs run at UTC minute 11 and 41. They read existing
+league market/result tables and settled racing predictions from Supabase. The
+racing job uses the canonical Race Days start for final time validation. These
+jobs make no additional TAB or Betcha requests. Manual dispatch defaults to
+read-only. The summary is available in the Actions job output, with denominators
+and paired model/baseline scores. Empty candidate windows succeed with zero new
+rows. Source read, database and input errors fail visibly.
+
+To replay an operational **dry run** with the service-role environment set:
+
+```sh
+node packages/ingestion/scripts/refresh-model-shadow-trial.mjs football_draw_v1 --dry-run
+node packages/ingestion/scripts/refresh-model-shadow-trial.mjs thoroughbred_favourite_v1 --dry-run
+```
+
+Remove `--dry-run` for a normal forward run. No historical forecasts are inserted.
+Individual forecasts are inserted once and only settlement columns can change.
+Disable the workflow to stop generating research records while retaining existing
+history. See the [statistical specification](./statistics-plan.md#football-draw-and-thoroughbred-favourite-shadow-trials-2026-11-24).
