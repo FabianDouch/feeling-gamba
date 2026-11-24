@@ -1,3 +1,5 @@
+import { THOROUGHBRED_MODEL, THOROUGHBRED_MODEL_TAB } from "../data/supabaseModelForecasts";
+import { ModelForecasts } from "./ModelForecasts";
 import { useCombatPredictionSelections, type CombatSelectionControl } from "../navigation/useCombatPredictionSelections";
 import { CombatLeagueSections } from "./CombatLeagueSections";
 import { useEffect, useMemo, useState } from "react";
@@ -143,7 +145,7 @@ export function PredictionHistoryScreen({ scope, onSelectLeague }: { scope: Spor
   if (scope.league === "all_combat_sports") return <CombatLeagueSections onSelectLeague={onSelectLeague}
     renderLeague={(league) => <LeaguePredictionHistoryScreen activeSport={league} combat={combatControl(league)} />} />;
   if (scope.group === "football") {
-    return <FootballPredictionHistoryScreen league={scope.league === "all_football" ? null : scope.league} />;
+    return <FootballPredictionHistoryScreen league={scope.league === "all_football" ? null : scope.league} onSelectLeague={onSelectLeague} />;
   }
   const sport = getPredictionLeague(scope);
   if (!sport) return <UnavailableSportScope scope={scope} view="history" />;
@@ -162,6 +164,7 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
   const [metadata, setMetadata] = useState<PredictionHistoryMetadata | null>(null);
   const [predictions, setPredictions] = useState<PredictionsData>(emptyPredictions);
   const [activeModelKey, setActiveModelKey] = useState<PredictionModelKey>(DEFAULT_PREDICTION_MODEL_KEY);
+  const [useThoroughbredBenchmark, setUseThoroughbredBenchmark] = useState(false);
   const [activeSingleWinPercentageModelKey, setActiveSingleWinPercentageModelKey] =
     useState<PredictionModelKey>(SINGLE_WIN_PERCENTAGE_65_PLUS_MODEL_KEY);
   const [localFormat, setLocalFormat] = useState<PredictionFormat>(activeSport === "ufc" || activeSport === "pfl" ? "multis" : "singles");
@@ -176,6 +179,14 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
     useState<WinPercentageMultiModelKey>(activeSport === "ufc" ? UFC_FAVOURITE_PRICE_MULTI_MODEL_KEY : activeSport === "pfl" ? PFL_FAVOURITE_PRICE_MULTI_MODEL_KEY : WIN_PERCENTAGE_MULTI_MODEL_KEY);
   const activeFormat = combat?.selection.format ?? localFormat;
   const activeWinPercentageMultiModelKey = combat?.selection.model ?? localWinPercentageMultiModelKey;
+  const showThoroughbredBenchmark = useThoroughbredBenchmark && activeSport === "racing"
+    && activeFormat === "singles" && activePredictionType === "win_percentage";
+
+  // Preserve the racing Win % model selection while switching to and from the benchmark.
+  function selectRacingWinModel(model: PredictionModelKey | typeof THOROUGHBRED_MODEL) {
+    setUseThoroughbredBenchmark(model === THOROUGHBRED_MODEL);
+    if (model !== THOROUGHBRED_MODEL) setActiveSingleWinPercentageModelKey(model);
+  }
 
   // Retain the selected combat format across all-sport and individual league history views.
   function setActiveFormat(value: PredictionFormat) {
@@ -347,7 +358,7 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
     let cancelled = false;
 
     async function loadPredictions() {
-      if (!metadata || !filters.fromDate || !filters.toDate) {
+      if (showThoroughbredBenchmark || !metadata || !filters.fromDate || !filters.toDate) {
         return;
       }
 
@@ -397,6 +408,7 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
     filters,
     metadata,
     performanceFilters,
+    showThoroughbredBenchmark,
     unsupportedHistoryMessage,
     winPercentageMultiRankFilter,
   ]);
@@ -534,9 +546,9 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
 
       {activeSport === "racing" && activeFormat === "singles" && activePredictionType === "win_percentage" ? (
         <PredictionModelTabs
-          activeModelKey={activeSingleWinPercentageModelKey}
-          models={WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS}
-          onChange={setActiveSingleWinPercentageModelKey}
+          activeModelKey={showThoroughbredBenchmark ? THOROUGHBRED_MODEL : activeSingleWinPercentageModelKey}
+          models={[...WIN_PERCENTAGE_SINGLE_MODEL_VARIANTS, THOROUGHBRED_MODEL_TAB]}
+          onChange={selectRacingWinModel}
         />
       ) : null}
 
@@ -594,6 +606,7 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
         />
       ) : null}
 
+      {showThoroughbredBenchmark ? <ModelForecasts model={THOROUGHBRED_MODEL} view="history" /> : <>
       <View style={styles.modelInfo}>
         <Text style={styles.modelInfoTitle}>{activeModelInfo.label}</Text>
         <Text style={styles.modelInfoText}>{activeModelInfo.description}</Text>
@@ -1134,6 +1147,7 @@ function LeaguePredictionHistoryScreen({ activeSport, combat }: { activeSport: P
       ) : null}
         </>
       )}
+      </>}
     </View>
   );
 }

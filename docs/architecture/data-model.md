@@ -2499,3 +2499,11 @@ The INSERT trigger requires a current pre-event timestamp. Retries ignore
 existing keys. Reconciliation can update only outcome status, outcome class
 and settlement time. Odds, baseline and model probabilities are stored in
 separate columns. Anonymous and signed-in app users have no table grants.
+
+`get_model_forecasts` is an anonymous/authenticated read RPC with explicit
+model, view and league scope validation and 20-row pages. It projects event
+labels, source prices, probabilities, sample and settlement, without exposing
+training parameters, digests or internal source identities. Racing course,
+country and race-number labels come from the linked saved selection. History
+reports full-scope outcome counts and same-sample scores separately from page
+rows. The forecast table retains its service-role-only grants.

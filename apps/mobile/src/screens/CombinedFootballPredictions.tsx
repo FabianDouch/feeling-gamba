@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fetchUpcomingFootballForecasts, FOOTBALL_HISTORY_VARIATIONS, type FootballHistoryVariation, type FootballHistoryVariationKey } from "../data/supabaseFootballTrial";
 import { footballForecastProbability, isUpcomingFootballForecast } from "../data/footballForecastReader";
+import { FOOTBALL_DRAW_MODEL, FOOTBALL_PROBABILITY_TYPES } from "../data/supabaseModelForecasts";
+import { ModelForecasts } from "./ModelForecasts";
 import { LEAGUE_OPTIONS } from "../navigation/sportLeagueScope";
-import { PredictionFormatTabs, PredictionModelTabs, PredictionTypeTabs, type PredictionFormat } from "./PredictionControls";
+import { PredictionFormatTabs, PredictionModelTabs, PredictionTypeTabs, type CurrentPredictionType, type PredictionFormat } from "./PredictionControls";
 
 // Use the same variations as history for all football scopes, retaining selection during league drilldowns.
-export function CombinedFootballPredictions({ league, variationKey, onVariationChange, onSelectLeague, format, onFormatChange }: {
+export function CombinedFootballPredictions({ league, variationKey, onVariationChange, onSelectLeague, format, onFormatChange, probabilityType, onProbabilityTypeChange }: {
+  probabilityType: CurrentPredictionType; onProbabilityTypeChange: (type: CurrentPredictionType) => void;
   format: PredictionFormat; onFormatChange: (format: PredictionFormat) => void;
   league: string | null; variationKey: FootballHistoryVariationKey;
   onVariationChange: (key: FootballHistoryVariationKey) => void; onSelectLeague: (league: string) => void;
@@ -16,9 +19,9 @@ export function CombinedFootballPredictions({ league, variationKey, onVariationC
     <Text style={styles.eyebrow}>Predictions</Text>
     <Text style={styles.heading}>Upcoming football predictions</Text>
     <PredictionFormatTabs activeFormat={format} onChange={onFormatChange} />
-    <PredictionTypeTabs activeType="win_percentage" onChange={() => undefined}
-      options={[{ label: "Win %", value: "win_percentage", description: "Probability-based fixed-win models." }]} />
-    {format === "singles" ? <>
+    {format === "singles" ? <PredictionTypeTabs activeType={probabilityType} onChange={onProbabilityTypeChange} options={FOOTBALL_PROBABILITY_TYPES} /> : null}
+    {format === "singles" ? probabilityType === "draw_percentage"
+      ? <ModelForecasts model={FOOTBALL_DRAW_MODEL} view="upcoming" league={league} onSelectLeague={onSelectLeague} /> : <>
       <PredictionModelTabs activeModelKey={variationKey} models={FOOTBALL_HISTORY_VARIATIONS} onChange={onVariationChange} />
       <View style={styles.info}><Text style={styles.title}>{variation.label}</Text><Text style={styles.note}>{variation.description}</Text><Text style={styles.note}>{variation.detail}</Text></View>
       <FootballPredictionList key={`${league ?? "all"}:${variationKey}`} league={league} variation={variation} onSelectLeague={onSelectLeague} />

@@ -2725,3 +2725,8 @@ Remove `--dry-run` for a normal forward run. No historical forecasts are inserte
 Individual forecasts are inserted once and only settlement columns can change.
 Disable the workflow to stop generating research records while retaining existing
 history. See the [statistical specification](./statistics-plan.md#football-draw-and-thoroughbred-favourite-shadow-trials-2026-11-24).
+
+Apply `202611240002_model_forecast_app_read.sql` before distributing the app
+version with the new Predictions and Prediction History branches. Verify the
+public RPC can read both models and the base table remains inaccessible to app
+roles. The existing forecast jobs supply these views on their current schedule.
