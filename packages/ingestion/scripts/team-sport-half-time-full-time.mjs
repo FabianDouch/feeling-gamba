@@ -1,4 +1,4 @@
-import { fetchTabGraphql } from "./lib/tab-graphql.mjs";
+import { fetchTabSportsMarkets as fetchTabGraphql } from "./lib/tab-sports-markets.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -232,7 +232,7 @@ function getGraphqlHeaders() {
  * Reads market data with bounded retries and shared response diagnostics.
  */
 async function graphql(source, operationName, query, variables) {
-  return fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders());
+  return fetchTabGraphql(source, operationName, query, variables, getGraphqlHeaders(), { marketScope: "all" });
 }
 
 function normalizeName(value) {
